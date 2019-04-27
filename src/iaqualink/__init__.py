@@ -4,4 +4,17 @@ __version__ = "0.1.0"
 
 from .client import AqualinkClient
 from .system import AqualinkSystem
-from .device import AqualinkAuxToggle
+from .device import (
+    AqualinkAuxToggle,
+    AqualinkBinarySensor,
+    AqualinkColorLight,
+    AqualinkDevice,
+    AqualinkDimmableLight,
+    AqualinkHeater,
+    AqualinkLight,
+    AqualinkLightEffect,
+    AqualinkLightToggle,
+    AqualinkLightType,
+    AqualinkPump,
+    AqualinkSensor,
+)
