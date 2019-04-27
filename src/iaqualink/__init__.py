@@ -17,4 +17,7 @@ from .device import (
     AqualinkLightType,
     AqualinkPump,
     AqualinkSensor,
+    AqualinkState,
+    AqualinkThermostat,
+    AqualinkToggle,
 )
