@@ -14,21 +14,21 @@ LOGGER = logging.getLogger("aqualink")
 
 
 class AqualinkSystem(object):
-    def __init__(self, aqualink: "Aqualink", serial: str):
+    def __init__(self, aqualink: "AqualinkClient", data: "Payload"):
         self.aqualink = aqualink
-        self.serial = serial
+        self.data = data
         self.devices = {}
         self.has_spa = None
         self.lock = threading.Lock()
         self.last_refresh = 0
 
     @property
-    async def info(self) -> Payload:
-        systems = await self.aqualink.get_systems()
-        for x in systems:
-            if x["serial_number"] == self.serial:
-                return x
-        raise Exception(f"System not found for serial {self.serial}.")
+    def name(self) -> str:
+        return self.data["name"]
+
+    @property
+    def serial(self) -> str:
+        return self.data["serial_number"]
 
     async def get_devices(self):
         if not self.devices:

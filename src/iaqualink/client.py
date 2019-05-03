@@ -1,6 +1,6 @@
 import logging
 import threading
-from typing import Optional
+from typing import Dict, Optional
 
 import aiohttp
 
@@ -98,12 +98,12 @@ class AqualinkClient(object):
         url = f"{AQUALINK_DEVICES_URL}?{params}"
         return await self._send_request(url)
 
-    async def get_systems(self) -> list:
+    async def get_systems(self) -> Dict[str, "AqualinkSystems"]:
         r = await self._send_systems_request()
 
         if r.status == 200:
             data = await r.json()
-            return data
+            return {x["serial_number"]: system.AqualinkSystem(self, x) for x in data}
         else:
             raise Exception(f"Unable to retrieve systems list: {r.status} {r.reason}")
 
