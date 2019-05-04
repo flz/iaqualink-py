@@ -1,6 +1,6 @@
 # Asynchronous library for Jandy iAqualink
 
-Mainly created for use with Home Assistant.
+If you're here looking for Home Assistant support, check out my [hass-aqualink repository](https://github.com/flz/hass-aqualink) instead.
 
 Usage:
 ```python
