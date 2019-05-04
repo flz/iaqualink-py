@@ -87,7 +87,7 @@ class TestAqualinkColorLight(asynctest.TestCase):
     def setUp(self) -> None:
         system = asynctest.MagicMock()
         system.set_light = asynctest.CoroutineMock(return_value=None)
-        data = {"name": "aux_1", "state": "0", "type": "2", "subtype": "5"}
+        data = {"name": "aux_1", "aux": "1", "state": "0", "type": "2", "subtype": "5"}
         self.obj = AqualinkColorLight(system, data)
 
     @asynctest.fail_on(unused_loop=False)
@@ -116,13 +116,13 @@ class TestAqualinkColorLight(asynctest.TestCase):
     async def test_turn_off(self) -> None:
         self.obj.data["state"] = "1"
         await self.obj.turn_off()
-        data = {"light": "0", "subtype": "5"}
+        data = {"aux": "1", "light": "0", "subtype": "5"}
         self.obj.system.set_light.assert_called_once_with(data)
 
     @asynctest.strict
     async def test_turn_on(self) -> None:
         await self.obj.turn_on()
-        data = {"light": "1", "subtype": "5"}
+        data = {"aux": "1", "light": "1", "subtype": "5"}
         self.obj.system.set_light.assert_called_once_with(data)
 
     @asynctest.strict
@@ -133,7 +133,7 @@ class TestAqualinkColorLight(asynctest.TestCase):
 
     @asynctest.strict
     async def test_set_effect(self) -> None:
-        data = {"light": "2", "subtype": "5"}
+        data = {"aux": "1", "light": "2", "subtype": "5"}
         await self.obj.set_effect("2")
         self.obj.system.set_light.assert_called_once_with(data)
 

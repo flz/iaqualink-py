@@ -232,7 +232,11 @@ class AqualinkColorLight(AqualinkLight, AqualinkDevice):
             msg = f"{repr(effect)} isn't a valid effect."
             raise Exception(msg)
 
-        data = {"light": effect, "subtype": self.data["subtype"]}
+        data = {
+            "aux": self.data["aux"],
+            "light": effect,
+            "subtype": self.data["subtype"],
+        }
         await self.system.set_light(data)
 
     async def turn_off(self):
