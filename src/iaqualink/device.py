@@ -219,7 +219,11 @@ class AqualinkColorLight(AqualinkLight, AqualinkDevice):
 
     @property
     def effect(self) -> Optional[int]:
-        return self.data["light"]
+        return self.data["state"]
+
+    @property
+    def is_on(self) -> bool:
+        return self.effect != "0"
 
     async def set_effect(self, effect: str) -> None:
         try:
@@ -232,10 +236,12 @@ class AqualinkColorLight(AqualinkLight, AqualinkDevice):
         await self.system.set_light(data)
 
     async def turn_off(self):
-        await self.set_effect("0")
+        if self.is_on:
+            await self.set_effect("0")
 
     async def turn_on(self):
-        await self.set_effect("1")
+        if not self.is_on:
+            await self.set_effect("1")
 
 
 class AqualinkThermostat(AqualinkDevice):

@@ -2,6 +2,7 @@ import asynctest
 import pytest
 
 from iaqualink.device import (
+    AqualinkColorLight,
     AqualinkDimmableLight,
     AqualinkLightToggle,
     AqualinkThermostat,
@@ -82,9 +83,65 @@ class TestAqualinkDimmableLight(asynctest.TestCase):
             await self.obj.set_brightness(89)
 
 
-# XXX - No tests right now since I'm not 100% sure how it works.
 class TestAqualinkColorLight(asynctest.TestCase):
-    pass
+    def setUp(self) -> None:
+        system = asynctest.MagicMock()
+        system.set_light = asynctest.CoroutineMock(return_value=None)
+        data = {"name": "aux_1", "state": "0", "type": "2", "subtype": "5"}
+        self.obj = AqualinkColorLight(system, data)
+
+    @asynctest.fail_on(unused_loop=False)
+    def test_is_dimmer(self) -> None:
+        assert self.obj.is_dimmer is False
+
+    @asynctest.fail_on(unused_loop=False)
+    def test_is_color(self) -> None:
+        assert self.obj.is_color is True
+
+    @asynctest.fail_on(unused_loop=False)
+    def test_is_on_false(self) -> None:
+        assert self.obj.is_on is False
+
+    @asynctest.fail_on(unused_loop=False)
+    def test_is_on_true(self) -> None:
+        self.obj.data["state"] = "2"
+        assert self.obj.is_on is True
+
+    @asynctest.strict
+    async def test_turn_off_noop(self) -> None:
+        await self.obj.turn_off()
+        self.obj.system.set_light.assert_not_called()
+
+    @asynctest.strict
+    async def test_turn_off(self) -> None:
+        self.obj.data["state"] = "1"
+        await self.obj.turn_off()
+        data = {"light": "0", "subtype": "5"}
+        self.obj.system.set_light.assert_called_once_with(data)
+
+    @asynctest.strict
+    async def test_turn_on(self) -> None:
+        await self.obj.turn_on()
+        data = {"light": "1", "subtype": "5"}
+        self.obj.system.set_light.assert_called_once_with(data)
+
+    @asynctest.strict
+    async def test_turn_on_noop(self) -> None:
+        self.obj.data["state"] = "1"
+        await self.obj.turn_on()
+        self.obj.system.set_light.assert_not_called()
+
+    @asynctest.strict
+    async def test_set_effect(self) -> None:
+        data = {"light": "2", "subtype": "5"}
+        await self.obj.set_effect("2")
+        self.obj.system.set_light.assert_called_once_with(data)
+
+    @asynctest.strict
+    async def test_set_effect_invalid(self) -> None:
+        self.obj.system.set_light = asynctest.CoroutineMock(return_value=None)
+        with pytest.raises(Exception):
+            await self.obj.set_effect("42")
 
 
 class TestAqualinkThermostat(asynctest.TestCase):
