@@ -22,6 +22,11 @@ class AqualinkSystem(object):
         self.lock = threading.Lock()
         self.last_refresh = 0
 
+    def __repr__(self) -> str:
+        attrs = ["name", "serial", "data"]
+        attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
+        return f'{self.__class__.__name__}({" ".join(attrs)})'
+
     @property
     def name(self) -> str:
         return self.data["name"]
@@ -29,6 +34,18 @@ class AqualinkSystem(object):
     @property
     def serial(self) -> str:
         return self.data["serial_number"]
+
+    @classmethod
+    def from_data(cls, aqualink: "AqualinkClient", data: "Payload"):
+        SYSTEM_TYPES = {"iaqua": AqualinkPoolSystem}
+
+        class_ = SYSTEM_TYPES.get(data["device_type"])
+
+        if class_ is None:
+            LOGGER.warning(f"{data['device_type']} is not a supported system type.")
+            return None
+
+        return class_(aqualink, data)
 
     async def get_devices(self):
         if not self.devices:
@@ -128,3 +145,7 @@ class AqualinkSystem(object):
     async def set_light(self, data: Payload) -> None:
         r = await self.aqualink.set_light(self.serial, data)
         await self._parse_devices_response(r)
+
+
+class AqualinkPoolSystem(AqualinkSystem):
+    pass

@@ -4,6 +4,7 @@ from typing import Dict, Optional
 
 import aiohttp
 
+from iaqualink.system import AqualinkSystem
 from iaqualink.typing import Payload
 
 
@@ -46,8 +47,10 @@ class AqualinkClient(object):
 
         if session is None:
             self.session = aiohttp.ClientSession()
+            self._must_clean_session = True
         else:
             self.session = session
+            self._must_clean_session = True
 
         self.session_id = None
         self.token = None
@@ -55,6 +58,16 @@ class AqualinkClient(object):
 
         self.lock = threading.Lock()
         self.last_refresh = 0
+
+    async def __aenter__(self):
+        await self.login()
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        # All Exceptions get re-raised.
+        if self._must_clean_session is True:
+            await self.session.close()
+        return exc is None
 
     async def _send_request(
         self, url: str, method: str = "get", **kwargs
@@ -86,7 +99,7 @@ class AqualinkClient(object):
             self.token = data["authentication_token"]
             self.user_id = data["id"]
         else:
-            raise Exception("Login failed: {r.status} {r.reason}")
+            raise Exception(f"Login failed: {r.status} {r.reason}")
 
     async def _send_systems_request(self) -> aiohttp.ClientResponse:
         params = {
@@ -103,9 +116,10 @@ class AqualinkClient(object):
 
         if r.status == 200:
             data = await r.json()
-            return {x["serial_number"]: system.AqualinkSystem(self, x) for x in data}
-        else:
-            raise Exception(f"Unable to retrieve systems list: {r.status} {r.reason}")
+            systems = [AqualinkSystem.from_data(self, x) for x in data]
+            return {x.serial: x for x in systems if x is not None}
+
+        raise Exception(f"Unable to retrieve systems list: {r.status} {r.reason}")
 
     async def _send_session_request(
         self, serial: str, command: str, params: Optional[Payload] = None
@@ -153,4 +167,3 @@ class AqualinkClient(object):
     async def set_light(self, serial: str, data: Payload) -> aiohttp.ClientResponse:
         r = await self._send_session_request(serial, AQUALINK_COMMAND_SET_LIGHT, data)
         return r
-
