@@ -89,7 +89,6 @@ class AqualinkDevice(object):
             if data["type"] == "2":
                 class_ = AqualinkColorLight
             elif data["type"] == "1":
-                # XXX - This is a wild guess.
                 class_ = AqualinkDimmableLight
             elif "LIGHT" in data["label"]:
                 class_ = AqualinkLightToggle
@@ -182,12 +181,10 @@ class AqualinkLightToggle(AqualinkLight, AqualinkAuxToggle):
         return None
 
 
-# XXX - This is largely untested since I don't have any of those.
 class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
     @property
     def brightness(self) -> Optional[int]:
-        # XXX - Missing
-        raise NotImplementedError()
+        return int(self.data["subtype"])
 
     @property
     def effect(self) -> Optional[int]:
@@ -199,8 +196,7 @@ class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
             msg = f"{brightness}% isn't a valid percentage. Only use 25% increments."
             raise Exception(msg)
 
-        # XXX - Unclear what parameters to send here.
-        data = {}
+        data = {"aux": self.data["aux"], "light": f"{brightness}"}
         await self.system.set_light(data)
 
     async def turn_on(self, level: int = 100) -> None:
@@ -210,11 +206,10 @@ class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
         await self.set_brightness(0)
 
 
-# XXX - This whole class is untested.
 class AqualinkColorLight(AqualinkLight, AqualinkDevice):
     @property
     def brightness(self) -> Optional[int]:
-        # XXX - Assuming that color lights don't have adjustable brightness.
+        # Assuming that color lights don't have adjustable brightness.
         return None
 
     @property

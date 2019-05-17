@@ -101,7 +101,8 @@ class AqualinkSystem(object):
 
         for k, v in devices.items():
             if k in self.devices:
-                self.devices[k].data["state"] = v["state"]
+                for dk, dv in v.items():
+                    self.devices[k].data[dk] = dv
             else:
                 self.devices[k] = AqualinkDevice.from_data(self, v)
 
@@ -122,7 +123,8 @@ class AqualinkSystem(object):
 
         for k, v in devices.items():
             if k in self.devices:
-                self.devices[k].data["state"] = v["state"]
+                for dk, dv in v.items():
+                    self.devices[k].data[dk] = dv
             else:
                 self.devices[k] = AqualinkDevice.from_data(self, v)
 
