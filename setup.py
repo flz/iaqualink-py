@@ -13,7 +13,7 @@ test_requirements = ["asynctest", "pytest", "pytest-cov", "pytest-asyncio"]
 
 setup(
     name="iaqualink",
-    version="0.2.3",
+    version="0.2.4",
     description="Asynchronous library for Jandy iAqualink",
     long_description=readme,
     long_description_content_type="text/markdown",
