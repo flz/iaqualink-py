@@ -19,6 +19,7 @@ class AqualinkSystem(object):
         self.data = data
         self.devices = {}
         self.has_spa = None
+        self.temp_unit = None
         self.lock = threading.Lock()
         self.last_refresh = 0
 
@@ -74,14 +75,6 @@ class AqualinkSystem(object):
                 LOGGER.error(line)
         else:
             self.last_refresh = int(time.time())
-
-        # Keep track of the presence of the spa so we know whether temp1 is
-        # for the spa or the pool. This is pretty ugly.
-        if "spa_set_point" in self.devices:
-            self.has_spa = True
-        else:
-            self.has_spa = False
-
         self.lock.release()
 
     async def _parse_home_response(self, response: aiohttp.ClientResponse) -> None:
@@ -90,6 +83,8 @@ class AqualinkSystem(object):
         if data["home_screen"][0]["status"] == "Offline":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             return
+
+        self.temp_unit = data["home_screen"][3]["temp_scale"]
 
         # Make the data a bit flatter.
         devices = {}
@@ -105,6 +100,13 @@ class AqualinkSystem(object):
                     self.devices[k].data[dk] = dv
             else:
                 self.devices[k] = AqualinkDevice.from_data(self, v)
+
+        # Keep track of the presence of the spa so we know whether temp1 is
+        # for the spa or the pool. This is pretty ugly.
+        if "spa_set_point" in devices:
+            self.has_spa = True
+        else:
+            self.has_spa = False
 
     async def _parse_devices_response(self, response: aiohttp.ClientResponse) -> None:
         data = await response.json()
