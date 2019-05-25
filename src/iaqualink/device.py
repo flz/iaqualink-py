@@ -3,6 +3,12 @@ import logging
 from typing import Optional
 
 from iaqualink.typing import DeviceData
+from iaqualink.const import (
+    AQUALINK_TEMP_CELSIUS_LOW,
+    AQUALINK_TEMP_CELSIUS_HIGH,
+    AQUALINK_TEMP_FAHRENHEIT_LOW,
+    AQUALINK_TEMP_FAHRENHEIT_HIGH,
+)
 
 
 @unique
@@ -252,8 +258,18 @@ class AqualinkThermostat(AqualinkDevice):
         return "temp1"
 
     async def set_temperature(self, temperature: int) -> None:
-        if temperature not in range(34, 105):
-            msg = f"{temperature}F isn't a valid temperature (34-104F)."
+        unit = self.system.temp_unit
+
+        if unit == "F":
+            low = AQUALINK_TEMP_FAHRENHEIT_LOW
+            high = AQUALINK_TEMP_FAHRENHEIT_HIGH
+        else:
+            low = AQUALINK_TEMP_CELSIUS_LOW
+            high = AQUALINK_TEMP_CELSIUS_HIGH
+
+        if temperature not in range(low, high):
+            msg = f"{temperature}{unit} isn't a valid temperature"
+            msg += f" ({low}-{high}{unit})."
             raise Exception(msg)
 
         data = {self.temp: temperature}

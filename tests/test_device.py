@@ -147,6 +147,7 @@ class TestAqualinkColorLight(asynctest.TestCase):
 class TestAqualinkThermostat(asynctest.TestCase):
     def setUp(self) -> None:
         self.system = system = asynctest.MagicMock()
+        self.system.temp_unit = "F"
         system.set_temps = asynctest.CoroutineMock(return_value=None)
         pool_data = {"name": "pool_set_point", "state": "76"}
         self.pool_obj = AqualinkThermostat(system, pool_data)
@@ -167,9 +168,21 @@ class TestAqualinkThermostat(asynctest.TestCase):
     @asynctest.strict
     async def test_bad_temperature(self):
         with pytest.raises(Exception):
-            await self.pool_obj.set_temperature(1000)
+            await self.pool_obj.set_temperature(18)
+
+    @asynctest.strict
+    async def test_bad_temperature_2(self):
+        self.system.temp_unit = "C"
+        with pytest.raises(Exception):
+            await self.pool_obj.set_temperature(72)
 
     @asynctest.strict
     async def test_set_temperature(self):
-        await self.pool_obj.set_temperature(80)
+        await self.pool_obj.set_temperature(72)
+        self.pool_obj.system.set_temps.assert_called_once()
+
+    @asynctest.strict
+    async def test_set_temperature_2(self):
+        self.system.temp_unit = "C"
+        await self.pool_obj.set_temperature(18)
         self.pool_obj.system.set_temps.assert_called_once()
