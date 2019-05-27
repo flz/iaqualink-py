@@ -196,6 +196,10 @@ class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
     def effect(self) -> Optional[int]:
         return None
 
+    @property
+    def is_on(self) -> bool:
+        return self.brightness != 0
+
     async def set_brightness(self, brightness: int) -> None:
         # Brightness only works in 25% increments.
         if brightness not in [0, 25, 50, 75, 100]:
@@ -206,10 +210,12 @@ class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
         await self.system.set_light(data)
 
     async def turn_on(self, level: int = 100) -> None:
-        await self.set_brightness(level)
+        if self.brightness != level:
+            await self.set_brightness(level)
 
     async def turn_off(self) -> None:
-        await self.set_brightness(0)
+        if self.is_on:
+            await self.set_brightness(0)
 
 
 class AqualinkColorLight(AqualinkLight, AqualinkDevice):

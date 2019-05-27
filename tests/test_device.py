@@ -74,13 +74,64 @@ class TestAqualinkLightToggle(asynctest.TestCase):
 class TestAqualinkDimmableLight(asynctest.TestCase):
     def setUp(self) -> None:
         system = asynctest.MagicMock()
-        data = {"name": "aux_1", "state": "0", "aux": "1", "label": "LIGHT"}
+        system.set_light = asynctest.CoroutineMock(return_value=None)
+        data = {"name": "aux_1", "state": "0", "aux": "1", "subtype": "0"}
         self.obj = AqualinkDimmableLight(system, data)
+
+    @asynctest.fail_on(unused_loop=False)
+    def test_is_dimmer(self) -> None:
+        assert self.obj.is_dimmer is True
+
+    @asynctest.fail_on(unused_loop=False)
+    def test_is_color(self) -> None:
+        assert self.obj.is_color is False
+
+    @asynctest.fail_on(unused_loop=False)
+    def test_is_on_false(self) -> None:
+        assert self.obj.is_on is False
+
+    @asynctest.fail_on(unused_loop=False)
+    def test_is_on_true(self) -> None:
+        self.obj.data["state"] = "1"
+        self.obj.data["subtype"] = "50"
+        assert self.obj.is_on is True
+
+    @asynctest.strict
+    async def test_turn_on(self) -> None:
+        await self.obj.turn_on()
+        data = {"aux": "1", "light": "100"}
+        self.obj.system.set_light.assert_called_once_with(data)
+
+    @asynctest.strict
+    async def test_turn_on_noop(self) -> None:
+        self.obj.data["state"] = "1"
+        self.obj.data["subtype"] = "100"
+        await self.obj.turn_on()
+        self.obj.system.set_light.assert_not_called()
+
+    @asynctest.strict
+    async def test_turn_off(self) -> None:
+        self.obj.data["state"] = "1"
+        self.obj.data["subtype"] = "100"
+        await self.obj.turn_off()
+        data = {"aux": "1", "light": "0"}
+        self.obj.system.set_light.assert_called_once_with(data)
+
+    @asynctest.strict
+    async def test_turn_off_noop(self) -> None:
+        await self.obj.turn_off()
+        self.obj.system.set_light.assert_not_called()
 
     @asynctest.strict
     async def test_bad_brightness(self) -> None:
         with pytest.raises(Exception):
             await self.obj.set_brightness(89)
+
+    @asynctest.strict
+    async def test_set_brightness(self) -> None:
+        await self.obj.set_brightness(75)
+        data = {"aux": "1", "light": "75"}
+        self.obj.system.set_light.assert_called_once_with(data)
 
 
 class TestAqualinkColorLight(asynctest.TestCase):
