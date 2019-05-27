@@ -267,7 +267,7 @@ class AqualinkThermostat(AqualinkDevice):
             low = AQUALINK_TEMP_CELSIUS_LOW
             high = AQUALINK_TEMP_CELSIUS_HIGH
 
-        if temperature not in range(low, high):
+        if temperature not in range(low, high + 1):
             msg = f"{temperature}{unit} isn't a valid temperature"
             msg += f" ({low}-{high}{unit})."
             raise Exception(msg)
