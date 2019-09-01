@@ -35,6 +35,14 @@ AQUALINK_HTTP_HEADERS = {
 LOGGER = logging.getLogger("aqualink")
 
 
+class AqualinkException(Exception):
+    """Base exception for iAqualink library."""
+
+
+class AqualinkLoginException(AqualinkException):
+    """Exception raised when failing to log in."""
+
+
 class AqualinkClient(object):
     def __init__(
         self,
@@ -99,7 +107,7 @@ class AqualinkClient(object):
             self.token = data["authentication_token"]
             self.user_id = data["id"]
         else:
-            raise Exception(f"Login failed: {r.status} {r.reason}")
+            raise AqualinkLoginException(f"Login failed: {r.status} {r.reason}")
 
     async def _send_systems_request(self) -> aiohttp.ClientResponse:
         params = {
