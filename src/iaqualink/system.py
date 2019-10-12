@@ -1,6 +1,5 @@
 import logging
 import time
-import threading
 import traceback
 
 import aiohttp
@@ -20,7 +19,6 @@ class AqualinkSystem(object):
         self.devices = {}
         self.has_spa = None
         self.temp_unit = None
-        self.lock = threading.Lock()
         self.last_refresh = 0
 
     def __repr__(self) -> str:
@@ -54,14 +52,11 @@ class AqualinkSystem(object):
         return self.devices
 
     async def update(self) -> None:
-        self.lock.acquire()
-
         # Be nice to Aqualink servers since we rely on polling.
         now = int(time.time())
         delta = now - self.last_refresh
         if delta < MIN_SECS_TO_REFRESH:
             LOGGER.debug(f"Only {delta}s since last refresh.")
-            self.lock.release()
             return
 
         try:
@@ -75,7 +70,6 @@ class AqualinkSystem(object):
                 LOGGER.error(line)
         else:
             self.last_refresh = int(time.time())
-        self.lock.release()
 
     async def _parse_home_response(self, response: aiohttp.ClientResponse) -> None:
         data = await response.json()
