@@ -20,6 +20,7 @@ class AqualinkSystem(object):
         self.has_spa = None
         self.temp_unit = None
         self.last_refresh = 0
+        self.last_run_success = None
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -65,10 +66,12 @@ class AqualinkSystem(object):
             await self._parse_home_response(r1)
             await self._parse_devices_response(r2)
         except Exception as e:  # pylint: disable=W0703
+            self.last_run_success = False
             LOGGER.error(f"Unhandled exception: {e}")
             for line in traceback.format_exc().split("\n"):
                 LOGGER.error(line)
         else:
+            self.last_run_success = True
             self.last_refresh = int(time.time())
 
     async def _parse_home_response(self, response: aiohttp.ClientResponse) -> None:

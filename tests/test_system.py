@@ -3,6 +3,8 @@ import pytest
 
 from iaqualink.system import AqualinkSystem, AqualinkPoolSystem
 
+from .common import async_noop, async_raises
+
 
 class TestAqualinkSystem(asynctest.TestCase):
     def setUp(self) -> None:
@@ -22,3 +24,25 @@ class TestAqualinkSystem(asynctest.TestCase):
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "foo"}
         r = AqualinkSystem.from_data(aqualink, data)
         assert r is None
+
+    @asynctest.strict
+    async def test_update_success(self):
+        aqualink = asynctest.MagicMock()
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
+        r = AqualinkSystem.from_data(aqualink, data)
+        r.aqualink.send_home_screen_request = async_noop
+        r.aqualink.send_devices_screen_request = async_noop
+        r._parse_home_response = async_noop
+        r._parse_devices_response = async_noop
+        await r.update()
+        assert r.last_run_success is True
+
+    @asynctest.strict
+    async def test_update_failure(self):
+        aqualink = asynctest.MagicMock()
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
+        r = AqualinkSystem.from_data(aqualink, data)
+        r.aqualink.send_home_screen_request = async_raises
+        await r.update()
+        assert r.last_run_success is False
+
