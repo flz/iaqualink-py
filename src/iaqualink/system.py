@@ -10,7 +10,7 @@ from iaqualink.typing import Payload
 
 MIN_SECS_TO_REFRESH = 15
 
-LOGGER = logging.getLogger("aqualink")
+LOGGER = logging.getLogger("iaqualink")
 
 
 class AqualinkSystem(object):
