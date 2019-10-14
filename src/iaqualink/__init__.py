@@ -1,6 +1,6 @@
 __author__ = "Florent Thoumie"
 __email__ = "florent@thoumie.net"
-__version__ = "0.2.9"
+__version__ = "0.3.0"
 
 from .client import AqualinkClient, AqualinkLoginException
 from .system import AqualinkSystem, AqualinkPoolSystem
