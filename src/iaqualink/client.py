@@ -10,6 +10,7 @@ from iaqualink.const import (
     AQUALINK_DEVICES_URL,
     AQUALINK_SESSION_URL,
 )
+from iaqualink.exception import AqualinkLoginException
 from iaqualink.system import AqualinkSystem
 from iaqualink.typing import Payload
 
@@ -33,14 +34,6 @@ AQUALINK_HTTP_HEADERS = {
 }
 
 LOGGER = logging.getLogger("aqualink")
-
-
-class AqualinkException(Exception):
-    """Base exception for iAqualink library."""
-
-
-class AqualinkLoginException(AqualinkException):
-    """Exception raised when failing to log in."""
 
 
 class AqualinkClient(object):

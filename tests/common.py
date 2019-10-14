@@ -1,4 +1,4 @@
 import asynctest
 
 async_noop = asynctest.CoroutineMock(return_value=None)
-async_raises = asynctest.CoroutineMock(side_effect=Exception)
+async_raises = lambda x=Exception: asynctest.CoroutineMock(side_effect=x)
