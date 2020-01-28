@@ -51,7 +51,7 @@ class AqualinkClient(object):
             self._must_clean_session = True
         else:
             self.session = session
-            self._must_clean_session = True
+            self._must_clean_session = False
 
         self.session_id = None
         self.token = None
