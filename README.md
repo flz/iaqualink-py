@@ -1,7 +1,5 @@
 # Asynchronous library for Jandy iAqualink
 
-If you're here looking for Home Assistant support, check out my [hass-aqualink repository](https://github.com/flz/hass-aqualink) instead.
-
 Usage:
 ```python
 >>> async with AqualinkClient('xxx@example.com', 'password') as c:
