@@ -56,7 +56,7 @@ class AqualinkLightEffect(Enum):
     DISCO_TECH = "14"
 
 
-LOGGER = logging.getLogger("aqualink")
+LOGGER = logging.getLogger("iaqualink")
 
 
 class AqualinkDevice:

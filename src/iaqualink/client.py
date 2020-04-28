@@ -35,7 +35,7 @@ AQUALINK_HTTP_HEADERS = {
     "Accept": "*/*",
 }
 
-LOGGER = logging.getLogger("aqualink")
+LOGGER = logging.getLogger("iaqualink")
 
 
 class AqualinkClient(object):
