@@ -1,3 +1,5 @@
 asynctest
 aiohttp
 pytest
+pytest-asyncio
+wheel

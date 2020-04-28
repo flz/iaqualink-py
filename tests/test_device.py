@@ -11,6 +11,9 @@ from iaqualink.device import (
 )
 
 
+pytestmark = pytest.mark.asyncio
+
+
 class TestAqualinkDevice(asynctest.TestCase):
     pass
 

@@ -9,6 +9,9 @@ from iaqualink.system import AqualinkSystem, AqualinkPoolSystem
 from .common import async_noop, async_raises
 
 
+pytestmark = pytest.mark.asyncio
+
+
 class TestAqualinkSystem(asynctest.TestCase):
     def setUp(self) -> None:
         pass
