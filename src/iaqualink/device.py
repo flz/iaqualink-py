@@ -59,7 +59,7 @@ class AqualinkLightEffect(Enum):
 LOGGER = logging.getLogger("aqualink")
 
 
-class AqualinkDevice(object):
+class AqualinkDevice:
     def __init__(self, system: AqualinkSystem, data: DeviceData):
         self.system = system
         self.data = data
@@ -74,9 +74,9 @@ class AqualinkDevice(object):
         if "label" in self.data:
             label = self.data["label"]
             return " ".join([x.capitalize() for x in label.split()])
-        else:
-            label = self.data["name"]
-            return " ".join([x.capitalize() for x in label.split("_")])
+
+        label = self.data["name"]
+        return " ".join([x.capitalize() for x in label.split("_")])
 
     @property
     def state(self) -> str:
@@ -168,7 +168,7 @@ class AqualinkAuxToggle(AqualinkToggle):
 
 
 # Using AqualinkLight as a Mixin so we can use isinstance(dev, AqualinkLight).
-class AqualinkLight(object):
+class AqualinkLight:
     @property
     def brightness(self) -> typing.Optional[int]:
         raise NotImplementedError()
@@ -212,7 +212,8 @@ class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
     async def set_brightness(self, brightness: int) -> None:
         # Brightness only works in 25% increments.
         if brightness not in [0, 25, 50, 75, 100]:
-            msg = f"{brightness}% isn't a valid percentage. Only use 25% increments."
+            msg = f"{brightness}% isn't a valid percentage."
+            msg += " Only use 25% increments."
             raise Exception(msg)
 
         data = {"aux": self.data["aux"], "light": f"{brightness}"}

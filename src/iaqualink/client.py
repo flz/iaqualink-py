@@ -131,7 +131,10 @@ class AqualinkClient(object):
         )
 
     async def _send_session_request(
-        self, serial: str, command: str, params: typing.Optional[Payload] = None
+        self,
+        serial: str,
+        command: str,
+        params: typing.Optional[Payload] = None,
     ) -> aiohttp.ClientResponse:
         if not params:
             params = {}
