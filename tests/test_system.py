@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asynctest
 import pytest
 
@@ -60,4 +62,3 @@ class TestAqualinkSystem(asynctest.TestCase):
         await r.update()
         assert r.last_run_success is True
         assert r.online is False
-

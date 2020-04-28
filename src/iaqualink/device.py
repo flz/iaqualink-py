@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from enum import Enum, auto, unique
 import logging
-from typing import Optional
+import typing
 
 from iaqualink.typing import DeviceData
 from iaqualink.const import (
@@ -9,6 +11,9 @@ from iaqualink.const import (
     AQUALINK_TEMP_FAHRENHEIT_LOW,
     AQUALINK_TEMP_FAHRENHEIT_HIGH,
 )
+
+if typing.TYPE_CHECKING:
+    from iaqualink.system import AqualinkSystem
 
 
 @unique
@@ -55,7 +60,7 @@ LOGGER = logging.getLogger("aqualink")
 
 
 class AqualinkDevice(object):
-    def __init__(self, system: "AqualinkSystem", data: "DeviceData"):
+    def __init__(self, system: AqualinkSystem, data: DeviceData):
         self.system = system
         self.data = data
 
@@ -82,7 +87,9 @@ class AqualinkDevice(object):
         return self.data["name"]
 
     @classmethod
-    def from_data(cls, system: "AqualinkSystem", data: DeviceData) -> "AqualinkDevice":
+    def from_data(
+        cls, system: AqualinkSystem, data: DeviceData
+    ) -> AqualinkDevice:
         if data["name"].endswith("_heater"):
             class_ = AqualinkHeater
         elif data["name"].endswith("_set_point"):
@@ -116,7 +123,8 @@ class AqualinkBinarySensor(AqualinkSensor):
     @property
     def is_on(self) -> bool:
         return (
-            AqualinkState(self.state) in [AqualinkState.ON, AqualinkState.ENABLED]
+            AqualinkState(self.state)
+            in [AqualinkState.ON, AqualinkState.ENABLED]
             if self.state
             else False
         )
@@ -126,7 +134,8 @@ class AqualinkToggle(AqualinkDevice):
     @property
     def is_on(self) -> bool:
         return (
-            AqualinkState(self.state) in [AqualinkState.ON, AqualinkState.ENABLED]
+            AqualinkState(self.state)
+            in [AqualinkState.ON, AqualinkState.ENABLED]
             if self.state
             else False
         )
@@ -161,11 +170,11 @@ class AqualinkAuxToggle(AqualinkToggle):
 # Using AqualinkLight as a Mixin so we can use isinstance(dev, AqualinkLight).
 class AqualinkLight(object):
     @property
-    def brightness(self) -> Optional[int]:
+    def brightness(self) -> typing.Optional[int]:
         raise NotImplementedError()
 
     @property
-    def effect(self) -> Optional[str]:
+    def effect(self) -> typing.Optional[str]:
         raise NotImplementedError()
 
     @property
@@ -179,21 +188,21 @@ class AqualinkLight(object):
 
 class AqualinkLightToggle(AqualinkLight, AqualinkAuxToggle):
     @property
-    def brightness(self) -> Optional[bool]:
+    def brightness(self) -> typing.Optional[bool]:
         return None
 
     @property
-    def effect(self) -> Optional[int]:
+    def effect(self) -> typing.Optional[int]:
         return None
 
 
 class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
     @property
-    def brightness(self) -> Optional[int]:
+    def brightness(self) -> typing.Optional[int]:
         return int(self.data["subtype"])
 
     @property
-    def effect(self) -> Optional[int]:
+    def effect(self) -> typing.Optional[int]:
         return None
 
     @property
@@ -220,12 +229,12 @@ class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
 
 class AqualinkColorLight(AqualinkLight, AqualinkDevice):
     @property
-    def brightness(self) -> Optional[int]:
+    def brightness(self) -> typing.Optional[int]:
         # Assuming that color lights don't have adjustable brightness.
         return None
 
     @property
-    def effect(self) -> Optional[int]:
+    def effect(self) -> typing.Optional[int]:
         return self.data["state"]
 
     @property

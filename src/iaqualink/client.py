@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import logging
 import threading
-from typing import Dict, Optional
+import typing
 
 import aiohttp
 
@@ -41,7 +43,7 @@ class AqualinkClient(object):
         self,
         username: str,
         password: str,
-        session: Optional[aiohttp.ClientSession] = None,
+        session: typing.Optional[aiohttp.ClientSession] = None,
     ):
         self.username = username
         self.password = password
@@ -89,7 +91,9 @@ class AqualinkClient(object):
             "email": self.username,
             "password": self.password,
         }
-        return await self._send_request(AQUALINK_LOGIN_URL, method="post", json=data)
+        return await self._send_request(
+            AQUALINK_LOGIN_URL, method="post", json=data
+        )
 
     async def login(self) -> None:
         r = await self._send_login_request()
@@ -100,7 +104,9 @@ class AqualinkClient(object):
             self.token = data["authentication_token"]
             self.user_id = data["id"]
         else:
-            raise AqualinkLoginException(f"Login failed: {r.status} {r.reason}")
+            raise AqualinkLoginException(
+                f"Login failed: {r.status} {r.reason}"
+            )
 
     async def _send_systems_request(self) -> aiohttp.ClientResponse:
         params = {
@@ -112,7 +118,7 @@ class AqualinkClient(object):
         url = f"{AQUALINK_DEVICES_URL}?{params}"
         return await self._send_request(url)
 
-    async def get_systems(self) -> Dict[str, "AqualinkSystems"]:
+    async def get_systems(self) -> typing.Dict[str, "AqualinkSystems"]:
         r = await self._send_systems_request()
 
         if r.status == 200:
@@ -120,10 +126,12 @@ class AqualinkClient(object):
             systems = [AqualinkSystem.from_data(self, x) for x in data]
             return {x.serial: x for x in systems if x is not None}
 
-        raise Exception(f"Unable to retrieve systems list: {r.status} {r.reason}")
+        raise Exception(
+            f"Unable to retrieve systems list: {r.status} {r.reason}"
+        )
 
     async def _send_session_request(
-        self, serial: str, command: str, params: Optional[Payload] = None
+        self, serial: str, command: str, params: typing.Optional[Payload] = None
     ) -> aiohttp.ClientResponse:
         if not params:
             params = {}
@@ -140,24 +148,40 @@ class AqualinkClient(object):
         url = f"{AQUALINK_SESSION_URL}?{params}"
         return await self._send_request(url)
 
-    async def send_home_screen_request(self, serial) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(serial, AQUALINK_COMMAND_GET_HOME)
+    async def send_home_screen_request(
+        self, serial
+    ) -> aiohttp.ClientResponse:
+        r = await self._send_session_request(
+            serial, AQUALINK_COMMAND_GET_HOME
+        )
         return r
 
-    async def send_devices_screen_request(self, serial) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(serial, AQUALINK_COMMAND_GET_DEVICES)
+    async def send_devices_screen_request(
+        self, serial
+    ) -> aiohttp.ClientResponse:
+        r = await self._send_session_request(
+            serial, AQUALINK_COMMAND_GET_DEVICES
+        )
         return r
 
-    async def set_pump(self, serial: str, command: str) -> aiohttp.ClientResponse:
+    async def set_pump(
+        self, serial: str, command: str
+    ) -> aiohttp.ClientResponse:
         r = await self._send_session_request(serial, command)
         return r
 
-    async def set_heater(self, serial: str, command: str) -> aiohttp.ClientResponse:
+    async def set_heater(
+        self, serial: str, command: str
+    ) -> aiohttp.ClientResponse:
         r = await self._send_session_request(serial, command)
         return r
 
-    async def set_temps(self, serial: str, temps: Payload) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(serial, AQUALINK_COMMAND_SET_TEMPS, temps)
+    async def set_temps(
+        self, serial: str, temps: Payload
+    ) -> aiohttp.ClientResponse:
+        r = await self._send_session_request(
+            serial, AQUALINK_COMMAND_SET_TEMPS, temps
+        )
         return r
 
     async def set_aux(self, serial: str, aux: str) -> aiohttp.ClientResponse:
@@ -165,6 +189,10 @@ class AqualinkClient(object):
         r = await self._send_session_request(serial, command)
         return r
 
-    async def set_light(self, serial: str, data: Payload) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(serial, AQUALINK_COMMAND_SET_LIGHT, data)
+    async def set_light(
+        self, serial: str, data: Payload
+    ) -> aiohttp.ClientResponse:
+        r = await self._send_session_request(
+            serial, AQUALINK_COMMAND_SET_LIGHT, data
+        )
         return r

@@ -1,4 +1,7 @@
-from typing import Dict
+from __future__ import annotations
 
-DeviceData = Dict[str, str]
-Payload = Dict[str, str]
+import typing
+
+
+DeviceData = typing.Dict[str, str]
+Payload = typing.Dict[str, str]

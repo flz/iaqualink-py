@@ -1,6 +1,9 @@
+from __future__ import annotations
+
 import logging
 import time
 import traceback
+import typing
 
 import aiohttp
 
@@ -8,13 +11,17 @@ from iaqualink.device import AqualinkDevice
 from iaqualink.exception import AqualinkSystemOfflineException
 from iaqualink.typing import Payload
 
+if typing.TYPE_CHECKING:
+    from iaqualink.client import AqualinkClient
+
+
 MIN_SECS_TO_REFRESH = 15
 
 LOGGER = logging.getLogger("iaqualink")
 
 
 class AqualinkSystem(object):
-    def __init__(self, aqualink: "AqualinkClient", data: "Payload"):
+    def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
         self.data = data
         self.devices = {}
@@ -38,13 +45,15 @@ class AqualinkSystem(object):
         return self.data["serial_number"]
 
     @classmethod
-    def from_data(cls, aqualink: "AqualinkClient", data: "Payload"):
+    def from_data(cls, aqualink: AqualinkClient, data: Payload):
         SYSTEM_TYPES = {"iaqua": AqualinkPoolSystem}
 
         class_ = SYSTEM_TYPES.get(data["device_type"])
 
         if class_ is None:
-            LOGGER.warning(f"{data['device_type']} is not a supported system type.")
+            LOGGER.warning(
+                f"{data['device_type']} is not a supported system type."
+            )
             return None
 
         return class_(aqualink, data)
@@ -81,7 +90,9 @@ class AqualinkSystem(object):
             self.online = True
             self.last_refresh = int(time.time())
 
-    async def _parse_home_response(self, response: aiohttp.ClientResponse) -> None:
+    async def _parse_home_response(
+        self, response: aiohttp.ClientResponse
+    ) -> None:
         data = await response.json()
 
         if data["home_screen"][0]["status"] == "Offline":
@@ -112,7 +123,9 @@ class AqualinkSystem(object):
         else:
             self.has_spa = False
 
-    async def _parse_devices_response(self, response: aiohttp.ClientResponse) -> None:
+    async def _parse_devices_response(
+        self, response: aiohttp.ClientResponse
+    ) -> None:
         data = await response.json()
 
         if data["devices_screen"][0]["status"] == "Offline":

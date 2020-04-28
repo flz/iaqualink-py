@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import asynctest
 import pytest
 
@@ -138,7 +140,13 @@ class TestAqualinkColorLight(asynctest.TestCase):
     def setUp(self) -> None:
         system = asynctest.MagicMock()
         system.set_light = asynctest.CoroutineMock(return_value=None)
-        data = {"name": "aux_1", "aux": "1", "state": "0", "type": "2", "subtype": "5"}
+        data = {
+            "name": "aux_1",
+            "aux": "1",
+            "state": "0",
+            "type": "2",
+            "subtype": "5",
+        }
         self.obj = AqualinkColorLight(system, data)
 
     @asynctest.fail_on(unused_loop=False)
