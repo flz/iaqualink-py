@@ -9,7 +9,13 @@ requirements = ["aiohttp"]
 
 setup_requirements = ["pytest-runner"]
 
-test_requirements = ["asynctest", "pytest", "pytest-cov", "pytest-asyncio"]
+test_requirements = [
+    "asynctest",
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "wheel",
+]
 
 setup(
     name="iaqualink",
@@ -31,10 +37,8 @@ setup(
         "Intended Audience :: Developers",
         "License :: OSI Approved :: BSD License",
         "Natural Language :: English",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.5",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
     ],
     test_suite="tests",
     tests_require=test_requirements,
