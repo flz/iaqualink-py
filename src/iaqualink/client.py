@@ -118,7 +118,7 @@ class AqualinkClient(object):
         url = f"{AQUALINK_DEVICES_URL}?{params}"
         return await self._send_request(url)
 
-    async def get_systems(self) -> typing.Dict[str, "AqualinkSystems"]:
+    async def get_systems(self) -> typing.Dict[str, AqualinkSystem]:
         r = await self._send_systems_request()
 
         if r.status == 200:
