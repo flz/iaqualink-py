@@ -95,6 +95,8 @@ class AqualinkSystem(object):
     ) -> None:
         data = await response.json()
 
+        LOGGER.debug(f"Home response: {data}")
+
         if data["home_screen"][0]["status"] == "Offline":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
@@ -127,6 +129,8 @@ class AqualinkSystem(object):
         self, response: aiohttp.ClientResponse
     ) -> None:
         data = await response.json()
+
+        LOGGER.debug(f"Devices response: {data}")
 
         if data["devices_screen"][0]["status"] == "Offline":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
