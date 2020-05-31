@@ -5,6 +5,7 @@ import pytest
 
 from iaqualink.exception import AqualinkSystemOfflineException
 from iaqualink.system import AqualinkSystem, AqualinkPoolSystem
+from iaqualink.device import AqualinkAuxToggle
 
 from .common import async_noop, async_raises
 
@@ -65,3 +66,60 @@ class TestAqualinkSystem(asynctest.TestCase):
         await r.update()
         assert r.last_run_success is True
         assert r.online is False
+
+    @asynctest.strict
+    async def test_parse_devices_offline(self):
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
+        aqualink = asynctest.MagicMock()
+        system = AqualinkSystem.from_data(aqualink, data)
+
+        message = {"message": "", "devices_screen": [{"status": "Offline"}]}
+        response = asynctest.MagicMock()
+        response.json = asynctest.CoroutineMock(return_value=message)
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            await system._parse_devices_response(response)
+        assert system.devices == {}
+
+    @asynctest.strict
+    async def test_parse_devices_good(self):
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
+        aqualink = asynctest.MagicMock()
+        system = AqualinkSystem.from_data(aqualink, data)
+
+        message = {
+            "message": "",
+            "devices_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"group": "1"},
+                {
+                    "aux_B1": [
+                        {"state": "0"},
+                        {"label": "Label B1"},
+                        {"icon": "aux_1_0.png"},
+                        {"type": "0"},
+                        {"subtype": "0"},
+                    ]
+                },
+            ],
+        }
+        response = asynctest.MagicMock()
+        response.json = asynctest.CoroutineMock(return_value=message)
+
+        expected = {
+            "aux_B1": AqualinkAuxToggle(
+                system=system,
+                data={
+                    "aux": "B1",
+                    "name": "aux_B1",
+                    "state": "0",
+                    "label": "Label B1",
+                    "icon": "aux_1_0.png",
+                    "type": "0",
+                    "subtype": "0",
+                },
+            )
+        }
+        await system._parse_devices_response(response)
+        assert system.devices == expected

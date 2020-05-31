@@ -138,11 +138,12 @@ class AqualinkSystem(object):
 
         # Make the data a bit flatter.
         devices = {}
-        for i, x in enumerate(data["devices_screen"][3:], 1):
-            attrs = {"aux": f"{i}", "name": list(x.keys())[0]}
+        for x in data["devices_screen"][3:]:
+            aux = list(x.keys())[0]
+            attrs = {"aux": aux.replace("aux_", ""), "name": aux}
             for y in list(x.values())[0]:
                 attrs.update(y)
-            devices.update({f"aux_{i}": attrs})
+            devices.update({aux: attrs})
 
         for k, v in devices.items():
             if k in self.devices:

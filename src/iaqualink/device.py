@@ -65,9 +65,17 @@ class AqualinkDevice:
         self.data = data
 
     def __repr__(self) -> str:
-        attrs = ["name", "data"]
+        attrs = ["data"]
         attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
-        return f'{self.__class__.__name__}({" ".join(attrs)})'
+        return f'{self.__class__.__name__}({", ".join(attrs)})'
+
+    def __eq__(self, other) -> bool:
+        if (
+            self.system.serial == other.system.serial
+            and self.data == other.data
+        ):
+            return True
+        return False
 
     @property
     def label(self) -> str:
