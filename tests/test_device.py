@@ -196,14 +196,14 @@ class TestAqualinkColorLight(asynctest.TestCase):
     @asynctest.strict
     async def test_set_effect(self) -> None:
         data = {"aux": "1", "light": "2", "subtype": "5"}
-        await self.obj.set_effect("2")
+        await self.obj.set_effect_by_num("2")
         self.obj.system.set_light.assert_called_once_with(data)
 
     @asynctest.strict
     async def test_set_effect_invalid(self) -> None:
         self.obj.system.set_light = asynctest.CoroutineMock(return_value=None)
         with pytest.raises(Exception):
-            await self.obj.set_effect("42")
+            await self.obj.set_effect_by_name("bad effect name")
 
 
 class TestAqualinkThermostat(asynctest.TestCase):

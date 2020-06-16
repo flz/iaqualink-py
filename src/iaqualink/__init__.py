@@ -15,7 +15,6 @@ from .device import (
     AqualinkDimmableLight,
     AqualinkHeater,
     AqualinkLight,
-    AqualinkLightEffect,
     AqualinkLightToggle,
     AqualinkLightType,
     AqualinkPump,

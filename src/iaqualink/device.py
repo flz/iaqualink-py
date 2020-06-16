@@ -1,8 +1,10 @@
 from __future__ import annotations
 
-from enum import Enum, auto, unique
+from enum import Enum, unique
 import logging
 import typing
+
+from dataclasses import dataclass
 
 from iaqualink.typing import DeviceData
 from iaqualink.const import (
@@ -23,37 +25,105 @@ class AqualinkState(Enum):
     ENABLED = "3"
 
 
-# XXX - I don't know the exact values per type. The enum is pretty much a
-# placeholder. If you know what type of lights you have and have debugging
-# on, please submit an issue to GitHub with the details so I can update the
-# code.
-@unique
-class AqualinkLightType(Enum):
-    JANDY_LED_WATERCOLORS = auto()
-    JANDY_COLORS = auto()
-    HAYWARD_COLOR_LOGIC = auto()
-    PENTAIR_INTELLIBRITE = auto()
-    PENTAIR_SAM_SAL = auto()
+@dataclass
+class AqualinkLightType:
+    display_name: str  # The name as displayed in the System Setup Web UI as big buttons.
+    short_name: str  # The name as displayed in the System Setup Web UI next to the Aux list.
+    subtype: int  # The subtype value returned by the API and sent to the API.
+    effects: typing.Dict[str, str]  # Maps effect_name -> effect_number.
 
 
-# XXX - These values are probably LightType-specific but they're all I have
-# at the moment. I can see this changing into a color profile system later.
-class AqualinkLightEffect(Enum):
-    NONE = "0"
-    ALPINE_WHITE = "1"
-    SKY_BLUE = "2"
-    COBALT_BLUE = "3"
-    CARIBBEAN_BLUE = "4"
-    SPRING_GREEN = "5"
-    EMERALD_GREEN = "6"
-    EMERALD_ROSE = "7"
-    MAGENTA = "8"
-    VIOLENT = "9"
-    SLOW_COLOR_SPLASH = "10"
-    FAST_COLOR_SPLASH = "11"
-    USA = "12"
-    FAT_TUESDAY = "13"
-    DISCO_TECH = "14"
+# Maps subtype (as string) to AqualinkLightType.
+# These are listed here in the same order as in the System Setup Web UI.
+# There is no subtype "3" in the REV T.2 firmware.
+# The effect_name to effect_number mappings seem to be hardcoded into the iOS app as well.
+LIGHT_TYPES_BY_SUBTYPE_STR = {
+    "4":
+        AqualinkLightType('Jandy LED WaterColors', 'JL', 4, {
+            'Off': "0",
+            'Alpine White': "1",
+            'Sky Blue': "2",
+            'Cobalt Blue': "3",
+            'Caribbean Blue': "4",
+            'Spring Green': "5",
+            'Emerald Green': "6",
+            'Emerald Rose': "7",
+            'Magenta': "8",
+            'Violet': "9",
+            'Slow Splash': "10",
+            'Fast Splash': "11",
+            'USA!!!': "12",
+            'Fat Tuesday': "13",
+            'Disco Tech': "14",
+        }),
+    "5":
+        AqualinkLightType('Pentair IntelliBrite', 'IB', 5, {
+            'Off': "0",
+            'SAm': "1",
+            'Party': "2",
+            'Romance': "3",
+            'Caribbean': "4",
+            'American': "5",
+            'Cal Sunset': "6",
+            'Royal': "7",
+            'Blue': "8",
+            'Green': "9",
+            'Red': "10",
+            'White': "11",
+            'Magenta': "12",
+        }),
+    "6":
+        AqualinkLightType('Hayward Universal', 'HU', 6, {
+            'Off': "0",
+            'Voodoo Lounge': "1",
+            'Deep Blue Sea': "2",
+            'Royal Blue': "3",
+            'Afternoon Skies': "4",
+            'Aqua Green': "5",
+            'Emerald': "6",
+            'Cloud White': "7",
+            'Warm Red': "8",
+            'Flamingo': "9",
+            'Vivid Violet': "10",
+            'Sangria': "11",
+            'Twilight': "12",
+            'Tranquility': "13",
+            'Gemstone': "14",
+            'USA': "15",
+        }),
+    "1":
+        AqualinkLightType('JandyColors', 'JC', 1, {
+            'Off': "0",
+            'Alpine White': "1",
+            'Sky Blue': "2",
+            'Cobalt Blue': "3",
+            'Caribbean Blue': "4",
+            'Spring Green': "5",
+            'Emerald Green': "6",
+            'Emerald Rose': "7",
+            'Magenta': "8",
+            'Garnet Red': "9",
+            'Violet': "10",
+            'Color Splash': "11",
+        }),
+    "2":
+        AqualinkLightType('Pentair SAm/SAL', 'SL', 2, {
+            'Off': "0",
+            'White': "1",
+            'Light Green': "2",
+            'Green': "3",
+            'Cyan': "4",
+            'Blue': "5",
+            'Lavender': "6",
+            'Magenta': "7",
+            'Light Magenta': "8",
+            'Color Splash': "9",
+        }),
+}
+
+
+def light_type_from_subtype(subtype: str) -> AqualinkLightType:
+    return LIGHT_TYPES_BY_SUBTYPE_STR[subtype]
 
 
 LOGGER = logging.getLogger("iaqualink")
@@ -200,7 +270,7 @@ class AqualinkLightToggle(AqualinkLight, AqualinkAuxToggle):
         return None
 
     @property
-    def effect(self) -> typing.Optional[int]:
+    def effect(self) -> typing.Optional[str]:
         return None
 
 
@@ -210,7 +280,7 @@ class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
         return int(self.data["subtype"])
 
     @property
-    def effect(self) -> typing.Optional[int]:
+    def effect(self) -> typing.Optional[str]:
         return None
 
     @property
@@ -243,34 +313,60 @@ class AqualinkColorLight(AqualinkLight, AqualinkDevice):
         return None
 
     @property
-    def effect(self) -> typing.Optional[int]:
+    def effect_num(self) -> typing.Optional[str]:
+        # "state"=0 indicates the light is off.
+        # "state"=1 indicates the light is on.
+        # I don't see a way to retrieve the current color.
+        # The official iAquaLink app doesn't seem to show the current color choice either,
+        # so perhaps it's an unfortunate limitation of the current API.
         return self.data["state"]
 
     @property
+    def effect(self) -> typing.Optional[str]:
+        # Ideally, this would return the effect name.
+        # However, the API seems to return "state"=1 no matter what effect is currently chosen.
+        # Workaround: instead of returning a possibly incorrect effect name, we'll just return "On".
+        return "On" if self.is_on else "Off"
+
+        # Ideal implementation, if the API would return the correct "state":
+        # effect_num_as_str = self.data["state"]
+        ## Lookup the dict key by value.
+        #for curr_effect_name, curr_effect_num in self.supported_light_effects.items():
+        #    if curr_effect_num == effect_num_as_str:
+        #        return curr_effect_name
+        #return None
+
+    @property
     def is_on(self) -> bool:
-        return self.effect != "0"
+        return self.effect_num != "0"
 
-    async def set_effect(self, effect: str) -> None:
+    @property
+    def supported_light_effects(self) -> typing.Dict[str, str]:
+        return light_type_from_subtype(self.data["subtype"]).effects
+
+    async def set_effect_by_name(self, effect_name: str) -> None:
         try:
-            AqualinkLightEffect(effect)
+            effect_num = self.supported_light_effects[effect_name]
         except Exception:
-            msg = f"{repr(effect)} isn't a valid effect."
+            msg = f"{repr(effect_name)} isn't a valid effect."
             raise Exception(msg)
+        await self.set_effect_by_num(effect_num)
 
+    async def set_effect_by_num(self, effect_num: str) -> None:
         data = {
             "aux": self.data["aux"],
-            "light": effect,
+            "light": effect_num,
             "subtype": self.data["subtype"],
         }
         await self.system.set_light(data)
 
     async def turn_off(self):
         if self.is_on:
-            await self.set_effect("0")
+            await self.set_effect_by_num("0")
 
     async def turn_on(self):
         if not self.is_on:
-            await self.set_effect("1")
+            await self.set_effect_by_num("1")
 
 
 class AqualinkThermostat(AqualinkDevice):
@@ -296,5 +392,5 @@ class AqualinkThermostat(AqualinkDevice):
             msg += f" ({low}-{high}{unit})."
             raise Exception(msg)
 
-        data = {self.temp: temperature}
+        data = {self.temp: str(temperature)}
         await self.system.set_temps(data)
