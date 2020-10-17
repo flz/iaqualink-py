@@ -62,14 +62,21 @@ class AqualinkClient(object):
         self.lock = threading.Lock()
         self.last_refresh = 0
 
+    async def _cleanup_session(self):
+        if self._must_clean_session is True:
+            await self.session.close()
+
     async def __aenter__(self):
-        await self.login()
-        return self
+        try:
+            await self.login()
+            return self
+        except AqualinkLoginException:
+            await self._cleanup_session()
+            raise
 
     async def __aexit__(self, exc_type, exc, tb):
         # All Exceptions get re-raised.
-        if self._must_clean_session is True:
-            await self.session.close()
+        await self._cleanup_session()
         return exc is None
 
     async def _send_request(
