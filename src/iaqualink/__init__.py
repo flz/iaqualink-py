@@ -2,7 +2,7 @@ from __future__ import annotations
 
 __author__ = "Florent Thoumie"
 __email__ = "florent@thoumie.net"
-__version__ = "0.3.4"
+__version__ = "0.3.5"
 
 
 from .client import AqualinkClient, AqualinkLoginException
@@ -15,7 +15,6 @@ from .device import (
     AqualinkDimmableLight,
     AqualinkHeater,
     AqualinkLight,
-    AqualinkLightEffect,
     AqualinkLightToggle,
     AqualinkLightType,
     AqualinkPump,
