@@ -20,7 +20,7 @@ MIN_SECS_TO_REFRESH = 15
 LOGGER = logging.getLogger("iaqualink")
 
 
-class AqualinkSystem(object):
+class AqualinkSystem:
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
         self.data = data

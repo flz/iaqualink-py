@@ -38,7 +38,7 @@ AQUALINK_HTTP_HEADERS = {
 LOGGER = logging.getLogger("iaqualink")
 
 
-class AqualinkClient(object):
+class AqualinkClient:
     def __init__(
         self,
         username: str,
@@ -158,12 +158,8 @@ class AqualinkClient(object):
         url = f"{AQUALINK_SESSION_URL}?{params}"
         return await self._send_request(url)
 
-    async def send_home_screen_request(
-        self, serial
-    ) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(
-            serial, AQUALINK_COMMAND_GET_HOME
-        )
+    async def send_home_screen_request(self, serial) -> aiohttp.ClientResponse:
+        r = await self._send_session_request(serial, AQUALINK_COMMAND_GET_HOME)
         return r
 
     async def send_devices_screen_request(
