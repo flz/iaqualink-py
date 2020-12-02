@@ -2,13 +2,15 @@ from __future__ import annotations
 
 import logging
 import time
-import traceback
 import typing
 
 import aiohttp
 
 from iaqualink.device import AqualinkDevice
-from iaqualink.exception import AqualinkSystemOfflineException
+from iaqualink.exception import (
+    AqualinkServiceException,
+    AqualinkSystemOfflineException,
+)
 from iaqualink.typing import Payload
 
 if typing.TYPE_CHECKING:
@@ -28,7 +30,9 @@ class AqualinkSystem:
         self.has_spa = None
         self.temp_unit = None
         self.last_refresh = 0
-        self.last_run_success = None
+
+        # Semantics here are somewhat odd.
+        # True/False are obvious, None means "unknown".
         self.online = None
 
     def __repr__(self) -> str:
@@ -74,21 +78,19 @@ class AqualinkSystem:
         try:
             r1 = await self.aqualink.send_home_screen_request(self.serial)
             r2 = await self.aqualink.send_devices_screen_request(self.serial)
+        except AqualinkServiceException:
+            self.online = None
+            raise
+
+        try:
             await self._parse_home_response(r1)
             await self._parse_devices_response(r2)
         except AqualinkSystemOfflineException:
-            self.last_run_success = True
             self.online = False
-        except Exception as e:  # pylint: disable=W0703
-            self.last_run_success = False
-            self.online = None
-            LOGGER.error(f"Unhandled exception: {e}")
-            for line in traceback.format_exc().split("\n"):
-                LOGGER.error(line)
-        else:
-            self.last_run_success = True
-            self.online = True
-            self.last_refresh = int(time.time())
+            raise
+
+        self.online = True
+        self.last_refresh = int(time.time())
 
     async def _parse_home_response(
         self, response: aiohttp.ClientResponse

@@ -12,7 +12,10 @@ from iaqualink.const import (
     AQUALINK_DEVICES_URL,
     AQUALINK_SESSION_URL,
 )
-from iaqualink.exception import AqualinkLoginException
+from iaqualink.exception import (
+    AqualinkLoginException,
+    AqualinkServiceException,
+)
 from iaqualink.system import AqualinkSystem
 from iaqualink.typing import Payload
 
@@ -86,10 +89,11 @@ class AqualinkClient:
         r = await self.session.request(
             method, url, headers=AQUALINK_HTTP_HEADERS, **kwargs
         )
-        if r.status == 200:
-            LOGGER.debug(f"<- {r.status} {r.reason} - {url}")
-        else:
-            LOGGER.warning(f"<- {r.status} {r.reason} - {url}")
+
+        LOGGER.debug(f"<- {r.status} {r.reason} - {url}")
+        if r.status != 200:
+            m = f"Unexpected response: {r.status} {r.reason}"
+            raise AqualinkServiceException(m)
         return r
 
     async def _send_login_request(self) -> aiohttp.ClientResponse:
@@ -103,17 +107,16 @@ class AqualinkClient:
         )
 
     async def login(self) -> None:
-        r = await self._send_login_request()
+        try:
+            r = await self._send_login_request()
+        except AqualinkServiceException as e:
+            m = "Failed to login"
+            raise AqualinkLoginException(m) from e
 
-        if r.status == 200:
-            data = await r.json()
-            self.session_id = data["session_id"]
-            self.token = data["authentication_token"]
-            self.user_id = data["id"]
-        else:
-            raise AqualinkLoginException(
-                f"Login failed: {r.status} {r.reason}"
-            )
+        data = await r.json()
+        self.session_id = data["session_id"]
+        self.token = data["authentication_token"]
+        self.user_id = data["id"]
 
     async def _send_systems_request(self) -> aiohttp.ClientResponse:
         params = {
@@ -128,14 +131,9 @@ class AqualinkClient:
     async def get_systems(self) -> typing.Dict[str, AqualinkSystem]:
         r = await self._send_systems_request()
 
-        if r.status == 200:
-            data = await r.json()
-            systems = [AqualinkSystem.from_data(self, x) for x in data]
-            return {x.serial: x for x in systems if x is not None}
-
-        raise Exception(
-            f"Unable to retrieve systems list: {r.status} {r.reason}"
-        )
+        data = await r.json()
+        systems = [AqualinkSystem.from_data(self, x) for x in data]
+        return {x.serial: x for x in systems if x is not None}
 
     async def _send_session_request(
         self,

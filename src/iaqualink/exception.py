@@ -15,3 +15,7 @@ class AqualinkSystemOfflineException(AqualinkException):
 
 class AqualinkInvalidParameterException(AqualinkException):
     """Exception raised when an invalid parameter is passed."""
+
+
+class AqualinkServiceException(AqualinkException):
+    """Exception raised when an error is raised by the iaqualink service."""
