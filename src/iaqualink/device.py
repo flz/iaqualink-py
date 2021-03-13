@@ -350,7 +350,7 @@ class AqualinkColorLight(AqualinkLight, AqualinkDevice):
 
         # Ideal implementation, if the API would return the correct "state":
         # effect_num_as_str = self.data["state"]
-        ## Lookup the dict key by value.
+        # Lookup the dict key by value.
         # for curr_effect_name, curr_effect_num in self.supported_light_effects.items():
         #    if curr_effect_num == effect_num_as_str:
         #        return curr_effect_name
