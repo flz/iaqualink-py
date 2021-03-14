@@ -6,6 +6,11 @@ import typing
 
 import aiohttp
 
+from iaqualink.const import (
+    AQUALINK_COMMAND_SET_AUX,
+    AQUALINK_COMMAND_SET_LIGHT,
+    AQUALINK_COMMAND_SET_TEMPS,
+)
 from iaqualink.device import AqualinkDevice
 from iaqualink.exception import (
     AqualinkServiceException,
@@ -155,23 +160,28 @@ class AqualinkSystem:
                 self.devices[k] = AqualinkDevice.from_data(self, v)
 
     async def set_pump(self, command: str) -> None:
-        r = await self.aqualink.set_pump(self.serial, command)
+        r = await self.aqualink._send_session_request(self.serial, command)
         await self._parse_home_response(r)
 
     async def set_heater(self, command: str) -> None:
-        r = await self.aqualink.set_heater(self.serial, command)
+        r = await self.aqualink._send_session_request(self.serial, command)
         await self._parse_home_response(r)
 
     async def set_temps(self, temps: Payload) -> None:
-        r = await self.aqualink.set_temps(self.serial, temps)
+        r = await self.aqualink._send_session_request(
+            self.serial, AQUALINK_COMMAND_SET_TEMPS, temps
+        )
         await self._parse_home_response(r)
 
     async def set_aux(self, aux: str) -> None:
-        r = await self.aqualink.set_aux(self.serial, aux)
+        aux = AQUALINK_COMMAND_SET_AUX + "_" + aux.replace("aux_", "")
+        r = await self.aqualink._send_session_request(self.serial, aux)
         await self._parse_devices_response(r)
 
     async def set_light(self, data: Payload) -> None:
-        r = await self.aqualink.set_light(self.serial, data)
+        r = await self.aqualink._send_session_request(
+            self.serial, AQUALINK_COMMAND_SET_LIGHT, data
+        )
         await self._parse_devices_response(r)
 
 

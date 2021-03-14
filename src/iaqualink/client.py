@@ -11,6 +11,8 @@ from iaqualink.const import (
     AQUALINK_LOGIN_URL,
     AQUALINK_DEVICES_URL,
     AQUALINK_SESSION_URL,
+    AQUALINK_COMMAND_GET_HOME,
+    AQUALINK_COMMAND_GET_DEVICES,
 )
 from iaqualink.exception import (
     AqualinkLoginException,
@@ -19,18 +21,6 @@ from iaqualink.exception import (
 from iaqualink.system import AqualinkSystem
 from iaqualink.typing import Payload
 
-
-AQUALINK_COMMAND_GET_DEVICES = "get_devices"
-AQUALINK_COMMAND_GET_HOME = "get_home"
-AQUALINK_COMMAND_GET_ONETOUCH = "get_onetouch"
-AQUALINK_COMMAND_SET_AUX = "set_aux"
-AQUALINK_COMMAND_SET_LIGHT = "set_light"
-AQUALINK_COMMAND_SET_POOL_HEATER = "set_pool_heater"
-AQUALINK_COMMAND_SET_POOL_PUMP = "set_pool_pump"
-AQUALINK_COMMAND_SET_SOLAR_HEATER = "set_solar_heater"
-AQUALINK_COMMAND_SET_SPA_HEATER = "set_spa_heater"
-AQUALINK_COMMAND_SET_SPA_PUMP = "set_spa_pump"
-AQUALINK_COMMAND_SET_TEMPS = "set_temps"
 
 AQUALINK_HTTP_HEADERS = {
     "User-Agent": "iAquaLink/70 CFNetwork/901.1 Darwin/17.6.0",
@@ -165,38 +155,5 @@ class AqualinkClient:
     ) -> aiohttp.ClientResponse:
         r = await self._send_session_request(
             serial, AQUALINK_COMMAND_GET_DEVICES
-        )
-        return r
-
-    async def set_pump(
-        self, serial: str, command: str
-    ) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(serial, command)
-        return r
-
-    async def set_heater(
-        self, serial: str, command: str
-    ) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(serial, command)
-        return r
-
-    async def set_temps(
-        self, serial: str, temps: Payload
-    ) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(
-            serial, AQUALINK_COMMAND_SET_TEMPS, temps
-        )
-        return r
-
-    async def set_aux(self, serial: str, aux: str) -> aiohttp.ClientResponse:
-        command = AQUALINK_COMMAND_SET_AUX + "_" + aux.replace("aux_", "")
-        r = await self._send_session_request(serial, command)
-        return r
-
-    async def set_light(
-        self, serial: str, data: Payload
-    ) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(
-            serial, AQUALINK_COMMAND_SET_LIGHT, data
         )
         return r
