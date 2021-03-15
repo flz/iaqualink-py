@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import asynctest
+from unittest.mock import AsyncMock
 
 
-async_noop = asynctest.CoroutineMock(return_value=None)
+async_noop = AsyncMock(return_value=None)
 
 
 def async_returns(x):
-    return asynctest.CoroutineMock(return_value=x)
+    return AsyncMock(return_value=x)
 
 
 def async_raises(x):
-    return asynctest.CoroutineMock(side_effect=x)
+    return AsyncMock(side_effect=x)

@@ -5,7 +5,7 @@ __email__ = "florent@thoumie.net"
 __version__ = "0.3.5"
 
 
-from .client import AqualinkClient, AqualinkLoginException
+from .client import AqualinkClient
 from .system import AqualinkSystem, AqualinkPoolSystem
 from .device import (
     AqualinkAuxToggle,

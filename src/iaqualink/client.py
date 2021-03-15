@@ -15,8 +15,8 @@ from iaqualink.const import (
     AQUALINK_COMMAND_GET_DEVICES,
 )
 from iaqualink.exception import (
-    AqualinkLoginException,
     AqualinkServiceException,
+    AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.typing import Payload
@@ -38,88 +38,109 @@ class AqualinkClient:
         password: str,
         session: typing.Optional[aiohttp.ClientSession] = None,
     ):
-        self.username = username
-        self.password = password
+        self._username = username
+        self._password = password
+        self._logged = False
 
         if session is None:
-            self.session = aiohttp.ClientSession()
+            self._session = None
             self._must_clean_session = True
         else:
-            self.session = session
+            self._session = session
             self._must_clean_session = False
 
-        self.session_id = None
-        self.token = None
-        self.user_id = None
+        self._session_id = ""
+        self._token = ""
+        self._user_id = ""
 
-        self.lock = threading.Lock()
-        self.last_refresh = 0
+        self._last_refresh = 0
 
-    async def _cleanup_session(self):
-        if self._must_clean_session is True:
-            await self.session.close()
+    @property
+    def logged(self):
+        return self._logged
+
+    async def close(self):
+        if self._must_clean_session is True and self.closed is False:
+            await self._session.close()
+
+    @property
+    def closed(self):
+        return self._session is None or self._session.closed is True
 
     async def __aenter__(self):
         try:
             await self.login()
             return self
-        except AqualinkLoginException:
-            await self._cleanup_session()
+        except AqualinkServiceException:
+            await self.close()
             raise
 
     async def __aexit__(self, exc_type, exc, tb):
         # All Exceptions get re-raised.
-        await self._cleanup_session()
+        await self.close()
         return exc is None
 
     async def _send_request(
         self, url: str, method: str = "get", **kwargs
     ) -> aiohttp.ClientResponse:
+        # One-time instantiation if we weren't given a session.
+        if self._must_clean_session and self._session is None:
+            self._session = aiohttp.ClientSession()
+
         LOGGER.debug(f"-> {method.upper()} {url} {kwargs}")
-        r = await self.session.request(
+        r = await self._session.request(
             method, url, headers=AQUALINK_HTTP_HEADERS, **kwargs
         )
 
         LOGGER.debug(f"<- {r.status} {r.reason} - {url}")
+
+        if r.status == 401:
+            m = "Unauthorized Access, check your credentials and try again"
+            self._logged = False
+            raise AqualinkServiceUnauthorizedException
+
         if r.status != 200:
             m = f"Unexpected response: {r.status} {r.reason}"
             raise AqualinkServiceException(m)
+
         return r
 
     async def _send_login_request(self) -> aiohttp.ClientResponse:
         data = {
             "api_key": AQUALINK_API_KEY,
-            "email": self.username,
-            "password": self.password,
+            "email": self._username,
+            "password": self._password,
         }
         return await self._send_request(
             AQUALINK_LOGIN_URL, method="post", json=data
         )
 
     async def login(self) -> None:
-        try:
-            r = await self._send_login_request()
-        except AqualinkServiceException as e:
-            m = "Failed to login"
-            raise AqualinkLoginException(m) from e
+        r = await self._send_login_request()
 
         data = await r.json()
-        self.session_id = data["session_id"]
-        self.token = data["authentication_token"]
-        self.user_id = data["id"]
+        self._session_id = data["session_id"]
+        self._token = data["authentication_token"]
+        self._user_id = data["id"]
+        self._logged = True
 
     async def _send_systems_request(self) -> aiohttp.ClientResponse:
         params = {
             "api_key": AQUALINK_API_KEY,
-            "authentication_token": self.token,
-            "user_id": self.user_id,
+            "authentication_token": self._token,
+            "user_id": self._user_id,
         }
         params = "&".join(f"{k}={v}" for k, v in params.items())
         url = f"{AQUALINK_DEVICES_URL}?{params}"
         return await self._send_request(url)
 
     async def get_systems(self) -> typing.Dict[str, AqualinkSystem]:
-        r = await self._send_systems_request()
+        try:
+            r = await self._send_systems_request()
+        except AqualinkServiceException as e:
+            if "404" in str(e):
+                raise AqualinkServiceUnauthorizedException from e
+            raise
 
         data = await r.json()
         systems = [AqualinkSystem.from_data(self, x) for x in data]
@@ -139,7 +160,7 @@ class AqualinkClient:
                 "actionID": "command",
                 "command": command,
                 "serial": serial,
-                "sessionID": self.session_id,
+                "sessionID": self._session_id,
             }
         )
         params = "&".join(f"{k}={v}" for k, v in params.items())

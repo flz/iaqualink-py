@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-import asynctest
+import unittest
+from unittest.mock import MagicMock
 import pytest
 
 from iaqualink.device import AqualinkAuxToggle
@@ -10,34 +11,28 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem, AqualinkPoolSystem
 
-from .common import async_noop, async_raises
+from .common import async_raises, async_returns, async_noop
 
 
-pytestmark = pytest.mark.asyncio
-
-
-class TestAqualinkSystem(asynctest.TestCase):
+class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         pass
 
-    @asynctest.fail_on(unused_loop=False)
     def test_from_data_iaqua(self):
-        aqualink = asynctest.MagicMock()
+        aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
         r = AqualinkSystem.from_data(aqualink, data)
         assert r is not None
         assert isinstance(r, AqualinkPoolSystem)
 
-    @asynctest.fail_on(unused_loop=False)
     def test_from_data_unsupported(self):
-        aqualink = asynctest.MagicMock()
+        aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "foo"}
         r = AqualinkSystem.from_data(aqualink, data)
         assert r is None
 
-    @asynctest.strict
     async def test_update_success(self):
-        aqualink = asynctest.MagicMock()
+        aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
         r = AqualinkSystem.from_data(aqualink, data)
         r.aqualink.send_home_screen_request = async_noop
@@ -47,9 +42,8 @@ class TestAqualinkSystem(asynctest.TestCase):
         await r.update()
         assert r.online is True
 
-    @asynctest.strict
     async def test_update_service_exception(self):
-        aqualink = asynctest.MagicMock()
+        aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
         r = AqualinkSystem.from_data(aqualink, data)
         r.aqualink.send_home_screen_request = async_raises(
@@ -59,9 +53,8 @@ class TestAqualinkSystem(asynctest.TestCase):
             await r.update()
         assert r.online is None
 
-    @asynctest.strict
     async def test_update_offline(self):
-        aqualink = asynctest.MagicMock()
+        aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
         r = AqualinkSystem.from_data(aqualink, data)
         r.aqualink.send_home_screen_request = async_noop
@@ -72,24 +65,22 @@ class TestAqualinkSystem(asynctest.TestCase):
             await r.update()
         assert r.online is False
 
-    @asynctest.strict
     async def test_parse_devices_offline(self):
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
-        aqualink = asynctest.MagicMock()
+        aqualink = MagicMock()
         system = AqualinkSystem.from_data(aqualink, data)
 
         message = {"message": "", "devices_screen": [{"status": "Offline"}]}
-        response = asynctest.MagicMock()
-        response.json = asynctest.CoroutineMock(return_value=message)
+        response = MagicMock()
+        response.json = async_returns(message)
 
         with pytest.raises(AqualinkSystemOfflineException):
             await system._parse_devices_response(response)
         assert system.devices == {}
 
-    @asynctest.strict
     async def test_parse_devices_good(self):
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
-        aqualink = asynctest.MagicMock()
+        aqualink = MagicMock()
         system = AqualinkSystem.from_data(aqualink, data)
 
         message = {
@@ -109,8 +100,8 @@ class TestAqualinkSystem(asynctest.TestCase):
                 },
             ],
         }
-        response = asynctest.MagicMock()
-        response.json = asynctest.CoroutineMock(return_value=message)
+        response = MagicMock()
+        response.json = async_returns(message)
 
         expected = {
             "aux_B1": AqualinkAuxToggle(

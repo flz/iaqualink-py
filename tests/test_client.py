@@ -1,45 +1,162 @@
 from __future__ import annotations
-from collections import namedtuple
 
-import asynctest
+import unittest
+from unittest.mock import AsyncMock, patch
+
+import aiohttp
 import pytest
 
 from iaqualink.client import AqualinkClient
+from iaqualink.system import AqualinkSystem
 from iaqualink.exception import (
-    AqualinkLoginException,
     AqualinkServiceException,
+    AqualinkServiceUnauthorizedException,
 )
 
-from .common import async_raises, async_returns
-
-MockResponse = namedtuple("MockResponse", ["status", "reason"])
+from .common import async_raises, async_returns, async_noop
 
 
-class TestAqualinkClient(asynctest.TestCase):
+LOGIN_DATA = {
+    "id": "id",
+    "authentication_token": "token",
+    "session_id": "session_id",
+}
+
+
+class TestAqualinkClient(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
-        self.aqualink = AqualinkClient("foo", "bar")
+        self.aqualink = AqualinkClient("user", "pass")
 
-    @asynctest.strict
-    async def test_send_request_success(self):
-        url = "http://foo"
-        r = MockResponse(status=200, reason="Passing test")
-        self.aqualink.session.request = async_returns(r)
-        await self.aqualink._send_request(url)
+    async def asyncTearDown(self) -> None:
+        await self.aqualink.close()
 
-    @asynctest.strict
-    async def test_send_request_failure(self):
-        url = "http://foo"
-        r = MockResponse(status=500, reason="Failing test")
-        self.aqualink.session.request = async_returns(r)
+    @patch.object(AqualinkClient, "login")
+    async def test_context_manager(self, mock_login):
+        mock_login.return_value = async_noop
+
+        async with self.aqualink:
+            pass
+
+        assert self.aqualink.closed is True
+
+    @patch.object(AqualinkClient, "login")
+    async def test_context_manager_login_exception(self, mock_login):
+        mock_login.side_effect = async_raises(AqualinkServiceException)
 
         with pytest.raises(AqualinkServiceException):
-            await self.aqualink._send_request(url)
-
-    @asynctest.strict
-    async def test_session_closed_on_failed_login(self):
-        self.aqualink.login = async_raises(AqualinkLoginException)
-
-        with pytest.raises(AqualinkLoginException):
             async with self.aqualink:
                 pass
-        assert self.aqualink.session.closed is True
+
+        assert self.aqualink.closed is True
+
+    @patch("iaqualink.AqualinkClient.login", async_noop)
+    async def test_context_manager_with_session(self):
+        session = aiohttp.ClientSession()
+        async with AqualinkClient("user", "pass", session=session):
+            pass
+
+        # We passed the session so we're not closing the session automatically.
+        assert session.closed is False
+
+        # Clean up.
+        await session.close()
+
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_login_success(self, mock_request):
+        mock_request.return_value.status = 200
+        mock_request.return_value.json = async_returns(LOGIN_DATA)
+
+        assert self.aqualink.logged is False
+
+        await self.aqualink.login()
+
+        assert self.aqualink.logged is True
+
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_login_failed(self, mock_request):
+        mock_request.return_value.status = 401
+        mock_request.return_value.json = async_returns({})
+
+        assert self.aqualink.logged is False
+
+        with pytest.raises(AqualinkServiceException):
+            await self.aqualink.login()
+
+        assert self.aqualink.logged is False
+
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_login_exception(self, mock_request):
+        mock_request.return_value.status = 500
+        mock_request.return_value.json = async_returns({})
+
+        assert self.aqualink.logged is False
+
+        with pytest.raises(AqualinkServiceException):
+            await self.aqualink.login()
+
+        assert self.aqualink.logged is False
+
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_unexpectedly_logged_out(self, mock_request):
+        mock_request.return_value.status = 200
+        mock_request.return_value.json = async_returns(LOGIN_DATA)
+
+        await self.aqualink.login()
+
+        mock_request.return_value.status = 401
+        mock_request.return_value.json = async_returns({})
+
+        with pytest.raises(AqualinkServiceUnauthorizedException):
+            await self.aqualink.get_systems()
+
+        assert self.aqualink.logged is False
+
+    @patch("iaqualink.AqualinkSystem.from_data")
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_systems_request(self, mock_request, mock_from_data):
+        mock_request.return_value.status = 200
+        mock_request.return_value.json = async_returns({})
+
+        mock_from_data.return_value = AqualinkSystem(
+            self.aqualink, data={"serial_number": "xxx"}
+        )
+
+        await self.aqualink.get_systems()
+
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_systems_request_unauthorized(self, mock_request):
+        mock_request.return_value.status = 404
+        mock_request.return_value.json = async_returns({})
+
+        with pytest.raises(AqualinkServiceUnauthorizedException):
+            await self.aqualink.get_systems()
+
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_home_request(self, mock_request):
+        mock_request.return_value.status = 200
+        mock_request.return_value.json = async_returns({})
+
+        await self.aqualink.send_home_screen_request(serial="xxx")
+
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_home_request_unauthorized(self, mock_request):
+        mock_request.return_value.status = 401
+        mock_request.return_value.json = async_returns({})
+
+        with pytest.raises(AqualinkServiceUnauthorizedException):
+            await self.aqualink.send_home_screen_request(serial="xxx")
+
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_devices_request(self, mock_request):
+        mock_request.return_value.status = 200
+        mock_request.return_value.json = async_returns({})
+
+        await self.aqualink.send_devices_screen_request(serial="xxx")
+
+    @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
+    async def test_devices_request_unauthorized(self, mock_request):
+        mock_request.return_value.status = 401
+        mock_request.return_value.json = async_returns({})
+
+        with pytest.raises(AqualinkServiceUnauthorizedException):
+            await self.aqualink.send_devices_screen_request(serial="xxx")
