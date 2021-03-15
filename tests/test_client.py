@@ -49,7 +49,7 @@ class TestAqualinkClient(unittest.IsolatedAsyncioTestCase):
 
         assert self.aqualink.closed is True
 
-    @patch("iaqualink.AqualinkClient.login", async_noop)
+    @patch("iaqualink.client.AqualinkClient.login", async_noop)
     async def test_context_manager_with_session(self):
         session = aiohttp.ClientSession()
         async with AqualinkClient("user", "pass", session=session):
@@ -111,7 +111,7 @@ class TestAqualinkClient(unittest.IsolatedAsyncioTestCase):
 
         assert self.aqualink.logged is False
 
-    @patch("iaqualink.AqualinkSystem.from_data")
+    @patch("iaqualink.system.AqualinkSystem.from_data")
     @patch("aiohttp.ClientSession.request", new_callable=AsyncMock)
     async def test_systems_request(self, mock_request, mock_from_data):
         mock_request.return_value.status = 200
