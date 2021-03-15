@@ -10,10 +10,8 @@ requirements = ["aiohttp"]
 setup_requirements = ["pytest-runner"]
 
 test_requirements = [
-    "asynctest",
     "pytest",
     "pytest-cov",
-    "pytest-asyncio",
     "wheel",
 ]
 
