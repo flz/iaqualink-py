@@ -5,10 +5,6 @@ class AqualinkException(Exception):
     """Base exception for iAqualink library."""
 
 
-class AqualinkSystemOfflineException(AqualinkException):
-    """Exception raised when a system is offline."""
-
-
 class AqualinkInvalidParameterException(AqualinkException):
     """Exception raised when an invalid parameter is passed."""
 
@@ -19,3 +15,7 @@ class AqualinkServiceException(AqualinkException):
 
 class AqualinkServiceUnauthorizedException(AqualinkServiceException):
     """Exception raised when service access is unauthorized."""
+
+
+class AqualinkSystemOfflineException(AqualinkServiceException):
+    """Exception raised when a system is offline."""
