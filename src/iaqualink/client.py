@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 from types import TracebackType
 from typing import Any, Dict, Optional, Type
 
@@ -183,9 +182,7 @@ class AqualinkClient:
     async def send_home_screen_request(
         self, serial: str
     ) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(
-            serial, AQUALINK_COMMAND_GET_HOME
-        )
+        r = await self._send_session_request(serial, AQUALINK_COMMAND_GET_HOME)
         return r
 
     async def send_devices_screen_request(

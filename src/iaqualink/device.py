@@ -27,16 +27,21 @@ class AqualinkState(Enum):
 
 @dataclass
 class AqualinkLightType:
-    display_name: str  # The name as displayed in the System Setup Web UI as big buttons.
-    short_name: str  # The name as displayed in the System Setup Web UI next to the Aux list.
-    subtype: int  # The subtype value returned by the API and sent to the API.
-    effects: Dict[str, str]  # Maps effect_name -> effect_number.
+    # The name as displayed in the System Setup Web UI as big buttons.
+    display_name: str
+    # The name as displayed in the System Setup Web UI next to the Aux list.
+    short_name: str
+    # The subtype value returned by the API and sent to the API.
+    subtype: int
+    # Maps effect_name -> effect_number.
+    effects: Dict[str, str]
 
 
 # Maps subtype (as string) to AqualinkLightType.
 # These are listed here in the same order as in the System Setup Web UI.
 # There is no subtype "3" in the REV T.2 firmware.
-# The effect_name to effect_number mappings seem to be hardcoded into the iOS app as well.
+# The effect_name to effect_number mappings seem to be hardcoded into the iOS
+# app as well.
 LIGHT_TYPES_BY_SUBTYPE_STR = {
     "4": AqualinkLightType(
         "Jandy LED WaterColors",
@@ -342,24 +347,19 @@ class AqualinkColorLight(AqualinkLight, AqualinkDevice):
         # "state"=0 indicates the light is off.
         # "state"=1 indicates the light is on.
         # I don't see a way to retrieve the current color.
-        # The official iAquaLink app doesn't seem to show the current color choice either,
-        # so perhaps it's an unfortunate limitation of the current API.
+        # The official iAquaLink app doesn't seem to show the current color
+        # choice either, so perhaps it's an unfortunate limitation of the
+        # current API.
         return self.data["state"]
 
     @property
     def effect(self) -> Optional[str]:
         # Ideally, this would return the effect name.
-        # However, the API seems to return "state"=1 no matter what effect is currently chosen.
-        # Workaround: instead of returning a possibly incorrect effect name, we'll just return "On".
+        # However, the API seems to return "state"=1 no matter what effect is
+        # currently chosen.
+        # Workaround: instead of returning a possibly incorrect effect name,
+        # we'll just return "On".
         return "On" if self.is_on else "Off"
-
-        # Ideal implementation, if the API would return the correct "state":
-        # effect_num_as_str = self.data["state"]
-        # Lookup the dict key by value.
-        # for curr_effect_name, curr_effect_num in self.supported_light_effects.items():
-        #    if curr_effect_num == effect_num_as_str:
-        #        return curr_effect_name
-        # return None
 
     @property
     def is_on(self) -> bool:

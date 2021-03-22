@@ -31,7 +31,7 @@ class TestAqualinkDevice(unittest.IsolatedAsyncioTestCase):
         assert self.obj != obj2
 
     def test_not_equal_different_type(self) -> None:
-        assert (self.obj == {}) == False
+        assert (self.obj == {}) is False
 
 
 class TestAqualinkSensor(unittest.IsolatedAsyncioTestCase):
