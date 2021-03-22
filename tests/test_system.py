@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from unittest.mock import MagicMock
+
 import pytest
 
 from iaqualink.device import AqualinkAuxToggle
@@ -9,9 +10,9 @@ from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkSystemOfflineException,
 )
-from iaqualink.system import AqualinkSystem, AqualinkPoolSystem
+from iaqualink.system import AqualinkPoolSystem, AqualinkSystem
 
-from .common import async_raises, async_returns, async_noop
+from .common import async_noop, async_raises, async_returns
 
 
 class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):

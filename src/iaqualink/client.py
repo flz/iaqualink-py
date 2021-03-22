@@ -8,11 +8,11 @@ import aiohttp
 
 from iaqualink.const import (
     AQUALINK_API_KEY,
-    AQUALINK_LOGIN_URL,
-    AQUALINK_DEVICES_URL,
-    AQUALINK_SESSION_URL,
-    AQUALINK_COMMAND_GET_HOME,
     AQUALINK_COMMAND_GET_DEVICES,
+    AQUALINK_COMMAND_GET_HOME,
+    AQUALINK_DEVICES_URL,
+    AQUALINK_LOGIN_URL,
+    AQUALINK_SESSION_URL,
 )
 from iaqualink.exception import (
     AqualinkServiceException,
@@ -20,7 +20,6 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.typing import Payload
-
 
 AQUALINK_HTTP_HEADERS = {
     "User-Agent": "iAquaLink/70 CFNetwork/901.1 Darwin/17.6.0",

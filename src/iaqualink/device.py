@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from enum import Enum, unique
-import logging
-from typing import Dict, Type, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, Optional, Type
 
 from iaqualink.const import (
-    AQUALINK_TEMP_CELSIUS_LOW,
     AQUALINK_TEMP_CELSIUS_HIGH,
-    AQUALINK_TEMP_FAHRENHEIT_LOW,
+    AQUALINK_TEMP_CELSIUS_LOW,
     AQUALINK_TEMP_FAHRENHEIT_HIGH,
+    AQUALINK_TEMP_FAHRENHEIT_LOW,
 )
 from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.typing import DeviceData

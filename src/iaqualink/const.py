@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-
 AQUALINK_API_KEY = "EOOEMOW4YR6QNB07"
 
 AQUALINK_LOGIN_URL = "https://support.iaqualink.com/users/sign_in.json"

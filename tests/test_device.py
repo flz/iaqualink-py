@@ -3,11 +3,12 @@ from __future__ import annotations
 import copy
 import unittest
 from unittest.mock import MagicMock
+
 import pytest
 
 from iaqualink.device import (
-    AqualinkDevice,
     AqualinkColorLight,
+    AqualinkDevice,
     AqualinkDimmableLight,
     AqualinkLightToggle,
     AqualinkThermostat,

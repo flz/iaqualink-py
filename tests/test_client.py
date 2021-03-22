@@ -7,14 +7,13 @@ import aiohttp
 import pytest
 
 from iaqualink.client import AqualinkClient
-from iaqualink.system import AqualinkSystem
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceUnauthorizedException,
 )
+from iaqualink.system import AqualinkSystem
 
-from .common import async_raises, async_returns, async_noop
-
+from .common import async_noop, async_raises, async_returns
 
 LOGIN_DATA = {
     "id": "id",
