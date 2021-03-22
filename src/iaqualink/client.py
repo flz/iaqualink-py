@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import logging
 import threading
-import typing
+from types import TracebackType
+from typing import Any, Dict, Optional, Type
 
 import aiohttp
 
@@ -36,7 +37,7 @@ class AqualinkClient:
         self,
         username: str,
         password: str,
-        session: typing.Optional[aiohttp.ClientSession] = None,
+        session: Optional[aiohttp.ClientSession] = None,
     ):
         self._username = username
         self._password = password
@@ -56,18 +57,22 @@ class AqualinkClient:
         self._last_refresh = 0
 
     @property
-    def logged(self):
+    def logged(self) -> bool:
         return self._logged
 
-    async def close(self):
-        if self._must_clean_session is True and self.closed is False:
+    async def close(self) -> None:
+        if self._must_clean_session is False or self.closed is True:
+            return
+
+        # There shouldn't be a case where this is None but this quietens mypy.
+        if self._session is not None:
             await self._session.close()
 
     @property
-    def closed(self):
+    def closed(self) -> bool:
         return self._session is None or self._session.closed is True
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> AqualinkClient:
         try:
             await self.login()
             return self
@@ -75,16 +80,24 @@ class AqualinkClient:
             await self.close()
             raise
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc: Optional[BaseException],
+        tb: Optional[TracebackType],
+    ) -> Optional[bool]:
         # All Exceptions get re-raised.
         await self.close()
         return exc is None
 
     async def _send_request(
-        self, url: str, method: str = "get", **kwargs
+        self,
+        url: str,
+        method: str = "get",
+        **kwargs: Optional[Dict[str, Any]],
     ) -> aiohttp.ClientResponse:
         # One-time instantiation if we weren't given a session.
-        if self._must_clean_session and self._session is None:
+        if self._session is None:
             self._session = aiohttp.ClientSession()
 
         LOGGER.debug(f"-> {method.upper()} {url} {kwargs}")
@@ -130,11 +143,11 @@ class AqualinkClient:
             "authentication_token": self._token,
             "user_id": self._user_id,
         }
-        params = "&".join(f"{k}={v}" for k, v in params.items())
-        url = f"{AQUALINK_DEVICES_URL}?{params}"
+        params_str = "&".join(f"{k}={v}" for k, v in params.items())
+        url = f"{AQUALINK_DEVICES_URL}?{params_str}"
         return await self._send_request(url)
 
-    async def get_systems(self) -> typing.Dict[str, AqualinkSystem]:
+    async def get_systems(self) -> Dict[str, AqualinkSystem]:
         try:
             r = await self._send_systems_request()
         except AqualinkServiceException as e:
@@ -150,7 +163,7 @@ class AqualinkClient:
         self,
         serial: str,
         command: str,
-        params: typing.Optional[Payload] = None,
+        params: Optional[Payload] = None,
     ) -> aiohttp.ClientResponse:
         if not params:
             params = {}
@@ -163,16 +176,20 @@ class AqualinkClient:
                 "sessionID": self._session_id,
             }
         )
-        params = "&".join(f"{k}={v}" for k, v in params.items())
-        url = f"{AQUALINK_SESSION_URL}?{params}"
+        params_str = "&".join(f"{k}={v}" for k, v in params.items())
+        url = f"{AQUALINK_SESSION_URL}?{params_str}"
         return await self._send_request(url)
 
-    async def send_home_screen_request(self, serial) -> aiohttp.ClientResponse:
-        r = await self._send_session_request(serial, AQUALINK_COMMAND_GET_HOME)
+    async def send_home_screen_request(
+        self, serial: str
+    ) -> aiohttp.ClientResponse:
+        r = await self._send_session_request(
+            serial, AQUALINK_COMMAND_GET_HOME
+        )
         return r
 
     async def send_devices_screen_request(
-        self, serial
+        self, serial: str
     ) -> aiohttp.ClientResponse:
         r = await self._send_session_request(
             serial, AQUALINK_COMMAND_GET_DEVICES

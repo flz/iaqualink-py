@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-import typing
+from typing import TYPE_CHECKING, Dict, Optional
 
 import aiohttp
 
@@ -18,7 +18,7 @@ from iaqualink.exception import (
 )
 from iaqualink.typing import Payload
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
 
 
@@ -31,14 +31,14 @@ class AqualinkSystem:
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
         self.data = data
-        self.devices = {}
-        self.has_spa = None
-        self.temp_unit = None
+        self.devices: Dict[str, AqualinkDevice] = {}
+        self.has_spa: Optional[bool] = None
+        self.temp_unit: Optional[str] = None
         self.last_refresh = 0
 
         # Semantics here are somewhat odd.
         # True/False are obvious, None means "unknown".
-        self.online = None
+        self.online: Optional[bool] = None
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -54,7 +54,9 @@ class AqualinkSystem:
         return self.data["serial_number"]
 
     @classmethod
-    def from_data(cls, aqualink: AqualinkClient, data: Payload):
+    def from_data(
+        cls, aqualink: AqualinkClient, data: Payload
+    ) -> Optional[AqualinkSystem]:
         SYSTEM_TYPES = {"iaqua": AqualinkPoolSystem}
 
         class_ = SYSTEM_TYPES.get(data["device_type"])
@@ -67,7 +69,7 @@ class AqualinkSystem:
 
         return class_(aqualink, data)
 
-    async def get_devices(self):
+    async def get_devices(self) -> Dict[str, AqualinkDevice]:
         if not self.devices:
             await self.update()
         return self.devices

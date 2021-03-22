@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum, unique
 import logging
-import typing
+from typing import Dict, Type, Optional, TYPE_CHECKING
 
 from iaqualink.const import (
     AQUALINK_TEMP_CELSIUS_LOW,
@@ -14,7 +14,7 @@ from iaqualink.const import (
 from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.typing import DeviceData
 
-if typing.TYPE_CHECKING:
+if TYPE_CHECKING:
     from iaqualink.system import AqualinkSystem
 
 
@@ -30,7 +30,7 @@ class AqualinkLightType:
     display_name: str  # The name as displayed in the System Setup Web UI as big buttons.
     short_name: str  # The name as displayed in the System Setup Web UI next to the Aux list.
     subtype: int  # The subtype value returned by the API and sent to the API.
-    effects: typing.Dict[str, str]  # Maps effect_name -> effect_number.
+    effects: Dict[str, str]  # Maps effect_name -> effect_number.
 
 
 # Maps subtype (as string) to AqualinkLightType.
@@ -159,7 +159,10 @@ class AqualinkDevice:
         attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
         return f'{self.__class__.__name__}({", ".join(attrs)})'
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AqualinkDevice):
+            return NotImplemented
+
         if (
             self.system.serial == other.system.serial
             and self.data == other.data
@@ -188,6 +191,8 @@ class AqualinkDevice:
     def from_data(
         cls, system: AqualinkSystem, data: DeviceData
     ) -> AqualinkDevice:
+        class_: Type[AqualinkDevice]
+
         if data["name"].endswith("_heater"):
             class_ = AqualinkHeater
         elif data["name"].endswith("_set_point"):
@@ -268,11 +273,11 @@ class AqualinkAuxToggle(AqualinkToggle):
 # Using AqualinkLight as a Mixin so we can use isinstance(dev, AqualinkLight).
 class AqualinkLight:
     @property
-    def brightness(self) -> typing.Optional[int]:
+    def brightness(self) -> Optional[int]:
         raise NotImplementedError()
 
     @property
-    def effect(self) -> typing.Optional[str]:
+    def effect(self) -> Optional[str]:
         raise NotImplementedError()
 
     @property
@@ -286,21 +291,21 @@ class AqualinkLight:
 
 class AqualinkLightToggle(AqualinkLight, AqualinkAuxToggle):
     @property
-    def brightness(self) -> typing.Optional[bool]:
+    def brightness(self) -> Optional[bool]:
         return None
 
     @property
-    def effect(self) -> typing.Optional[str]:
+    def effect(self) -> Optional[str]:
         return None
 
 
 class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
     @property
-    def brightness(self) -> typing.Optional[int]:
+    def brightness(self) -> Optional[int]:
         return int(self.data["subtype"])
 
     @property
-    def effect(self) -> typing.Optional[str]:
+    def effect(self) -> Optional[str]:
         return None
 
     @property
@@ -328,12 +333,12 @@ class AqualinkDimmableLight(AqualinkLight, AqualinkDevice):
 
 class AqualinkColorLight(AqualinkLight, AqualinkDevice):
     @property
-    def brightness(self) -> typing.Optional[int]:
+    def brightness(self) -> Optional[int]:
         # Assuming that color lights don't have adjustable brightness.
         return None
 
     @property
-    def effect_num(self) -> typing.Optional[str]:
+    def effect_num(self) -> Optional[str]:
         # "state"=0 indicates the light is off.
         # "state"=1 indicates the light is on.
         # I don't see a way to retrieve the current color.
@@ -342,7 +347,7 @@ class AqualinkColorLight(AqualinkLight, AqualinkDevice):
         return self.data["state"]
 
     @property
-    def effect(self) -> typing.Optional[str]:
+    def effect(self) -> Optional[str]:
         # Ideally, this would return the effect name.
         # However, the API seems to return "state"=1 no matter what effect is currently chosen.
         # Workaround: instead of returning a possibly incorrect effect name, we'll just return "On".
@@ -361,7 +366,7 @@ class AqualinkColorLight(AqualinkLight, AqualinkDevice):
         return self.effect_num != "0"
 
     @property
-    def supported_light_effects(self) -> typing.Dict[str, str]:
+    def supported_light_effects(self) -> Dict[str, str]:
         return light_type_from_subtype(self.data["subtype"]).effects
 
     async def set_effect_by_name(self, effect_name: str) -> None:
@@ -380,11 +385,11 @@ class AqualinkColorLight(AqualinkLight, AqualinkDevice):
         }
         await self.system.set_light(data)
 
-    async def turn_off(self):
+    async def turn_off(self) -> None:
         if self.is_on:
             await self.set_effect_by_num("0")
 
-    async def turn_on(self):
+    async def turn_on(self) -> None:
         if not self.is_on:
             await self.set_effect_by_num("1")
 

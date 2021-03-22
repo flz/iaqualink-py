@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import copy
 import unittest
 from unittest.mock import MagicMock
 import pytest
 
 from iaqualink.device import (
+    AqualinkDevice,
     AqualinkColorLight,
     AqualinkDimmableLight,
     AqualinkLightToggle,
@@ -15,7 +17,21 @@ from .common import async_noop
 
 
 class TestAqualinkDevice(unittest.IsolatedAsyncioTestCase):
-    pass
+    def setUp(self) -> None:
+        system = MagicMock()
+        data = {"name": "Test Device"}
+        self.obj = AqualinkDevice(system, data)
+
+    def test_equal(self) -> None:
+        assert self.obj == self.obj
+
+    def test_not_equal(self) -> None:
+        obj2 = copy.deepcopy(self.obj)
+        obj2.data["name"] = "Test Device 2"
+        assert self.obj != obj2
+
+    def test_not_equal_different_type(self) -> None:
+        assert (self.obj == {}) == False
 
 
 class TestAqualinkSensor(unittest.IsolatedAsyncioTestCase):
