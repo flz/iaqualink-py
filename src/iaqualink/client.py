@@ -22,9 +22,8 @@ from iaqualink.system import AqualinkSystem
 from iaqualink.typing import Payload
 
 AQUALINK_HTTP_HEADERS = {
-    "User-Agent": "iAquaLink/70 CFNetwork/901.1 Darwin/17.6.0",
-    "Content-Type": "application/json",
-    "Accept": "*/*",
+    "user-agent": "okhttp/3.14.7",
+    "content-type": "application/json",
 }
 
 LOGGER = logging.getLogger("iaqualink")
