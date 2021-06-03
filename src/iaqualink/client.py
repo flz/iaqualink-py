@@ -30,9 +30,8 @@ AQUALINK_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 AQUALINK_COMMAND_SET_TEMPS = "set_temps"
 
 AQUALINK_HTTP_HEADERS = {
-    "User-Agent": "iAquaLink/70 CFNetwork/901.1 Darwin/17.6.0",
-    "Content-Type": "application/json",
-    "Accept": "*/*",
+    "user-agent": "okhttp/3.14.7",
+    "content-type": "application/json",
 }
 
 LOGGER = logging.getLogger("iaqualink")
