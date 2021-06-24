@@ -1,0 +1,8 @@
+bumpversion
+flake8
+isort
+mypy
+pytest
+pytest-cov
+pytest-icdiff
+pytest-sugar
