@@ -155,7 +155,7 @@ class AqualinkClient:
         systems = [AqualinkSystem.from_data(self, x) for x in data]
         return {x.serial: x for x in systems if x is not None}
 
-    async def _send_client_request(
+    async def _send_session_request(
         self,
         serial: str,
         command: str,
@@ -177,11 +177,11 @@ class AqualinkClient:
         return await self._send_request(url)
 
     async def send_home_screen_request(self, serial: str) -> httpx.Response:
-        r = await self._send_client_request(serial, AQUALINK_COMMAND_GET_HOME)
+        r = await self._send_session_request(serial, AQUALINK_COMMAND_GET_HOME)
         return r
 
     async def send_devices_screen_request(self, serial: str) -> httpx.Response:
-        r = await self._send_client_request(
+        r = await self._send_session_request(
             serial, AQUALINK_COMMAND_GET_DEVICES
         )
         return r

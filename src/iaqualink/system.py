@@ -158,26 +158,26 @@ class AqualinkSystem:
                 self.devices[k] = AqualinkDevice.from_data(self, v)
 
     async def set_pump(self, command: str) -> None:
-        r = await self.aqualink._send_client_request(self.serial, command)
+        r = await self.aqualink._send_session_request(self.serial, command)
         self._parse_home_response(r)
 
     async def set_heater(self, command: str) -> None:
-        r = await self.aqualink._send_client_request(self.serial, command)
+        r = await self.aqualink._send_session_request(self.serial, command)
         self._parse_home_response(r)
 
     async def set_temps(self, temps: Payload) -> None:
-        r = await self.aqualink._send_client_request(
+        r = await self.aqualink._send_session_request(
             self.serial, AQUALINK_COMMAND_SET_TEMPS, temps
         )
         self._parse_home_response(r)
 
     async def set_aux(self, aux: str) -> None:
         aux = AQUALINK_COMMAND_SET_AUX + "_" + aux.replace("aux_", "")
-        r = await self.aqualink._send_client_request(self.serial, aux)
+        r = await self.aqualink._send_session_request(self.serial, aux)
         self._parse_devices_response(r)
 
     async def set_light(self, data: Payload) -> None:
-        r = await self.aqualink._send_client_request(
+        r = await self.aqualink._send_session_request(
             self.serial, AQUALINK_COMMAND_SET_LIGHT, data
         )
         self._parse_devices_response(r)
