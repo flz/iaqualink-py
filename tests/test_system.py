@@ -12,7 +12,7 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkPoolSystem, AqualinkSystem
 
-from .common import async_noop, async_raises, async_returns
+from .common import async_noop, async_raises
 
 
 class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
@@ -38,8 +38,8 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
         r = AqualinkSystem.from_data(aqualink, data)
         r.aqualink.send_home_screen_request = async_noop
         r.aqualink.send_devices_screen_request = async_noop
-        r._parse_home_response = async_noop
-        r._parse_devices_response = async_noop
+        r._parse_home_response = MagicMock()
+        r._parse_devices_response = MagicMock()
         await r.update()
         assert r.online is True
 
@@ -60,7 +60,9 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
         r = AqualinkSystem.from_data(aqualink, data)
         r.aqualink.send_home_screen_request = async_noop
         r.aqualink.send_devices_screen_request = async_noop
-        r._parse_home_response = async_raises(AqualinkSystemOfflineException)
+        r._parse_home_response = MagicMock(
+            side_effect=AqualinkSystemOfflineException
+        )
 
         with pytest.raises(AqualinkSystemOfflineException):
             await r.update()
@@ -73,7 +75,7 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
 
         message = {"message": "", "devices_screen": [{"status": "Offline"}]}
         response = MagicMock()
-        response.json = async_returns(message)
+        response.json.return_value = message
 
         with pytest.raises(AqualinkSystemOfflineException):
             await system._parse_devices_response(response)
@@ -102,7 +104,7 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
             ],
         }
         response = MagicMock()
-        response.json = async_returns(message)
+        response.json.return_value = message
 
         expected = {
             "aux_B1": AqualinkAuxToggle(
@@ -118,5 +120,5 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
                 },
             )
         }
-        await system._parse_devices_response(response)
+        system._parse_devices_response(response)
         assert system.devices == expected

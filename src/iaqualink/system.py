@@ -4,7 +4,7 @@ import logging
 import time
 from typing import TYPE_CHECKING, Dict, Optional
 
-import aiohttp
+import httpx
 
 from iaqualink.const import (
     AQUALINK_COMMAND_SET_AUX,
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
 
 
-MIN_SECS_TO_REFRESH = 15
+MIN_SECS_TO_REFRESH = 5
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -90,8 +90,8 @@ class AqualinkSystem:
             raise
 
         try:
-            await self._parse_home_response(r1)
-            await self._parse_devices_response(r2)
+            self._parse_home_response(r1)
+            self._parse_devices_response(r2)
         except AqualinkSystemOfflineException:
             self.online = False
             raise
@@ -99,10 +99,8 @@ class AqualinkSystem:
         self.online = True
         self.last_refresh = int(time.time())
 
-    async def _parse_home_response(
-        self, response: aiohttp.ClientResponse
-    ) -> None:
-        data = await response.json()
+    def _parse_home_response(self, response: httpx.Response) -> None:
+        data = response.json()
 
         LOGGER.debug(f"Home response: {data}")
 
@@ -134,10 +132,8 @@ class AqualinkSystem:
         else:
             self.has_spa = False
 
-    async def _parse_devices_response(
-        self, response: aiohttp.ClientResponse
-    ) -> None:
-        data = await response.json()
+    def _parse_devices_response(self, response: httpx.Response) -> None:
+        data = response.json()
 
         LOGGER.debug(f"Devices response: {data}")
 
@@ -162,29 +158,29 @@ class AqualinkSystem:
                 self.devices[k] = AqualinkDevice.from_data(self, v)
 
     async def set_pump(self, command: str) -> None:
-        r = await self.aqualink._send_session_request(self.serial, command)
-        await self._parse_home_response(r)
+        r = await self.aqualink._send_client_request(self.serial, command)
+        self._parse_home_response(r)
 
     async def set_heater(self, command: str) -> None:
-        r = await self.aqualink._send_session_request(self.serial, command)
-        await self._parse_home_response(r)
+        r = await self.aqualink._send_client_request(self.serial, command)
+        self._parse_home_response(r)
 
     async def set_temps(self, temps: Payload) -> None:
-        r = await self.aqualink._send_session_request(
+        r = await self.aqualink._send_client_request(
             self.serial, AQUALINK_COMMAND_SET_TEMPS, temps
         )
-        await self._parse_home_response(r)
+        self._parse_home_response(r)
 
     async def set_aux(self, aux: str) -> None:
         aux = AQUALINK_COMMAND_SET_AUX + "_" + aux.replace("aux_", "")
-        r = await self.aqualink._send_session_request(self.serial, aux)
-        await self._parse_devices_response(r)
+        r = await self.aqualink._send_client_request(self.serial, aux)
+        self._parse_devices_response(r)
 
     async def set_light(self, data: Payload) -> None:
-        r = await self.aqualink._send_session_request(
+        r = await self.aqualink._send_client_request(
             self.serial, AQUALINK_COMMAND_SET_LIGHT, data
         )
-        await self._parse_devices_response(r)
+        self._parse_devices_response(r)
 
 
 class AqualinkPoolSystem(AqualinkSystem):

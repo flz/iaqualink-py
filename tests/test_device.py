@@ -64,6 +64,7 @@ class TestAqualinkLightToggle(unittest.IsolatedAsyncioTestCase):
 
     async def test_turn_off_noop(self) -> None:
         self.obj.system.set_aux.reset_mock()
+        self.obj.data["state"] = "0"
         await self.obj.turn_off()
         self.obj.system.set_aux.assert_not_called()
 
@@ -75,6 +76,7 @@ class TestAqualinkLightToggle(unittest.IsolatedAsyncioTestCase):
 
     async def test_turn_on(self) -> None:
         self.obj.system.set_aux.reset_mock()
+        self.obj.data["state"] = "0"
         await self.obj.turn_on()
         self.obj.system.set_aux.assert_called_once()
 
