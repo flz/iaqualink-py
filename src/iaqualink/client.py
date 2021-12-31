@@ -8,19 +8,17 @@ import httpx
 
 from iaqualink.const import (
     AQUALINK_API_KEY,
-    AQUALINK_COMMAND_GET_DEVICES,
-    AQUALINK_COMMAND_GET_HOME,
     AQUALINK_DEVICES_URL,
     AQUALINK_LOGIN_URL,
-    AQUALINK_SESSION_URL,
     KEEPALIVE_EXPIRY,
 )
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceUnauthorizedException,
+    AqualinkSystemUnsupportedException,
 )
 from iaqualink.system import AqualinkSystem
-from iaqualink.typing import Payload
+from iaqualink.systems import *  # pylint: disable=W0401,W0614 # noqa: F401,F403
 
 AQUALINK_HTTP_HEADERS = {
     "user-agent": "okhttp/3.14.7",
@@ -50,7 +48,7 @@ class AqualinkClient:
             self._client = httpx_client
             self._must_close_client = False
 
-        self._client_id = ""
+        self.client_id = ""
         self._token = ""
         self._user_id = ""
 
@@ -87,7 +85,7 @@ class AqualinkClient:
         await self.close()
         return exc is None
 
-    async def _send_request(
+    async def send_request(
         self, url: str, method: str = "get", **kwargs: Any
     ) -> httpx.Response:
         if self._client is None:
@@ -120,7 +118,7 @@ class AqualinkClient:
             "email": self._username,
             "password": self._password,
         }
-        return await self._send_request(
+        return await self.send_request(
             AQUALINK_LOGIN_URL, method="post", json=data
         )
 
@@ -128,7 +126,7 @@ class AqualinkClient:
         r = await self._send_login_request()
 
         data = r.json()
-        self._client_id = data["session_id"]
+        self.client_id = data["session_id"]
         self._token = data["authentication_token"]
         self._user_id = data["id"]
         self._logged = True
@@ -141,7 +139,7 @@ class AqualinkClient:
         }
         params_str = "&".join(f"{k}={v}" for k, v in params.items())
         url = f"{AQUALINK_DEVICES_URL}?{params_str}"
-        return await self._send_request(url)
+        return await self.send_request(url)
 
     async def get_systems(self) -> Dict[str, AqualinkSystem]:
         try:
@@ -152,36 +150,12 @@ class AqualinkClient:
             raise
 
         data = r.json()
-        systems = [AqualinkSystem.from_data(self, x) for x in data]
+
+        systems = []
+        for x in data:
+            try:
+                systems += [AqualinkSystem.from_data(self, x)]
+            except AqualinkSystemUnsupportedException:
+                pass
+
         return {x.serial: x for x in systems if x is not None}
-
-    async def _send_session_request(
-        self,
-        serial: str,
-        command: str,
-        params: Optional[Payload] = None,
-    ) -> httpx.Response:
-        if not params:
-            params = {}
-
-        params.update(
-            {
-                "actionID": "command",
-                "command": command,
-                "serial": serial,
-                "sessionID": self._client_id,
-            }
-        )
-        params_str = "&".join(f"{k}={v}" for k, v in params.items())
-        url = f"{AQUALINK_SESSION_URL}?{params_str}"
-        return await self._send_request(url)
-
-    async def send_home_screen_request(self, serial: str) -> httpx.Response:
-        r = await self._send_session_request(serial, AQUALINK_COMMAND_GET_HOME)
-        return r
-
-    async def send_devices_screen_request(self, serial: str) -> httpx.Response:
-        r = await self._send_session_request(
-            serial, AQUALINK_COMMAND_GET_DEVICES
-        )
-        return r

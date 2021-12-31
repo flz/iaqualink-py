@@ -19,3 +19,7 @@ class AqualinkServiceUnauthorizedException(AqualinkServiceException):
 
 class AqualinkSystemOfflineException(AqualinkServiceException):
     """Exception raised when a system is offline."""
+
+
+class AqualinkSystemUnsupportedException(AqualinkServiceException):
+    """Exception raised when a system isn't supported by the library."""

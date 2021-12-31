@@ -11,7 +11,6 @@ from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceUnauthorizedException,
 )
-from iaqualink.system import AqualinkSystem
 
 from .common import async_noop, async_raises
 
@@ -93,6 +92,8 @@ class TestAqualinkClient(unittest.IsolatedAsyncioTestCase):
 
         await self.aqualink.login()
 
+        assert self.aqualink.logged is True
+
         mock_request.return_value.status_code = 401
         mock_request.return_value.json = MagicMock(return_value={})
 
@@ -101,17 +102,41 @@ class TestAqualinkClient(unittest.IsolatedAsyncioTestCase):
 
         assert self.aqualink.logged is False
 
-    @patch("iaqualink.system.AqualinkSystem.from_data")
     @patch("httpx.AsyncClient.request")
-    async def test_systems_request(self, mock_request, mock_from_data):
+    async def test_systems_request_system_unsupported(self, mock_request):
         mock_request.return_value.status_code = 200
-        mock_request.return_value.json = MagicMock(return_value={})
+        mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
 
-        mock_from_data.return_value = AqualinkSystem(
-            self.aqualink, data={"serial_number": "xxx"}
-        )
+        await self.aqualink.login()
 
-        await self.aqualink.get_systems()
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json.return_value = [
+            {
+                "device_type": "foo",
+                "serial_number": "SN123456",
+            }
+        ]
+
+        systems = await self.aqualink.get_systems()
+        assert len(systems) == 0
+
+    @patch("httpx.AsyncClient.request")
+    async def test_systems_request(self, mock_request):
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+
+        await self.aqualink.login()
+
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json.return_value = [
+            {
+                "device_type": "iaqua",
+                "serial_number": "SN123456",
+            }
+        ]
+
+        systems = await self.aqualink.get_systems()
+        assert len(systems) == 1
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_unauthorized(self, mock_request):
@@ -119,29 +144,3 @@ class TestAqualinkClient(unittest.IsolatedAsyncioTestCase):
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
             await self.aqualink.get_systems()
-
-    @patch("httpx.AsyncClient.request")
-    async def test_home_request(self, mock_request):
-        mock_request.return_value.status_code = 200
-
-        await self.aqualink.send_home_screen_request(serial="xxx")
-
-    @patch("httpx.AsyncClient.request")
-    async def test_home_request_unauthorized(self, mock_request):
-        mock_request.return_value.status_code = 401
-
-        with pytest.raises(AqualinkServiceUnauthorizedException):
-            await self.aqualink.send_home_screen_request(serial="xxx")
-
-    @patch("httpx.AsyncClient.request")
-    async def test_devices_request(self, mock_request):
-        mock_request.return_value.status_code = 200
-
-        await self.aqualink.send_devices_screen_request(serial="xxx")
-
-    @patch("httpx.AsyncClient.request")
-    async def test_devices_request_unauthorized(self, mock_request):
-        mock_request.return_value.status_code = 401
-
-        with pytest.raises(AqualinkServiceUnauthorizedException):
-            await self.aqualink.send_devices_screen_request(serial="xxx")

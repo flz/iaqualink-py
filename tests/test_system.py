@@ -1,124 +1,69 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from iaqualink.device import AqualinkAuxToggle
-from iaqualink.exception import (
-    AqualinkServiceException,
-    AqualinkSystemOfflineException,
-)
-from iaqualink.system import AqualinkPoolSystem, AqualinkSystem
-
-from .common import async_noop, async_raises
+from iaqualink.client import AqualinkClient
+from iaqualink.exception import AqualinkSystemUnsupportedException
+from iaqualink.system import AqualinkSystem
 
 
 class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         pass
 
+    def test_repr(self):
+        aqualink = MagicMock()
+        data = {
+            "id": 1,
+            "serial_number": "ABCDEFG",
+            "device_type": "iaqua",
+            "name": "foo",
+        }
+        system = AqualinkSystem(aqualink, data)
+        assert (
+            repr(system)
+            == f"AqualinkSystem(name='foo', serial='ABCDEFG', data={data})"
+        )
+
     def test_from_data_iaqua(self):
         aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
         r = AqualinkSystem.from_data(aqualink, data)
         assert r is not None
-        assert isinstance(r, AqualinkPoolSystem)
 
     def test_from_data_unsupported(self):
         aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "foo"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        assert r is None
+        with pytest.raises(AqualinkSystemUnsupportedException):
+            AqualinkSystem.from_data(aqualink, data)
 
-    async def test_update_success(self):
-        aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        r.aqualink.send_home_screen_request = async_noop
-        r.aqualink.send_devices_screen_request = async_noop
-        r._parse_home_response = MagicMock()
-        r._parse_devices_response = MagicMock()
-        await r.update()
-        assert r.online is True
+    async def test_get_devices_needs_update(self):
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
+        aqualink = AqualinkClient("user", "pass")
+        system = AqualinkSystem(aqualink, data)
+        system.devices = None
 
-    async def test_update_service_exception(self):
-        aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        r.aqualink.send_home_screen_request = async_raises(
-            AqualinkServiceException
-        )
-        with pytest.raises(AqualinkServiceException):
-            await r.update()
-        assert r.online is None
+        with patch.object(system, "update") as mock_update:
+            await system.get_devices()
+            mock_update.assert_called_once()
 
-    async def test_update_offline(self):
-        aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        r.aqualink.send_home_screen_request = async_noop
-        r.aqualink.send_devices_screen_request = async_noop
-        r._parse_home_response = MagicMock(
-            side_effect=AqualinkSystemOfflineException
-        )
+    async def test_get_devices(self):
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
+        aqualink = AqualinkClient("user", "pass")
+        system = AqualinkSystem(aqualink, data)
+        system.devices = {"foo": "bar"}
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            await r.update()
-        assert r.online is False
+        with patch.object(system, "update") as mock_update:
+            await system.get_devices()
+            mock_update.assert_not_called()
 
-    async def test_parse_devices_offline(self):
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
-        aqualink = MagicMock()
-        system = AqualinkSystem.from_data(aqualink, data)
+    async def test_update_not_implemented(self):
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
+        aqualink = AqualinkClient("user", "pass")
+        system = AqualinkSystem(aqualink, data)
 
-        message = {"message": "", "devices_screen": [{"status": "Offline"}]}
-        response = MagicMock()
-        response.json.return_value = message
-
-        with pytest.raises(AqualinkSystemOfflineException):
-            await system._parse_devices_response(response)
-        assert system.devices == {}
-
-    async def test_parse_devices_good(self):
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
-        aqualink = MagicMock()
-        system = AqualinkSystem.from_data(aqualink, data)
-
-        message = {
-            "message": "",
-            "devices_screen": [
-                {"status": "Online"},
-                {"response": ""},
-                {"group": "1"},
-                {
-                    "aux_B1": [
-                        {"state": "0"},
-                        {"label": "Label B1"},
-                        {"icon": "aux_1_0.png"},
-                        {"type": "0"},
-                        {"subtype": "0"},
-                    ]
-                },
-            ],
-        }
-        response = MagicMock()
-        response.json.return_value = message
-
-        expected = {
-            "aux_B1": AqualinkAuxToggle(
-                system=system,
-                data={
-                    "aux": "B1",
-                    "name": "aux_B1",
-                    "state": "0",
-                    "label": "Label B1",
-                    "icon": "aux_1_0.png",
-                    "type": "0",
-                    "subtype": "0",
-                },
-            )
-        }
-        system._parse_devices_response(response)
-        assert system.devices == expected
+        with pytest.raises(NotImplementedError):
+            await system.update()
