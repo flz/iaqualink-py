@@ -24,7 +24,7 @@ jobs:
     - name: Run isort
       run: |
         pip install isort
-        isort --check --diff .
+        isort --check --diff src tests
 
   black:
     runs-on: ubuntu-latest
@@ -46,7 +46,7 @@ jobs:
     - name: Run black
       run: |
         pip install black
-        black -l 80 --check .
+        black -l 80 --check src tests
 
   flake8:
     runs-on: ubuntu-latest
@@ -68,7 +68,7 @@ jobs:
     - name: Run flake8
       run: |
         pip install flake8
-        flake8 .
+        flake8 src tests
 
   mypy:
     runs-on: ubuntu-latest
@@ -139,7 +139,7 @@ jobs:
       run: |
         pip install pytest
         pip install pytest-cov
-        pytest --cov=./ --cov-report=xml
+        pytest --cov=./ --cov-report=xml src tests
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
