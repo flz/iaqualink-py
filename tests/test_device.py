@@ -134,9 +134,25 @@ class TestAqualinkThermostat(unittest.IsolatedAsyncioTestCase):
         data = {}
         self.obj = AqualinkThermostat(system, data)
 
+    def test_is_on_not_implemented(self):
+        with pytest.raises(NotImplementedError):
+            self.obj.is_on
+
+    async def test_toggle_not_implemented(self):
+        with pytest.raises(NotImplementedError):
+            await self.obj.toggle()
+
     async def test_unit_not_implemented(self):
         with pytest.raises(NotImplementedError):
             self.obj.unit
+
+    def test_current_temperature_not_implemented(self):
+        with pytest.raises(NotImplementedError):
+            self.obj.current_temperature
+
+    def test_target_temperature_not_implemented(self):
+        with pytest.raises(NotImplementedError):
+            self.obj.target_temperature
 
     async def test_max_temperature_not_implemented(self):
         with pytest.raises(NotImplementedError):

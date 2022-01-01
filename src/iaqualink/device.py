@@ -126,9 +126,17 @@ class AqualinkLight(AqualinkDevice):
         return None
 
 
-class AqualinkThermostat(AqualinkDevice):
+class AqualinkThermostat(AqualinkToggle, AqualinkDevice):
     @property
     def unit(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def current_temperature(self) -> str:
+        raise NotImplementedError
+
+    @property
+    def target_temperature(self) -> str:
         raise NotImplementedError
 
     @property
