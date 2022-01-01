@@ -35,16 +35,18 @@ class ExoSystem(AqualinkSystem):
         attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
         return f'{self.__class__.__name__}({" ".join(attrs)})'
 
-    async def send_devices_request(self, **kwargs) -> httpx.Response:
+    async def send_devices_request(self, **kwargs: Any) -> httpx.Response:
         url = f"{EXO_DEVICES_URL}/{self.serial}/shadow"
         headers = {"Authorization": self.aqualink.id_token}
         return await self.aqualink.send_request(url, headers=headers, **kwargs)
 
-    async def send_reported_state_request(self):
+    async def send_reported_state_request(self) -> httpx.Response:
         return await self.send_devices_request()
 
-    async def send_desired_state_request(self, state: Dict[str, Any]):
-        return await self.send_session_request(
+    async def send_desired_state_request(
+        self, state: Dict[str, Any]
+    ) -> httpx.Response:
+        return await self.send_devices_request(
             method="post", json={"state": {"desired": state}}
         )
 
@@ -109,16 +111,8 @@ class ExoSystem(AqualinkSystem):
             else:
                 self.devices[k] = ExoDevice.from_data(self, v)
 
-    async def set_heater(self, state: int) -> None:
-        r = await self.send_desired_state_request(
-            {"heating": {"enabled": state}}
-        )
-        r.raise_for_status()
-
-    async def set_temps(self, temperature: int) -> None:
-        r = await self.send_desired_state_request(
-            {"heating": {"sp": temperature}}
-        )
+    async def set_heating(self, name: str, state: int) -> None:
+        r = await self.send_desired_state_request({"heating": {name: state}})
         r.raise_for_status()
 
     async def set_aux(self, aux: str, state: int) -> None:
@@ -127,8 +121,8 @@ class ExoSystem(AqualinkSystem):
         )
         r.raise_for_status()
 
-    async def set_toggle(self, state: int) -> None:
+    async def set_toggle(self, name: str, state: int) -> None:
         r = await self.send_desired_state_request(
-            {"equipment": {"swc_0": state}}
+            {"equipment": {"swc_0": {name: state}}}
         )
         r.raise_for_status()

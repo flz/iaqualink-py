@@ -106,7 +106,7 @@ class ExoAttributeSensor(ExoDevice, AqualinkSensor):
 
 class ExoThermostat(ExoDevice, AqualinkThermostat):
     @property
-    def state(self) -> int:
+    def state(self) -> str:
         return str(self.data["sp"])
 
     @property
@@ -114,12 +114,20 @@ class ExoThermostat(ExoDevice, AqualinkThermostat):
         return "C"
 
     @property
+    def is_on(self) -> bool:
+        return ExoState(self.data["enabled"]) == ExoState.ON
+
+    async def toggle(self) -> None:
+        new_state = 1 - int(self.data["enabled"])
+        await self.system.set_heating("enabled", new_state)
+
+    @property
     def min_temperature(self) -> int:
-        return self.data["sp_min"]
+        return int(self.data["sp_min"])
 
     @property
     def max_temperature(self) -> int:
-        return self.data["sp_max"]
+        return int(self.data["sp_max"])
 
     async def set_temperature(self, temperature: int) -> None:
         unit = self.unit
@@ -131,7 +139,7 @@ class ExoThermostat(ExoDevice, AqualinkThermostat):
             msg += f" ({low}-{high}{unit})."
             raise AqualinkInvalidParameterException(msg)
 
-        await self.system.set_temps(str(temperature))
+        await self.system.set_heating("sp", temperature)
 
 
 class ExoToggle(ExoDevice, AqualinkToggle):
