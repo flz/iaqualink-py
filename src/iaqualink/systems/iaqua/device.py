@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum, unique
-from typing import TYPE_CHECKING, Dict, Optional, Type
+from typing import TYPE_CHECKING, Dict, Optional, Type, cast
 
 from iaqualink.device import (
     AqualinkDevice,
@@ -110,15 +110,31 @@ class IaquaBinarySensor(IaquaSensor):
 
 class IaquaThermostat(IaquaDevice, AqualinkThermostat):
     @property
+    def _type(self) -> str:
+        return self.name.split("_")[0]
+
+    @property
     def _temperature(self) -> str:
         # Spa takes precedence for temp1 if present.
-        if self.name.startswith("pool") and self.system.has_spa:
+        if self._type == "pool" and "spa_set_point" in self.system.devices:
             return "temp2"
         return "temp1"
 
     @property
     def unit(self) -> str:
         return self.system.temp_unit
+
+    @property
+    def _sensor(self) -> IaquaSensor:
+        return cast(IaquaSensor, self.system.devices[f"{self._type}_temp"])
+
+    @property
+    def current_temperature(self) -> str:
+        return self._sensor.state
+
+    @property
+    def target_temperature(self) -> str:
+        return self.state
 
     @property
     def min_temperature(self) -> int:
@@ -144,6 +160,17 @@ class IaquaThermostat(IaquaDevice, AqualinkThermostat):
 
         data = {self._temperature: str(temperature)}
         await self.system.set_temps(data)
+
+    @property
+    def _heater(self) -> IaquaHeater:
+        return cast(IaquaHeater, self.system.devices[f"{self._type}_heater"])
+
+    @property
+    def is_on(self) -> bool:
+        return self._heater.is_on
+
+    async def toggle(self) -> None:
+        await self._heater.toggle()
 
 
 class IaquaToggle(IaquaDevice, AqualinkToggle):

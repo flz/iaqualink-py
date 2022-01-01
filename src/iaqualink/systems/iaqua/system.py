@@ -43,7 +43,6 @@ class IaquaSystem(AqualinkSystem):
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         super().__init__(aqualink, data)
 
-        self.has_spa: Optional[bool] = None
         self.temp_unit: str = ""
 
     def __repr__(self) -> str:
@@ -129,13 +128,6 @@ class IaquaSystem(AqualinkSystem):
                     self.devices[k].data[dk] = dv
             else:
                 self.devices[k] = IaquaDevice.from_data(self, v)
-
-        # Keep track of the presence of the spa so we know whether temp1 is
-        # for the spa or the pool. This is pretty ugly.
-        if "spa_set_point" in devices:
-            self.has_spa = True
-        else:
-            self.has_spa = False
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()

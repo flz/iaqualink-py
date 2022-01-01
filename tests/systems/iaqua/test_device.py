@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -10,7 +10,9 @@ from iaqualink.systems.iaqua.device import (
     IaquaColorLight,
     IaquaDevice,
     IaquaDimmableLight,
+    IaquaHeater,
     IaquaLightToggle,
+    IaquaSensor,
     IaquaThermostat,
 )
 
@@ -219,36 +221,81 @@ class TestIaquaThermostat(unittest.IsolatedAsyncioTestCase):
         self.system = system = MagicMock()
         self.system.temp_unit = "F"
         system.set_temps = async_noop
-        pool_data = {"name": "pool_set_point", "state": "76"}
-        self.pool_obj = IaquaThermostat(system, pool_data)
-        spa_data = {"name": "spa_set_point", "state": "102"}
-        self.spa_obj = IaquaThermostat(system, spa_data)
+        pool_set_point = {"name": "pool_set_point", "state": "76"}
+        self.pool_set_point = IaquaThermostat(system, pool_set_point)
+        pool_temp = {"name": "pool_temp", "state": "65"}
+        self.pool_temp = IaquaSensor(system, pool_temp)
+        pool_heater = {"name": "pool_heater", "state": "0"}
+        self.pool_heater = IaquaHeater(system, pool_heater)
+        self.pool_heater.toggle = AsyncMock()
+        spa_set_point = {"name": "spa_set_point", "state": "102"}
+        self.spa_set_point = IaquaThermostat(system, spa_set_point)
+        devices = [
+            self.pool_set_point,
+            self.pool_heater,
+            self.pool_temp,
+            self.spa_set_point,
+        ]
+        system.devices = {x.name: x for x in devices}
 
     async def test_temp_name_spa_present(self):
-        self.system.has_spa = True
-        assert self.spa_obj._temperature == "temp1"
-        assert self.pool_obj._temperature == "temp2"
+        assert self.spa_set_point._temperature == "temp1"
+        assert self.pool_set_point._temperature == "temp2"
 
     async def test_temp_name_no_spa(self):
-        self.system.has_spa = False
-        assert self.pool_obj._temperature == "temp1"
+        spa_set_point = self.system.devices.pop("spa_set_point")
+        assert self.pool_set_point._temperature == "temp1"
+        self.system.devices["spa_set_point"] = spa_set_point
+
+    def test_current_temperature(self):
+        assert self.pool_set_point.current_temperature == "65"
+
+    def test_target_temperature(self):
+        assert self.pool_set_point.target_temperature == "76"
+
+    def test_is_on(self):
+        assert self.pool_set_point.is_on is False
+
+    async def test_turn_on(self):
+        self.pool_heater.toggle.reset_mock()
+        self.pool_heater.data["state"] = "0"
+        await self.pool_set_point.turn_on()
+        self.pool_heater.toggle.assert_called_once()
+
+    async def test_turn_on_noop(self):
+        self.pool_heater.toggle.reset_mock()
+        self.pool_heater.data["state"] = "1"
+        await self.pool_set_point.turn_on()
+        self.pool_heater.toggle.assert_not_called()
+
+    async def test_turn_off(self):
+        self.pool_heater.toggle.reset_mock()
+        self.pool_heater.data["state"] = "1"
+        await self.pool_set_point.turn_off()
+        self.pool_heater.toggle.assert_called_once()
+
+    async def test_turn_off_noop(self):
+        self.pool_heater.toggle.reset_mock()
+        self.pool_heater.data["state"] = "0"
+        await self.pool_set_point.turn_off()
+        self.pool_heater.toggle.assert_not_called()
 
     async def test_bad_temperature(self):
         with pytest.raises(Exception):
-            await self.pool_obj.set_temperature(18)
+            await self.pool_set_point.set_temperature(18)
 
     async def test_bad_temperature_2(self):
         self.system.temp_unit = "C"
         with pytest.raises(Exception):
-            await self.pool_obj.set_temperature(72)
+            await self.pool_set_point.set_temperature(72)
 
     async def test_set_temperature(self):
-        self.pool_obj.system.set_temps.reset_mock()
-        await self.pool_obj.set_temperature(72)
-        self.pool_obj.system.set_temps.assert_called_once()
+        self.pool_set_point.system.set_temps.reset_mock()
+        await self.pool_set_point.set_temperature(72)
+        self.pool_set_point.system.set_temps.assert_called_once()
 
     async def test_set_temperature_2(self):
-        self.pool_obj.system.set_temps.reset_mock()
+        self.pool_set_point.system.set_temps.reset_mock()
         self.system.temp_unit = "C"
-        await self.pool_obj.set_temperature(18)
-        self.pool_obj.system.set_temps.assert_called_once()
+        await self.pool_set_point.set_temperature(18)
+        self.pool_set_point.system.set_temps.assert_called_once()
