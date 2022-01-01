@@ -193,8 +193,13 @@ class TestExoAttributeToggle(unittest.IsolatedAsyncioTestCase):
 class TestExoThermostat(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.system = system = AsyncMock()
-        system.set_toggle = async_noop
-        data = {"name": "heating", "sp": 20, "sp_min": 1, "sp_max": 40}
+        data = {
+            "name": "heating",
+            "enabled": 1,
+            "sp": 20,
+            "sp_min": 1,
+            "sp_max": 40,
+        }
         self.obj = ExoDevice.from_data(system, data)
 
     def test_from_data(self) -> None:
@@ -206,14 +211,39 @@ class TestExoThermostat(unittest.IsolatedAsyncioTestCase):
         assert self.obj.manufacturer == "Zodiac"
         assert self.obj.model == "Thermostat"
         assert self.obj.state == "20"
+        assert self.obj.is_on is True
         assert self.obj.min_temperature == 1
         assert self.obj.max_temperature == 40
+
+    async def test_turn_on(self):
+        self.system.set_heating.reset_mock()
+        self.obj.data["enabled"] = 0
+        await self.obj.turn_on()
+        self.system.set_heating.assert_called_with("enabled", 1)
+
+    async def test_turn_on_noop(self):
+        self.system.set_heating.reset_mock()
+        self.obj.data["enabled"] = 1
+        await self.obj.turn_on()
+        self.system.set_heating.assert_not_called()
+
+    async def test_turn_off(self):
+        self.system.set_heating.reset_mock()
+        self.obj.data["enabled"] = 1
+        await self.obj.turn_off()
+        self.system.set_heating.assert_called_with("enabled", 0)
+
+    async def test_turn_off_noop(self):
+        self.system.set_heating.reset_mock()
+        self.obj.data["enabled"] = 0
+        await self.obj.turn_off()
+        self.system.set_heating.assert_not_called()
 
     async def test_bad_temperature(self):
         with pytest.raises(Exception):
             await self.obj.set_temperature(42)
 
     async def test_set_temperature(self):
-        self.obj.system.set_temps.reset_mock()
+        self.obj.system.set_heating.reset_mock()
         await self.obj.set_temperature(20)
-        self.obj.system.set_temps.assert_called_once()
+        self.obj.system.set_heating.assert_called_with("sp", 20)
