@@ -10,6 +10,7 @@ from iaqualink.const import MIN_SECS_TO_REFRESH
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkSystemOfflineException,
+    AqualinkServiceUnauthorizedException
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.exo.device import ExoDevice
@@ -38,7 +39,19 @@ class ExoSystem(AqualinkSystem):
     async def send_devices_request(self, **kwargs: Any) -> httpx.Response:
         url = f"{EXO_DEVICES_URL}/{self.serial}/shadow"
         headers = {"Authorization": self.aqualink.id_token}
-        return await self.aqualink.send_request(url, headers=headers, **kwargs)
+        
+        try:
+            r = await self.aqualink.send_request(url, headers=headers, **kwargs)
+            return r
+        except AqualinkServiceUnauthorizedException:
+            try:
+                # token expired so refresh the token and try again
+                await self.aqualink.login()
+                headers = {"Authorization": self.aqualink.id_token}
+                r = await self.aqualink.send_request(url, headers=headers, **kwargs)
+                return r
+            except:
+                raise
 
     async def send_reported_state_request(self) -> httpx.Response:
         return await self.send_devices_request()
