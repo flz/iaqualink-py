@@ -91,8 +91,9 @@ class ExoSystem(AqualinkSystem):
                 attrs.update({"state": state})
             devices.update({name: attrs})
 
-        if "vsp_speed" in devices:
-            del devices["vsp_speed"]  # temp remove until can handle dictionary
+        # Remove those values, they're not handled properly.
+        devices.pop("boost_time", None)
+        devices.pop("vsp_speed", None)
 
         # Process the heating control attributes
         if "heating" in data["state"]["reported"]:
