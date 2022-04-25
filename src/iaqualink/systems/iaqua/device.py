@@ -8,8 +8,8 @@ from iaqualink.device import (
     AqualinkDevice,
     AqualinkLight,
     AqualinkSensor,
+    AqualinkSwitch,
     AqualinkThermostat,
-    AqualinkToggle,
 )
 from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.typing import DeviceData
@@ -68,12 +68,10 @@ class IaquaDevice(AqualinkDevice):
     def from_data(cls, system: IaquaSystem, data: DeviceData) -> IaquaDevice:
         class_: Type[IaquaDevice]
 
-        if data["name"].endswith("_heater"):
-            class_ = IaquaHeater
+        if data["name"].endswith("_heater") or data["name"].endswith("_pump"):
+            class_ = IaquaSwitch
         elif data["name"].endswith("_set_point"):
             class_ = IaquaThermostat
-        elif data["name"].endswith("_pump"):
-            class_ = IaquaPump
         elif data["name"] == "freeze_protection":
             class_ = IaquaBinarySensor
         elif data["name"].startswith("aux_"):
@@ -82,9 +80,9 @@ class IaquaDevice(AqualinkDevice):
             elif data["type"] == "1":
                 class_ = IaquaDimmableLight
             elif "LIGHT" in data["label"]:
-                class_ = IaquaLightToggle
+                class_ = IaquaLightSwitch
             else:
-                class_ = IaquaAuxToggle
+                class_ = IaquaAuxSwitch
         else:
             class_ = IaquaSensor
 
@@ -108,109 +106,37 @@ class IaquaBinarySensor(IaquaSensor):
         )
 
 
-class IaquaThermostat(IaquaDevice, AqualinkThermostat):
-    @property
-    def _type(self) -> str:
-        return self.name.split("_")[0]
+class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
+    async def _toggle(self) -> None:
+        await self.system.set_switch(f"set_{self.name}")
 
-    @property
-    def _temperature(self) -> str:
-        # Spa takes precedence for temp1 if present.
-        if self._type == "pool" and "spa_set_point" in self.system.devices:
-            return "temp2"
-        return "temp1"
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self._toggle()
 
-    @property
-    def unit(self) -> str:
-        return self.system.temp_unit
-
-    @property
-    def _sensor(self) -> IaquaSensor:
-        return cast(IaquaSensor, self.system.devices[f"{self._type}_temp"])
-
-    @property
-    def current_temperature(self) -> str:
-        return self._sensor.state
-
-    @property
-    def target_temperature(self) -> str:
-        return self.state
-
-    @property
-    def min_temperature(self) -> int:
-        if self.unit == "F":
-            return IAQUA_TEMP_FAHRENHEIT_LOW
-        return IAQUA_TEMP_CELSIUS_LOW
-
-    @property
-    def max_temperature(self) -> int:
-        if self.unit == "F":
-            return IAQUA_TEMP_FAHRENHEIT_HIGH
-        return IAQUA_TEMP_CELSIUS_HIGH
-
-    async def set_temperature(self, temperature: int) -> None:
-        unit = self.unit
-        low = self.min_temperature
-        high = self.max_temperature
-
-        if temperature not in range(low, high + 1):
-            msg = f"{temperature}{unit} isn't a valid temperature"
-            msg += f" ({low}-{high}{unit})."
-            raise Exception(msg)
-
-        data = {self._temperature: str(temperature)}
-        await self.system.set_temps(data)
-
-    @property
-    def _heater(self) -> IaquaHeater:
-        return cast(IaquaHeater, self.system.devices[f"{self._type}_heater"])
-
-    @property
-    def is_on(self) -> bool:
-        return self._heater.is_on
-
-    async def toggle(self) -> None:
-        await self._heater.toggle()
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self._toggle()
 
 
-class IaquaToggle(IaquaDevice, AqualinkToggle):
+class IaquaAuxSwitch(IaquaSwitch):
     @property
     def is_on(self) -> bool:
         return (
-            AqualinkState(self.state)
-            in [AqualinkState.ON, AqualinkState.ENABLED]
+            AqualinkState(self.state) == AqualinkState.ON
             if self.state
             else False
         )
 
-    async def toggle(self) -> None:
-        raise NotImplementedError()
-
-
-class IaquaPump(IaquaToggle):
-    async def toggle(self) -> None:
-        await self.system.set_pump(f"set_{self.name}")
-
-
-class IaquaHeater(IaquaToggle):
-    async def toggle(self) -> None:
-        await self.system.set_heater(f"set_{self.name}")
-
-
-class IaquaAuxToggle(IaquaToggle):
-    async def toggle(self) -> None:
+    async def _toggle(self) -> None:
         await self.system.set_aux(self.data["aux"])
 
 
-class IaquaLightToggle(IaquaAuxToggle, AqualinkLight):
+class IaquaLightSwitch(IaquaAuxSwitch, AqualinkLight):
     pass
 
 
-class IaquaDimmableLight(IaquaDevice, AqualinkLight):
-    @property
-    def is_on(self) -> bool:
-        return self.brightness != 0
-
+class IaquaDimmableLight(IaquaAuxSwitch, AqualinkLight):
     async def turn_on(self) -> None:
         if not self.is_on:
             await self.set_brightness(100)
@@ -228,17 +154,13 @@ class IaquaDimmableLight(IaquaDevice, AqualinkLight):
         if brightness not in [0, 25, 50, 75, 100]:
             msg = f"{brightness}% isn't a valid percentage."
             msg += " Only use 25% increments."
-            raise Exception(msg)
+            raise AqualinkInvalidParameterException(msg)
 
         data = {"aux": self.data["aux"], "light": f"{brightness}"}
         await self.system.set_light(data)
 
 
-class IaquaColorLight(IaquaDevice, AqualinkLight):
-    @property
-    def is_on(self) -> bool:
-        return self.effect != "0"
-
+class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
     async def turn_on(self) -> None:
         if not self.is_on:
             await self.set_effect_by_id(1)
@@ -258,27 +180,24 @@ class IaquaColorLight(IaquaDevice, AqualinkLight):
         return self.data["state"]
 
     @property
-    def effect_name(self) -> Optional[str]:
-        # Ideally, this would return the effect name.
-        # However, the API seems to return "state"=1 no matter what effect is
-        # currently chosen.
-        # Workaround: instead of returning a possibly incorrect effect name,
-        # we'll just return "On".
-        return "On" if self.is_on else "Off"
-
-    @property
     def supported_effects(self) -> Dict[str, int]:
         raise NotImplementedError
 
     async def set_effect_by_name(self, effect: str) -> None:
         try:
             effect_id = self.supported_effects[effect]
-        except IndexError as e:
+        except KeyError as e:
             msg = f"{repr(effect)} isn't a valid effect."
             raise AqualinkInvalidParameterException(msg) from e
         await self.set_effect_by_id(effect_id)
 
     async def set_effect_by_id(self, effect_id: int) -> None:
+        try:
+            _ = list(self.supported_effects.values()).index(effect_id)
+        except ValueError as e:
+            msg = f"{repr(effect_id)} isn't a valid effect."
+            raise AqualinkInvalidParameterException(msg) from e
+
         data = {
             "aux": self.data["aux"],
             "light": str(effect_id),
@@ -435,3 +354,73 @@ light_subtype_to_class = {
     "5": IaquaColorLightIB,
     "6": IaquaColorLightHU,
 }
+
+
+class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
+    @property
+    def _type(self) -> str:
+        return self.name.split("_")[0]
+
+    @property
+    def _temperature(self) -> str:
+        # Spa takes precedence for temp1 if present.
+        if self._type == "pool" and "spa_set_point" in self.system.devices:
+            return "temp2"
+        return "temp1"
+
+    @property
+    def unit(self) -> str:
+        return self.system.temp_unit
+
+    @property
+    def _sensor(self) -> IaquaSensor:
+        return cast(IaquaSensor, self.system.devices[f"{self._type}_temp"])
+
+    @property
+    def current_temperature(self) -> str:
+        return self._sensor.state
+
+    @property
+    def target_temperature(self) -> str:
+        return self.state
+
+    @property
+    def min_temperature(self) -> int:
+        if self.unit == "F":
+            return IAQUA_TEMP_FAHRENHEIT_LOW
+        return IAQUA_TEMP_CELSIUS_LOW
+
+    @property
+    def max_temperature(self) -> int:
+        if self.unit == "F":
+            return IAQUA_TEMP_FAHRENHEIT_HIGH
+        return IAQUA_TEMP_CELSIUS_HIGH
+
+    async def set_temperature(self, temperature: int) -> None:
+        unit = self.unit
+        low = self.min_temperature
+        high = self.max_temperature
+
+        if temperature not in range(low, high + 1):
+            msg = f"{temperature}{unit} isn't a valid temperature"
+            msg += f" ({low}-{high}{unit})."
+            raise AqualinkInvalidParameterException(msg)
+
+        data = {self._temperature: str(temperature)}
+        await self.system.set_temps(data)
+
+    @property
+    def _heater(self) -> IaquaSwitch:
+        return cast(IaquaSwitch, self.system.devices[f"{self._type}_heater"])
+
+    @property
+    def is_on(self) -> bool:
+        return self._heater.is_on
+
+    async def turn_on(self) -> None:
+        if self._heater.is_on is False:
+            await self._heater.turn_on()
+
+    async def turn_off(self) -> None:
+        if self._heater.is_on is True:
+            await self._heater.turn_off()
