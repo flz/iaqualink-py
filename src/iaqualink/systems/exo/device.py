@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from enum import Enum, unique
-from typing import TYPE_CHECKING, Type, cast
+from typing import TYPE_CHECKING, Any, Coroutine, Type, cast
 
 from iaqualink.device import (
     AqualinkDevice,
@@ -115,7 +116,7 @@ class ExoSwitch(ExoDevice, AqualinkSwitch):
         return ExoState(self.data["state"]) == ExoState.ON
 
     @property
-    def _command(self):
+    def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
         raise NotImplementedError
 
     async def turn_on(self) -> None:
@@ -129,13 +130,13 @@ class ExoSwitch(ExoDevice, AqualinkSwitch):
 
 class ExoAuxSwitch(ExoSwitch):
     @property
-    def _command(self):
+    def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
         return self.system.set_aux
 
 
 class ExoAttributeSwitch(ExoSwitch):
     @property
-    def _command(self):
+    def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
         return self.system.set_toggle
 
 
