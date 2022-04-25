@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import unittest
-from unittest.mock import MagicMock, PropertyMock, patch
+from typing import Dict
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -9,159 +9,235 @@ from iaqualink.device import (
     AqualinkBinarySensor,
     AqualinkDevice,
     AqualinkLight,
+    AqualinkSensor,
+    AqualinkSwitch,
     AqualinkThermostat,
-    AqualinkToggle,
+)
+
+from .base_test_device import (
+    TestBaseBinarySensor,
+    TestBaseDevice,
+    TestBaseLight,
+    TestBaseSensor,
+    TestBaseSwitch,
+    TestBaseThermostat,
 )
 
 
-class TestAqualinkDevice(unittest.IsolatedAsyncioTestCase):
+class TestAqualinkDevice(TestBaseDevice):
     def setUp(self) -> None:
         system = MagicMock()
         data = {"foo": "bar"}
-        self.obj = AqualinkDevice(system, data)
+        self.sut = AqualinkDevice(system, data)
 
-    async def test_repr(self):
-        assert repr(self.obj) == "AqualinkDevice(data={'foo': 'bar'})"
+    async def test_repr(self) -> None:
+        assert (
+            repr(self.sut)
+            == f"{self.sut.__class__.__name__}(data={repr(self.sut.data)})"
+        )
 
-    async def test_label_not_implemented(self):
+    def test_property_name(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.label
+            super().test_property_name()
 
-    async def test_state_not_implemented(self):
+    def test_property_label(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.state
+            super().test_property_label()
 
-    async def test_name_not_implemented(self):
+    def test_property_state(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.name
+            super().test_property_state()
 
-    async def test_manufacturer(self):
+    def test_property_manufacturer(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.manufacturer
+            super().test_property_manufacturer()
 
-    async def test_model(self):
+    def test_property_model(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.model
+            super().test_property_model()
 
 
-class TestAqualinkBinarySensor(unittest.IsolatedAsyncioTestCase):
+class TestAqualinkSensor(TestBaseSensor, TestAqualinkDevice):
     def setUp(self) -> None:
         system = MagicMock()
-        data = {}
-        self.obj = AqualinkBinarySensor(system, data)
-
-    async def test_is_on_not_implemented(self):
-        with pytest.raises(NotImplementedError):
-            await self.obj.is_on()
+        data: Dict[str, str] = {}
+        self.sut = AqualinkSensor(system, data)
 
 
-class TestAqualinkToggle(unittest.IsolatedAsyncioTestCase):
+class TestAqualinkBinarySensor(TestBaseBinarySensor, TestAqualinkSensor):
     def setUp(self) -> None:
         system = MagicMock()
-        data = {}
-        self.obj = AqualinkToggle(system, data)
+        data: Dict[str, str] = {}
+        self.sut = AqualinkBinarySensor(system, data)
 
-    async def test_is_on_not_implemented(self):
+    def test_property_is_on_true(self) -> None:
         with pytest.raises(NotImplementedError):
-            await self.obj.is_on()
+            super().test_property_is_on_true()
 
-    async def test_toggle_not_implemented(self):
+    def test_property_is_on_false(self) -> None:
         with pytest.raises(NotImplementedError):
-            await self.obj.toggle()
+            super().test_property_is_on_false()
 
 
-class TestAqualinkLight(unittest.IsolatedAsyncioTestCase):
+class TestAqualinkSwitch(TestBaseSwitch, TestAqualinkDevice):
     def setUp(self) -> None:
         system = MagicMock()
-        data = {}
-        self.obj = AqualinkLight(system, data)
+        data: Dict[str, str] = {}
+        self.sut = AqualinkSwitch(system, data)
 
-    async def test_is_on_not_implemented(self):
+    def test_property_is_on_true(self) -> None:
         with pytest.raises(NotImplementedError):
-            await self.obj.is_on()
+            super().test_property_is_on_true()
 
-    async def test_turn_on_not_implemented(self):
+    def test_property_is_on_false(self) -> None:
         with pytest.raises(NotImplementedError):
-            await self.obj.turn_on()
+            super().test_property_is_on_false()
 
-    async def test_turn_off_not_implemented(self):
+    async def test_turn_on(self) -> None:
         with pytest.raises(NotImplementedError):
-            await self.obj.turn_off()
+            await super().test_turn_on()
 
-    async def test_set_brightness_noop(self):
-        res = await self.obj.set_brightness(100)
-        assert res is None
+    async def test_turn_on_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_on_noop()
 
-    async def test_set_brightness_not_implemented(self):
+    async def test_turn_off(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_off()
+
+    async def test_turn_off_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_off_noop()
+
+
+class TestAqualinkLight(TestBaseLight, TestAqualinkDevice):
+    def setUp(self) -> None:
+        system = MagicMock()
+        data: Dict[str, str] = {}
+        self.sut = AqualinkLight(system, data)
+
+    def test_property_is_on_true(self) -> None:
+        with pytest.raises(NotImplementedError):
+            super().test_property_is_on_true()
+
+    def test_property_is_on_false(self) -> None:
+        with pytest.raises(NotImplementedError):
+            super().test_property_is_on_false()
+
+    async def test_turn_off_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_off_noop()
+
+    async def test_turn_off(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_off()
+
+    async def test_turn_on(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_on()
+
+    async def test_turn_on_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_on_noop()
+
+    async def test_set_brightness_75(self) -> None:
         with patch.object(
-            type(self.obj),
+            type(self.sut),
             "supports_brightness",
             new_callable=PropertyMock(return_value=True),
         ):
             with pytest.raises(NotImplementedError):
-                print(await self.obj.set_brightness(100))
+                await super().test_set_brightness_75()
 
-    async def test_set_effect_by_name_noop(self):
-        res = await self.obj.set_effect_by_name("blue")
-        assert res is None
-
-    async def test_set_effect_by_name_not_implemented(self):
+    async def test_set_effect_by_name_off(self) -> None:
         with patch.object(
-            type(self.obj),
+            type(self.sut),
             "supports_effect",
             new_callable=PropertyMock(return_value=True),
         ):
             with pytest.raises(NotImplementedError):
-                await self.obj.set_effect_by_name("blue")
+                await super().test_set_effect_by_name_off()
 
-    async def test_set_effect_by_id_noop(self):
-        res = await self.obj.set_effect_by_id(0)
-        assert res is None
-
-    async def test_set_effect_by_id_not_implemented(self):
+    async def test_set_effect_by_id_4(self) -> None:
         with patch.object(
-            type(self.obj),
+            type(self.sut),
             "supports_effect",
             new_callable=PropertyMock(return_value=True),
         ):
             with pytest.raises(NotImplementedError):
-                await self.obj.set_effect_by_id(0)
+                await super().test_set_effect_by_id_4()
 
 
-class TestAqualinkThermostat(unittest.IsolatedAsyncioTestCase):
+class TestAqualinkThermostat(TestBaseThermostat, TestAqualinkDevice):
     def setUp(self) -> None:
-        system = MagicMock()
-        data = {}
-        self.obj = AqualinkThermostat(system, data)
+        system = AsyncMock()
+        data: Dict[str, str] = {}
+        self.sut = AqualinkThermostat(system, data)
 
-    def test_is_on_not_implemented(self):
+    def test_property_is_on_true(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.is_on
+            super().test_property_is_on_true()
 
-    async def test_toggle_not_implemented(self):
+    def test_property_is_on_false(self) -> None:
         with pytest.raises(NotImplementedError):
-            await self.obj.toggle()
+            super().test_property_is_on_false()
 
-    async def test_unit_not_implemented(self):
+    def test_property_unit(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.unit
+            super().test_property_unit()
 
-    def test_current_temperature_not_implemented(self):
+    def test_property_min_temperature_f(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.current_temperature
+            super().test_property_min_temperature_f()
 
-    def test_target_temperature_not_implemented(self):
+    def test_property_min_temperature_c(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.target_temperature
+            super().test_property_min_temperature_c()
 
-    async def test_max_temperature_not_implemented(self):
+    def test_property_max_temperature_f(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.max_temperature
+            super().test_property_max_temperature_f()
 
-    async def test_min_temperature_not_implemented(self):
+    def test_property_max_temperature_c(self) -> None:
         with pytest.raises(NotImplementedError):
-            self.obj.min_temperature
+            super().test_property_max_temperature_c()
 
-    async def test_set_temperature_not_implemented(self):
+    def test_property_current_temperature(self) -> None:
         with pytest.raises(NotImplementedError):
-            await self.obj.set_temperature(72)
+            super().test_property_current_temperature()
+
+    def test_property_target_temperature(self) -> None:
+        with pytest.raises(NotImplementedError):
+            super().test_property_target_temperature()
+
+    async def test_turn_on(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_on()
+
+    async def test_turn_on_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_on_noop()
+
+    async def test_turn_off(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_off()
+
+    async def test_turn_off_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_off_noop()
+
+    async def test_set_temperature_86f(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_set_temperature_86f()
+
+    async def test_set_temperature_30c(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_set_temperature_30c()
+
+    async def test_set_temperature_invalid_400f(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_set_temperature_invalid_400f()
+
+    async def test_set_temperature_invalid_204c(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_set_temperature_invalid_204c()

@@ -154,11 +154,7 @@ class IaquaSystem(AqualinkSystem):
             else:
                 self.devices[k] = IaquaDevice.from_data(self, v)
 
-    async def set_pump(self, command: str) -> None:
-        r = await self._send_session_request(command)
-        self._parse_home_response(r)
-
-    async def set_heater(self, command: str) -> None:
+    async def set_switch(self, command: str) -> None:
         r = await self._send_session_request(command)
         self._parse_home_response(r)
 

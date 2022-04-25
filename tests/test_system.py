@@ -14,7 +14,7 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         pass
 
-    def test_repr(self):
+    def test_repr(self) -> None:
         aqualink = MagicMock()
         data = {
             "id": 1,
@@ -28,19 +28,19 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
             == f"AqualinkSystem(name='foo', serial='ABCDEFG', data={data})"
         )
 
-    def test_from_data_iaqua(self):
+    def test_from_data_iaqua(self) -> None:
         aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
         r = AqualinkSystem.from_data(aqualink, data)
         assert r is not None
 
-    def test_from_data_unsupported(self):
+    def test_from_data_unsupported(self) -> None:
         aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "foo"}
         with pytest.raises(AqualinkSystemUnsupportedException):
             AqualinkSystem.from_data(aqualink, data)
 
-    async def test_get_devices_needs_update(self):
+    async def test_get_devices_needs_update(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
         aqualink = AqualinkClient("user", "pass")
         system = AqualinkSystem(aqualink, data)
@@ -50,7 +50,7 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
             await system.get_devices()
             mock_update.assert_called_once()
 
-    async def test_get_devices(self):
+    async def test_get_devices(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
         aqualink = AqualinkClient("user", "pass")
         system = AqualinkSystem(aqualink, data)
@@ -60,7 +60,7 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
             await system.get_devices()
             mock_update.assert_not_called()
 
-    async def test_update_not_implemented(self):
+    async def test_update_not_implemented(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
         aqualink = AqualinkClient("user", "pass")
         system = AqualinkSystem(aqualink, data)
