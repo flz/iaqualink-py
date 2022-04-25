@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum, unique
-from typing import TYPE_CHECKING, Type
+from typing import cast, TYPE_CHECKING, Type
 
 from iaqualink.device import (
     AqualinkDevice,
@@ -104,22 +104,61 @@ class ExoAttributeSensor(ExoDevice, AqualinkSensor):
     pass
 
 
-class ExoThermostat(ExoDevice, AqualinkThermostat):
+# This is an abstract class, not to be instantiated directly.
+class ExoSwitch(ExoDevice, AqualinkSwitch):
+    @property
+    def label(self) -> str:
+        return self.name.replace("_", " ").capitalize()
+
+    @property
+    def is_on(self) -> bool:
+        return ExoState(self.data["state"]) == ExoState.ON
+
+    @property
+    def _command(self):
+        raise NotImplementedError
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self._command(self.name, 1)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self._command(self.name, 0)
+
+
+class ExoAuxSwitch(ExoSwitch):
+    @property
+    def _command(self):
+        return self.system.set_aux
+
+
+class ExoAttributeSwitch(ExoSwitch):
+    @property
+    def _command(self):
+        return self.system.set_toggle
+
+
+class ExoThermostat(ExoSwitch, AqualinkThermostat):
     @property
     def state(self) -> str:
-        return str(self.data["sp"])
+        return str(self.data["enabled"])
 
     @property
     def unit(self) -> str:
         return "C"
 
     @property
-    def is_on(self) -> bool:
-        return ExoState(self.data["enabled"]) == ExoState.ON
+    def _sensor(self) -> ExoSensor:
+        return cast(ExoSensor, self.system.devices["water_temp"])
 
-    async def toggle(self) -> None:
-        new_state = 1 - int(self.data["enabled"])
-        await self.system.set_heating("enabled", new_state)
+    @property
+    def current_temperature(self) -> str:
+        return self._sensor.state
+
+    @property
+    def target_temperature(self) -> str:
+        return str(self.data["sp"])
 
     @property
     def min_temperature(self) -> int:
@@ -141,40 +180,14 @@ class ExoThermostat(ExoDevice, AqualinkThermostat):
 
         await self.system.set_heating("sp", temperature)
 
-
-class ExoSwitch(ExoDevice, AqualinkSwitch):
-    @property
-    def label(self) -> str:
-        return self.name.replace("_", " ").capitalize()
-
     @property
     def is_on(self) -> bool:
-        return ExoState(self.data["state"]) == ExoState.ON
-
-    @property
-    def _command(self):
-        pass
-
-    async def _toggle(self) -> None:
-        new_state = 1 - int(self.state)
-        await self._command(self.name, new_state)
+        return ExoState(self.data["enabled"]) == ExoState.ON
 
     async def turn_on(self) -> None:
-        if not self.is_on:
-            await self._toggle()
+        if self.is_on is False:
+            await self.system.set_heating("enabled", 1)
 
     async def turn_off(self) -> None:
-        if self.is_on:
-            await self._toggle()
-
-
-class ExoAuxSwitch(ExoSwitch):
-    @property
-    def _command(self):
-        return self.system.set_aux
-
-
-class ExoAttributeSwitch(ExoSwitch):
-    @property
-    def _command(self):
-        return self.system.set_toggle
+        if self.is_on is True:
+            await self.system.set_heating("enabled", 0)
