@@ -6,15 +6,15 @@ from typing import cast
 import pytest
 
 from iaqualink.systems.exo.device import (
+    EXO_TEMP_CELSIUS_HIGH,
+    EXO_TEMP_CELSIUS_LOW,
     ExoAttributeSensor,
     ExoAttributeSwitch,
     ExoAuxSwitch,
     ExoDevice,
     ExoSensor,
-    ExoThermostat,
     ExoSwitch,
-    EXO_TEMP_CELSIUS_HIGH,
-    EXO_TEMP_CELSIUS_LOW,
+    ExoThermostat,
 )
 from iaqualink.systems.exo.system import ExoSystem
 

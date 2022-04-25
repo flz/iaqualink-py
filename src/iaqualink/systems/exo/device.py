@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum, unique
-from typing import cast, TYPE_CHECKING, Type
+from typing import TYPE_CHECKING, Type, cast
 
 from iaqualink.device import (
     AqualinkDevice,
