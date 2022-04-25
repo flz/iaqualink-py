@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Type
 from iaqualink.device import (
     AqualinkDevice,
     AqualinkSensor,
+    AqualinkSwitch,
     AqualinkThermostat,
-    AqualinkToggle,
 )
 from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.typing import DeviceData
@@ -61,13 +61,13 @@ class ExoDevice(AqualinkDevice):
         class_: Type[ExoDevice]
 
         if data["name"].startswith("aux_"):
-            class_ = ExoAuxToggle
+            class_ = ExoAuxSwitch
         elif data["name"].startswith("sns_"):
             class_ = ExoSensor
         elif data["name"] == "heating":
             class_ = ExoThermostat
         elif data["name"] in ["production", "boost", "low"]:
-            class_ = ExoAttributeToggle
+            class_ = ExoAttributeSwitch
         else:
             class_ = ExoAttributeSensor
 
@@ -142,7 +142,7 @@ class ExoThermostat(ExoDevice, AqualinkThermostat):
         await self.system.set_heating("sp", temperature)
 
 
-class ExoToggle(ExoDevice, AqualinkToggle):
+class ExoSwitch(ExoDevice, AqualinkSwitch):
     @property
     def label(self) -> str:
         return self.name.replace("_", " ").capitalize()
@@ -151,17 +151,30 @@ class ExoToggle(ExoDevice, AqualinkToggle):
     def is_on(self) -> bool:
         return ExoState(self.data["state"]) == ExoState.ON
 
-    async def toggle(self) -> None:
-        raise NotImplementedError()
+    @property
+    def _command(self):
+        pass
 
-
-class ExoAuxToggle(ExoToggle):
-    async def toggle(self) -> None:
+    async def _toggle(self) -> None:
         new_state = 1 - int(self.state)
-        await self.system.set_aux(self.name, new_state)
+        await self._command(self.name, new_state)
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self._toggle()
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self._toggle()
 
 
-class ExoAttributeToggle(ExoToggle):
-    async def toggle(self) -> None:
-        new_state = 1 - int(self.state)
-        await self.system.set_toggle(self.name, new_state)
+class ExoAuxSwitch(ExoSwitch):
+    @property
+    def _command(self):
+        return self.system.set_aux
+
+
+class ExoAttributeSwitch(ExoSwitch):
+    @property
+    def _command(self):
+        return self.system.set_toggle
