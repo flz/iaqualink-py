@@ -1,5 +1,0 @@
-pytest
-pytest-cov
-pytest-icdiff
-pytest-sugar
-respx
