@@ -11,7 +11,7 @@ on:
 jobs:
 
   run:
-    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    name: py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
 
     strategy:
@@ -41,10 +41,10 @@ jobs:
 
     - name: Run unit tests
       run: |
-        hatch run test
+        hatch run test-cov
 
     - name: Upload coverage artifact
-      uses: actions/upload-artifact@v3.1.0
+      uses: actions/upload-artifact@v3
       with:
         name: coverage-${{ matrix.python-version }}
         path: coverage.xml
@@ -57,7 +57,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: [3.8]
+        python-version: ["3.8"]
 
     steps:
     - uses: actions/checkout@v2
