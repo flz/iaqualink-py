@@ -23,6 +23,7 @@ classifiers = [
     "Natural Language :: English",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
 ]
 dependencies = [
     "httpx[http2]",
@@ -44,7 +45,8 @@ packages = ["src/iaqualink"]
 
 # To be used with vscode.
 #   $ hatch config set dirs.env.virtual ./.venv
-# Run hatch runSet python interpreter manually
+#   $ hatch run test
+# ... then set the path to the newly created venv.
 [tool.hatch.envs.default]
 dependencies = [
     # Linting / Formatting
@@ -61,22 +63,12 @@ dependencies = [
     "respx",
 ]
 
-[tool.hatch.envs.foo]
-dependencies = [
-    "coverage[toml]",
-    "pytest",
-    "pytest-cov",
-    "pytest-icdiff",
-    "pytest-sugar",
-    "respx",
-]
-
-[[tool.hatch.envs.test.matrix]]
-python = ["38", "39"]
-
 [tool.hatch.envs.default.scripts]
 test = "pytest"
 test-cov = "pytest --cov-config=pyproject.toml --cov-report=xml --cov-report=term --cov=src --cov=tests"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["38", "39", "310"]
 
 [tool.hatch.envs.lint]
 detached = true
@@ -106,7 +98,7 @@ all = [
 
 [tool.black]
 line-length = 80
-target-version = ['py38', 'py39']
+target-version = ['py38', 'py39', 'py310']
 
 [tool.coverage.run]
 omit = [
@@ -122,7 +114,6 @@ exclude_lines = [
 [tool.isort]
 profile = "black"
 multi_line_output = 3
-src_paths = "src,tests"
 line_length = 80
 
 [tool.mypy]
