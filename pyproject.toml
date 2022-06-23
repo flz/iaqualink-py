@@ -1,0 +1,126 @@
+[build-system]
+requires = [
+    "hatchling>=1.3.1",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "iaqualink"
+description = "Asynchronous library for Jandy iAqualink"
+readme = "README.md"
+license = "BSD-3-Clause"
+requires-python = ">=3.8"
+authors = [
+    { name = "Florent Thoumie", email = "florent@thoumie.net" },
+]
+keywords = [
+    "iaqualink",
+]
+classifiers = [
+    "Development Status :: 2 - Pre-Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+]
+dependencies = [
+    "httpx[http2]",
+]
+dynamic = [
+    "version",
+]
+
+[project.urls]
+Homepage = "https://github.com/flz/iaqualink-py"
+
+[tool.hatch.version]
+path = "src/iaqualink/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/iaqualink"]
+
+# To be used with vscode.
+#   $ hatch config set dirs.env.virtual ./.venv
+#   $ hatch run test
+# ... then set the path to the newly created venv.
+[tool.hatch.envs.default]
+dependencies = [
+    # Linting / Formatting
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+    # Testing
+    "coverage[toml]",
+    "pytest",
+    "pytest-cov",
+    "pytest-icdiff",
+    "pytest-sugar",
+    "respx",
+]
+
+[tool.hatch.envs.default.scripts]
+test = "pytest"
+test-cov = "pytest --cov-config=pyproject.toml --cov-report=xml --cov-report=term --cov=src --cov=tests"
+
+[[tool.hatch.envs.test.matrix]]
+python = ["38", "39", "310"]
+
+[tool.hatch.envs.lint]
+detached = true
+dependencies = [
+    "black",
+    "flake8",
+    "isort",
+    "mypy",
+]
+
+[tool.hatch.envs.lint.scripts]
+typing = "mypy --install-types --non-interactive {args:src/}"
+style = [
+    "flake8 {args:src/ tests/}",
+    "black --check --diff {args:src/ tests/}",
+    "isort --check-only --diff {args:src/ tests/}",
+]
+fmt = [
+    "isort {args:src/ tests/}",
+    "black {args:src/ tests/}",
+    "style",
+]
+all = [
+    "style",
+    "typing",
+]
+
+[tool.black]
+line-length = 80
+target-version = ['py38', 'py39', 'py310']
+
+[tool.coverage.run]
+omit = [
+    ".venv/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+]
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 80
+
+[tool.mypy]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+]
