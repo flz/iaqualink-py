@@ -1,5 +1,0 @@
-[MASTER]
-init-hook="from pylint.config import find_pylintrc; import os, sys; sys.path.append(os.path.join(os.path.dirname(find_pylintrc()),"src"))"
-
-[MESSAGES CONTROL]
-disable=C0111,C0103,W1203,R0902

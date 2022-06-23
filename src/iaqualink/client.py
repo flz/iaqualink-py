@@ -18,7 +18,7 @@ from iaqualink.exception import (
     AqualinkSystemUnsupportedException,
 )
 from iaqualink.system import AqualinkSystem
-from iaqualink.systems import *  # pylint: disable=W0401,W0614 # noqa: F401,F403
+from iaqualink.systems import *  # noqa: F401,F403
 
 AQUALINK_HTTP_HEADERS = {
     "user-agent": "okhttp/3.14.7",
