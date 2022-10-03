@@ -1,5 +1,3 @@
 [flake8]
 exclude = .git,__pycache__,build,dist,.venv*,.eggs
 max-line-length = 80
-
-
