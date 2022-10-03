@@ -85,8 +85,9 @@ class IaquaDevice(AqualinkDevice):
             if data["state"] == "":
                 raise AqualinkDeviceNotSupported(data)
             class_ = IaquaThermostat
-        elif data["name"] == "freeze_protection" or \
-                data["name"].endswith("_present"):
+        elif data["name"] == "freeze_protection" or data["name"].endswith(
+            "_present"
+        ):
             class_ = IaquaBinarySensor
         elif data["name"].startswith("aux_"):
             if data["type"] == "2":

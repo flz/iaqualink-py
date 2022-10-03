@@ -12,7 +12,7 @@ from iaqualink.device import (
     AqualinkLight,
     AqualinkSensor,
     AqualinkSwitch,
-    AqualinkThermostat
+    AqualinkThermostat,
 )
 from iaqualink.exception import (
     AqualinkInvalidParameterException,
