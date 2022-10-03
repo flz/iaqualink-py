@@ -8,6 +8,7 @@ import httpx
 
 from iaqualink.const import MIN_SECS_TO_REFRESH
 from iaqualink.exception import (
+    AqualinkDeviceNotSupported,
     AqualinkServiceException,
     AqualinkSystemOfflineException,
 )
@@ -127,7 +128,10 @@ class IaquaSystem(AqualinkSystem):
                 for dk, dv in v.items():
                     self.devices[k].data[dk] = dv
             else:
-                self.devices[k] = IaquaDevice.from_data(self, v)
+                try:
+                    self.devices[k] = IaquaDevice.from_data(self, v)
+                except AqualinkDeviceNotSupported as e:
+                    LOGGER.info("Device found was ignored: %s", e)
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -152,7 +156,10 @@ class IaquaSystem(AqualinkSystem):
                 for dk, dv in v.items():
                     self.devices[k].data[dk] = dv
             else:
-                self.devices[k] = IaquaDevice.from_data(self, v)
+                try:
+                    self.devices[k] = IaquaDevice.from_data(self, v)
+                except AqualinkDeviceNotSupported as e:
+                    LOGGER.info("Device found was ignored: %s", e)
 
     async def set_switch(self, command: str) -> None:
         r = await self._send_session_request(command)
