@@ -55,7 +55,7 @@ class AqualinkDevice:
         raise NotImplementedError
 
 
-class AqualinkSensor(AqualinkDevice):  # pylint: disable=W0223
+class AqualinkSensor(AqualinkDevice):
     pass
 
 

@@ -3,13 +3,12 @@ name: CI
 on:
   push:
     branches:
-    - master
+      - master
   pull_request:
     branches:
-    - master
+      - master
 
 jobs:
-
   run:
     runs-on: ${{ matrix.os }}
 
@@ -19,35 +18,34 @@ jobs:
         python-version: ["3.8", "3.9", "3.10"]
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Setup Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v3
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip hatch
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip hatch
 
-    - name: Check style
-      run: |
-        hatch run lint:style
+      - name: Check style
+        run: |
+          hatch run lint:style
 
-    - name: Check typing
-      run: |
-        hatch run lint:typing
+      - name: Check typing
+        run: |
+          hatch run lint:typing
 
-    - name: Run unit tests
-      run: |
-        hatch run test-cov
+      - name: Run unit tests
+        run: |
+          hatch run test-cov
 
-    - name: Upload coverage artifact
-      uses: actions/upload-artifact@v3
-      with:
-        name: coverage-${{ matrix.python-version }}
-        path: coverage.xml
-
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: coverage-${{ matrix.python-version }}
+          path: coverage.xml
 
   coverage:
     runs-on: ${{ matrix.os }}
@@ -59,12 +57,12 @@ jobs:
         python-version: ["3.8"]
 
     steps:
-    - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
 
-    - name: Download all coverage artifacts
-      uses: actions/download-artifact@v3
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v3
 
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        flags: full-suite
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          flags: full-suite
