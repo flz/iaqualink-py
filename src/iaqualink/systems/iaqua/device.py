@@ -5,13 +5,17 @@ from enum import Enum, unique
 from typing import TYPE_CHECKING, Dict, Optional, Type, cast
 
 from iaqualink.device import (
+    AqualinkBinarySensor,
     AqualinkDevice,
     AqualinkLight,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkThermostat,
 )
-from iaqualink.exception import AqualinkInvalidParameterException
+from iaqualink.exception import (
+    AqualinkDeviceNotSupported,
+    AqualinkInvalidParameterException,
+)
 from iaqualink.typing import DeviceData
 
 if TYPE_CHECKING:
@@ -30,6 +34,8 @@ class AqualinkState(Enum):
     OFF = "0"
     ON = "1"
     ENABLED = "3"
+    ABSENT = "absent"
+    PRESENT = "present"
 
 
 class IaquaDevice(AqualinkDevice):
@@ -68,11 +74,20 @@ class IaquaDevice(AqualinkDevice):
     def from_data(cls, system: IaquaSystem, data: DeviceData) -> IaquaDevice:
         class_: Type[IaquaDevice]
 
+        # I don't have a system where these fields get populated.
+        # No idea what they are and what to do with them.
+        if isinstance(data["state"], (dict, list)):
+            raise AqualinkDeviceNotSupported(data)
+
         if data["name"].endswith("_heater") or data["name"].endswith("_pump"):
             class_ = IaquaSwitch
         elif data["name"].endswith("_set_point"):
+            if data["state"] == "":
+                raise AqualinkDeviceNotSupported(data)
             class_ = IaquaThermostat
-        elif data["name"] == "freeze_protection":
+        elif data["name"] == "freeze_protection" or data["name"].endswith(
+            "_present"
+        ):
             class_ = IaquaBinarySensor
         elif data["name"].startswith("aux_"):
             if data["type"] == "2":
@@ -93,14 +108,14 @@ class IaquaSensor(IaquaDevice, AqualinkSensor):
     pass
 
 
-class IaquaBinarySensor(IaquaSensor):
+class IaquaBinarySensor(IaquaSensor, AqualinkBinarySensor):
     """These are non-actionable sensors, essentially read-only on/off."""
 
     @property
     def is_on(self) -> bool:
         return (
             AqualinkState(self.state)
-            in [AqualinkState.ON, AqualinkState.ENABLED]
+            in [AqualinkState.ON, AqualinkState.ENABLED, AqualinkState.PRESENT]
             if self.state
             else False
         )

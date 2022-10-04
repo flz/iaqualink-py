@@ -7,6 +7,13 @@ import pytest
 import respx
 import respx.router
 
+from iaqualink.device import (
+    AqualinkBinarySensor,
+    AqualinkLight,
+    AqualinkSensor,
+    AqualinkSwitch,
+    AqualinkThermostat,
+)
 from iaqualink.exception import (
     AqualinkInvalidParameterException,
     AqualinkOperationNotSupportedException,
@@ -37,10 +44,14 @@ class TestBaseDevice(TestBase):
 
 
 class TestBaseSensor(TestBaseDevice):
-    pass
+    def test_inheritance(self) -> None:
+        assert isinstance(self.sut, AqualinkSensor)
 
 
 class TestBaseBinarySensor(TestBaseSensor):
+    def test_inheritance(self) -> None:
+        assert isinstance(self.sut, AqualinkBinarySensor)
+
     def test_property_is_on_true(self) -> None:
         assert self.sut.is_on is True
 
@@ -49,6 +60,9 @@ class TestBaseBinarySensor(TestBaseSensor):
 
 
 class TestBaseSwitch(TestBaseBinarySensor):
+    def test_inheritance(self) -> None:
+        assert isinstance(self.sut, AqualinkSwitch)
+
     @respx.mock
     async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
         respx_mock.route(dotstar).mock(resp_200)
@@ -81,6 +95,9 @@ class TestBaseSwitch(TestBaseBinarySensor):
 
 
 class TestBaseLight(TestBaseSwitch):
+    def test_inheritance(self) -> None:
+        assert isinstance(self.sut, AqualinkLight)
+
     def test_property_supports_brightness(self) -> None:
         assert isinstance(self.sut.supports_brightness, bool)
 
@@ -189,6 +206,9 @@ class TestBaseLight(TestBaseSwitch):
 
 
 class TestBaseThermostat(TestBaseSwitch):
+    def test_inheritance(self) -> None:
+        assert isinstance(self.sut, AqualinkThermostat)
+
     def test_property_unit(self) -> None:
         assert self.sut.unit in ["C", "F"]
 
