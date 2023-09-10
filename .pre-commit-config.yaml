@@ -45,4 +45,4 @@ repos:
     rev: v2.5.1
     hooks:
       - id: prettier
-        exclude: \.github/workflows/diff_shades\.yml
+        #exclude: \.github/workflows/.*.yaml
