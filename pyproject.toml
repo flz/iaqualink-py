@@ -10,7 +10,7 @@ name = "iaqualink"
 description = "Asynchronous library for Jandy iAqualink"
 readme = "README.md"
 license = "BSD-3-Clause"
-requires-python = ">=3.8"
+requires-python = ">=3.11"
 authors = [
     { name = "Florent Thoumie", email = "florent@thoumie.net" },
 ]
@@ -22,9 +22,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
 ]
 dependencies = [
     "httpx[http2]",
@@ -72,7 +70,7 @@ test = "pytest"
 test-cov = "pytest --cov-config=pyproject.toml --cov-report=xml --cov-report=term --cov=src --cov=tests"
 
 [[tool.hatch.envs.test.matrix]]
-python = ["38", "39", "310"]
+python = ["311"]
 
 [tool.hatch.envs.lint]
 detached = true
