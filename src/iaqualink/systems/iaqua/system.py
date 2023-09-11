@@ -131,7 +131,7 @@ class IaquaSystem(AqualinkSystem):
                 try:
                     self.devices[k] = IaquaDevice.from_data(self, v)
                 except AqualinkDeviceNotSupported as e:
-                    LOGGER.info("Device found was ignored: %s", e)
+                    LOGGER.debug("Device found was ignored: %s", e)
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
