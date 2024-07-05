@@ -75,6 +75,12 @@ python = ["3.12"]
 [tool.ruff]
 line-length = 80
 
+[tool.ruff.lint]
+ignore = [
+    "SLF001",  # Some tests currently use private members
+    "G004",    # Will fix all f-string logging calls later
+]
+
 [tool.coverage.run]
 omit = [
     ".venv/*",

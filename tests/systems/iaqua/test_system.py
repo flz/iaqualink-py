@@ -37,11 +37,11 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut_class = IaquaSystem
 
     async def test_update_success(self) -> None:
-        with patch.object(self.sut, "_parse_home_response"), patch.object(
-            self.sut, "_parse_devices_response"
+        with (
+            patch.object(self.sut, "_parse_home_response"),
+            patch.object(self.sut, "_parse_devices_response"),
         ):
             await super().test_update_success()
-        print(self.respx_calls)
 
     async def test_update_offline(self) -> None:
         with patch.object(self.sut, "_parse_home_response") as mock_parse:
@@ -51,14 +51,16 @@ class TestIaquaSystem(TestBaseSystem):
             assert self.sut.online is False
 
     async def test_update_consecutive(self) -> None:
-        with patch.object(self.sut, "_parse_home_response"), patch.object(
-            self.sut, "_parse_devices_response"
+        with (
+            patch.object(self.sut, "_parse_home_response"),
+            patch.object(self.sut, "_parse_devices_response"),
         ):
             await super().test_update_consecutive()
 
     async def test_get_devices_needs_update(self) -> None:
-        with patch.object(self.sut, "_parse_home_response"), patch.object(
-            self.sut, "_parse_devices_response"
+        with (
+            patch.object(self.sut, "_parse_home_response"),
+            patch.object(self.sut, "_parse_devices_response"),
         ):
             await super().test_get_devices_needs_update()
 

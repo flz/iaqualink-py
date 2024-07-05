@@ -140,31 +140,37 @@ class TestAqualinkLight(TestBaseLight, TestAqualinkDevice):
             await super().test_turn_on_noop()
 
     async def test_set_brightness_75(self) -> None:
-        with patch.object(
-            type(self.sut),
-            "supports_brightness",
-            new_callable=PropertyMock(return_value=True),
+        with (
+            patch.object(
+                type(self.sut),
+                "supports_brightness",
+                new_callable=PropertyMock(return_value=True),
+            ),
+            pytest.raises(NotImplementedError),
         ):
-            with pytest.raises(NotImplementedError):
-                await super().test_set_brightness_75()
+            await super().test_set_brightness_75()
 
     async def test_set_effect_by_name_off(self) -> None:
-        with patch.object(
-            type(self.sut),
-            "supports_effect",
-            new_callable=PropertyMock(return_value=True),
+        with (
+            patch.object(
+                type(self.sut),
+                "supports_effect",
+                new_callable=PropertyMock(return_value=True),
+            ),
+            pytest.raises(NotImplementedError),
         ):
-            with pytest.raises(NotImplementedError):
-                await super().test_set_effect_by_name_off()
+            await super().test_set_effect_by_name_off()
 
     async def test_set_effect_by_id_4(self) -> None:
-        with patch.object(
-            type(self.sut),
-            "supports_effect",
-            new_callable=PropertyMock(return_value=True),
+        with (
+            patch.object(
+                type(self.sut),
+                "supports_effect",
+                new_callable=PropertyMock(return_value=True),
+            ),
+            pytest.raises(NotImplementedError),
         ):
-            with pytest.raises(NotImplementedError):
-                await super().test_set_effect_by_id_4()
+            await super().test_set_effect_by_id_4()
 
 
 class TestAqualinkThermostat(TestBaseThermostat, TestAqualinkDevice):
