@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from iaqualink.exception import AqualinkOperationNotSupportedException
 from iaqualink.typing import DeviceData
@@ -77,7 +77,7 @@ class AqualinkSwitch(AqualinkBinarySensor, AqualinkDevice):
 
 class AqualinkLight(AqualinkSwitch, AqualinkDevice):
     @property
-    def brightness(self) -> Optional[int]:
+    def brightness(self) -> int | None:
         return None
 
     @property
@@ -90,7 +90,7 @@ class AqualinkLight(AqualinkSwitch, AqualinkDevice):
         raise AqualinkOperationNotSupportedException
 
     @property
-    def effect(self) -> Optional[str]:
+    def effect(self) -> str | None:
         return None
 
     @property

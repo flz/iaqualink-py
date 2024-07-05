@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Dict, Optional, Type
+from typing import TYPE_CHECKING
 
 from iaqualink.exception import AqualinkSystemUnsupportedException
 from iaqualink.typing import Payload
@@ -15,23 +15,23 @@ LOGGER = logging.getLogger("iaqualink")
 
 
 class AqualinkSystem:
-    subclasses: Dict[str, Type[AqualinkSystem]] = {}
+    subclasses: dict[str, type[AqualinkSystem]] = {}
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
         self.data = data
-        self.devices: Dict[str, AqualinkDevice] = {}
+        self.devices: dict[str, AqualinkDevice] = {}
         self.last_refresh = 0
 
         # Semantics here are somewhat odd.
         # True/False are obvious, None means "unknown".
-        self.online: Optional[bool] = None
+        self.online: bool | None = None
 
     @classmethod
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
         if hasattr(cls, "NAME"):
-            cls.subclasses[getattr(cls, "NAME")] = cls
+            cls.subclasses[cls.NAME] = cls
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -57,7 +57,7 @@ class AqualinkSystem:
 
         return cls.subclasses[data["device_type"]](aqualink, data)
 
-    async def get_devices(self) -> Dict[str, AqualinkDevice]:
+    async def get_devices(self) -> dict[str, AqualinkDevice]:
         if not self.devices:
             await self.update()
         return self.devices

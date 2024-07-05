@@ -14,9 +14,9 @@ class TestBase(unittest.IsolatedAsyncioTestCase):
 
     def __init_subclass__(cls) -> None:
         if cls.__name__.startswith("TestBase"):
-            setattr(cls, "__test__", False)
+            cls.__test__ = False
         else:
-            setattr(cls, "__test__", True)
+            cls.__test__ = True
         return super().__init_subclass__()
 
     def setUp(self) -> None:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum, unique
-from typing import TYPE_CHECKING, Dict, Optional, Type, cast
+from typing import TYPE_CHECKING, cast
 
 from iaqualink.device import (
     AqualinkBinarySensor,
@@ -72,7 +72,7 @@ class IaquaDevice(AqualinkDevice):
 
     @classmethod
     def from_data(cls, system: IaquaSystem, data: DeviceData) -> IaquaDevice:
-        class_: Type[IaquaDevice]
+        class_: type[IaquaDevice]
 
         # I don't have a system where these fields get populated.
         # No idea what they are and what to do with them.
@@ -161,7 +161,7 @@ class IaquaDimmableLight(IaquaAuxSwitch, AqualinkLight):
             await self.set_brightness(0)
 
     @property
-    def brightness(self) -> Optional[int]:
+    def brightness(self) -> int | None:
         return int(self.data["subtype"])
 
     async def set_brightness(self, brightness: int) -> None:
@@ -185,7 +185,7 @@ class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
             await self.set_effect_by_id(0)
 
     @property
-    def effect(self) -> Optional[str]:
+    def effect(self) -> str | None:
         # "state"=0 indicates the light is off.
         # "state"=1 indicates the light is on.
         # I don't see a way to retrieve the current effect.
@@ -195,14 +195,14 @@ class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
         return self.data["state"]
 
     @property
-    def supported_effects(self) -> Dict[str, int]:
+    def supported_effects(self) -> dict[str, int]:
         raise NotImplementedError
 
     async def set_effect_by_name(self, effect: str) -> None:
         try:
             effect_id = self.supported_effects[effect]
         except KeyError as e:
-            msg = f"{repr(effect)} isn't a valid effect."
+            msg = f"{effect!r} isn't a valid effect."
             raise AqualinkInvalidParameterException(msg) from e
         await self.set_effect_by_id(effect_id)
 
@@ -210,7 +210,7 @@ class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
         try:
             _ = list(self.supported_effects.values()).index(effect_id)
         except ValueError as e:
-            msg = f"{repr(effect_id)} isn't a valid effect."
+            msg = f"{effect_id!r} isn't a valid effect."
             raise AqualinkInvalidParameterException(msg) from e
 
         data = {
@@ -231,7 +231,7 @@ class IaquaColorLightJC(IaquaColorLight):
         return "Colors Light"
 
     @property
-    def supported_effects(self) -> Dict[str, int]:
+    def supported_effects(self) -> dict[str, int]:
         return {
             "Off": 0,
             "Alpine White": 1,
@@ -258,7 +258,7 @@ class IaquaColorLightSL(IaquaColorLight):
         return "SAm/SAL Light"
 
     @property
-    def supported_effects(self) -> Dict[str, int]:
+    def supported_effects(self) -> dict[str, int]:
         return {
             "Off": 0,
             "White": 1,
@@ -283,7 +283,7 @@ class IaquaColorLightJL(IaquaColorLight):
         return "LED WaterColors Light"
 
     @property
-    def supported_effects(self) -> Dict[str, int]:
+    def supported_effects(self) -> dict[str, int]:
         return {
             "Off": 0,
             "Alpine White": 1,
@@ -313,7 +313,7 @@ class IaquaColorLightIB(IaquaColorLight):
         return "Intellibrite Light"
 
     @property
-    def supported_effects(self) -> Dict[str, int]:
+    def supported_effects(self) -> dict[str, int]:
         return {
             "Off": 0,
             "SAm": 1,
@@ -341,7 +341,7 @@ class IaquaColorLightHU(IaquaColorLight):
         return "Universal Light"
 
     @property
-    def supported_effects(self) -> Dict[str, int]:
+    def supported_effects(self) -> dict[str, int]:
         return {
             "Off": 0,
             "Voodoo Lounge": 1,
