@@ -16,10 +16,10 @@ from iaqualink.exception import (
     AqualinkDeviceNotSupported,
     AqualinkInvalidParameterException,
 )
-from iaqualink.typing import DeviceData
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import IaquaSystem
+    from iaqualink.typing import DeviceData
 
 IAQUA_TEMP_CELSIUS_LOW = 1
 IAQUA_TEMP_CELSIUS_HIGH = 40
@@ -76,7 +76,7 @@ class IaquaDevice(AqualinkDevice):
 
         # I don't have a system where these fields get populated.
         # No idea what they are and what to do with them.
-        if isinstance(data["state"], (dict, list)):
+        if isinstance(data["state"], dict | list):
             raise AqualinkDeviceNotSupported(data)
 
         if data["name"].endswith("_heater") or data["name"].endswith("_pump"):

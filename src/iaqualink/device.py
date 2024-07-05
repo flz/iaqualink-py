@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from iaqualink.exception import AqualinkOperationNotSupportedException
-from iaqualink.typing import DeviceData
+
+if TYPE_CHECKING:
+    from iaqualink.typing import DeviceData
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -20,7 +22,7 @@ class AqualinkDevice:
 
     def __repr__(self) -> str:
         attrs = ["data"]
-        attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
+        attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
         return f'{self.__class__.__name__}({", ".join(attrs)})'
 
     def __eq__(self, other: object) -> bool:

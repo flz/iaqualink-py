@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import logging
-from types import TracebackType
-from typing import Any
+from typing import TYPE_CHECKING, Any, Self
 
 import httpx
 
@@ -19,6 +19,9 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems import *  # noqa: F403
+
+if TYPE_CHECKING:
+    from types import TracebackType
 
 AQUALINK_HTTP_HEADERS = {
     "user-agent": "okhttp/3.14.7",
@@ -67,13 +70,14 @@ class AqualinkClient:
             await self._client.aclose()
             self._client = None
 
-    async def __aenter__(self) -> AqualinkClient:
+    async def __aenter__(self) -> Self:
         try:
             await self.login()
-            return self
         except AqualinkServiceException:
             await self.close()
             raise
+
+        return self
 
     async def __aexit__(
         self,
@@ -101,12 +105,12 @@ class AqualinkClient:
 
         LOGGER.debug(f"<- {r.status_code} {r.reason_phrase} - {url}")
 
-        if r.status_code == 401:
+        if r.status_code == httpx.codes.UNAUTHORIZED:
             m = "Unauthorized Access, check your credentials and try again"
             self._logged = False
             raise AqualinkServiceUnauthorizedException
 
-        if r.status_code != 200:
+        if r.status_code != httpx.codes.OK:
             m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
             raise AqualinkServiceException(m)
 
@@ -153,9 +157,7 @@ class AqualinkClient:
 
         systems = []
         for x in data:
-            try:
+            with contextlib.suppress(AqualinkSystemUnsupportedException):
                 systems += [AqualinkSystem.from_data(self, x)]
-            except AqualinkSystemUnsupportedException:
-                pass
 
         return {x.serial: x for x in systems if x is not None}

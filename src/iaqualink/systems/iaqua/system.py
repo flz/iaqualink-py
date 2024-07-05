@@ -4,8 +4,6 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-import httpx
-
 from iaqualink.const import MIN_SECS_TO_REFRESH
 from iaqualink.exception import (
     AqualinkDeviceNotSupported,
@@ -14,10 +12,12 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.iaqua.device import IaquaDevice
-from iaqualink.typing import Payload
 
 if TYPE_CHECKING:
+    import httpx
+
     from iaqualink.client import AqualinkClient
+    from iaqualink.typing import Payload
 
 IAQUA_SESSION_URL = "https://p-api.iaqualink.net/v1/mobile/session.json"
 
@@ -48,7 +48,7 @@ class IaquaSystem(AqualinkSystem):
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
-        attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
+        attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
         return f'{self.__class__.__name__}({" ".join(attrs)})'
 
     async def _send_session_request(
@@ -72,12 +72,10 @@ class IaquaSystem(AqualinkSystem):
         return await self.aqualink.send_request(url)
 
     async def _send_home_screen_request(self) -> httpx.Response:
-        r = await self._send_session_request(IAQUA_COMMAND_GET_HOME)
-        return r
+        return await self._send_session_request(IAQUA_COMMAND_GET_HOME)
 
     async def _send_devices_screen_request(self) -> httpx.Response:
-        r = await self._send_session_request(IAQUA_COMMAND_GET_DEVICES)
-        return r
+        return await self._send_session_request(IAQUA_COMMAND_GET_DEVICES)
 
     async def update(self) -> None:
         # Be nice to Aqualink servers since we rely on polling.
@@ -118,8 +116,8 @@ class IaquaSystem(AqualinkSystem):
         # Make the data a bit flatter.
         devices = {}
         for x in data["home_screen"][4:]:
-            name = list(x.keys())[0]
-            state = list(x.values())[0]
+            name = next(iter(x.keys()))
+            state = next(iter(x.values()))
             attrs = {"name": name, "state": state}
             devices.update({name: attrs})
 
@@ -145,9 +143,9 @@ class IaquaSystem(AqualinkSystem):
         # Make the data a bit flatter.
         devices = {}
         for x in data["devices_screen"][3:]:
-            aux = list(x.keys())[0]
+            aux = next(iter(x.keys()))
             attrs = {"aux": aux.replace("aux_", ""), "name": aux}
-            for y in list(x.values())[0]:
+            for y in next(iter(x.values())):
                 attrs.update(y)
             devices.update({aux: attrs})
 

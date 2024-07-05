@@ -1,21 +1,21 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from iaqualink.exception import AqualinkSystemUnsupportedException
-from iaqualink.typing import Payload
 
 if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.device import AqualinkDevice
+    from iaqualink.typing import Payload
 
 
 LOGGER = logging.getLogger("iaqualink")
 
 
 class AqualinkSystem:
-    subclasses: dict[str, type[AqualinkSystem]] = {}
+    subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
@@ -35,7 +35,7 @@ class AqualinkSystem:
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
-        attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
+        attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
         return f'{self.__class__.__name__}({", ".join(attrs)})'
 
     @property
