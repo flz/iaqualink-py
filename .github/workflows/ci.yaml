@@ -35,7 +35,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          hatch test --cover
+          hatch test --cover -py=${{ maxtrix.python-version }}
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
