@@ -34,6 +34,7 @@ dynamic = [
 [project.optional-dependencies]
 dev = [
     "pre-commit",
+    "mypy",
 ]
 test = [
     "coverage[toml]",
@@ -96,6 +97,9 @@ exclude_lines = [
 profile = "black"
 multi_line_output = 3
 line_length = 80
+
+[tool.mypy]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 filterwarnings = [
