@@ -2,9 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any, Dict
-
-import httpx
+from typing import TYPE_CHECKING, Any
 
 from iaqualink.const import MIN_SECS_TO_REFRESH
 from iaqualink.exception import (
@@ -13,10 +11,12 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.exo.device import ExoDevice
-from iaqualink.typing import Payload
 
 if TYPE_CHECKING:
+    import httpx
+
     from iaqualink.client import AqualinkClient
+    from iaqualink.typing import Payload
 
 EXO_DEVICES_URL = "https://prod.zodiac-io.com/devices/v1"
 
@@ -29,10 +29,12 @@ class ExoSystem(AqualinkSystem):
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         super().__init__(aqualink, data)
+        # This lives in the parent class but mypy complains.
+        self.last_refresh: int = 0
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
-        attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
+        attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
         return f'{self.__class__.__name__}({" ".join(attrs)})'
 
     async def send_devices_request(self, **kwargs: Any) -> httpx.Response:
@@ -44,7 +46,7 @@ class ExoSystem(AqualinkSystem):
         return await self.send_devices_request()
 
     async def send_desired_state_request(
-        self, state: Dict[str, Any]
+        self, state: dict[str, Any]
     ) -> httpx.Response:
         return await self.send_devices_request(
             method="post", json={"state": {"desired": state}}
@@ -103,7 +105,6 @@ class ExoSystem(AqualinkSystem):
             devices.update({name: attrs})
 
         LOGGER.debug(f"devices: {devices}")
-        print(devices)
 
         for k, v in devices.items():
             if k in self.devices:

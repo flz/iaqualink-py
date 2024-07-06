@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from enum import Enum, unique
-from typing import TYPE_CHECKING, Any, Coroutine, Type, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from iaqualink.device import (
     AqualinkDevice,
@@ -12,10 +11,12 @@ from iaqualink.device import (
     AqualinkThermostat,
 )
 from iaqualink.exception import AqualinkInvalidParameterException
-from iaqualink.typing import DeviceData
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Coroutine
+
     from iaqualink.systems.exo.system import ExoSystem
+    from iaqualink.typing import DeviceData
 
 EXO_TEMP_CELSIUS_LOW = 1
 EXO_TEMP_CELSIUS_HIGH = 40
@@ -59,7 +60,7 @@ class ExoDevice(AqualinkDevice):
 
     @classmethod
     def from_data(cls, system: ExoSystem, data: DeviceData) -> ExoDevice:
-        class_: Type[ExoDevice]
+        class_: type[ExoDevice]
 
         if data["name"].startswith("aux_"):
             class_ = ExoAuxSwitch
@@ -94,15 +95,13 @@ class ExoSensor(ExoDevice, AqualinkSensor):
 
     @property
     def name(self) -> str:
-        # XXX - We're using the label as name rather than "sns_#".
+        # XXX: We're using the label as name rather than "sns_#".
         # Might revisit later.
         return self.data["sensor_type"].lower().replace(" ", "_")
 
 
 class ExoAttributeSensor(ExoDevice, AqualinkSensor):
     """These sensors are a simple key/value in equipment->swc_0."""
-
-    pass
 
 
 # This is an abstract class, not to be instantiated directly.
