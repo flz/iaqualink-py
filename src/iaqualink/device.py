@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any
 
 from iaqualink.exception import AqualinkOperationNotSupportedException
-from iaqualink.typing import DeviceData
+
+if TYPE_CHECKING:
+    from iaqualink.typing import DeviceData
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -20,7 +22,7 @@ class AqualinkDevice:
 
     def __repr__(self) -> str:
         attrs = ["data"]
-        attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
+        attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
         return f'{self.__class__.__name__}({", ".join(attrs)})'
 
     def __eq__(self, other: object) -> bool:
@@ -77,7 +79,7 @@ class AqualinkSwitch(AqualinkBinarySensor, AqualinkDevice):
 
 class AqualinkLight(AqualinkSwitch, AqualinkDevice):
     @property
-    def brightness(self) -> Optional[int]:
+    def brightness(self) -> int | None:
         return None
 
     @property
@@ -90,7 +92,7 @@ class AqualinkLight(AqualinkSwitch, AqualinkDevice):
         raise AqualinkOperationNotSupportedException
 
     @property
-    def effect(self) -> Optional[str]:
+    def effect(self) -> str | None:
         return None
 
     @property
