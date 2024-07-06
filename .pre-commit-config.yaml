@@ -9,39 +9,18 @@ repos:
       - id: check-yaml
       - id: check-added-large-files
 
-  - repo: https://github.com/pycqa/flake8
-    rev: 4.0.1
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.5.1
     hooks:
-      - id: flake8
-        additional_dependencies:
-          - flake8-bugbear
-          - flake8-comprehensions
-          - flake8-simplify
+      # Run the linter.
+      - id: ruff
+        args: [--fix]
+      # Run the formatter.
+      - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v0.940
+    rev: v1.10.1
     hooks:
       - id: mypy
-        exclude: ^(docs/conf.py|tests/.*)
-        additional_dependencies:
-          - types-dataclasses >= 0.1.3
-          - types-PyYAML
-          - tomli >= 0.2.6, < 2.0.0
-          - types-typed-ast >= 1.4.1
-          - click >= 8.1.0
-          - platformdirs >= 2.1.0
-
-  - repo: https://github.com/psf/black
-    rev: 22.8.0
-    hooks:
-      - id: black
-        # It is recommended to specify the latest version of Python
-        # supported by your project here, or alternatively use
-        # pre-commit's default_language_version, see
-        # https://pre-commit.com/#top_level-default_language_version
-        language_version: python3.10
-
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: v2.5.1
-    hooks:
-      - id: prettier
+        exclude: ^(tests/.*)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-class AqualinkException(Exception):
+class AqualinkException(Exception):  # noqa: N818
     """Base exception for iAqualink library."""
 
 

@@ -15,7 +15,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.11"]
+        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v4
@@ -29,17 +29,13 @@ jobs:
         run: |
           python -m pip install --upgrade pip hatch
 
-      - name: Check style
+      - name: Check lint
         run: |
-          hatch run lint:style
-
-      - name: Check typing
-        run: |
-          hatch run lint:typing
+          hatch fmt -l --check
 
       - name: Run unit tests
         run: |
-          hatch run test-cov
+          hatch test --cover -py=${{ matrix.python-version }}
 
       - name: Upload coverage artifact
         uses: actions/upload-artifact@v4
@@ -54,7 +50,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.11"]
+        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v4

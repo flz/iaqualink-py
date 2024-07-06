@@ -10,7 +10,7 @@ name = "iaqualink"
 description = "Asynchronous library for Jandy iAqualink"
 readme = "README.md"
 license = "BSD-3-Clause"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [
     { name = "Florent Thoumie", email = "florent@thoumie.net" },
 ]
@@ -22,13 +22,27 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
-    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
     "httpx[http2]",
 ]
 dynamic = [
     "version",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit",
+    "mypy",
+]
+test = [
+    "coverage[toml]",
+    "pytest",
+    "pytest-cov",
+    "pytest-icdiff",
+    "pytest-sugar",
+    "respx",
 ]
 
 [project.urls]
@@ -45,62 +59,28 @@ version-file = "src/iaqualink/version.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/iaqualink"]
 
-# To be used with vscode.
-#   $ hatch config set dirs.env.virtual ./.venv
-#   $ hatch run test
-# ... then set the path to the newly created venv.
-[tool.hatch.envs.default]
+[tool.hatch.envs.dev]
 dependencies = [
-    # Linting / Formatting
-    "black",
-    "flake8",
-    "isort",
-    "mypy",
-    # Testing
-    "coverage[toml]",
-    "pytest",
-    "pytest-cov",
-    "pytest-icdiff",
-    "pytest-sugar",
+    "httpx[http2]",
+]
+features = ["dev", "test"]
+
+[tool.hatch.envs.hatch-test]
+extra-dependencies = [
     "respx",
 ]
 
-[tool.hatch.envs.default.scripts]
-test = "pytest"
-test-cov = "pytest --cov-config=pyproject.toml --cov-report=xml --cov-report=term --cov=src --cov=tests"
+[[tool.hatch.envs.hatch-test.matrix]]
+python = ["3.12"]
 
-[[tool.hatch.envs.test.matrix]]
-python = ["311"]
-
-[tool.hatch.envs.lint]
-detached = true
-dependencies = [
-    "black",
-    "flake8",
-    "isort",
-    "mypy",
-]
-
-[tool.hatch.envs.lint.scripts]
-typing = "mypy --install-types --non-interactive {args:src/}"
-style = [
-    "flake8 {args:src/ tests/}",
-    "black --check --diff {args:src/ tests/}",
-    "isort --check-only --diff {args:src/ tests/}",
-]
-fmt = [
-    "isort {args:src/ tests/}",
-    "black {args:src/ tests/}",
-    "style",
-]
-all = [
-    "style",
-    "typing",
-]
-
-[tool.black]
+[tool.ruff]
 line-length = 80
-target-version = ['py38', 'py39', 'py310']
+
+[tool.ruff.lint]
+ignore = [
+    "SLF001",  # Some tests currently use private members
+    "G004",    # Will fix all f-string logging calls later
+]
 
 [tool.coverage.run]
 omit = [
@@ -112,11 +92,6 @@ exclude_lines = [
     "pragma: no cover",
     "if TYPE_CHECKING:",
 ]
-
-[tool.isort]
-profile = "black"
-multi_line_output = 3
-line_length = 80
 
 [tool.mypy]
 ignore_missing_imports = true

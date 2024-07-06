@@ -1,41 +1,41 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Dict, Optional, Type
+from typing import TYPE_CHECKING, ClassVar
 
 from iaqualink.exception import AqualinkSystemUnsupportedException
-from iaqualink.typing import Payload
 
 if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.device import AqualinkDevice
+    from iaqualink.typing import Payload
 
 
 LOGGER = logging.getLogger("iaqualink")
 
 
 class AqualinkSystem:
-    subclasses: Dict[str, Type[AqualinkSystem]] = {}
+    subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
         self.data = data
-        self.devices: Dict[str, AqualinkDevice] = {}
+        self.devices: dict[str, AqualinkDevice] = {}
         self.last_refresh = 0
 
         # Semantics here are somewhat odd.
         # True/False are obvious, None means "unknown".
-        self.online: Optional[bool] = None
+        self.online: bool | None = None
 
     @classmethod
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
         if hasattr(cls, "NAME"):
-            cls.subclasses[getattr(cls, "NAME")] = cls
+            cls.subclasses[cls.NAME] = cls
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
-        attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
+        attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
         return f'{self.__class__.__name__}({", ".join(attrs)})'
 
     @property
@@ -57,7 +57,7 @@ class AqualinkSystem:
 
         return cls.subclasses[data["device_type"]](aqualink, data)
 
-    async def get_devices(self) -> Dict[str, AqualinkDevice]:
+    async def get_devices(self) -> dict[str, AqualinkDevice]:
         if not self.devices:
             await self.update()
         return self.devices

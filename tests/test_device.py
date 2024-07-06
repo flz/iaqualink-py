@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Dict
 from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
@@ -33,7 +32,7 @@ class TestAqualinkDevice(TestBaseDevice):
     async def test_repr(self) -> None:
         assert (
             repr(self.sut)
-            == f"{self.sut.__class__.__name__}(data={repr(self.sut.data)})"
+            == f"{self.sut.__class__.__name__}(data={self.sut.data!r})"
         )
 
     def test_property_name(self) -> None:
@@ -60,14 +59,14 @@ class TestAqualinkDevice(TestBaseDevice):
 class TestAqualinkSensor(TestBaseSensor, TestAqualinkDevice):
     def setUp(self) -> None:
         system = MagicMock()
-        data: Dict[str, str] = {}
+        data: dict[str, str] = {}
         self.sut = AqualinkSensor(system, data)
 
 
 class TestAqualinkBinarySensor(TestBaseBinarySensor, TestAqualinkSensor):
     def setUp(self) -> None:
         system = MagicMock()
-        data: Dict[str, str] = {}
+        data: dict[str, str] = {}
         self.sut = AqualinkBinarySensor(system, data)
 
     def test_property_is_on_true(self) -> None:
@@ -82,7 +81,7 @@ class TestAqualinkBinarySensor(TestBaseBinarySensor, TestAqualinkSensor):
 class TestAqualinkSwitch(TestBaseSwitch, TestAqualinkDevice):
     def setUp(self) -> None:
         system = MagicMock()
-        data: Dict[str, str] = {}
+        data: dict[str, str] = {}
         self.sut = AqualinkSwitch(system, data)
 
     def test_property_is_on_true(self) -> None:
@@ -113,7 +112,7 @@ class TestAqualinkSwitch(TestBaseSwitch, TestAqualinkDevice):
 class TestAqualinkLight(TestBaseLight, TestAqualinkDevice):
     def setUp(self) -> None:
         system = MagicMock()
-        data: Dict[str, str] = {}
+        data: dict[str, str] = {}
         self.sut = AqualinkLight(system, data)
 
     def test_property_is_on_true(self) -> None:
@@ -141,37 +140,43 @@ class TestAqualinkLight(TestBaseLight, TestAqualinkDevice):
             await super().test_turn_on_noop()
 
     async def test_set_brightness_75(self) -> None:
-        with patch.object(
-            type(self.sut),
-            "supports_brightness",
-            new_callable=PropertyMock(return_value=True),
+        with (
+            patch.object(
+                type(self.sut),
+                "supports_brightness",
+                new_callable=PropertyMock(return_value=True),
+            ),
+            pytest.raises(NotImplementedError),
         ):
-            with pytest.raises(NotImplementedError):
-                await super().test_set_brightness_75()
+            await super().test_set_brightness_75()
 
     async def test_set_effect_by_name_off(self) -> None:
-        with patch.object(
-            type(self.sut),
-            "supports_effect",
-            new_callable=PropertyMock(return_value=True),
+        with (
+            patch.object(
+                type(self.sut),
+                "supports_effect",
+                new_callable=PropertyMock(return_value=True),
+            ),
+            pytest.raises(NotImplementedError),
         ):
-            with pytest.raises(NotImplementedError):
-                await super().test_set_effect_by_name_off()
+            await super().test_set_effect_by_name_off()
 
     async def test_set_effect_by_id_4(self) -> None:
-        with patch.object(
-            type(self.sut),
-            "supports_effect",
-            new_callable=PropertyMock(return_value=True),
+        with (
+            patch.object(
+                type(self.sut),
+                "supports_effect",
+                new_callable=PropertyMock(return_value=True),
+            ),
+            pytest.raises(NotImplementedError),
         ):
-            with pytest.raises(NotImplementedError):
-                await super().test_set_effect_by_id_4()
+            await super().test_set_effect_by_id_4()
 
 
 class TestAqualinkThermostat(TestBaseThermostat, TestAqualinkDevice):
     def setUp(self) -> None:
         system = AsyncMock()
-        data: Dict[str, str] = {}
+        data: dict[str, str] = {}
         self.sut = AqualinkThermostat(system, data)
 
     def test_property_is_on_true(self) -> None:

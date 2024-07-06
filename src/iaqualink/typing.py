@@ -1,6 +1,4 @@
 from __future__ import annotations
 
-from typing import Dict
-
-DeviceData = Dict[str, str]
-Payload = Dict[str, str]
+DeviceData = dict[str, str]
+Payload = dict[str, str]
