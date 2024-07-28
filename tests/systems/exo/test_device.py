@@ -230,7 +230,7 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
             self.pool_set_point,
             self.water_temp,
         ]
-        self.system.devices = {x.name: x for x in devices}
+        self.system.devices = {x.data["name"]: x for x in devices}
 
         self.sut = self.pool_set_point
         self.sut_class = ExoThermostat
@@ -242,7 +242,7 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         assert self.sut.name == "heating"
 
     def test_property_state(self) -> None:
-        assert self.sut.state == "1"
+        assert self.sut.state == "20"
 
     def test_property_is_on_true(self) -> None:
         self.sut.data["enabled"] = 1

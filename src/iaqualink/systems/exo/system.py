@@ -32,6 +32,7 @@ class ExoSystem(AqualinkSystem):
         super().__init__(aqualink, data)
         # This lives in the parent class but mypy complains.
         self.last_refresh: int = 0
+        self.temp_unit = "C" #TODO: check if unit can be changed on panel?
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -106,12 +107,20 @@ class ExoSystem(AqualinkSystem):
         # Remove those values, they're not handled properly.
         devices.pop("boost_time", None)
         devices.pop("vsp_speed", None)
+        devices.pop("sn", None)
+        devices.pop("vr", None)
+        devices.pop("version", None)
 
         # Process the heating control attributes
         if "heating" in data["state"]["reported"]:
             name = "heating"
             attrs = {"name": name}
             attrs.update(data["state"]["reported"]["heating"])
+            devices.update({name: attrs})
+            # extract heater state into seperate device to maintain homeassistant API
+            name = "heater"
+            attrs = {"name": name}
+            attrs.update({"state": data["state"]["reported"]["heating"]["state"]})
             devices.update({name: attrs})
 
         LOGGER.debug(f"devices: {devices}")

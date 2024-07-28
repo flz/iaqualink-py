@@ -33,6 +33,7 @@ LOGGER = logging.getLogger("iaqualink")
 class AqualinkState(Enum):
     OFF = "0"
     ON = "1"
+    STANDBY = "2"
     ENABLED = "3"
     ABSENT = "absent"
     PRESENT = "present"
