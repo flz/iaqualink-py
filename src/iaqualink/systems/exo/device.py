@@ -68,6 +68,8 @@ class ExoDevice(AqualinkDevice):
             class_ = ExoSensor
         elif data["name"] == "heating":
             class_ = ExoThermostat
+        elif data["name"] == "heater":
+            class_ = ExoHeater
         elif data["name"] in ["production", "boost", "low"]:
             class_ = ExoAttributeSwitch
         else:
@@ -138,11 +140,13 @@ class ExoAttributeSwitch(ExoSwitch):
     def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
         return self.system.set_toggle
 
+class ExoHeater(ExoDevice):
+    """This device is to seperate the state of the heater from the thermostat to maintain the existing homeassistant API"""
 
 class ExoThermostat(ExoSwitch, AqualinkThermostat):
     @property
     def state(self) -> str:
-        return str(self.data["enabled"])
+        return str(self.data["sp"])
 
     @property
     def unit(self) -> str:
@@ -150,7 +154,11 @@ class ExoThermostat(ExoSwitch, AqualinkThermostat):
 
     @property
     def _sensor(self) -> ExoSensor:
-        return cast(ExoSensor, self.system.devices["water_temp"])
+        return cast(ExoSensor, self.system.devices["sns_3"])
+
+    @property
+    def _heater(self) -> ExoHeater:
+        return cast(ExoSensor, self.system.devices["heater"])
 
     @property
     def current_temperature(self) -> str:
