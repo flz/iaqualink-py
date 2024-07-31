@@ -1,34 +1,29 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
-import asyncio
-from base64 import b64decode
-from Crypto.Cipher import AES
-from Crypto.Util.Padding import unpad
-from typing import TYPE_CHECKING, Optional
-from awscrt import mqtt5, auth
-from awsiot import iotshadow, mqtt5_client_builder
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
-import httpx
+from awscrt import auth, mqtt5
+from awsiot import iotshadow, mqtt5_client_builder
 
 from iaqualink.const import (
-    MIN_SECS_TO_REFRESH,
     AQUALINK_AWS_IOT_ENDPOINT,
     AQUALINK_AWS_IOT_REGION,
+    MIN_SECS_TO_REFRESH,
 )
 from iaqualink.exception import (
     AqualinkDeviceNotSupported,
-    AqualinkServiceException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.zs500.device import Zs500Device
-from iaqualink.typing import Payload
 
 if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
+    from iaqualink.typing import Payload
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -54,7 +49,7 @@ class Zs500System(AqualinkSystem):
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
-        attrs = ["%s=%r" % (i, getattr(self, i)) for i in attrs]
+        attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
         return f'{self.__class__.__name__}({" ".join(attrs)})'
 
     async def _connect(self) -> None:
@@ -65,13 +60,13 @@ class Zs500System(AqualinkSystem):
         )
 
         connected = asyncio.Future()
-        async def on_connected(data):
+        async def on_connected(_):
             connected.set_result(True)
 
         async def on_failure(data):
             connected.set_exception(data)
 
-        async def on_stopped(data):
+        async def on_stopped(_):
             self._started = False
 
         mqtt = mqtt5_client_builder.websockets_with_default_aws_signing(
@@ -153,7 +148,7 @@ class Zs500System(AqualinkSystem):
             if dev == device:
                 await self.set_shadow_single(value, "equipment", k, *path)
                 return
-        raise AqualinkDeviceNotSupported()
+        raise AqualinkDeviceNotSupported
 
     async def set_shadow_single(self, value: Any, *keys) -> None:
         desired = {}
