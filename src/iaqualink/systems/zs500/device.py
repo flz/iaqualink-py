@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import logging
 from enum import Enum, unique
-from typing import TYPE_CHECKING, Dict, Optional, Type, cast
+from typing import TYPE_CHECKING
 
 from iaqualink.device import (
     AqualinkBinarySensor,
     AqualinkDevice,
-    AqualinkLight,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkThermostat,
@@ -16,10 +15,10 @@ from iaqualink.exception import (
     AqualinkDeviceNotSupported,
     AqualinkInvalidParameterException,
 )
-from iaqualink.typing import DeviceData
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import Zs500System
+    from iaqualink.typing import DeviceData
 
 ZS500_TEMP_SCALE = 0.1
 ZS500_TEMP_CELSIUS_LOW = 15
@@ -70,7 +69,7 @@ class Zs500Device(AqualinkDevice):
 
     @classmethod
     def from_data(cls, system: Zs500System, data: DeviceData) -> Zs500Device:
-        class_: Type[Zs500Device]
+        class_: type[Zs500Device]
 
         device_type = data["et"]
         if device_type == "HEAT_PUMP":
@@ -132,6 +131,7 @@ class Zs500Thermostat(Zs500Switch, AqualinkThermostat):
             if sensor["type"] != sensor_type:
                 continue
             return Zs500TemperatureSensor(self.system, sensor)
+        raise AqualinkDeviceNotSupported
 
     @property
     def _air_sensor(self) -> Zs500TemperatureSensor:
