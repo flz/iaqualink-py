@@ -34,7 +34,7 @@ dynamic = [
 [project.optional-dependencies]
 dev = [
     "pre-commit==3.8.0",
-    "mypy==1.11.0",
+    "mypy==1.11.1",
 ]
 test = [
     "coverage[toml]==7.6.0",
