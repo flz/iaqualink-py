@@ -53,11 +53,19 @@ class Zs500Device(AqualinkDevice):
 
     @property
     def state(self) -> str:
-        return self.data["value"]
+        if "value" in self.data:
+            return self.data["value"]
+
+        if "state" in self.data:
+            return self.data["state"]
+
+        return None
 
     @property
     def name(self) -> str:
-        return self.data["type"]
+        et = self.data["et"].lower()
+        return " ".join([x.capitalize() for x in et.split('_')])
+
 
     @property
     def manufacturer(self) -> str:
@@ -71,9 +79,22 @@ class Zs500Device(AqualinkDevice):
     def from_data(cls, system: Zs500System, data: DeviceData) -> Zs500Device:
         class_: type[Zs500Device]
 
+        if not "et" in data:
+            raise AqualinkDeviceNotSupported(data)
+
         device_type = data["et"]
         if device_type == "HEAT_PUMP":
             class_ = Zs500Thermostat
+        elif device_type == "AIR_SENSOR":
+            class_ = Zs500TemperatureSensor
+        elif device_type == "WATER_SENSOR":
+            class_ = Zs500TemperatureSensor
+        elif device_type == "_SENSOR":
+            class_ = Zs500Sensor
+        elif device_type == "_BINARY_SENSOR":
+            class_ = Zs500BinarySensor
+        elif device_type == "_SWITCH":
+            class_ = Zs500Switch
         else:
             raise AqualinkDeviceNotSupported(data)
 
@@ -95,6 +116,9 @@ class Zs500BinarySensor(Zs500Sensor, AqualinkBinarySensor):
 
     @property
     def is_on(self) -> bool:
+        if isinstance(self.state, int):
+            return self.state > 0
+
         return (
             AqualinkState(self.state)
             in [AqualinkState.ON, AqualinkState.ENABLED, AqualinkState.PRESENT]
@@ -104,16 +128,13 @@ class Zs500BinarySensor(Zs500Sensor, AqualinkBinarySensor):
 
 
 class Zs500Switch(Zs500BinarySensor, AqualinkSwitch):
-    async def _toggle(self) -> None:
-        await self.system.set_switch(f"set_{self.name}")
-
     async def turn_on(self) -> None:
         if not self.is_on:
-            await self._toggle()
+            await self.system.set_device_property(self, 0, "state")
 
     async def turn_off(self) -> None:
         if self.is_on:
-            await self._toggle()
+            await self.system.set_device_property(self, 1, "state")
 
 class Zs500Thermostat(Zs500Switch, AqualinkThermostat):
     @property
@@ -124,13 +145,22 @@ class Zs500Thermostat(Zs500Switch, AqualinkThermostat):
     def unit(self) -> str:
         return self.system.temp_unit
 
+    @property
+    def state(self) -> float:
+        return self.current_temperature
+
     def _sensor(self, sensor_type: str) -> Zs500TemperatureSensor:
         for name, sensor in self.data.items():
             if not name.startswith("sns_"):
                 continue
             if sensor["type"] != sensor_type:
                 continue
-            return Zs500TemperatureSensor(self.system, sensor)
+
+            sensor_data = {
+                "et": sensor["type"].upper() + "_SENSOR",
+                **sensor,
+            }
+            return Zs500Device.from_data(self.system, sensor_data)
         raise AqualinkDeviceNotSupported
 
     @property
@@ -187,11 +217,3 @@ class Zs500Thermostat(Zs500Switch, AqualinkThermostat):
     @property
     def is_on(self) -> bool:
         return self.data["state"] > 0
-
-    async def turn_on(self) -> None:
-        if self.is_on is False:
-            await self.system.set_device_property(self, 1, "state")
-
-    async def turn_off(self) -> None:
-        if self.is_on is True:
-            await self.system.set_device_property(self, 0, "state")

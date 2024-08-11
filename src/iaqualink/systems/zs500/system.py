@@ -4,7 +4,7 @@ import asyncio
 import logging
 import time
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
+import uuid
 
 from awscrt import auth, mqtt5
 from awsiot import iotshadow, mqtt5_client_builder
@@ -44,6 +44,7 @@ class Zs500System(AqualinkSystem):
         self._updates = {}
         self._started = False
         self.temp_unit = 'C'
+        self.last_refresh = 0
 
         self._shadow = None
 
@@ -84,7 +85,9 @@ class Zs500System(AqualinkSystem):
         self._shadow = iotshadow.IotShadowClient(mqtt)
         await self._attach_shadow_handlers()
 
+        self.last_refresh = int(time.time())
         self._started = True
+        self.online = None
 
     async def _attach_shadow_handlers(self) -> None:
 
@@ -111,7 +114,7 @@ class Zs500System(AqualinkSystem):
         # On shadow updates
         ##########################
         async def on_shadow_updated(response: iotshadow.ShadowUpdatedEvent):
-            await self._parse_device_info(response.current)
+            await self._parse_device_info(response.current.state.reported)
 
         update_future, _ = self._shadow.subscribe_to_shadow_updated_events(
             request=iotshadow.ShadowUpdatedSubscriptionRequest(thing_name=self.serial),
@@ -161,9 +164,12 @@ class Zs500System(AqualinkSystem):
         await self.set_shadow(desired)
 
     async def set_shadow(self, desired: dict[str, dict]) -> None:
-        token = str(uuid4)
+        token = str(uuid.uuid4())
         ready = asyncio.Future()
         self._updates[token] = ready
+
+        if not self._started:
+            await self._connect()
 
         publish = self._shadow.publish_update_shadow(
             request=iotshadow.UpdateShadowRequest(
@@ -181,13 +187,15 @@ class Zs500System(AqualinkSystem):
             del self._updates[token]
 
 
-    async def _parse_device_info(self, data: Any) -> None:
-        report = data.state.reported
+    async def _parse_device_info(self, report: Any) -> None:
         equipment = report["equipment"]
 
         if report["aws"]["status"] != "connected":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
+            self.online = False
             raise AqualinkSystemOfflineException
+
+        self.online = True
 
         for k, v in equipment.items():
             if k in self.devices:
@@ -205,7 +213,7 @@ class Zs500System(AqualinkSystem):
         if not self._started:
             await self._connect()
 
-        token = str(uuid4())
+        token = str(uuid.uuid4())
         ready = asyncio.Future()
 
         self._updates[token] = ready
@@ -221,7 +229,7 @@ class Zs500System(AqualinkSystem):
         try:
             await asyncio.wrap_future(get_request)
             response = await asyncio.wait_for(ready, timeout=10)
-            await self._parse_device_info(response)
+            await self._parse_device_info(response.state.reported)
         finally:
             del self._updates[token]
 
