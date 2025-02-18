@@ -23,4 +23,6 @@ repos:
     rev: v1.10.1
     hooks:
       - id: mypy
+        additional_dependencies:
+          - types-PyYAML==6.0.12
         exclude: ^(tests/.*)

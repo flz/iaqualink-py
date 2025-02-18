@@ -35,6 +35,8 @@ dynamic = [
 dev = [
     "pre-commit==3.7.1",
     "mypy==1.10.1",
+    "PyYAML==6.0.2",
+    "types-PyYAML==6.0.12",
 ]
 test = [
     "coverage[toml]==7.5.4",
@@ -64,6 +66,9 @@ dependencies = [
     "httpx[http2]",
 ]
 features = ["dev", "test"]
+
+[tool.hatch.envs.dev.scripts]
+test = "./test.py"
 
 [tool.hatch.envs.hatch-test]
 extra-dependencies = [
