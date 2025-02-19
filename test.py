@@ -2,19 +2,20 @@
 
 import os
 
-from yaml import load, dump
+from yaml import dump, load
 
 try:
-    from yaml import CLoader as Loader, CDumper as Dumper
+    from yaml import CDumper as Dumper
+    from yaml import CLoader as Loader
 except ImportError:
-    from yaml import Loader, Dumper  # type: ignore
+    from yaml import Dumper, Loader  # type: ignore
 
 from iaqualink.client import AqualinkClient
 from iaqualink.exception import AqualinkException
 
 
 async def main():
-    with open(os.path.expanduser("~/.config/iaqualink.yaml"), "r") as f:
+    with open(os.path.expanduser("~/.config/iaqualink.yaml")) as f:
         config = load(f, Loader=Loader)
 
     data = {}
