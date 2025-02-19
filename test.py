@@ -2,21 +2,18 @@
 
 import os
 
-from yaml import dump, load
-
-try:
-    from yaml import CDumper as Dumper
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Dumper, Loader  # type: ignore
+import anyio
+import yaml
 
 from iaqualink.client import AqualinkClient
 from iaqualink.exception import AqualinkException
 
 
 async def main():
-    with open(os.path.expanduser("~/.config/iaqualink.yaml")) as f:
-        config = load(f, Loader=Loader)
+    async with await anyio.open_file(
+        os.path.expanduser("~/.config/iaqualink.yaml")
+    ) as f:
+        config = yaml.safe_load(await f.read())
 
     data = {}
 
@@ -33,7 +30,7 @@ async def main():
             else:
                 data[system]["devices"] = devices
 
-    print(dump(data, Dumper=Dumper, default_flow_style=False))
+    print(yaml.dump(data, default_flow_style=False))  # noqa: T201
 
 
 if __name__ == "__main__":
