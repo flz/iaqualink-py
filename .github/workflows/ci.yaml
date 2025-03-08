@@ -25,6 +25,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+
       - name: Install the project
         run: uv sync --all-extras --dev
 
@@ -41,7 +44,6 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.12"]
 
     steps:
       - uses: actions/checkout@v4
