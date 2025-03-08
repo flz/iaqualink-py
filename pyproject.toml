@@ -26,6 +26,7 @@ classifiers = [
 ]
 dependencies = [
     "httpx[http2]>=0.27.0",
+    "pyserde",
 ]
 dynamic = [
     "version",
