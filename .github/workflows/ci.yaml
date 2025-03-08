@@ -32,7 +32,7 @@ jobs:
         run: uv sync --all-extras --dev
 
       - name: Run linters (pre-commit)
-        run: uv run pre-commit --show-diff-on-failure --color=always
+        run: uv run pre-commit run --show-diff-on-failure --color=always
 
       - name: Run unit tests
         run: uv run pytest
