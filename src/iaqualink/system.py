@@ -10,9 +10,8 @@ from iaqualink.reauth import send_with_reauth_retry
 if TYPE_CHECKING:
     import httpx
 
-    from iaqualink.client import AqualinkClient
+    from iaqualink.client import AqualinkClient, SystemsResponseElement
     from iaqualink.device import AqualinkDevice
-    from iaqualink.typing import Payload
 
 
 LOGGER = logging.getLogger("iaqualink")
@@ -28,7 +27,7 @@ class SystemStatus(enum.StrEnum):
 class AqualinkSystem:
     subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
 
-    def __init__(self, aqualink: AqualinkClient, data: Payload):
+    def __init__(self, aqualink: AqualinkClient, data: SystemsResponseElement):
         self.aqualink = aqualink
         self.data = data
         self.devices: dict[str, AqualinkDevice] = {}
@@ -47,11 +46,11 @@ class AqualinkSystem:
 
     @property
     def name(self) -> str:
-        return self.data["name"]
+        return self.data.name
 
     @property
     def serial(self) -> str:
-        return self.data["serial_number"]
+        return self.data.serial_number
 
     @property
     def supported(self) -> bool:
@@ -59,16 +58,15 @@ class AqualinkSystem:
 
     @classmethod
     def from_data(
-        cls, aqualink: AqualinkClient, data: Payload
+        cls, aqualink: AqualinkClient, data: SystemsResponseElement
     ) -> AqualinkSystem:
-        if data["device_type"] not in cls.subclasses:
+        if data.device_type not in cls.subclasses:
             LOGGER.warning(
-                "%s is not a supported system type.", data["device_type"]
+                "%s is not a supported system type.", data.device_type
             )
-            # UnsupportedSystem is defined after this class in this module.
             return UnsupportedSystem(aqualink, data)
 
-        return cls.subclasses[data["device_type"]](aqualink, data)
+        return cls.subclasses[data.device_type](aqualink, data)
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
         if not self.devices:

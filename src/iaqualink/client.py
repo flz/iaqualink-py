@@ -6,6 +6,9 @@ import logging
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Self
 
+from serde import serde
+from serde.json import from_json
+
 import httpx
 
 from iaqualink.const import (
@@ -73,6 +76,27 @@ class AqualinkAuthState:
             values[field_name] = value
 
         return cls(**values)
+
+
+@serde
+class SystemsResponseElement:
+    created_at: str
+    device_type: str
+    firmware_version: str | None
+    id: int
+    last_activity_at: str | None
+    name: str
+    owner_id: int | None
+    serial_number: str
+    target_firmware_version: str | None
+    update_firmware_start_at: str | None
+    updated_at: str
+    updating: bool
+
+
+@serde
+class SystemsResponse:
+    systems: list[SystemsResponseElement]
 
 
 class AqualinkClient:
@@ -306,7 +330,7 @@ class AqualinkClient:
                 raise AqualinkServiceUnauthorizedException from e
             raise
 
-        data = r.json()
+        response = from_json(SystemsResponse, r.json())
 
-        systems = [AqualinkSystem.from_data(self, x) for x in data]
+        systems = [AqualinkSystem.from_data(self, x) for x in response.systems]
         return {x.serial: x for x in systems}
