@@ -6,9 +6,8 @@ from typing import TYPE_CHECKING, ClassVar
 from iaqualink.exception import AqualinkSystemUnsupportedException
 
 if TYPE_CHECKING:
-    from iaqualink.client import AqualinkClient
+    from iaqualink.client import AqualinkClient, SystemsResponseElement
     from iaqualink.device import AqualinkDevice
-    from iaqualink.typing import Payload
 
 
 LOGGER = logging.getLogger("iaqualink")
@@ -17,7 +16,7 @@ LOGGER = logging.getLogger("iaqualink")
 class AqualinkSystem:
     subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
 
-    def __init__(self, aqualink: AqualinkClient, data: Payload):
+    def __init__(self, aqualink: AqualinkClient, data: SystemsResponseElement):
         self.aqualink = aqualink
         self.data = data
         self.devices: dict[str, AqualinkDevice] = {}
@@ -40,22 +39,22 @@ class AqualinkSystem:
 
     @property
     def name(self) -> str:
-        return self.data["name"]
+        return self.data.name
 
     @property
     def serial(self) -> str:
-        return self.data["serial_number"]
+        return self.data.serial_number
 
     @classmethod
     def from_data(
-        cls, aqualink: AqualinkClient, data: Payload
+        cls, aqualink: AqualinkClient, data: SystemsResponseElement
     ) -> AqualinkSystem:
-        if data["device_type"] not in cls.subclasses:
-            m = f"{data['device_type']} is not a supported system type."
+        if data.device_type not in cls.subclasses:
+            m = f"{data.device_type} is not a supported system type."
             LOGGER.warning(m)
             raise AqualinkSystemUnsupportedException(m)
 
-        return cls.subclasses[data["device_type"]](aqualink, data)
+        return cls.subclasses[data.device_type](aqualink, data)
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
         if not self.devices:
