@@ -45,11 +45,12 @@ class IaquaSystem(AqualinkSystem):
         super().__init__(aqualink, data)
 
         self.temp_unit: str = ""
+        self.last_refresh: int = 0
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
         attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
-        return f'{self.__class__.__name__}({" ".join(attrs)})'
+        return f"{self.__class__.__name__}({' '.join(attrs)})"
 
     async def _send_session_request(
         self,

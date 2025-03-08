@@ -21,7 +21,7 @@ class AqualinkSystem:
         self.aqualink = aqualink
         self.data = data
         self.devices: dict[str, AqualinkDevice] = {}
-        self.last_refresh = 0
+        self.last_refresh: int
 
         # Semantics here are somewhat odd.
         # True/False are obvious, None means "unknown".
@@ -36,7 +36,7 @@ class AqualinkSystem:
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
         attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
-        return f'{self.__class__.__name__}({", ".join(attrs)})'
+        return f"{self.__class__.__name__}({', '.join(attrs)})"
 
     @property
     def name(self) -> str:
