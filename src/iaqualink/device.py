@@ -23,7 +23,7 @@ class AqualinkDevice:
     def __repr__(self) -> str:
         attrs = ["data"]
         attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
-        return f'{self.__class__.__name__}({", ".join(attrs)})'
+        return f"{self.__class__.__name__}({', '.join(attrs)})"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, AqualinkDevice):
