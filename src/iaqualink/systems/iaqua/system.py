@@ -111,6 +111,10 @@ class IaquaSystem(AqualinkSystem):
         self.status = SystemStatus.ONLINE
 
     def _parse_home_response(self, response: httpx.Response) -> None:
+        from iaqualink.types import HomeResponse
+        from iaqualink.util import json_to_dataclass
+
+        _data = json_to_dataclass(HomeResponse, response.text)
         data = response.json()
 
         LOGGER.debug(f"Home response: {data}")

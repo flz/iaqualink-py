@@ -10,8 +10,9 @@ from iaqualink.reauth import send_with_reauth_retry
 if TYPE_CHECKING:
     import httpx
 
-    from iaqualink.client import AqualinkClient, SystemsResponseElement
+    from iaqualink.client import AqualinkClient
     from iaqualink.device import AqualinkDevice
+    from iaqualink.types import DevicesResponseElement
 
 
 LOGGER = logging.getLogger("iaqualink")
@@ -27,7 +28,7 @@ class SystemStatus(enum.StrEnum):
 class AqualinkSystem:
     subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
 
-    def __init__(self, aqualink: AqualinkClient, data: SystemsResponseElement):
+    def __init__(self, aqualink: AqualinkClient, data: DevicesResponseElement):
         self.aqualink = aqualink
         self.data = data
         self.devices: dict[str, AqualinkDevice] = {}
@@ -58,7 +59,7 @@ class AqualinkSystem:
 
     @classmethod
     def from_data(
-        cls, aqualink: AqualinkClient, data: SystemsResponseElement
+        cls, aqualink: AqualinkClient, data: DevicesResponseElement
     ) -> AqualinkSystem:
         if data.device_type not in cls.subclasses:
             LOGGER.warning(
