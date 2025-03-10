@@ -273,6 +273,34 @@ class IaquaColorLightSL(IaquaColorLight):
         }
 
 
+class IaquaColorLightCL(IaquaColorLight):
+    @property
+    def manufacturer(self) -> str:
+        return "Pentair"
+
+    @property
+    def model(self) -> str:
+        return "ColorLogic Light"
+
+    @property
+    def supported_effects(self) -> dict[str, int]:
+        return {
+            "Off": 0,
+            "Voodoo Lounge": 1,
+            "Deep Blue Sea": 2,
+            "Afternoon Skies": 3,
+            "Emerald": 4,
+            "Sangria": 5,
+            "Cloud White": 6,
+            "Twilight": 7,
+            "Tranquility": 8,
+            "Gemstone": 9,
+            "USA!": 10,
+            "Mardi Gras": 11,
+            "Cool Cabaret": 12,
+        }
+
+
 class IaquaColorLightJL(IaquaColorLight):
     @property
     def manufacturer(self) -> str:
@@ -297,7 +325,7 @@ class IaquaColorLightJL(IaquaColorLight):
             "Violet": 9,
             "Slow Splash": 10,
             "Fast Splash": 11,
-            "USA!!!": 12,
+            "USA!": 12,
             "Fat Tuesday": 13,
             "Disco Tech": 14,
         }
@@ -321,7 +349,7 @@ class IaquaColorLightIB(IaquaColorLight):
             "Romance": 3,
             "Caribbean": 4,
             "American": 5,
-            "Cal Sunset": 6,
+            "California Sunset": 6,
             "Royal": 7,
             "Blue": 8,
             "Green": 9,
@@ -358,13 +386,16 @@ class IaquaColorLightHU(IaquaColorLight):
             "Twilight": 12,
             "Tranquility": 13,
             "Gemstone": 14,
-            "USA": 15,
+            "USA!": 15,
+            "Mardi Gras": 16,
+            "Cool Cabaret": 17,
         }
 
 
 light_subtype_to_class = {
     "1": IaquaColorLightJC,
     "2": IaquaColorLightSL,
+    "3": IaquaColorLightCL,
     "4": IaquaColorLightJL,
     "5": IaquaColorLightIB,
     "6": IaquaColorLightHU,
