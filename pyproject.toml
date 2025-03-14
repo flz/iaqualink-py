@@ -36,6 +36,8 @@ dynamic = [
 dev = [
     "pre-commit==4.1.0",
     "mypy==1.15.0",
+    "PyYAML==6.0.2",
+    "types-PyYAML==6.0.12",
     "ruff==0.9.10",
 ]
 test = [
