@@ -434,18 +434,21 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
         await super().test_turn_off_noop()
 
     async def test_set_temperature_86f(self) -> None:
+        self.sut.system.devices["spa_set_point"] = self.spa_set_point
         with patch.object(self.sut.system, "_parse_home_response"):
             await super().test_set_temperature_86f()
         assert len(self.respx_calls) == 1
         url = str(self.respx_calls[0].request.url)
-        assert "86" in url
+        assert "temp1=102" in url
+        assert "temp2=86" in url
 
     async def test_set_temperature_30c(self) -> None:
         with patch.object(self.sut.system, "_parse_home_response"):
             await super().test_set_temperature_30c()
         assert len(self.respx_calls) == 1
         url = str(self.respx_calls[0].request.url)
-        assert "30" in url
+        assert "temp1=30" in url
+        assert "temp2" not in url
 
     async def test_temp_name_spa_present(self) -> None:
         self.sut.system.devices["spa_set_point"] = self.spa_set_point
