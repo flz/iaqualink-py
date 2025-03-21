@@ -32,12 +32,12 @@ class ExoSystem(AqualinkSystem):
         super().__init__(aqualink, data)
         # This lives in the parent class but mypy complains.
         self.last_refresh: int = 0
-        self.temp_unit = "C" #TODO: check if unit can be changed on panel?
+        self.temp_unit = "C"  # TODO: check if unit can be changed on panel?
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
         attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
-        return f'{self.__class__.__name__}({" ".join(attrs)})'
+        return f"{self.__class__.__name__}({' '.join(attrs)})"
 
     async def send_devices_request(self, **kwargs: Any) -> httpx.Response:
         url = f"{EXO_DEVICES_URL}/{self.serial}/shadow"
@@ -120,7 +120,9 @@ class ExoSystem(AqualinkSystem):
             # extract heater state into seperate device to maintain homeassistant API
             name = "heater"
             attrs = {"name": name}
-            attrs.update({"state": data["state"]["reported"]["heating"]["state"]})
+            attrs.update(
+                {"state": data["state"]["reported"]["heating"]["state"]}
+            )
             devices.update({name: attrs})
 
         LOGGER.debug(f"devices: {devices}")

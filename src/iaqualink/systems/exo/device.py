@@ -140,8 +140,10 @@ class ExoAttributeSwitch(ExoSwitch):
     def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
         return self.system.set_toggle
 
+
 class ExoHeater(ExoDevice):
     """This device is to seperate the state of the heater from the thermostat to maintain the existing homeassistant API"""
+
 
 class ExoThermostat(ExoSwitch, AqualinkThermostat):
     @property
