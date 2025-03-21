@@ -38,11 +38,11 @@ dev = [
     "mypy==1.15.0",
     "PyYAML==6.0.2",
     "types-PyYAML==6.0.12",
-    "ruff==0.9.10",
+    "ruff==0.11.0",
 ]
 test = [
-    "coverage[toml]==7.6.12",
-    "pytest==8.3.4",
+    "coverage[toml]==7.7.0",
+    "pytest==8.3.5",
     "pytest-cov==6.0.0",
     "pytest-icdiff==0.9",
     "pytest-sugar==1.0.0",
