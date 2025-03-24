@@ -7,6 +7,10 @@ from iaqualink.system import AqualinkSystem
 from iaqualink.const import (
     AQUALINK_API_KEY,
 )
+from iaqualink.exception import (
+    AqualinkSystemOfflineException,
+    AqualinkServiceException,
+)
 from iaqualink.typing import Payload
 
 from .device import AquaLinkIQPump
@@ -39,6 +43,13 @@ class I2DSystem(AqualinkSystem):
         resp = await self._send_device_request()
         data: dict = resp.json()
         LOGGER.debug(f"i2d response: {data}")
+
+        if data["status"] == "500":
+            if data["error"]["message"] == "Device offline.":
+                LOGGER.warning(f"Status for system {self.serial} is Offline.")
+                raise AqualinkSystemOfflineException
+            else:
+                raise AqualinkServiceException
         self.devices = {self.serial: AquaLinkIQPump(self, data["alldata"])}
 
     async def _send_device_request(
