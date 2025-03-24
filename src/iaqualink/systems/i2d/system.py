@@ -1,5 +1,6 @@
 import httpx
 import json
+import logging
 from typing import Optional, TYPE_CHECKING
 
 from iaqualink.system import AqualinkSystem
@@ -20,6 +21,8 @@ AQUALINK_HTTP_HEADERS = {
 }
 IAQUA_DEVICE_URL = "https://r-api.iaqualink.net/v2/devices/"
 
+LOGGER = logging.getLogger("iaqualink")
+
 
 class I2DSystem(AqualinkSystem):
     NAME = "i2d"
@@ -35,6 +38,7 @@ class I2DSystem(AqualinkSystem):
     async def update(self) -> None:
         resp = await self._send_device_request()
         data: dict = resp.json()
+        LOGGER.debug(f"i2d response: {data}")
         self.devices = {self.serial: AquaLinkIQPump(self, data["alldata"])}
 
     async def _send_device_request(
