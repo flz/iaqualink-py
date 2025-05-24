@@ -53,6 +53,7 @@ class AqualinkClient:
 
         self.client_id = ""
         self._token = ""
+        self._id_token = ""
         self._user_id = ""
 
         self._last_refresh = 0
@@ -90,7 +91,7 @@ class AqualinkClient:
         return exc is None
 
     async def send_request(
-        self, url: str, method: str = "get", **kwargs: Any
+        self, url: str, method: str = "get", headers: dict[str, str] | None = None, **kwargs: Any
     ) -> httpx.Response:
         if self._client is None:
             self._client = httpx.AsyncClient(
@@ -98,9 +99,17 @@ class AqualinkClient:
                 limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
             )
 
-        LOGGER.debug(f"-> {method.upper()} {url} {kwargs}")
+        # Prepare final headers: start with base, update with custom, then with any explicitly passed in kwargs
+        # (though kwargs["headers"] would be unusual if also using the dedicated headers param)
+        final_headers = AQUALINK_HTTP_HEADERS.copy() # Start with a copy of the class-level default headers
+        if headers: # If custom headers are provided through the new 'headers' parameter
+            final_headers.update(headers)
+        if "headers" in kwargs: # If headers are also in kwargs (less common if using dedicated param)
+            final_headers.update(kwargs.pop("headers")) 
+
+        LOGGER.debug(f"-> {method.upper()} {url} Headers: {final_headers} Kwargs: {kwargs}")
         r = await self._client.request(
-            method, url, headers=AQUALINK_HTTP_HEADERS, **kwargs
+            method, url, headers=final_headers, **kwargs
         )
 
         LOGGER.debug(f"<- {r.status_code} {r.reason_phrase} - {url}")
@@ -133,6 +142,7 @@ class AqualinkClient:
         self.client_id = data["session_id"]
         self._token = data["authentication_token"]
         self._user_id = data["id"]
+        self._id_token = data["userPoolOAuth"]["IdToken"]
         self._logged = True
 
     async def _send_systems_request(self) -> httpx.Response:
