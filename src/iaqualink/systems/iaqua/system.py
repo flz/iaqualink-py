@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List
 
 from iaqualink.const import MIN_SECS_TO_REFRESH
 from iaqualink.exception import (
@@ -12,6 +12,7 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.iaqua.device import IaquaDevice
+from iaqualink.onetouch import parse_onetouch_response
 
 if TYPE_CHECKING:
     import httpx
@@ -19,12 +20,10 @@ if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.typing import Payload
 
-IAQUA_SESSION_URL = "https://p-api.iaqualink.net/v1/mobile/session.json"
+IAQUA_SESSION_URL_TEMPLATE = "https://p-api.iaqualink.net/v{api_version}/mobile/session.json"
 
 IAQUA_COMMAND_GET_DEVICES = "get_devices"
 IAQUA_COMMAND_GET_HOME = "get_home"
-IAQUA_COMMAND_GET_ONETOUCH = "get_onetouch"
-
 IAQUA_COMMAND_SET_AUX = "set_aux"
 IAQUA_COMMAND_SET_LIGHT = "set_light"
 IAQUA_COMMAND_SET_POOL_HEATER = "set_pool_heater"
@@ -56,21 +55,69 @@ class IaquaSystem(AqualinkSystem):
         self,
         command: str,
         params: Payload | None = None,
+        api_version: int = 1,
     ) -> httpx.Response:
         if not params:
             params = {}
 
-        params.update(
-            {
-                "actionID": "command",
-                "command": command,
-                "serial": self.serial,
-                "sessionID": self.aqualink.client_id,
-            }
-        )
-        params_str = "&".join(f"{k}={v}" for k, v in params.items())
-        url = f"{IAQUA_SESSION_URL}?{params_str}"
-        return await self.aqualink.send_request(url)
+        base_request_params: dict[str, Any] = {
+            "actionID": "command",
+            "command": command,
+            "serial": self.serial,
+        }
+
+        if api_version == 1:
+            base_request_params["sessionID"] = self.aqualink.client_id
+        
+        final_params = {**base_request_params, **params}
+
+        params_str = "&".join(f"{k}={v}" for k, v in final_params.items())
+        
+        url = f"{IAQUA_SESSION_URL_TEMPLATE.format(api_version=api_version)}?{params_str}"
+
+        custom_headers = {}
+        if api_version == 2:
+            if not self.aqualink._id_token:
+                raise AqualinkServiceException("ID token is missing for V2 API request.")
+            custom_headers["authorization"] = self.aqualink._id_token
+
+        return await self.aqualink.send_request(url, headers=custom_headers if custom_headers else None)
+
+    async def _send_session_post_request(
+        self,
+        command: str,
+        json_payload_additions: Payload | None = None,
+        api_version: int = 1,
+    ) -> httpx.Response:
+        """Helper to send POST requests to the session endpoint, handling versioning and auth."""
+        if not self.aqualink._client: # Ensure client is there, though send_request also checks
+            raise AqualinkServiceException("HTTP client not initialized.")
+
+        url = IAQUA_SESSION_URL_TEMPLATE.format(api_version=api_version)
+
+        # Base payload
+        payload: dict[str, Any] = {
+            "actionID": "command",
+            "command": command,
+            "serial": self.serial,
+        }
+        if api_version == 1:
+            payload["sessionID"] = self.aqualink.client_id
+
+        # Merge any additional payload items
+        if json_payload_additions:
+            payload.update(json_payload_additions)
+
+        custom_headers: dict[str, str] = {
+            "content-type": "application/json" # POST requests need this
+        }
+        if api_version == 2:
+            if not self.aqualink._id_token:
+                raise AqualinkServiceException("ID token is missing for V2 API POST request.")
+            custom_headers["authorization"] = self.aqualink._id_token
+        
+        # AqualinkClient.send_request will merge these with its base headers.
+        return await self.aqualink.send_request(url, method="post", headers=custom_headers, json=payload)
 
     async def _send_home_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_HOME)
@@ -187,3 +234,27 @@ class IaquaSystem(AqualinkSystem):
     async def set_light(self, data: Payload) -> None:
         r = await self._send_session_request(IAQUA_COMMAND_SET_LIGHT, data)
         self._parse_devices_response(r)
+
+    async def get_onetouch(self) -> List[dict[str, Any]]:
+        """Fetch the OneTouch switches for this system."""
+        # Ensure prerequisites for V2 API call are met by _send_session_request internal checks
+        # serial and actionID are part of the base params in _send_session_request
+        response = await self._send_session_request(
+            command="get_onetouch", 
+            api_version=2
+        )
+        # _send_session_request and subsequently AqualinkClient.send_request handle raise_for_status
+        json_data = response.json()
+        return parse_onetouch_response(json_data)
+
+    async def set_onetouch(self, index: int) -> List[dict[str, Any]]:
+        """Toggle a OneTouch switch by index (1-based)."""
+        # Ensure prerequisites for V2 API call are met by _send_session_post_request internal checks
+        command = f"set_onetouch_{index}"
+        response = await self._send_session_post_request(
+            command=command, 
+            api_version=2
+        )
+        # _send_session_post_request and subsequently AqualinkClient.send_request handle raise_for_status
+        json_data = response.json()
+        return parse_onetouch_response(json_data)

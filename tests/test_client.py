@@ -18,6 +18,9 @@ LOGIN_DATA = {
     "id": "id",
     "authentication_token": "token",
     "session_id": "session_id",
+    "userPoolOAuth": {
+        "IdToken": "mock_id_token"
+    }
 }
 
 
