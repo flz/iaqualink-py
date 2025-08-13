@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import logging
+from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, ClassVar
 
@@ -34,7 +35,9 @@ class SystemStatus(enum.Enum):
     IN_PROGRESS = enum.auto()
 
 
-class AqualinkSystem:
+class AqualinkSystem(ABC):
+    """Abstract base class for all Aqualink systems."""
+
     subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
@@ -124,6 +127,7 @@ class AqualinkSystem:
                 type(self).__name__,
             )
 
+    @abstractmethod
     async def _refresh(self) -> None:
         """Fetch and parse the latest state from the API.
 
@@ -141,7 +145,6 @@ class AqualinkSystem:
 
         **All other exceptions** propagate unchanged.
         """
-        raise NotImplementedError
 
 
 class UnsupportedSystem(AqualinkSystem):
@@ -152,6 +155,9 @@ class UnsupportedSystem(AqualinkSystem):
     @property
     def supported(self) -> bool:
         return False
+
+    async def _refresh(self) -> None:
+        pass  # never called; refresh() is overridden to be a no-op
 
     async def refresh(self) -> None:
         LOGGER.debug("Skipping refresh for unsupported system %r", self.serial)

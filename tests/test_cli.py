@@ -306,6 +306,21 @@ def _make_device(
         async def set_brightness(self, _: int) -> None:
             pass
 
+        @property
+        def current_value(self) -> float | None:
+            return None
+
+        @property
+        def min_value(self) -> float:
+            return 0.0
+
+        @property
+        def max_value(self) -> float:
+            return 100.0
+
+        async def _set_value(self, value: float) -> None:
+            pass
+
     return object.__new__(_Impl)
 
 
