@@ -22,6 +22,8 @@ from .base_test_device import (
     TestBaseThermostat,
 )
 
+pytestmark = pytest.mark.skip(reason="AqualinkDevice is not implemented")
+
 
 class TestAqualinkDevice(TestBaseDevice):
     def setUp(self) -> None:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, ClassVar
 
 from iaqualink.exception import AqualinkSystemUnsupportedException
@@ -14,7 +15,9 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger("iaqualink")
 
 
-class AqualinkSystem:
+class AqualinkSystem(ABC):
+    """Abstract base class for all Aqualink systems."""
+
     subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
@@ -62,5 +65,7 @@ class AqualinkSystem:
             await self.update()
         return self.devices
 
+    @abstractmethod
     async def update(self) -> None:
+        """Update the system's device data from the API."""
         raise NotImplementedError
