@@ -82,10 +82,6 @@ class TestExoSensor(TestExoDevice, TestBaseSensor):
     def test_property_state(self) -> None:
         assert self.sut.state == str(self.sut.data["value"])
 
-    # def test_state_unavailable(self) -> None:
-    #    self.sut.data["state"] = 0
-    #    assert self.sut.state == ""
-
 
 class TestExoAttributeSensor(TestExoDevice):
     def setUp(self) -> None:
@@ -255,7 +251,7 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
     def test_property_unit(self) -> None:
         assert self.sut.unit == "C"
 
-    @pytest.mark.skip
+    @pytest.mark.skip(reason="Exo doesn't support Fahrenheit")
     def test_property_min_temperature_f(self) -> None:
         pass
 
@@ -264,7 +260,7 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         super().test_property_min_temperature_c()
         assert self.sut.min_temperature == EXO_TEMP_CELSIUS_LOW
 
-    @pytest.mark.skip
+    @pytest.mark.skip(reason="Exo doesn't support Fahrenheit")
     def test_property_max_temperature_f(self) -> None:
         pass
 
@@ -303,7 +299,7 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         self.sut.data["enabled"] = 0
         await super().test_turn_off_noop()
 
-    @pytest.mark.skip
+    @pytest.mark.skip(reason="Exo doesn't support Fahrenheit")
     async def test_set_temperature_86f(self) -> None:
         pass
 
