@@ -20,6 +20,8 @@ repos:
     rev: v1.15.0
     hooks:
       - id: mypy
+        additional_dependencies:
+          - types-PyYAML==6.0.12
         exclude: ^(tests/.*)
 
   - repo: https://github.com/astral-sh/uv-pre-commit

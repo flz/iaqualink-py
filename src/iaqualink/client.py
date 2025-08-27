@@ -54,6 +54,7 @@ class AqualinkClient:
         self.client_id = ""
         self._token = ""
         self._user_id = ""
+        self.id_token = ""
 
         self._last_refresh = 0
 
@@ -90,7 +91,10 @@ class AqualinkClient:
         return exc is None
 
     async def send_request(
-        self, url: str, method: str = "get", **kwargs: Any
+        self,
+        url: str,
+        method: str = "get",
+        **kwargs: Any,
     ) -> httpx.Response:
         if self._client is None:
             self._client = httpx.AsyncClient(
@@ -98,10 +102,11 @@ class AqualinkClient:
                 limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
             )
 
+        headers = AQUALINK_HTTP_HEADERS
+        headers.update(kwargs.pop("headers", {}))
+
         LOGGER.debug(f"-> {method.upper()} {url} {kwargs}")
-        r = await self._client.request(
-            method, url, headers=AQUALINK_HTTP_HEADERS, **kwargs
-        )
+        r = await self._client.request(method, url, headers=headers, **kwargs)
 
         LOGGER.debug(f"<- {r.status_code} {r.reason_phrase} - {url}")
 
@@ -133,6 +138,7 @@ class AqualinkClient:
         self.client_id = data["session_id"]
         self._token = data["authentication_token"]
         self._user_id = data["id"]
+        self.id_token = data["userPoolOAuth"]["IdToken"]
         self._logged = True
 
     async def _send_systems_request(self) -> httpx.Response:
