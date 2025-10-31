@@ -180,7 +180,7 @@ async def update(self):
 
 ## Type System
 
-The library uses modern Python type hints (3.12+):
+The library uses modern Python type hints (3.13+):
 
 ```python
 from typing import Self, Any
