@@ -25,11 +25,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --group dev --group test
 
       - name: Run linters (pre-commit)
         run: uv run pre-commit run --show-diff-on-failure --color=always --all-files
@@ -57,7 +54,7 @@ jobs:
           python-version-file: pyproject.toml
 
       - name: Install the project
-        run: uv sync --all-extras --dev
+        run: uv sync --group dev --group test
 
       - name: Generate coverage report
         run: uv run pytest --cov-report=xml --cov=iaqualink
