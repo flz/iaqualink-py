@@ -8,13 +8,12 @@ build:
   tools:
     python: "3.12"
   jobs:
-    post_create_environment:
-      # Install uv
+    pre_build:
+      # Install uv and sync dependencies
       - pip install uv
-    post_install:
-      # Install dependencies using uv
       - uv sync --group docs
 
+# Tell ReadTheDocs to use MkDocs
 mkdocs:
   configuration: mkdocs.yml
   fail_on_warning: false
