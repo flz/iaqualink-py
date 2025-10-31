@@ -49,6 +49,21 @@ uv run ruff format .
 uv run mypy src/
 ```
 
+### Documentation
+```bash
+# Install documentation dependencies
+uv sync --group docs
+
+# Serve documentation locally (live reload)
+uv run mkdocs serve
+
+# Build documentation
+uv run mkdocs build
+
+# Build with strict mode (fail on warnings)
+uv run mkdocs build --strict
+```
+
 ## Architecture
 
 ### Core Class Hierarchy
