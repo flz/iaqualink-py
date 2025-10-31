@@ -6,7 +6,7 @@ Contributions are welcome! This guide will help you get started.
 
 ### Prerequisites
 
-- Python 3.12 or higher
+- Python 3.13 or higher
 - [uv](https://github.com/astral-sh/uv) (recommended) or pip
 - Git
 
