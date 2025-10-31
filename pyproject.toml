@@ -10,7 +10,7 @@ name = "iaqualink"
 description = "Asynchronous library for Jandy iAqualink"
 readme = "README.md"
 license = "BSD-3-Clause"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 authors = [
     { name = "Florent Thoumie", email = "florent@thoumie.net" },
 ]
@@ -22,8 +22,8 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
     "httpx[http2]>=0.27.0",

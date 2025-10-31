@@ -135,5 +135,5 @@ To add a new system type:
 - All API calls are asynchronous using httpx
 - Client supports context manager protocol for automatic cleanup
 - Exception hierarchy in [exception.py](src/iaqualink/exception.py) covers service errors, auth failures, offline systems
-- Python 3.12+ required (uses modern type hints like `Self`, `type[T]`)
+- Python 3.13+ required (uses modern type hints like `Self`, `type[T]`)
 - Tests exclude private member access (SLF001) and f-string logging (G004) from ruff
