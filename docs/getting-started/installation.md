@@ -31,7 +31,7 @@ uv sync --all-extras --dev
 
 ## Requirements
 
-- Python 3.12 or higher
+- Python 3.13 or higher
 - httpx with HTTP/2 support
 
 All required dependencies will be installed automatically.
