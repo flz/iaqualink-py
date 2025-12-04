@@ -137,6 +137,7 @@ class AqualinkClient:
         data = r.json()
         self.client_id = data["session_id"]
         self._token = data["authentication_token"]
+        self._iot_credentials = data.get("credentials", None)
         self._user_id = data["id"]
         self.id_token = data["userPoolOAuth"]["IdToken"]
         self._logged = True
