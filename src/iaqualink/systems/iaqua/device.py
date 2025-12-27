@@ -122,6 +122,24 @@ class IaquaBinarySensor(IaquaSensor, AqualinkBinarySensor):
         )
 
 
+class IaquaHeaterStandbySensor(IaquaBinarySensor):
+    """Binary sensor that indicates heater standby status (state == "3")."""
+
+    @property
+    def _heater_name(self) -> str:
+        """Returns the name of the heater device this sensor monitors."""
+        # Remove "_standby" suffix to get heater name
+        return self.name.replace("_standby", "")
+
+    @property
+    def state(self) -> str:
+        """Returns "1" if heater is in standby (state == "3"), "0" otherwise."""
+        heater = self.system.devices.get(self._heater_name)
+        if heater and heater.state == "3":
+            return "1"
+        return "0"
+
+
 class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
     async def _toggle(self) -> None:
         await self.system.set_switch(f"set_{self.name}")

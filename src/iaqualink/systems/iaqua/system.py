@@ -11,7 +11,7 @@ from iaqualink.exception import (
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
-from iaqualink.systems.iaqua.device import IaquaDevice
+from iaqualink.systems.iaqua.device import IaquaDevice, IaquaHeaterStandbySensor
 
 if TYPE_CHECKING:
     import httpx
@@ -131,6 +131,15 @@ class IaquaSystem(AqualinkSystem):
                     self.devices[k] = IaquaDevice.from_data(self, v)
                 except AqualinkDeviceNotSupported as e:
                     LOGGER.debug("Device found was ignored: %s", e)
+
+        # Create/ensure standby sensors for all heaters
+        for device_name in list(self.devices.keys()):
+            if device_name.endswith("_heater"):
+                standby_name = f"{device_name}_standby"
+                if standby_name not in self.devices:
+                    self.devices[standby_name] = IaquaHeaterStandbySensor(
+                        self, {"name": standby_name, "state": "0"}
+                    )
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
