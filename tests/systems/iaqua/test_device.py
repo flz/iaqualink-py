@@ -14,6 +14,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaColorLight,
     IaquaDevice,
     IaquaDimmableLight,
+    IaquaHeaterStandbySensor,
     IaquaLightSwitch,
     IaquaSensor,
     IaquaSwitch,
@@ -90,6 +91,61 @@ class TestIaquaBinarySensor(TestIaquaSensor, TestBaseBinarySensor):
 
     def test_property_is_on_true(self) -> None:
         self.sut.data["state"] = "1"
+        super().test_property_is_on_true()
+        assert self.sut.is_on is True
+
+
+class TestIaquaHeaterStandbySensor(TestIaquaBinarySensor, TestBaseBinarySensor):
+    def setUp(self) -> None:
+        super().setUp()
+
+        # Create a heater device for the standby sensor to monitor
+        heater_data = {"name": "spa_heater", "state": "0"}
+        self.heater = IaquaDevice.from_data(self.system, heater_data)
+        self.system.devices["spa_heater"] = self.heater
+
+        # Create the standby sensor
+        standby_data = {"name": "spa_heater_standby", "state": "0"}
+        self.sut = IaquaHeaterStandbySensor(self.system, standby_data)
+        self.sut_class = IaquaHeaterStandbySensor
+
+    def test_property_heater_name(self) -> None:
+        """Test that _heater_name correctly extracts heater name from sensor name."""
+        assert self.sut._heater_name == "spa_heater"
+
+    def test_property_state_standby(self) -> None:
+        """Test that state returns "1" when heater is in standby (state == "3")."""
+        self.heater.data["state"] = "3"
+        assert self.sut.state == "1"
+        assert self.sut.is_on is True
+
+    def test_property_state_not_standby(self) -> None:
+        """Test that state returns "0" when heater is not in standby."""
+        self.heater.data["state"] = "1"
+        assert self.sut.state == "0"
+        assert self.sut.is_on is False
+
+    def test_property_state_heater_off(self) -> None:
+        """Test that state returns "0" when heater is off."""
+        self.heater.data["state"] = "0"
+        assert self.sut.state == "0"
+        assert self.sut.is_on is False
+
+    def test_property_state_no_heater(self) -> None:
+        """Test that state returns "0" when heater device doesn't exist."""
+        del self.system.devices["spa_heater"]
+        assert self.sut.state == "0"
+        assert self.sut.is_on is False
+
+    def test_property_is_on_false(self) -> None:
+        """Test is_on property when heater is not in standby."""
+        self.heater.data["state"] = "1"
+        super().test_property_is_on_false()
+        assert self.sut.is_on is False
+
+    def test_property_is_on_true(self) -> None:
+        """Test is_on property when heater is in standby."""
+        self.heater.data["state"] = "3"
         super().test_property_is_on_true()
         assert self.sut.is_on is True
 
