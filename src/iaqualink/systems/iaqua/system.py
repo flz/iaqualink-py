@@ -133,7 +133,8 @@ class IaquaSystem(AqualinkSystem):
         # Check for ICL (IntellliCenter Light) presence
         for item in data["home_screen"]:
             if isinstance(item, dict) and "is_icl_present" in item:
-                self.has_icl = item["is_icl_present"] == "1"
+                # Value can be "1" or "present" depending on firmware
+                self.has_icl = item["is_icl_present"] in ("1", "present")
                 break
 
         # Make the data a bit flatter.
@@ -155,6 +156,8 @@ class IaquaSystem(AqualinkSystem):
                     LOGGER.debug("Device found was ignored: %s", e)
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
+        from iaqualink.systems.iaqua.device import IaquaIclLight
+
         data = response.json()
 
         LOGGER.debug(f"Devices response: {data}")
@@ -181,6 +184,23 @@ class IaquaSystem(AqualinkSystem):
                     self.devices[k] = IaquaDevice.from_data(self, v)
                 except AqualinkDeviceNotSupported as e:
                     LOGGER.info("Device found was ignored: %s", e)
+
+        # Parse ICL info if present in devices response
+        icl_zones = data.get("icl_info_list", [])
+        for zone_data in icl_zones:
+            zone_id = zone_data.get("zoneId", zone_data.get("zone_id"))
+            if zone_id is None:
+                continue
+
+            device_name = f"icl_zone_{zone_id}"
+            device_data = {k: str(v) if v is not None else "" for k, v in zone_data.items()}
+
+            if device_name in self.devices:
+                for dk, dv in device_data.items():
+                    self.devices[device_name].data[dk] = dv
+            else:
+                self.devices[device_name] = IaquaIclLight(self, device_data)
+                LOGGER.debug(f"Created ICL device: {device_name}")
 
     async def set_switch(self, command: str) -> None:
         r = await self._send_session_request(command)
