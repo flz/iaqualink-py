@@ -403,6 +403,186 @@ light_subtype_to_class = {
 }
 
 
+# ICL (IntellliCenter Light) color presets
+ICL_EFFECTS = {
+    "Off": 0,
+    "Alpine White": 1,
+    "Sky Blue": 2,
+    "Cobalt Blue": 3,
+    "Caribbean Blue": 4,
+    "Spring Green": 5,
+    "Emerald Green": 6,
+    "Emerald Rose": 7,
+    "Magenta": 8,
+    "Garnet Red": 9,
+    "Violet": 10,
+    "Color Splash": 11,
+    "Slow Splash": 12,
+    "Fast Splash": 13,
+    "USA!": 14,
+    "Ruby Red": 15,
+    "Mardi Gras": 16,
+}
+
+
+class IaquaIclLight(IaquaDevice, AqualinkLight):
+    """ICL (IntellliCenter Light) zone device with RGB color support."""
+
+    @property
+    def zone_id(self) -> int:
+        """Return the ICL zone ID."""
+        return int(self.data.get("zoneId", self.data.get("zone_id", 0)))
+
+    @property
+    def label(self) -> str:
+        """Return the zone label/name."""
+        name = self.data.get("zoneName", self.data.get("zone_name", ""))
+        if name:
+            return name
+        return f"Light Zone {self.zone_id}"
+
+    @property
+    def name(self) -> str:
+        """Return a unique name for the device."""
+        return f"icl_zone_{self.zone_id}"
+
+    @property
+    def state(self) -> str:
+        """Return the current state."""
+        status = self.data.get("zoneStatus", self.data.get("zone_status", "off"))
+        return "1" if status == "on" else "0"
+
+    @property
+    def is_on(self) -> bool:
+        """Return True if the zone is on."""
+        status = self.data.get("zoneStatus", self.data.get("zone_status", "off"))
+        return status == "on"
+
+    @property
+    def is_absent(self) -> bool:
+        """Return True if the zone is absent/not connected."""
+        status = self.data.get("zoneStatus", self.data.get("zone_status", ""))
+        return status == "absent"
+
+    @property
+    def manufacturer(self) -> str:
+        return "Jandy"
+
+    @property
+    def model(self) -> str:
+        return "IntellliCenter Light"
+
+    @property
+    def brightness(self) -> int | None:
+        """Return the current brightness level (0-100)."""
+        dim_level = self.data.get("dim_level")
+        if dim_level is not None:
+            return int(dim_level)
+        return None
+
+    @property
+    def effect(self) -> str | None:
+        """Return the current color effect name."""
+        color_val = self.data.get("zoneColorVal", self.data.get("zone_color_val"))
+        if color_val:
+            return color_val
+        return None
+
+    @property
+    def color_id(self) -> int | None:
+        """Return the current color preset ID."""
+        color = self.data.get("zoneColor", self.data.get("zone_color"))
+        if color is not None:
+            return int(color)
+        return None
+
+    @property
+    def rgb(self) -> tuple[int, int, int] | None:
+        """Return the current custom RGB color as (R, G, B) tuple."""
+        try:
+            r = int(self.data.get("red_val", 0))
+            g = int(self.data.get("green_val", 0))
+            b = int(self.data.get("blue_val", 0))
+            return (r, g, b)
+        except (TypeError, ValueError):
+            return None
+
+    @property
+    def white(self) -> int | None:
+        """Return the current white value for RGBW lights."""
+        try:
+            return int(self.data.get("white_val", 0))
+        except (TypeError, ValueError):
+            return None
+
+    @property
+    def supports_brightness(self) -> bool:
+        return True
+
+    @property
+    def supports_effect(self) -> bool:
+        return True
+
+    @property
+    def supports_rgb(self) -> bool:
+        """Return True as ICL lights support custom RGB colors."""
+        return True
+
+    @property
+    def supported_effects(self) -> dict[str, int]:
+        """Return the supported color effects."""
+        return ICL_EFFECTS
+
+    async def turn_on(self) -> None:
+        """Turn the ICL zone on."""
+        if not self.is_on and not self.is_absent:
+            await self.system.icl_zone_on_off(self.zone_id, turn_on=True)
+
+    async def turn_off(self) -> None:
+        """Turn the ICL zone off."""
+        if self.is_on:
+            await self.system.icl_zone_on_off(self.zone_id, turn_on=False)
+
+    async def set_brightness(self, brightness: int) -> None:
+        """Set the brightness level (0-100)."""
+        if brightness < 0 or brightness > 100:
+            msg = f"{brightness}% isn't a valid brightness (0-100)."
+            raise AqualinkInvalidParameterException(msg)
+        await self.system.icl_set_brightness(self.zone_id, brightness)
+
+    async def set_effect_by_name(self, effect: str) -> None:
+        """Set the color by effect name."""
+        try:
+            effect_id = self.supported_effects[effect]
+        except KeyError as e:
+            msg = f"{effect!r} isn't a valid effect."
+            raise AqualinkInvalidParameterException(msg) from e
+        await self.set_effect_by_id(effect_id)
+
+    async def set_effect_by_id(self, effect_id: int) -> None:
+        """Set the color by effect ID."""
+        if effect_id not in self.supported_effects.values():
+            msg = f"{effect_id!r} isn't a valid effect ID."
+            raise AqualinkInvalidParameterException(msg)
+        brightness = self.brightness or 100
+        await self.system.icl_set_color(self.zone_id, effect_id, brightness)
+
+    async def set_rgb(self, red: int, green: int, blue: int, white: int = 0) -> None:
+        """Set a custom RGB(W) color.
+
+        Args:
+            red: Red value (0-255)
+            green: Green value (0-255)
+            blue: Blue value (0-255)
+            white: White value (0-255), optional
+        """
+        for name, val in [("red", red), ("green", green), ("blue", blue), ("white", white)]:
+            if val < 0 or val > 255:
+                msg = f"{name}={val} isn't valid (0-255)."
+                raise AqualinkInvalidParameterException(msg)
+        await self.system.icl_set_custom_color(self.zone_id, red, green, blue, white)
+
+
 class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
     @property
     def _type(self) -> str:
