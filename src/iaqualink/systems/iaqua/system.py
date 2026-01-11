@@ -108,13 +108,9 @@ class IaquaSystem(AqualinkSystem):
             self.online = False
             raise
 
-        # Fetch ICL info if ICL lights are present
-        if self.has_icl:
-            try:
-                r3 = await self._send_icl_info_request()
-                self._parse_icl_info_response(r3)
-            except AqualinkServiceException:
-                LOGGER.warning("Failed to fetch ICL info")
+        # Note: ICL info is already included in devices_screen response as
+        # 'icl_info_list' and parsed in _parse_devices_response().
+        # A separate get_icl_info call is not needed and can timeout.
 
         self.online = True
         self.last_refresh = int(time.time())
