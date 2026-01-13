@@ -11,7 +11,7 @@ from iaqualink.exception import (
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
-from iaqualink.systems.iaqua.device import IaquaDevice
+from iaqualink.systems.iaqua.device import AqualinkState, IaquaDevice
 
 if TYPE_CHECKING:
     import httpx
@@ -125,7 +125,8 @@ class IaquaSystem(AqualinkSystem):
         for k, v in devices.items():
             if k in self.devices:
                 for dk, dv in v.items():
-                    self.devices[k].data[dk] = dv
+                    if self.validate_update_data(dk, dv):
+                        self.devices[k].data[dk] = dv
             else:
                 try:
                     self.devices[k] = IaquaDevice.from_data(self, v)
@@ -154,9 +155,8 @@ class IaquaSystem(AqualinkSystem):
             if k in self.devices:
                 for dk, dv in v.items():
                     if dk == "state":
-                        if dv not in [0,1,2,3]:
-                            continue
-                    self.devices[k].data[dk] = dv
+                        if self.validate_update_data(dk, dv):
+                            self.devices[k].data[dk] = dv
             else:
                 try:
                     self.devices[k] = IaquaDevice.from_data(self, v)
@@ -190,3 +190,11 @@ class IaquaSystem(AqualinkSystem):
     async def set_light(self, data: Payload) -> None:
         r = await self._send_session_request(IAQUA_COMMAND_SET_LIGHT, data)
         self._parse_devices_response(r)
+
+    def validate_update_data(self, dk: str, dv: str) -> bool:
+        if dv == "" or dv == 'NaN':
+            return False
+        if dk == "state":
+            if dv not in AqualinkState:
+                return False
+        return True
