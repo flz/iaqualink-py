@@ -125,8 +125,11 @@ class IaquaSystem(AqualinkSystem):
         for k, v in devices.items():
             if k in self.devices:
                 for dk, dv in v.items():
-                    if self.validate_update_data(dk, dv):
+                    # Don't allow empty updates through, except current temperature which can be empty depending on if it is in pool mode or spa mode
+                    if (dv != '') or (k == 'spa_temp') or (k == 'pool_temp'):
                         self.devices[k].data[dk] = dv
+                    else:
+                        LOGGER.debug(f"Received empty update for home screen device {k}: {dk}, skipping")
             else:
                 try:
                     self.devices[k] = IaquaDevice.from_data(self, v)
@@ -148,15 +151,16 @@ class IaquaSystem(AqualinkSystem):
             aux = next(iter(x.keys()))
             attrs = {"aux": aux.replace("aux_", ""), "name": aux}
             for y in next(iter(x.values())):
+                if 'NaN' in y.values():
+                    LOGGER.debug("Received invalid devices screen state update, skipping")
+                    return
                 attrs.update(y)
             devices.update({aux: attrs})
 
         for k, v in devices.items():
             if k in self.devices:
                 for dk, dv in v.items():
-                    if dk == "state":
-                        if self.validate_update_data(dk, dv):
-                            self.devices[k].data[dk] = dv
+                    self.devices[k].data[dk] = dv
             else:
                 try:
                     self.devices[k] = IaquaDevice.from_data(self, v)
