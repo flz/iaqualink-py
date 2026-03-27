@@ -34,6 +34,9 @@ IAQUA_COMMAND_SET_SPA_HEATER = "set_spa_heater"
 IAQUA_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 IAQUA_COMMAND_SET_TEMPS = "set_temps"
 
+IAQUA_COMMAND_GET_VSP_SPEED = "get_vsp_speedauxinfo"
+IAQUA_COMMAND_SET_VSP_SPEED = "enable_disable_pump_speedId"
+
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -187,3 +190,24 @@ class IaquaSystem(AqualinkSystem):
     async def set_light(self, data: Payload) -> None:
         r = await self._send_session_request(IAQUA_COMMAND_SET_LIGHT, data)
         self._parse_devices_response(r)
+
+    async def get_vsp_speed(self, slot_id: int = 1) -> Payload:
+        """Get VSP speed presets and active speed for a pump slot."""
+        r = await self._send_session_request(
+            IAQUA_COMMAND_GET_VSP_SPEED, {"slot_id": str(slot_id)}
+        )
+        return r.json()
+
+    async def set_vsp_speed(
+        self, speed_id: int, slot_id: int = 1
+    ) -> Payload:
+        """Enable a speed preset on a VSP pump slot."""
+        r = await self._send_session_request(
+            IAQUA_COMMAND_SET_VSP_SPEED,
+            {
+                "slot_id": str(slot_id),
+                "speed_id": str(speed_id),
+                "on_off_action": "on",
+            },
+        )
+        return r.json()
