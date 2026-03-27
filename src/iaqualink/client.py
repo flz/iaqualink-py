@@ -125,12 +125,13 @@ class AqualinkClient:
 
             if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
                 LOGGER.debug(f"429 response headers: {dict(r.headers)}")
-                delay = self._get_retry_delay(r, attempt)
-                LOGGER.warning(
-                    f"Rate limited (429), retry {attempt + 1}/"
-                    f"{RETRY_MAX_ATTEMPTS} in {delay:.1f}s"
-                )
-                await asyncio.sleep(delay)
+                if attempt < RETRY_MAX_ATTEMPTS - 1:
+                    delay = self._get_retry_delay(r, attempt)
+                    LOGGER.warning(
+                        f"Rate limited (429), retry {attempt + 1}/"
+                        f"{RETRY_MAX_ATTEMPTS} in {delay:.1f}s"
+                    )
+                    await asyncio.sleep(delay)
                 continue
 
             if r.status_code != httpx.codes.OK:
@@ -150,7 +151,10 @@ class AqualinkClient:
             try:
                 return min(float(retry_after), RETRY_MAX_DELAY)
             except ValueError:
-                pass
+                LOGGER.debug(
+                    "Could not parse Retry-After header as seconds: %s",
+                    retry_after,
+                )
 
         delay = RETRY_BASE_DELAY * (2**attempt) + random.random()
         return min(delay, RETRY_MAX_DELAY)
