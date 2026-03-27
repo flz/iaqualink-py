@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
+import random
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
@@ -11,9 +13,13 @@ from iaqualink.const import (
     AQUALINK_DEVICES_URL,
     AQUALINK_LOGIN_URL,
     KEEPALIVE_EXPIRY,
+    RETRY_BASE_DELAY,
+    RETRY_MAX_ATTEMPTS,
+    RETRY_MAX_DELAY,
 )
 from iaqualink.exception import (
     AqualinkServiceException,
+    AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
     AqualinkSystemUnsupportedException,
 )
@@ -102,24 +108,52 @@ class AqualinkClient:
                 limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
             )
 
-        headers = AQUALINK_HTTP_HEADERS
+        headers = AQUALINK_HTTP_HEADERS.copy()
         headers.update(kwargs.pop("headers", {}))
 
-        LOGGER.debug(f"-> {method.upper()} {url} {kwargs}")
-        r = await self._client.request(method, url, headers=headers, **kwargs)
+        for attempt in range(RETRY_MAX_ATTEMPTS):
+            LOGGER.debug(f"-> {method.upper()} {url} {kwargs}")
+            r = await self._client.request(
+                method, url, headers=headers, **kwargs
+            )
 
-        LOGGER.debug(f"<- {r.status_code} {r.reason_phrase} - {url}")
+            LOGGER.debug(f"<- {r.status_code} {r.reason_phrase} - {url}")
 
-        if r.status_code == httpx.codes.UNAUTHORIZED:
-            m = "Unauthorized Access, check your credentials and try again"
-            self._logged = False
-            raise AqualinkServiceUnauthorizedException
+            if r.status_code == httpx.codes.UNAUTHORIZED:
+                self._logged = False
+                raise AqualinkServiceUnauthorizedException
 
-        if r.status_code != httpx.codes.OK:
-            m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
-            raise AqualinkServiceException(m)
+            if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                LOGGER.debug(f"429 response headers: {dict(r.headers)}")
+                delay = self._get_retry_delay(r, attempt)
+                LOGGER.warning(
+                    f"Rate limited (429), retry {attempt + 1}/"
+                    f"{RETRY_MAX_ATTEMPTS} in {delay:.1f}s"
+                )
+                await asyncio.sleep(delay)
+                continue
 
-        return r
+            if r.status_code != httpx.codes.OK:
+                m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
+                raise AqualinkServiceException(m)
+
+            return r
+
+        raise AqualinkServiceThrottledException(
+            f"Rate limited after {RETRY_MAX_ATTEMPTS} retries"
+        )
+
+    @staticmethod
+    def _get_retry_delay(response: httpx.Response, attempt: int) -> float:
+        retry_after = response.headers.get("retry-after")
+        if retry_after is not None:
+            try:
+                return min(float(retry_after), RETRY_MAX_DELAY)
+            except ValueError:
+                pass
+
+        delay = RETRY_BASE_DELAY * (2**attempt) + random.random()
+        return min(delay, RETRY_MAX_DELAY)
 
     async def _send_login_request(self) -> httpx.Response:
         data = {
