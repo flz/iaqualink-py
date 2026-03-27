@@ -3,7 +3,7 @@
 > Asynchronous Python library for Jandy iAqualink pool control systems
 
 [![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Python](https://img.shields.io/badge/python-3.13%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.14%2B-blue.svg)](https://www.python.org/downloads/)
 
 ## 📖 Overview
 
@@ -188,7 +188,7 @@ uv run mypy src/
 
 ## 📋 Requirements
 
-- Python 3.13 or higher
+- Python 3.14 or higher
 - httpx with HTTP/2 support
 
 ## 📄 License
