@@ -20,6 +20,7 @@
   - Thermostats with adjustable set points
   - Pumps and heaters
   - Lights with toggle control
+  - **ICL (IntellliCenter) lights** with color control, custom RGB, and dimming
   - Auxiliary switches
   - Water chemistry sensors (pH, ORP, salinity)
   - Freeze protection monitoring
@@ -84,6 +85,34 @@ if spa_thermostat:
 pool_light = devices.get('aux_3')
 if pool_light:
     await pool_light.toggle()
+```
+
+### Controlling ICL (IntellliCenter) Lights
+
+```python
+# Get ICL light zone
+icl_light = devices.get('icl_zone_1')
+if icl_light:
+    # Turn on/off
+    await icl_light.turn_on()
+    await icl_light.turn_off()
+
+    # Set preset color (0-16)
+    await icl_light.set_effect_by_name("Emerald Green")
+    await icl_light.set_effect_by_id(6)
+
+    # Set custom RGB color (0-255 each)
+    await icl_light.set_rgb(255, 0, 128)  # Purple
+    await icl_light.set_rgb(100, 200, 255, white=50)  # RGBW
+
+    # Set brightness (0-100)
+    await icl_light.set_brightness(75)
+
+    # Read current state
+    print(f"Status: {'ON' if icl_light.is_on else 'OFF'}")
+    print(f"Color: {icl_light.effect}")
+    print(f"Brightness: {icl_light.brightness}%")
+    print(f"RGB: {icl_light.rgb}")
 ```
 
 ### Monitoring System Status
