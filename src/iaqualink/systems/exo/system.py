@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from iaqualink.const import MIN_SECS_TO_REFRESH
 from iaqualink.exception import (
     AqualinkServiceException,
+    AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
@@ -73,6 +74,8 @@ class ExoSystem(AqualinkSystem):
 
         try:
             r = await self.send_reported_state_request()
+        except AqualinkServiceThrottledException:
+            raise
         except AqualinkServiceException:
             self.online = None
             raise

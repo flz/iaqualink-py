@@ -6,7 +6,7 @@ import httpx
 import pytest
 
 from iaqualink.client import AqualinkClient
-from iaqualink.const import RETRY_MAX_ATTEMPTS
+from iaqualink.const import RETRY_MAX_ATTEMPTS, RETRY_MAX_DELAY
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
@@ -259,3 +259,42 @@ class TestAqualinkClient(TestBase):
         mock_sleep.assert_called_once()
         delay = mock_sleep.call_args[0][0]
         assert delay > 0
+
+    @patch("iaqualink.client.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient.request")
+    async def test_429_retry_after_capped_at_max_delay(
+        self, mock_request, mock_sleep
+    ) -> None:
+        resp_429 = MagicMock()
+        resp_429.status_code = httpx.codes.TOO_MANY_REQUESTS
+        resp_429.reason_phrase = "Too Many Requests"
+        resp_429.headers = httpx.Headers({"retry-after": "999"})
+
+        resp_200 = MagicMock()
+        resp_200.status_code = httpx.codes.OK
+        resp_200.reason_phrase = "OK"
+        resp_200.json = MagicMock(return_value={})
+
+        mock_request.side_effect = [resp_429, resp_200]
+
+        r = await self.client.send_request("https://example.com")
+        assert r.status_code == httpx.codes.OK
+        mock_sleep.assert_called_once_with(RETRY_MAX_DELAY)
+
+    @patch("iaqualink.client.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient.request")
+    async def test_429_no_retry_when_disabled(
+        self, mock_request, mock_sleep
+    ) -> None:
+        resp_429 = MagicMock()
+        resp_429.status_code = httpx.codes.TOO_MANY_REQUESTS
+        resp_429.reason_phrase = "Too Many Requests"
+        resp_429.headers = httpx.Headers({})
+
+        mock_request.return_value = resp_429
+
+        with pytest.raises(AqualinkServiceThrottledException):
+            await self.client.send_request("https://example.com", retry=False)
+
+        assert mock_request.call_count == 1
+        mock_sleep.assert_not_called()

@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import logging
 import random
+from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
@@ -100,6 +101,7 @@ class AqualinkClient:
         self,
         url: str,
         method: str = "get",
+        retry: bool = True,
         **kwargs: Any,
     ) -> httpx.Response:
         if self._client is None:
@@ -111,7 +113,9 @@ class AqualinkClient:
         headers = AQUALINK_HTTP_HEADERS.copy()
         headers.update(kwargs.pop("headers", {}))
 
-        for attempt in range(RETRY_MAX_ATTEMPTS):
+        max_attempts = RETRY_MAX_ATTEMPTS if retry else 1
+
+        for attempt in range(max_attempts):
             LOGGER.debug(f"-> {method.upper()} {url} {kwargs}")
             r = await self._client.request(
                 method, url, headers=headers, **kwargs
@@ -125,14 +129,15 @@ class AqualinkClient:
 
             if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
                 LOGGER.debug(f"429 response headers: {dict(r.headers)}")
-                if attempt < RETRY_MAX_ATTEMPTS - 1:
+                if attempt < max_attempts - 1:
                     delay = self._get_retry_delay(r, attempt)
                     LOGGER.warning(
                         f"Rate limited (429), retry {attempt + 1}/"
-                        f"{RETRY_MAX_ATTEMPTS} in {delay:.1f}s"
+                        f"{max_attempts} in {delay:.1f}s"
                     )
                     await asyncio.sleep(delay)
-                continue
+                    continue
+                break
 
             if r.status_code != httpx.codes.OK:
                 m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
@@ -141,7 +146,7 @@ class AqualinkClient:
             return r
 
         raise AqualinkServiceThrottledException(
-            f"Rate limited after {RETRY_MAX_ATTEMPTS} retries"
+            f"Rate limited after {max_attempts} retries"
         )
 
     @staticmethod
@@ -151,10 +156,22 @@ class AqualinkClient:
             try:
                 return min(float(retry_after), RETRY_MAX_DELAY)
             except ValueError:
-                LOGGER.debug(
-                    "Could not parse Retry-After header as seconds: %s",
-                    retry_after,
-                )
+                pass
+
+            try:
+                dt = parsedate_to_datetime(retry_after)
+                from datetime import datetime, timezone
+
+                delay = (dt - datetime.now(tz=timezone.utc)).total_seconds()
+                if delay > 0:
+                    return min(delay, RETRY_MAX_DELAY)
+            except (ValueError, TypeError):
+                pass
+
+            LOGGER.debug(
+                "Could not parse Retry-After header: %s",
+                retry_after,
+            )
 
         delay = RETRY_BASE_DELAY * (2**attempt) + random.random()
         return min(delay, RETRY_MAX_DELAY)
