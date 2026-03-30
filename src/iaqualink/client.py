@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import logging
 import random
+from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING, Any, Self
 
@@ -146,7 +147,7 @@ class AqualinkClient:
             return r
 
         raise AqualinkServiceThrottledException(
-            f"Rate limited after {max_attempts} retries"
+            f"Rate limited after {max_attempts} attempt(s)"
         )
 
     @staticmethod
@@ -160,8 +161,6 @@ class AqualinkClient:
 
             try:
                 dt = parsedate_to_datetime(retry_after)
-                from datetime import datetime, timezone
-
                 delay = (dt - datetime.now(tz=timezone.utc)).total_seconds()
                 if delay > 0:
                     return min(delay, RETRY_MAX_DELAY)

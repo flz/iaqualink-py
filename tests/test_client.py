@@ -254,11 +254,8 @@ class TestAqualinkClient(TestBase):
 
         r = await self.client.send_request("https://example.com")
         assert r.status_code == httpx.codes.OK
-        # HTTP-date can't be parsed as float, so falls back to
-        # exponential backoff.
-        mock_sleep.assert_called_once()
-        delay = mock_sleep.call_args[0][0]
-        assert delay > 0
+        # Future HTTP-date is parsed and capped at RETRY_MAX_DELAY.
+        mock_sleep.assert_called_once_with(RETRY_MAX_DELAY)
 
     @patch("iaqualink.client.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.request")
@@ -298,3 +295,30 @@ class TestAqualinkClient(TestBase):
 
         assert mock_request.call_count == 1
         mock_sleep.assert_not_called()
+
+    @patch("iaqualink.client.asyncio.sleep", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient.request")
+    async def test_429_retry_after_past_date(
+        self, mock_request, mock_sleep
+    ) -> None:
+        resp_429 = MagicMock()
+        resp_429.status_code = httpx.codes.TOO_MANY_REQUESTS
+        resp_429.reason_phrase = "Too Many Requests"
+        resp_429.headers = httpx.Headers(
+            {"retry-after": "Wed, 21 Oct 2015 07:28:00 GMT"}
+        )
+
+        resp_200 = MagicMock()
+        resp_200.status_code = httpx.codes.OK
+        resp_200.reason_phrase = "OK"
+        resp_200.json = MagicMock(return_value={})
+
+        mock_request.side_effect = [resp_429, resp_200]
+
+        r = await self.client.send_request("https://example.com")
+        assert r.status_code == httpx.codes.OK
+        # Past date yields negative delay, so falls back to
+        # exponential backoff.
+        mock_sleep.assert_called_once()
+        delay = mock_sleep.call_args[0][0]
+        assert 0 < delay <= RETRY_MAX_DELAY
