@@ -80,7 +80,9 @@ class IaquaDevice(AqualinkDevice):
         if isinstance(data["state"], dict | list):
             raise AqualinkDeviceNotSupported(data)
 
-        if data["name"].endswith("_heater") or data["name"].endswith("_pump"):
+        if data["name"].endswith("_pump"):
+            class_ = IaquaPump
+        elif data["name"].endswith("_heater"):
             class_ = IaquaSwitch
         elif data["name"].endswith("_set_point"):
             if data["state"] == "":
@@ -133,6 +135,59 @@ class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
     async def turn_off(self) -> None:
         if self.is_on:
             await self._toggle()
+
+
+class IaquaPump(IaquaSwitch):
+    """VSP (variable speed pump) with speed preset support."""
+
+    def __init__(self, system: IaquaSystem, data: DeviceData):
+        super().__init__(system, data)
+        self._speed_presets: list[dict] | None = None
+        self._active_speed_id: int | None = None
+        self._active_speed_rpm: int | None = None
+
+    @property
+    def speed(self) -> int | None:
+        """Current pump speed in RPM, or None if not yet fetched."""
+        return self._active_speed_rpm
+
+    @property
+    def speed_id(self) -> int | None:
+        """Currently active speed preset ID (1-8), or None if not yet fetched."""
+        return self._active_speed_id
+
+    @property
+    def speed_presets(self) -> list[dict] | None:
+        """List of speed presets from get_vsp_speedauxinfo, or None if not yet fetched."""
+        return self._speed_presets
+
+    async def fetch_speed(self, slot_id: int = 1) -> int | None:
+        """Fetch current speed from VSP API and update local state. Returns RPM."""
+        data = await self.system.get_vsp_speed(slot_id)
+        self._speed_presets = data.get("vsp_speedInfo", [])
+        self._active_speed_id = None
+        self._active_speed_rpm = None
+        for preset in self._speed_presets:
+            if preset.get("enabled") == "true":
+                self._active_speed_id = int(preset["speedid"])
+                self._active_speed_rpm = int(preset["speedvalue"])
+                break
+        return self._active_speed_rpm
+
+    async def set_speed(self, speed_id: int, slot_id: int = 1) -> None:
+        """Set the active speed preset (1-8) on this pump."""
+        if speed_id < 1 or speed_id > 8:
+            raise AqualinkInvalidParameterException(
+                f"speed_id must be 1-8, got {speed_id}"
+            )
+        await self.system.set_vsp_speed(speed_id, slot_id)
+        self._active_speed_id = speed_id
+        # Update RPM from presets if available
+        if self._speed_presets:
+            for preset in self._speed_presets:
+                if int(preset["speedid"]) == speed_id:
+                    self._active_speed_rpm = int(preset["speedvalue"])
+                    break
 
 
 class IaquaAuxSwitch(IaquaSwitch):
