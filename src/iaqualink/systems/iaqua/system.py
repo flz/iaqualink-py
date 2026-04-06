@@ -4,6 +4,7 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
+from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
     AqualinkDeviceNotSupported,
     AqualinkServiceException,
@@ -19,7 +20,7 @@ if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.typing import Payload
 
-IAQUA_SESSION_URL = "https://p-api.iaqualink.net/v1/mobile/session.json"
+IAQUA_SESSION_URL = "https://r-api.iaqualink.net/v2/mobile/session.json"
 
 IAQUA_COMMAND_GET_DEVICES = "get_devices"
 IAQUA_COMMAND_GET_HOME = "get_home"
@@ -69,7 +70,11 @@ class IaquaSystem(AqualinkSystem):
         )
         params_str = "&".join(f"{k}={v}" for k, v in params.items())
         url = f"{IAQUA_SESSION_URL}?{params_str}"
-        return await self.aqualink.send_request(url)
+        headers = {
+            "Authorization": f"Bearer {self.aqualink.id_token}",
+            "api_key": AQUALINK_API_KEY,
+        }
+        return await self.aqualink.send_request(url, headers=headers)
 
     async def _send_home_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_HOME)
