@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.typing import Payload
 
-IAQUA_SESSION_URL = "https://p-api.iaqualink.net/v1/mobile/session.json"
+IAQUA_SESSION_URL = "https://r-api.iaqualink.net/v2/mobile/session.json"
 
 IAQUA_COMMAND_GET_DEVICES = "get_devices"
 IAQUA_COMMAND_GET_HOME = "get_home"
