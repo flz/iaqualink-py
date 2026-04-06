@@ -15,6 +15,7 @@ from iaqualink.const import (
     AQUALINK_DEVICES_URL,
     AQUALINK_LOGIN_URL,
     KEEPALIVE_EXPIRY,
+    RETRY_AFTER_MAX_DELAY,
     RETRY_BASE_DELAY,
     RETRY_MAX_ATTEMPTS,
     RETRY_MAX_DELAY,
@@ -107,9 +108,10 @@ class AqualinkClient:
     ) -> httpx.Response:
         """Send an HTTP request with optional retry on 429 responses.
 
-        When ``retry=False``, no retries are attempted.  If the single
-        attempt receives a 429 response,
-        :exc:`AqualinkServiceThrottledException` is raised immediately.
+        :exc:`AqualinkServiceThrottledException` is raised when all
+        attempts receive 429 responses.  When ``retry=False``
+        (``max_attempts=1``), this means the single attempt already
+        triggers the exception with no actual retry.
         """
         if self._client is None:
             self._client = httpx.AsyncClient(
@@ -163,7 +165,7 @@ class AqualinkClient:
         retry_after = response.headers.get("retry-after")
         if retry_after is not None:
             try:
-                return min(float(retry_after), RETRY_MAX_DELAY)
+                return min(float(retry_after), RETRY_AFTER_MAX_DELAY)
             except ValueError:
                 pass
 
@@ -171,7 +173,7 @@ class AqualinkClient:
                 dt = parsedate_to_datetime(retry_after)
                 delay = (dt - datetime.now(tz=timezone.utc)).total_seconds()
                 if delay > 0:
-                    return min(delay, RETRY_MAX_DELAY)
+                    return min(delay, RETRY_AFTER_MAX_DELAY)
             except (ValueError, TypeError):
                 pass
 
@@ -180,7 +182,7 @@ class AqualinkClient:
                 retry_after,
             )
 
-        delay = RETRY_BASE_DELAY * (2**attempt) + random.random()
+        delay = RETRY_BASE_DELAY * (2**attempt) + random.uniform(-0.5, 0.5)
         return min(delay, RETRY_MAX_DELAY)
 
     async def _send_login_request(self) -> httpx.Response:

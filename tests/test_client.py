@@ -8,7 +8,11 @@ import httpx
 import pytest
 
 from iaqualink.client import AqualinkClient
-from iaqualink.const import RETRY_MAX_ATTEMPTS, RETRY_MAX_DELAY
+from iaqualink.const import (
+    RETRY_AFTER_MAX_DELAY,
+    RETRY_MAX_ATTEMPTS,
+    RETRY_MAX_DELAY,
+)
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
@@ -257,8 +261,8 @@ class TestAqualinkClient(TestBase):
 
         r = await self.client.send_request("https://example.com")
         assert r.status_code == httpx.codes.OK
-        # Future HTTP-date is parsed and capped at RETRY_MAX_DELAY.
-        mock_sleep.assert_called_once_with(RETRY_MAX_DELAY)
+        # Future HTTP-date is parsed and capped at RETRY_AFTER_MAX_DELAY.
+        mock_sleep.assert_called_once_with(RETRY_AFTER_MAX_DELAY)
 
     @patch("iaqualink.client.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.request")
@@ -279,7 +283,7 @@ class TestAqualinkClient(TestBase):
 
         r = await self.client.send_request("https://example.com")
         assert r.status_code == httpx.codes.OK
-        mock_sleep.assert_called_once_with(RETRY_MAX_DELAY)
+        mock_sleep.assert_called_once_with(RETRY_AFTER_MAX_DELAY)
 
     @patch("iaqualink.client.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.request")
