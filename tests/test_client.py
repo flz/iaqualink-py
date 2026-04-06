@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
+from email.utils import format_datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
@@ -238,11 +240,12 @@ class TestAqualinkClient(TestBase):
     async def test_429_retry_after_http_date(
         self, mock_request, mock_sleep
     ) -> None:
+        future = datetime.now(tz=timezone.utc) + timedelta(days=365)
         resp_429 = MagicMock()
         resp_429.status_code = httpx.codes.TOO_MANY_REQUESTS
         resp_429.reason_phrase = "Too Many Requests"
         resp_429.headers = httpx.Headers(
-            {"retry-after": "Wed, 21 Oct 2026 07:28:00 GMT"}
+            {"retry-after": format_datetime(future, usegmt=True)}
         )
 
         resp_200 = MagicMock()

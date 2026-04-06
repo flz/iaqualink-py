@@ -105,6 +105,12 @@ class AqualinkClient:
         retry: bool = True,
         **kwargs: Any,
     ) -> httpx.Response:
+        """Send an HTTP request with optional retry on 429 responses.
+
+        When ``retry=False``, no retries are attempted.  If the single
+        attempt receives a 429 response,
+        :exc:`AqualinkServiceThrottledException` is raised immediately.
+        """
         if self._client is None:
             self._client = httpx.AsyncClient(
                 http2=True,
@@ -117,24 +123,26 @@ class AqualinkClient:
         max_attempts = RETRY_MAX_ATTEMPTS if retry else 1
 
         for attempt in range(max_attempts):
-            LOGGER.debug(f"-> {method.upper()} {url} {kwargs}")
+            LOGGER.debug("-> %s %s %s", method.upper(), url, kwargs)
             r = await self._client.request(
                 method, url, headers=headers, **kwargs
             )
 
-            LOGGER.debug(f"<- {r.status_code} {r.reason_phrase} - {url}")
+            LOGGER.debug("<- %s %s - %s", r.status_code, r.reason_phrase, url)
 
             if r.status_code == httpx.codes.UNAUTHORIZED:
                 self._logged = False
                 raise AqualinkServiceUnauthorizedException
 
             if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                LOGGER.debug(f"429 response headers: {dict(r.headers)}")
+                LOGGER.debug("429 response headers: %s", dict(r.headers))
                 if attempt < max_attempts - 1:
                     delay = self._get_retry_delay(r, attempt)
                     LOGGER.warning(
-                        f"Rate limited (429), retry {attempt + 1}/"
-                        f"{max_attempts} in {delay:.1f}s"
+                        "Rate limited (429), retry %d/%d in %.1fs",
+                        attempt + 1,
+                        max_attempts,
+                        delay,
                     )
                     await asyncio.sleep(delay)
                     continue

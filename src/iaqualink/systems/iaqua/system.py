@@ -91,6 +91,8 @@ class IaquaSystem(AqualinkSystem):
             r1 = await self._send_home_screen_request()
             r2 = await self._send_devices_screen_request()
         except AqualinkServiceThrottledException:
+            # Re-raise without setting online=None; rate-limiting does
+            # not indicate the system is offline.
             raise
         except AqualinkServiceException:
             self.online = None

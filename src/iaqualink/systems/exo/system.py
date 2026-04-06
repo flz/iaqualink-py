@@ -75,6 +75,8 @@ class ExoSystem(AqualinkSystem):
         try:
             r = await self.send_reported_state_request()
         except AqualinkServiceThrottledException:
+            # Re-raise without setting online=None; rate-limiting does
+            # not indicate the system is offline.
             raise
         except AqualinkServiceException:
             self.online = None
