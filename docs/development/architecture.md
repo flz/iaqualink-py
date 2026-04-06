@@ -143,7 +143,7 @@ client.get_systems()
 
 ```
 system.update()
-      → Check rate limit (MIN_SECS_TO_REFRESH: 10s iaqua, 50s exo)
+      → Check rate limit (MIN_SECS_TO_REFRESH: 5s default, 50s exo)
       → If cached, return immediately
       → Fetch from API (system-specific)
       → Parse response

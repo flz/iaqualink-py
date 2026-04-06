@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -138,7 +139,7 @@ class TestIaquaSystem(TestBaseSystem):
             await self.sut._send_devices_screen_request()
 
     async def test_update_skipped_within_refresh_interval(self) -> None:
-        now = int(__import__("time").time())
+        now = int(time.time())
 
         with (
             patch.object(self.sut, "_parse_home_response"),
