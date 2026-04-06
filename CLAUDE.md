@@ -128,7 +128,8 @@ To add a new system type:
 2. Implement `NewSystem(AqualinkSystem)` with `NAME` class attribute
 3. Implement device parsing in `_parse_*_response()` methods
 4. Create corresponding device classes extending base device types
-5. Add tests following existing patterns in `tests/systems/newsystem/`
+5. In `update()`, re-raise `AqualinkServiceThrottledException` before the broader `AqualinkServiceException` handler to prevent `online = None` on rate-limiting (see existing implementations in `iaqua/system.py` and `exo/system.py`)
+6. Add tests following existing patterns in `tests/systems/newsystem/`
 
 ## Notes
 

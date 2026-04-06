@@ -153,6 +153,10 @@ class TestAqualinkClient(TestBase):
         with pytest.raises(AqualinkServiceUnauthorizedException):
             await self.client.get_systems()
 
+    # The 429-retry tests use @patch("httpx.AsyncClient.request") rather
+    # than respx because respx intercepts at transport level, before the
+    # retry loop in send_request() — we need to control per-call
+    # responses (side_effect) and inspect asyncio.sleep calls.
     @patch("iaqualink.client.asyncio.sleep", new_callable=AsyncMock)
     @patch("httpx.AsyncClient.request")
     async def test_429_retry_then_success(

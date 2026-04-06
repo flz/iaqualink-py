@@ -111,9 +111,10 @@ class AqualinkClient:
         By default (``retry=True``) every request, including login,
         retries up to :data:`RETRY_MAX_ATTEMPTS` times on 429.
         Server-provided ``Retry-After`` values are honoured up to
-        :data:`RETRY_AFTER_MAX_DELAY` (5 min); callers that need
+        :data:`RETRY_AFTER_MAX_DELAY` (60 s); callers that need
         tighter latency should catch
-        :exc:`AqualinkServiceThrottledException`.
+        :exc:`AqualinkServiceThrottledException` or wrap calls with
+        :func:`asyncio.wait_for`.
 
         When ``retry=False`` (``max_attempts=1``) the single attempt
         raises :exc:`AqualinkServiceThrottledException` immediately on
@@ -161,12 +162,21 @@ class AqualinkClient:
 
             return r
 
+        LOGGER.warning(
+            "Rate limited (429), giving up after %d attempt(s)",
+            max_attempts,
+        )
         raise AqualinkServiceThrottledException(
             f"Rate limited after {max_attempts} attempt(s)"
         )
 
     @staticmethod
     def _get_retry_delay(response: httpx.Response, attempt: int) -> float:
+        """Determine delay before the next retry.
+
+        Fallback order: numeric Retry-After → HTTP-date Retry-After
+        → exponential backoff with half-jitter.
+        """
         retry_after = response.headers.get("retry-after")
         if retry_after is not None:
             try:
@@ -188,7 +198,7 @@ class AqualinkClient:
             )
 
         delay = min(RETRY_BASE_DELAY * (2**attempt), RETRY_MAX_DELAY)
-        return random.uniform(0, delay)
+        return random.uniform(delay / 2, delay)
 
     async def _send_login_request(self) -> httpx.Response:
         data = {
