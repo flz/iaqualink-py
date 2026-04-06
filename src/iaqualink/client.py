@@ -14,6 +14,7 @@ from iaqualink.const import (
     AQUALINK_API_KEY,
     AQUALINK_DEVICES_URL,
     AQUALINK_LOGIN_URL,
+    AQUALINK_REFRESH_URL,
     KEEPALIVE_EXPIRY,
     RETRY_AFTER_MAX_DELAY,
     RETRY_BASE_DELAY,
@@ -64,6 +65,7 @@ class AqualinkClient:
         self._token = ""
         self._user_id = ""
         self.id_token = ""
+        self._refresh_token = ""
 
         self._last_refresh = 0
 
@@ -131,7 +133,10 @@ class AqualinkClient:
 
         max_attempts = RETRY_MAX_ATTEMPTS if retry else 1
 
-        for attempt in range(max_attempts):
+        attempt_429 = 0
+        refreshed = False
+
+        while True:
             LOGGER.debug("-> %s %s %s", method.upper(), url, kwargs)
             r = await self._client.request(
                 method, url, headers=headers, **kwargs
@@ -140,21 +145,48 @@ class AqualinkClient:
             LOGGER.debug("<- %s %s - %s", r.status_code, r.reason_phrase, url)
 
             if r.status_code == httpx.codes.UNAUTHORIZED:
+                was_logged = self._logged
                 self._logged = False
-                raise AqualinkServiceUnauthorizedException
+                if was_logged and self._refresh_token and not refreshed:
+                    refreshed = True
+                    await self._refresh_auth()
+                    # _refresh_auth sets _logged=True, but the Authorization
+                    # header below hasn't been updated yet. The window is
+                    # narrow (no await between here and continue) so a
+                    # concurrent coroutine that reads _logged=True would still
+                    # use its own locally-built headers — not ours.
+                    if "Authorization" in headers:
+                        old = headers["Authorization"]
+                        # Preserve caller format: "Bearer <token>" (iAqua) or
+                        # raw token (eXO). Case-sensitive match is intentional
+                        # — `headers` is a plain dict whose keys are set by
+                        # this method and by callers, all using title-case.
+                        # Converting to httpx.Headers just for this check
+                        # would be over-engineered.
+                        prefix = "Bearer " if old.startswith("Bearer ") else ""
+                        headers["Authorization"] = f"{prefix}{self.id_token}"
+                    # Reset the 429 counter so the post-refresh retry gets
+                    # its own full rate-limit budget; 429s before the token
+                    # expired should not penalise the refreshed request.
+                    attempt_429 = 0
+                    # Re-enter the loop so 429 backoff applies to the retry.
+                    continue
+                raise AqualinkServiceUnauthorizedException()
 
             if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
                 LOGGER.debug("429 response headers: %s", dict(r.headers))
-                if attempt < max_attempts - 1:
-                    delay = self._get_retry_delay(r, attempt)
+                if attempt_429 < max_attempts - 1:
+                    delay = self._get_retry_delay(r, attempt_429)
                     LOGGER.warning(
                         "Rate limited (429), retry %d/%d in %.1fs",
-                        attempt + 1,
+                        attempt_429 + 1,
                         max_attempts,
                         delay,
                     )
                     await asyncio.sleep(delay)
-                continue
+                    attempt_429 += 1
+                    continue
+                break
 
             if r.status_code != httpx.codes.OK:
                 m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
@@ -210,6 +242,53 @@ class AqualinkClient:
             AQUALINK_LOGIN_URL, method="post", json=data
         )
 
+    async def _send_refresh_request(self) -> httpx.Response:
+        # api_key is intentionally omitted — the refresh endpoint does not
+        # require it (unlike the login endpoint).
+        data = {
+            "email": self._username,
+            "refresh_token": self._refresh_token,
+        }
+        return await self.send_request(
+            AQUALINK_REFRESH_URL, method="post", json=data
+        )
+
+    async def _refresh_auth(self) -> None:
+        """Attempt a token refresh; fall back to full login on 401.
+
+        Called from :meth:`send_request` when a 401 is received and a
+        refresh token is available.  Re-entrancy is prevented because
+        :attr:`_logged` is ``False`` by the time this method is called,
+        so the inner call to :meth:`send_request` skips the refresh path.
+
+        Only :exc:`AqualinkServiceUnauthorizedException` (401) from the
+        refresh endpoint is caught — other errors (5xx, throttle) propagate
+        to the caller of :meth:`send_request` unchanged.  If the fallback
+        :meth:`login` also raises (wrong password, network error, 429),
+        that exception likewise propagates from :meth:`send_request` with
+        no additional wrapping.
+        """
+        # _send_refresh_request calls send_request, which would normally
+        # attempt another token refresh on 401 — that is prevented because
+        # self._logged is False by the time this method is called, so the
+        # re-entrant 401 path in send_request is skipped.
+        try:
+            r = await self._send_refresh_request()
+        except AqualinkServiceUnauthorizedException:
+            # Refresh token is expired or invalid — fall back to full login.
+            await self.login()
+            return
+
+        data = r.json()
+        self.client_id = data["session_id"]
+        self._token = data["authentication_token"]
+        self._user_id = data["id"]
+        self.id_token = data["userPoolOAuth"]["IdToken"]
+        self._refresh_token = data["userPoolOAuth"].get(
+            "RefreshToken", self._refresh_token
+        )
+        self._logged = True
+
     async def login(self) -> None:
         r = await self._send_login_request()
 
@@ -218,6 +297,7 @@ class AqualinkClient:
         self._token = data["authentication_token"]
         self._user_id = data["id"]
         self.id_token = data["userPoolOAuth"]["IdToken"]
+        self._refresh_token = data["userPoolOAuth"].get("RefreshToken", "")
         self._logged = True
 
     async def _send_systems_request(self) -> httpx.Response:

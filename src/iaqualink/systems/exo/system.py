@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
-    AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
@@ -43,16 +42,7 @@ class ExoSystem(AqualinkSystem):
     async def send_devices_request(self, **kwargs: Any) -> httpx.Response:
         url = f"{EXO_DEVICES_URL}/{self.serial}/shadow"
         headers = {"Authorization": self.aqualink.id_token}
-
-        try:
-            r = await self.aqualink.send_request(url, headers=headers, **kwargs)
-        except AqualinkServiceUnauthorizedException:
-            # token expired so refresh the token and try again
-            await self.aqualink.login()
-            headers = {"Authorization": self.aqualink.id_token}
-            r = await self.aqualink.send_request(url, headers=headers, **kwargs)
-
-        return r
+        return await self.aqualink.send_request(url, headers=headers, **kwargs)
 
     async def send_reported_state_request(self) -> httpx.Response:
         return await self.send_devices_request()
