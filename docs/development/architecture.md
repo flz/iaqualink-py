@@ -143,7 +143,7 @@ client.get_systems()
 
 ```
 system.update()
-      → Check rate limit (MIN_SECS_TO_REFRESH = 5)
+      → Check rate limit (MIN_SECS_TO_REFRESH: 5s default, 50s exo)
       → If cached, return immediately
       → Fetch from API (system-specific)
       → Parse response
@@ -165,22 +165,26 @@ device.turn_on()
 Systems implement rate limiting to respect API limits:
 
 ```python
-MIN_SECS_TO_REFRESH = 5.0
+class AqualinkSystem:
+    MIN_SECS_TO_REFRESH: ClassVar[int] = 5  # default
+
+class ExoSystem(AqualinkSystem):
+    MIN_SECS_TO_REFRESH: ClassVar[int] = 50  # empiric
 
 async def update(self):
-    now = time.time()
-    if self.last_run_success and \
-       (now - self.last_run_success) < MIN_SECS_TO_REFRESH:
+    now = int(time.time())
+    delta = now - self.last_refresh
+    if delta < self.MIN_SECS_TO_REFRESH:
         return  # Use cached data
 
     # Fetch from API
     await self._update_impl()
-    self.last_run_success = now
+    self.last_refresh = now
 ```
 
 ## Type System
 
-The library uses modern Python type hints (3.13+):
+The library uses modern Python type hints (3.14+):
 
 ```python
 from typing import Self, Any

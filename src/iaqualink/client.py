@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
+import random
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
@@ -11,9 +15,14 @@ from iaqualink.const import (
     AQUALINK_DEVICES_URL,
     AQUALINK_LOGIN_URL,
     KEEPALIVE_EXPIRY,
+    RETRY_AFTER_MAX_DELAY,
+    RETRY_BASE_DELAY,
+    RETRY_MAX_ATTEMPTS,
+    RETRY_MAX_DELAY,
 )
 from iaqualink.exception import (
     AqualinkServiceException,
+    AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
     AqualinkSystemUnsupportedException,
 )
@@ -94,32 +103,102 @@ class AqualinkClient:
         self,
         url: str,
         method: str = "get",
+        retry: bool = True,
         **kwargs: Any,
     ) -> httpx.Response:
+        """Send an HTTP request with optional retry on 429 responses.
+
+        By default (``retry=True``) every request, including login,
+        retries up to :data:`RETRY_MAX_ATTEMPTS` times on 429.
+        Server-provided ``Retry-After`` values are honoured up to
+        :data:`RETRY_AFTER_MAX_DELAY` (60 s); callers that need
+        tighter latency should catch
+        :exc:`AqualinkServiceThrottledException` or wrap calls with
+        :func:`asyncio.wait_for`.
+
+        When ``retry=False`` (``max_attempts=1``) the single attempt
+        raises :exc:`AqualinkServiceThrottledException` immediately on
+        429 with no actual retry.
+        """
         if self._client is None:
             self._client = httpx.AsyncClient(
                 http2=True,
                 limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
             )
 
-        headers = AQUALINK_HTTP_HEADERS
+        headers = AQUALINK_HTTP_HEADERS.copy()
         headers.update(kwargs.pop("headers", {}))
 
-        LOGGER.debug(f"-> {method.upper()} {url} {kwargs}")
-        r = await self._client.request(method, url, headers=headers, **kwargs)
+        max_attempts = RETRY_MAX_ATTEMPTS if retry else 1
 
-        LOGGER.debug(f"<- {r.status_code} {r.reason_phrase} - {url}")
+        for attempt in range(max_attempts):
+            LOGGER.debug("-> %s %s %s", method.upper(), url, kwargs)
+            r = await self._client.request(
+                method, url, headers=headers, **kwargs
+            )
 
-        if r.status_code == httpx.codes.UNAUTHORIZED:
-            m = "Unauthorized Access, check your credentials and try again"
-            self._logged = False
-            raise AqualinkServiceUnauthorizedException
+            LOGGER.debug("<- %s %s - %s", r.status_code, r.reason_phrase, url)
 
-        if r.status_code != httpx.codes.OK:
-            m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
-            raise AqualinkServiceException(m)
+            if r.status_code == httpx.codes.UNAUTHORIZED:
+                self._logged = False
+                raise AqualinkServiceUnauthorizedException
 
-        return r
+            if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
+                LOGGER.debug("429 response headers: %s", dict(r.headers))
+                if attempt < max_attempts - 1:
+                    delay = self._get_retry_delay(r, attempt)
+                    LOGGER.warning(
+                        "Rate limited (429), retry %d/%d in %.1fs",
+                        attempt + 1,
+                        max_attempts,
+                        delay,
+                    )
+                    await asyncio.sleep(delay)
+                continue
+
+            if r.status_code != httpx.codes.OK:
+                m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
+                raise AqualinkServiceException(m)
+
+            return r
+
+        LOGGER.warning(
+            "Rate limited (429), giving up after %d attempt(s)",
+            max_attempts,
+        )
+        raise AqualinkServiceThrottledException(
+            f"Rate limited after {max_attempts} attempt(s)"
+        )
+
+    @staticmethod
+    def _get_retry_delay(response: httpx.Response, attempt: int) -> float:
+        """Determine delay before the next retry.
+
+        Fallback order: numeric Retry-After → HTTP-date Retry-After
+        → exponential backoff with half-jitter.
+        """
+        retry_after = response.headers.get("retry-after")
+        if retry_after is not None:
+            try:
+                return min(float(retry_after), RETRY_AFTER_MAX_DELAY)
+            except ValueError:
+                pass
+
+            try:
+                dt = parsedate_to_datetime(retry_after)
+                delay = (dt - datetime.now(tz=timezone.utc)).total_seconds()
+                if delay > 0:
+                    return min(delay, RETRY_AFTER_MAX_DELAY)
+            except (ValueError, TypeError):
+                pass
+
+            LOGGER.debug(
+                "Could not parse Retry-After header: %s",
+                retry_after,
+            )
+
+        delay = min(RETRY_BASE_DELAY * (2**attempt), RETRY_MAX_DELAY)
+        return random.uniform(delay / 2, delay)
 
     async def _send_login_request(self) -> httpx.Response:
         data = {

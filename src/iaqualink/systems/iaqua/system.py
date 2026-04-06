@@ -4,10 +4,10 @@ import logging
 import time
 from typing import TYPE_CHECKING
 
-from iaqualink.const import MIN_SECS_TO_REFRESH
 from iaqualink.exception import (
     AqualinkDeviceNotSupported,
     AqualinkServiceException,
+    AqualinkServiceThrottledException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
@@ -90,13 +90,17 @@ class IaquaSystem(AqualinkSystem):
         # Be nice to Aqualink servers since we rely on polling.
         now = int(time.time())
         delta = now - self.last_refresh
-        if delta < MIN_SECS_TO_REFRESH:
+        if delta < self.MIN_SECS_TO_REFRESH:
             LOGGER.debug(f"Only {delta}s since last refresh.")
             return
 
         try:
             r1 = await self._send_home_screen_request()
             r2 = await self._send_devices_screen_request()
+        except AqualinkServiceThrottledException:
+            # Re-raise without setting online=None; rate-limiting does
+            # not indicate the system is offline.
+            raise
         except AqualinkServiceException:
             self.online = None
             raise
