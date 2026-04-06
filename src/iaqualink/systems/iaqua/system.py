@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from iaqualink.exception import (
     AqualinkDeviceNotSupported,
@@ -34,14 +34,13 @@ IAQUA_COMMAND_SET_SPA_HEATER = "set_spa_heater"
 IAQUA_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 IAQUA_COMMAND_SET_TEMPS = "set_temps"
 
-# Empiric value; no official rate limit documented.
-MIN_SECS_TO_REFRESH = 10
-
 LOGGER = logging.getLogger("iaqualink")
 
 
 class IaquaSystem(AqualinkSystem):
     NAME = "iaqua"
+    # Empiric value; no official rate limit documented.
+    MIN_SECS_TO_REFRESH: ClassVar[int] = 10
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         super().__init__(aqualink, data)
@@ -84,7 +83,7 @@ class IaquaSystem(AqualinkSystem):
         # Be nice to Aqualink servers since we rely on polling.
         now = int(time.time())
         delta = now - self.last_refresh
-        if delta < MIN_SECS_TO_REFRESH:
+        if delta < self.MIN_SECS_TO_REFRESH:
             LOGGER.debug(f"Only {delta}s since last refresh.")
             return
 

@@ -165,12 +165,16 @@ device.turn_on()
 Systems implement rate limiting to respect API limits:
 
 ```python
-MIN_SECS_TO_REFRESH = <per-system>  # 10 for iaqua, 50 for exo
+class AqualinkSystem:
+    MIN_SECS_TO_REFRESH: ClassVar[int] = 5  # default
+
+class ExoSystem(AqualinkSystem):
+    MIN_SECS_TO_REFRESH: ClassVar[int] = 50  # empiric
 
 async def update(self):
     now = time.time()
     if self.last_run_success and \
-       (now - self.last_run_success) < MIN_SECS_TO_REFRESH:
+       (now - self.last_run_success) < self.MIN_SECS_TO_REFRESH:
         return  # Use cached data
 
     # Fetch from API

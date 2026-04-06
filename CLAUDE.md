@@ -117,7 +117,7 @@ Tests use `unittest.IsolatedAsyncioTestCase` with a custom base class:
 
 ### Key Constants
 
-- **Rate limiting:** System updates throttled to 5 second intervals ([const.py](src/iaqualink/const.py))
+- **Rate limiting:** Per-system `MIN_SECS_TO_REFRESH` class attribute (10s iaqua, 50s exo, default 5s)
 - **API key:** Hardcoded AQUALINK_API_KEY for iAqua systems
 - **Temperature ranges:** Different for Celsius/Fahrenheit, defined in device files
 
@@ -126,10 +126,11 @@ Tests use `unittest.IsolatedAsyncioTestCase` with a custom base class:
 To add a new system type:
 1. Create `systems/newsystem/` directory with `__init__.py`, `system.py`, `device.py`
 2. Implement `NewSystem(AqualinkSystem)` with `NAME` class attribute
-3. Implement device parsing in `_parse_*_response()` methods
-4. Create corresponding device classes extending base device types
-5. In `update()`, re-raise `AqualinkServiceThrottledException` before the broader `AqualinkServiceException` handler to prevent `online = None` on rate-limiting (see existing implementations in `iaqua/system.py` and `exo/system.py`)
-6. Add tests following existing patterns in `tests/systems/newsystem/`
+3. Override `MIN_SECS_TO_REFRESH` if the default (5s) is not appropriate
+4. Implement device parsing in `_parse_*_response()` methods
+5. Create corresponding device classes extending base device types
+6. In `update()`, re-raise `AqualinkServiceThrottledException` before the broader `AqualinkServiceException` handler to prevent `online = None` on rate-limiting (see existing implementations in `iaqua/system.py` and `exo/system.py`)
+7. Add tests following existing patterns in `tests/systems/newsystem/`
 
 ## Notes
 
