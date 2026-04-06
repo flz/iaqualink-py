@@ -143,7 +143,7 @@ client.get_systems()
 
 ```
 system.update()
-      → Check rate limit (MIN_SECS_TO_REFRESH = 5)
+      → Check rate limit (MIN_SECS_TO_REFRESH: 10s iaqua, 50s exo)
       → If cached, return immediately
       → Fetch from API (system-specific)
       → Parse response
@@ -165,7 +165,8 @@ device.turn_on()
 Systems implement rate limiting to respect API limits:
 
 ```python
-MIN_SECS_TO_REFRESH = 5.0
+# Defined per system: 10s for iaqua, 50s for exo
+MIN_SECS_TO_REFRESH = 10  # or 50
 
 async def update(self):
     now = time.time()

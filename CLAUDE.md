@@ -82,7 +82,7 @@ The library follows a plugin-style architecture with base classes and system-spe
    - Two concrete implementations:
      - **IaquaSystem** ([systems/iaqua/system.py](src/iaqualink/systems/iaqua/system.py)) - For "iaqua" device_type
      - **ExoSystem** ([systems/exo/system.py](src/iaqualink/systems/exo/system.py)) - For "exo" device_type
-   - Implements polling with rate limiting (MIN_SECS_TO_REFRESH = 5 seconds)
+   - Implements polling with rate limiting (MIN_SECS_TO_REFRESH per system: 10s iaqua, 50s exo)
    - Tracks online/offline status
 
 3. **AqualinkDevice** ([device.py](src/iaqualink/device.py)) - Base class for devices
