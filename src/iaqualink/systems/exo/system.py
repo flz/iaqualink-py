@@ -4,7 +4,6 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any
 
-from iaqualink.const import MIN_SECS_TO_REFRESH
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
@@ -22,6 +21,8 @@ if TYPE_CHECKING:
 
 EXO_DEVICES_URL = "https://prod.zodiac-io.com/devices/v1"
 
+# Empiric value; eXO systems returned HTTP 429 when polled every 15s.
+MIN_SECS_TO_REFRESH = 50
 
 LOGGER = logging.getLogger("iaqualink")
 
