@@ -165,8 +165,7 @@ device.turn_on()
 Systems implement rate limiting to respect API limits:
 
 ```python
-# Defined per system: 10s for iaqua, 50s for exo
-MIN_SECS_TO_REFRESH = 10  # or 50
+MIN_SECS_TO_REFRESH = <per-system>  # 10 for iaqua, 50 for exo
 
 async def update(self):
     now = time.time()
