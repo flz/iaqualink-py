@@ -149,7 +149,9 @@ class TestIaquaSystem(TestBaseSystem):
         assert called_url.startswith(IAQUA_SESSION_URL)
 
     @patch("httpx.AsyncClient.request")
-    async def test_session_request_sends_auth_headers(self, mock_request) -> None:
+    async def test_session_request_sends_auth_headers(
+        self, mock_request
+    ) -> None:
         mock_request.return_value.status_code = 200
         self.client.id_token = "test-id-token"
 
