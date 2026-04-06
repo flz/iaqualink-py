@@ -108,10 +108,16 @@ class AqualinkClient:
     ) -> httpx.Response:
         """Send an HTTP request with optional retry on 429 responses.
 
-        :exc:`AqualinkServiceThrottledException` is raised when all
-        attempts receive 429 responses.  When ``retry=False``
-        (``max_attempts=1``), this means the single attempt already
-        triggers the exception with no actual retry.
+        By default (``retry=True``) every request, including login,
+        retries up to :data:`RETRY_MAX_ATTEMPTS` times on 429.
+        Server-provided ``Retry-After`` values are honoured up to
+        :data:`RETRY_AFTER_MAX_DELAY` (5 min); callers that need
+        tighter latency should catch
+        :exc:`AqualinkServiceThrottledException`.
+
+        When ``retry=False`` (``max_attempts=1``) the single attempt
+        raises :exc:`AqualinkServiceThrottledException` immediately on
+        429 with no actual retry.
         """
         if self._client is None:
             self._client = httpx.AsyncClient(
@@ -147,8 +153,7 @@ class AqualinkClient:
                         delay,
                     )
                     await asyncio.sleep(delay)
-                    continue
-                break
+                continue
 
             if r.status_code != httpx.codes.OK:
                 m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
@@ -182,8 +187,8 @@ class AqualinkClient:
                 retry_after,
             )
 
-        delay = RETRY_BASE_DELAY * (2**attempt) + random.uniform(-0.5, 0.5)
-        return min(delay, RETRY_MAX_DELAY)
+        delay = min(RETRY_BASE_DELAY * (2**attempt), RETRY_MAX_DELAY)
+        return random.uniform(0, delay)
 
     async def _send_login_request(self) -> httpx.Response:
         data = {
