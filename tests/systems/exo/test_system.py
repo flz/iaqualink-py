@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -255,3 +256,32 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
             await system.send_reported_state_request()
+
+    async def test_update_skipped_within_refresh_interval(self):
+        aqualink = MagicMock()
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
+        system = AqualinkSystem.from_data(aqualink, data)
+        system.send_reported_state_request = async_noop
+        system._parse_shadow_response = MagicMock()
+
+        # First update should go through.
+        now = int(time.time())
+        with patch("iaqualink.systems.exo.system.time") as mock_time:
+            mock_time.time.return_value = now
+            await system.update()
+        assert system._parse_shadow_response.call_count == 1
+
+        # Second update within MIN_SECS_TO_REFRESH should be skipped.
+        system._parse_shadow_response.reset_mock()
+        with patch("iaqualink.systems.exo.system.time") as mock_time:
+            mock_time.time.return_value = (
+                now + ExoSystem.MIN_SECS_TO_REFRESH - 1
+            )
+            await system.update()
+        assert system._parse_shadow_response.call_count == 0
+
+        # Update after MIN_SECS_TO_REFRESH should go through.
+        with patch("iaqualink.systems.exo.system.time") as mock_time:
+            mock_time.time.return_value = now + ExoSystem.MIN_SECS_TO_REFRESH
+            await system.update()
+        assert system._parse_shadow_response.call_count == 1

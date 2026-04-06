@@ -82,7 +82,7 @@ The library follows a plugin-style architecture with base classes and system-spe
    - Two concrete implementations:
      - **IaquaSystem** ([systems/iaqua/system.py](src/iaqualink/systems/iaqua/system.py)) - For "iaqua" device_type
      - **ExoSystem** ([systems/exo/system.py](src/iaqualink/systems/exo/system.py)) - For "exo" device_type
-   - Implements polling with rate limiting (MIN_SECS_TO_REFRESH per system: 10s iaqua, 50s exo)
+   - Implements polling with rate limiting (MIN_SECS_TO_REFRESH per system: 5s iaqua, 50s exo)
    - Tracks online/offline status
 
 3. **AqualinkDevice** ([device.py](src/iaqualink/device.py)) - Base class for devices
@@ -117,7 +117,7 @@ Tests use `unittest.IsolatedAsyncioTestCase` with a custom base class:
 
 ### Key Constants
 
-- **Rate limiting:** Per-system `MIN_SECS_TO_REFRESH` class attribute (10s iaqua, 50s exo, default 5s)
+- **Rate limiting:** Per-system `MIN_SECS_TO_REFRESH` class attribute (5s default, 50s exo)
 - **API key:** Hardcoded AQUALINK_API_KEY for iAqua systems
 - **Temperature ranges:** Different for Celsius/Fahrenheit, defined in device files
 

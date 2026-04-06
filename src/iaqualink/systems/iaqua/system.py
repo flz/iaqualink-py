@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from iaqualink.exception import (
     AqualinkDeviceNotSupported,
@@ -39,8 +39,6 @@ LOGGER = logging.getLogger("iaqualink")
 
 class IaquaSystem(AqualinkSystem):
     NAME = "iaqua"
-    # Empiric value; no official rate limit documented.
-    MIN_SECS_TO_REFRESH: ClassVar[int] = 10
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         super().__init__(aqualink, data)

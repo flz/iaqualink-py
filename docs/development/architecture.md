@@ -172,14 +172,14 @@ class ExoSystem(AqualinkSystem):
     MIN_SECS_TO_REFRESH: ClassVar[int] = 50  # empiric
 
 async def update(self):
-    now = time.time()
-    if self.last_run_success and \
-       (now - self.last_run_success) < self.MIN_SECS_TO_REFRESH:
+    now = int(time.time())
+    delta = now - self.last_refresh
+    if delta < self.MIN_SECS_TO_REFRESH:
         return  # Use cached data
 
     # Fetch from API
     await self._update_impl()
-    self.last_run_success = now
+    self.last_refresh = now
 ```
 
 ## Type System
