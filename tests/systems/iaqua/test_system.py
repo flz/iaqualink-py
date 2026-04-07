@@ -436,47 +436,36 @@ class TestIaquaSystem(TestBaseSystem):
             assert onetouch_mock.call_count == 0
 
     async def test_update_onetouch_disabled_by_home_flag(self) -> None:
-        """oneTouch=0 in home response disables future onetouch polling."""
+        """oneTouch=0 in home response disables onetouch polling immediately."""
+        message = {
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"response": ""},
+                {"temp_scale": "F"},
+                {"one_touch": "0"},
+            ]
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
         with (
+            patch.object(
+                self.sut, "_send_home_screen_request", return_value=response
+            ),
+            patch.object(
+                self.sut, "_send_devices_screen_request", return_value=response
+            ),
+            patch.object(
+                self.sut, "_send_onetouch_screen_request"
+            ) as onetouch_req,
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            message = {
-                "home_screen": [
-                    {"status": "Online"},
-                    {"response": ""},
-                    {"response": ""},
-                    {"temp_scale": "F"},
-                    {"one_touch": "0"},
-                ]
-            }
-            response = MagicMock()
-            response.json.return_value = message
-
-            with (
-                patch.object(
-                    self.sut, "_send_home_screen_request", return_value=response
-                ),
-                patch.object(
-                    self.sut,
-                    "_send_devices_screen_request",
-                    return_value=response,
-                ),
-                patch.object(
-                    self.sut,
-                    "_send_onetouch_screen_request",
-                    return_value=response,
-                ) as onetouch_req,
-            ):
-                await self.sut.update()
-                # Onetouch was attempted (unknown state → try once)
-                assert onetouch_req.call_count == 1
-
-                self.sut.last_refresh = 0
-                onetouch_req.reset_mock()
-                await self.sut.update()
-                # Now disabled via home flag — should not be called again
-                assert onetouch_req.call_count == 0
+            await self.sut.update()
+            # Home response is parsed first; one_touch=0 disables the request
+            # before it is ever issued — not just on the second poll.
+            assert onetouch_req.call_count == 0
 
         assert self.sut._onetouch_supported is False
 

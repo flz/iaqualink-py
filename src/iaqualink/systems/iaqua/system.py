@@ -14,6 +14,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaAuxSwitch,
     IaquaDimmableLight,
     IaquaLightSwitch,
+    IaquaOneTouchSwitch,
     IaquaThermostat,
     _HOME_DEVICE_MAP,
     light_subtype_to_class,
@@ -119,6 +120,24 @@ class IaquaSystem(AqualinkSystem):
             self.status = SystemStatus.ERROR
             raise
 
+        # Parse the home response first so the one_touch flag is available
+        # before deciding whether to issue the onetouch request.
+        try:
+            self._parse_home_response(r1)
+        except AqualinkSystemOfflineException:
+            self.status = SystemStatus.OFFLINE
+            raise
+
+        # Honour the oneTouch enabled flag from the home response.
+        # If the controller reports it as disabled, stop polling it.
+        if self._onetouch_supported is not False:
+            one_touch_device = self.devices.get("one_touch")
+            if one_touch_device is not None and one_touch_device.state == "0":
+                LOGGER.debug(
+                    "OneTouch disabled per home response; skipping future polls."
+                )
+                self._onetouch_supported = False
+
         r3 = None
         if self._onetouch_supported is not False:
             try:
@@ -135,23 +154,12 @@ class IaquaSystem(AqualinkSystem):
                 self._onetouch_supported = False
 
         try:
-            self._parse_home_response(r1)
             self._parse_devices_response(r2)
             if r3 is not None:
                 self._parse_onetouch_response(r3)
         except AqualinkSystemOfflineException:
             self.status = SystemStatus.OFFLINE
             raise
-
-        # Honour the oneTouch enabled flag from the home response.
-        # If the controller reports it as disabled, stop polling it.
-        if self._onetouch_supported is not False:
-            one_touch_device = self.devices.get("one_touch")
-            if one_touch_device is not None and one_touch_device.state == "0":
-                LOGGER.debug(
-                    "OneTouch disabled per home response; skipping future polls."
-                )
-                self._onetouch_supported = False
 
         self.status = SystemStatus.ONLINE
 
@@ -266,7 +274,7 @@ class IaquaSystem(AqualinkSystem):
         self._parse_home_response(r)
 
     async def set_aux(self, aux: str) -> None:
-        aux = IAQUA_COMMAND_SET_AUX + "_" + aux.replace("aux_", "")
+        aux = IAQUA_COMMAND_SET_AUX + "_" + aux.removeprefix("aux_")
         r = await self._send_session_request(aux)
         self._parse_devices_response(r)
 
@@ -279,7 +287,7 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("OneTouch response: %s", data)
 
-        if data["one_touch"][0]["status"] != "Online":
+        if data["one_touch"][0]["status"] == "Offline":
             LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
@@ -297,38 +305,7 @@ class IaquaSystem(AqualinkSystem):
                 for dk, dv in v.items():
                     self.devices[k].data[dk] = dv
             else:
-                try:
-                    self.devices[k] = IaquaDevice.from_data(self, v)
-                except AqualinkDeviceNotSupported as e:
-                    LOGGER.debug("Device found was ignored: %s", e)
-
-    async def set_switch(self, command: str) -> None:
-        r = await self._send_session_request(command)
-        self._parse_home_response(r)
-
-    async def set_temps(self, temps: Payload) -> None:
-        # I'm not proud of this. If you read this, please submit a PR to make it better.
-        # We need to pass the temperatures for both pool and spa (if present) in the same request.
-        # Set args to current target temperatures and override with the request payload.
-        args = {}
-        i = 1
-        if "spa_set_point" in self.devices:
-            args[f"temp{i}"] = self.devices["spa_set_point"].target_temperature
-            i += 1
-        args[f"temp{i}"] = self.devices["pool_set_point"].target_temperature
-        args.update(temps)
-
-        r = await self._send_session_request(IAQUA_COMMAND_SET_TEMPS, args)
-        self._parse_home_response(r)
-
-    async def set_aux(self, aux: str) -> None:
-        aux = IAQUA_COMMAND_SET_AUX + "_" + aux.replace("aux_", "")
-        r = await self._send_session_request(aux)
-        self._parse_devices_response(r)
-
-    async def set_light(self, data: Payload) -> None:
-        r = await self._send_session_request(IAQUA_COMMAND_SET_LIGHT, data)
-        self._parse_devices_response(r)
+                self.devices[k] = IaquaOneTouchSwitch(self, v)
 
     async def set_onetouch(self, name: str) -> None:
         cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.removeprefix("onetouch_")
