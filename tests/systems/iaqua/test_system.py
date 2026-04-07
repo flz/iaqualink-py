@@ -7,6 +7,7 @@ import pytest
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
+    AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
@@ -375,6 +376,91 @@ class TestIaquaSystem(TestBaseSystem):
         called_url = mock_request.call_args[0][1]
         assert f"{IAQUA_COMMAND_SET_ONETOUCH}_1" in called_url
         assert mock_parse.call_count == 1
+
+    async def test_update_onetouch_failure_is_nonfatal(self) -> None:
+        """A failing onetouch request must not raise; update() should succeed."""
+        with (
+            patch.object(self.sut, "_send_home_screen_request"),
+            patch.object(self.sut, "_send_devices_screen_request"),
+            patch.object(
+                self.sut,
+                "_send_onetouch_screen_request",
+                side_effect=AqualinkServiceException,
+            ),
+            patch.object(self.sut, "_parse_home_response"),
+            patch.object(self.sut, "_parse_devices_response"),
+        ):
+            # Should not raise despite onetouch failure.
+            await self.sut.update()
+
+        assert self.sut._onetouch_supported is False
+
+    async def test_update_onetouch_disabled_after_first_failure(self) -> None:
+        """After a onetouch failure, subsequent updates skip the request."""
+        with (
+            patch.object(self.sut, "_send_home_screen_request"),
+            patch.object(self.sut, "_send_devices_screen_request"),
+            patch.object(
+                self.sut,
+                "_send_onetouch_screen_request",
+                side_effect=AqualinkServiceException,
+            ) as onetouch_mock,
+            patch.object(self.sut, "_parse_home_response"),
+            patch.object(self.sut, "_parse_devices_response"),
+        ):
+            await self.sut.update()
+            assert onetouch_mock.call_count == 1
+
+            # Reset timer so a second update() is not rate-limited.
+            self.sut.last_refresh = 0
+            onetouch_mock.reset_mock()
+            await self.sut.update()
+            assert onetouch_mock.call_count == 0
+
+    async def test_update_onetouch_disabled_by_home_flag(self) -> None:
+        """oneTouch=0 in home response disables future onetouch polling."""
+        with (
+            patch.object(self.sut, "_parse_devices_response"),
+            patch.object(self.sut, "_parse_onetouch_response"),
+        ):
+            message = {
+                "home_screen": [
+                    {"status": "Online"},
+                    {"response": ""},
+                    {"response": ""},
+                    {"temp_scale": "F"},
+                    {"one_touch": "0"},
+                ]
+            }
+            response = MagicMock()
+            response.json.return_value = message
+
+            with (
+                patch.object(
+                    self.sut, "_send_home_screen_request", return_value=response
+                ),
+                patch.object(
+                    self.sut,
+                    "_send_devices_screen_request",
+                    return_value=response,
+                ),
+                patch.object(
+                    self.sut,
+                    "_send_onetouch_screen_request",
+                    return_value=response,
+                ) as onetouch_req,
+            ):
+                await self.sut.update()
+                # Onetouch was attempted (unknown state → try once)
+                assert onetouch_req.call_count == 1
+
+                self.sut.last_refresh = 0
+                onetouch_req.reset_mock()
+                await self.sut.update()
+                # Now disabled via home flag — should not be called again
+                assert onetouch_req.call_count == 0
+
+        assert self.sut._onetouch_supported is False
 
     @patch("httpx.AsyncClient.request")
     async def test_session_request_retries_after_refresh(

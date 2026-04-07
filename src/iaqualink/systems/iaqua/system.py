@@ -57,6 +57,8 @@ class IaquaSystem(AqualinkSystem):
 
         self.system_type: IaquaSystemType | None = None
         self.temp_unit: IaquaTemperatureUnit | None = None
+        # None = not yet tried, True = working, False = disabled
+        self._onetouch_supported: bool | None = None
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -110,7 +112,6 @@ class IaquaSystem(AqualinkSystem):
         try:
             r1 = await self._send_home_screen_request()
             r2 = await self._send_devices_screen_request()
-            r3 = await self._send_onetouch_screen_request()
         except AqualinkServiceThrottledException:
             self.status = SystemStatus.UNKNOWN
             raise
@@ -118,13 +119,37 @@ class IaquaSystem(AqualinkSystem):
             self.status = SystemStatus.ERROR
             raise
 
+        r3 = None
+        if self._onetouch_supported is not False:
+            try:
+                r3 = await self._send_onetouch_screen_request()
+                self._onetouch_supported = True
+            except AqualinkServiceException:
+                if self._onetouch_supported is None:
+                    LOGGER.warning(
+                        "OneTouch request failed on first attempt; "
+                        "disabling for this session."
+                    )
+                self._onetouch_supported = False
+
         try:
             self._parse_home_response(r1)
             self._parse_devices_response(r2)
-            self._parse_onetouch_response(r3)
+            if r3 is not None:
+                self._parse_onetouch_response(r3)
         except AqualinkSystemOfflineException:
             self.status = SystemStatus.OFFLINE
             raise
+
+        # Honour the oneTouch enabled flag from the home response.
+        # If the controller reports it as disabled, stop polling it.
+        if self._onetouch_supported is not False:
+            one_touch_device = self.devices.get("one_touch")
+            if one_touch_device is not None and one_touch_device.state == "0":
+                LOGGER.debug(
+                    "OneTouch disabled per home response; skipping future polls."
+                )
+                self._onetouch_supported = False
 
         self.status = SystemStatus.ONLINE
 
