@@ -72,6 +72,8 @@ class ExoDevice(AqualinkDevice):
             class_ = ExoHeater
         elif data["name"] in ["production", "boost", "low"]:
             class_ = ExoAttributeSwitch
+        elif data["name"] in ["error_code", "error_state"]:
+            class_ = ExoErrorSensor
         else:
             class_ = ExoAttributeSensor
 
@@ -104,6 +106,10 @@ class ExoSensor(ExoDevice, AqualinkSensor):
 
 class ExoAttributeSensor(ExoDevice, AqualinkSensor):
     """These sensors are a simple key/value in equipment->swc_0."""
+
+
+class ExoErrorSensor(ExoAttributeSensor):
+    """Diagnostic sensor for error_code and error_state fields."""
 
 
 # This is an abstract class, not to be instantiated directly.
