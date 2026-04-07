@@ -4,10 +4,11 @@ import logging
 import time
 from typing import TYPE_CHECKING, Any, List
 
-from iaqualink.const import MIN_SECS_TO_REFRESH
+from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
     AqualinkDeviceNotSupported,
     AqualinkServiceException,
+    AqualinkServiceThrottledException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from iaqualink.typing import Payload
 
 IAQUA_SESSION_URL_TEMPLATE = "https://p-api.iaqualink.net/v{api_version}/mobile/session.json"
+IAQUA_SESSION_URL = "https://r-api.iaqualink.net/v2/mobile/session.json"
 
 IAQUA_COMMAND_GET_DEVICES = "get_devices"
 IAQUA_COMMAND_GET_HOME = "get_home"
@@ -32,7 +34,6 @@ IAQUA_COMMAND_SET_SOLAR_HEATER = "set_solar_heater"
 IAQUA_COMMAND_SET_SPA_HEATER = "set_spa_heater"
 IAQUA_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 IAQUA_COMMAND_SET_TEMPS = "set_temps"
-
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -79,7 +80,7 @@ class IaquaSystem(AqualinkSystem):
         if api_version == 2:
             if not self.aqualink._id_token:
                 raise AqualinkServiceException("ID token is missing for V2 API request.")
-            custom_headers["authorization"] = self.aqualink._id_token
+            custom_headers["Authorization"] = self.aqualink._id_token
 
         return await self.aqualink.send_request(url, headers=custom_headers if custom_headers else None)
 
@@ -129,13 +130,17 @@ class IaquaSystem(AqualinkSystem):
         # Be nice to Aqualink servers since we rely on polling.
         now = int(time.time())
         delta = now - self.last_refresh
-        if delta < MIN_SECS_TO_REFRESH:
+        if delta < self.MIN_SECS_TO_REFRESH:
             LOGGER.debug(f"Only {delta}s since last refresh.")
             return
 
         try:
             r1 = await self._send_home_screen_request()
             r2 = await self._send_devices_screen_request()
+        except AqualinkServiceThrottledException:
+            # Re-raise without setting online=None; rate-limiting does
+            # not indicate the system is offline.
+            raise
         except AqualinkServiceException:
             self.online = None
             raise

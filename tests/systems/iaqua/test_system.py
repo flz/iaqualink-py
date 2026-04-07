@@ -1,17 +1,19 @@
 from __future__ import annotations
 
+import time
 from unittest.mock import MagicMock, patch, AsyncMock, ANY
 
 import pytest
 import httpx
 
+from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.iaqua.device import IaquaAuxSwitch
-from iaqualink.systems.iaqua.system import IaquaSystem
+from iaqualink.systems.iaqua.system import IAQUA_SESSION_URL, IaquaSystem
 
 from ...base_test_system import TestBaseSystem
 
@@ -220,3 +222,53 @@ class TestIaquaSystem(TestBaseSystem):
             json=expected_payload
             # No params, content, or data for this POST request directly to client.request
         )
+
+    @patch("httpx.AsyncClient.request")
+    async def test_session_request_uses_v2_url(self, mock_request) -> None:
+        mock_request.return_value.status_code = 200
+
+        await self.sut._send_home_screen_request()
+
+        called_url = mock_request.call_args[0][1]
+        assert called_url.startswith(IAQUA_SESSION_URL)
+
+    @patch("httpx.AsyncClient.request")
+    async def test_session_request_sends_auth_headers(
+        self, mock_request
+    ) -> None:
+        mock_request.return_value.status_code = 200
+        self.client.id_token = "test-id-token"
+
+        await self.sut._send_home_screen_request()
+
+        headers = mock_request.call_args[1]["headers"]
+        assert headers["Authorization"] == "Bearer test-id-token"
+        assert headers["api_key"] == AQUALINK_API_KEY
+
+    async def test_update_skipped_within_refresh_interval(self) -> None:
+        now = int(time.time())
+
+        with (
+            patch.object(self.sut, "_parse_home_response"),
+            patch.object(self.sut, "_parse_devices_response") as mock_parse,
+            patch("iaqualink.systems.iaqua.system.time") as mock_time,
+            patch.object(self.sut, "_send_home_screen_request"),
+            patch.object(self.sut, "_send_devices_screen_request"),
+        ):
+            # First update should go through.
+            mock_time.time.return_value = now
+            await self.sut.update()
+            assert mock_parse.call_count == 1
+
+            # Second update within MIN_SECS_TO_REFRESH should be skipped.
+            mock_parse.reset_mock()
+            mock_time.time.return_value = (
+                now + IaquaSystem.MIN_SECS_TO_REFRESH - 1
+            )
+            await self.sut.update()
+            assert mock_parse.call_count == 0
+
+            # Update after MIN_SECS_TO_REFRESH should go through.
+            mock_time.time.return_value = now + IaquaSystem.MIN_SECS_TO_REFRESH
+            await self.sut.update()
+            assert mock_parse.call_count == 1
