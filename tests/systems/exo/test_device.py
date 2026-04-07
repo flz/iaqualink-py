@@ -12,6 +12,7 @@ from iaqualink.systems.exo.device import (
     ExoAttributeSwitch,
     ExoAuxSwitch,
     ExoDevice,
+    ExoFilterPump,
     ExoSensor,
     ExoSwitch,
     ExoThermostat,
@@ -180,6 +181,35 @@ class TestExoAttributeSwitch(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
         }
         self.sut = ExoDevice.from_data(self.system, data)
         self.sut_class = ExoAttributeSwitch
+
+    async def test_turn_on(self) -> None:
+        self.sut.data["state"] = 0
+        await super().test_turn_on()
+
+    async def test_turn_on_noop(self) -> None:
+        self.sut.data["state"] = 1
+        await super().test_turn_on_noop()
+
+    async def test_turn_off(self) -> None:
+        self.sut.data["state"] = 1
+        await super().test_turn_off()
+
+    async def test_turn_off_noop(self) -> None:
+        self.sut.data["state"] = 0
+        await super().test_turn_off_noop()
+
+
+class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {
+            "name": "filter_pump",
+            "type": 1,
+            "state": 1,
+        }
+        self.sut = ExoDevice.from_data(self.system, data)
+        self.sut_class = ExoFilterPump
 
     async def test_turn_on(self) -> None:
         self.sut.data["state"] = 0

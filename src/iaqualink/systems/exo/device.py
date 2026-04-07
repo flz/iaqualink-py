@@ -72,6 +72,8 @@ class ExoDevice(AqualinkDevice):
             class_ = ExoHeater
         elif data["name"] in ["production", "boost", "low"]:
             class_ = ExoAttributeSwitch
+        elif data["name"] == "filter_pump":
+            class_ = ExoFilterPump
         else:
             class_ = ExoAttributeSensor
 
@@ -133,6 +135,12 @@ class ExoAuxSwitch(ExoSwitch):
     @property
     def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
         return self.system.set_aux
+
+
+class ExoFilterPump(ExoSwitch):
+    @property
+    def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
+        return self.system.set_filter_pump
 
 
 class ExoAttributeSwitch(ExoSwitch):
