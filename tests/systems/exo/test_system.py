@@ -13,6 +13,11 @@ from iaqualink.exception import (
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
+from iaqualink.systems.exo.device import (
+    ExoAttributeSwitch,
+    ExoAuxSwitch,
+    ExoSensor,
+)
 from iaqualink.systems.exo.system import ExoSystem
 
 from ...common import async_noop, async_raises
@@ -211,22 +216,7 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
             await r.update()
         assert r.online is False
 
-    @pytest.mark.xfail
-    async def test_parse_devices_offline(self):
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        aqualink = MagicMock()
-        system = AqualinkSystem.from_data(aqualink, data)
-
-        message = {"message": "", "devices_screen": [{"status": "Offline"}]}
-        response = MagicMock()
-        response.json.return_value = message
-
-        with pytest.raises(AqualinkSystemOfflineException):
-            system._parse_shadow_response(response)
-        assert system.devices == {}
-
-    @pytest.mark.xfail
-    async def test_parse_devices_good(self):
+    def test_parse_devices_good(self):
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
         aqualink = MagicMock()
         system = ExoSystem.from_data(aqualink, data)
@@ -234,7 +224,32 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
         system._parse_shadow_response(response)
-        assert system.devices == {}
+
+        assert len(system.devices) > 0
+        # Chemistry sensors
+        assert "sns_1" in system.devices
+        assert isinstance(system.devices["sns_1"], ExoSensor)
+        assert "sns_2" in system.devices
+        assert isinstance(system.devices["sns_2"], ExoSensor)
+        assert "sns_3" in system.devices
+        assert isinstance(system.devices["sns_3"], ExoSensor)
+        # Auxiliary switches
+        assert "aux_1" in system.devices
+        assert isinstance(system.devices["aux_1"], ExoAuxSwitch)
+        assert "aux_2" in system.devices
+        assert isinstance(system.devices["aux_2"], ExoAuxSwitch)
+        # Attribute switches
+        assert "boost" in system.devices
+        assert isinstance(system.devices["boost"], ExoAttributeSwitch)
+        assert "production" in system.devices
+        assert isinstance(system.devices["production"], ExoAttributeSwitch)
+        # Filter pump
+        assert "filter_pump" in system.devices
+        # Excluded keys must be absent
+        assert "sn" not in system.devices
+        assert "vr" not in system.devices
+        assert "version" not in system.devices
+        assert "boost_time" not in system.devices
 
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request(self, mock_request):
