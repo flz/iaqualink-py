@@ -12,6 +12,7 @@ from iaqualink.systems.exo.device import (
     ExoAttributeSwitch,
     ExoAuxSwitch,
     ExoDevice,
+    ExoHeater,
     ExoSensor,
     ExoSwitch,
     ExoThermostat,
@@ -196,6 +197,30 @@ class TestExoAttributeSwitch(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
     async def test_turn_off_noop(self) -> None:
         self.sut.data["state"] = 0
         await super().test_turn_off_noop()
+
+
+class TestExoHeater(TestExoDevice):
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {
+            "name": "heater",
+            "state": 1,
+        }
+        self.sut = ExoDevice.from_data(self.system, data)
+        self.sut_class = ExoHeater
+
+    def test_property_label(self) -> None:
+        assert self.sut.label == "Heater"
+
+    def test_property_name(self) -> None:
+        assert self.sut.name == "heater"
+
+    def test_property_state(self) -> None:
+        assert self.sut.state == "1"
+
+    def test_property_is_instance(self) -> None:
+        assert isinstance(self.sut, ExoHeater)
 
 
 class TestExoThermostat(TestExoDevice, TestBaseThermostat):
