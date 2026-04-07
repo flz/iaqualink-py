@@ -5,6 +5,7 @@ from typing import cast
 
 import pytest
 
+from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.systems.exo.device import (
     EXO_TEMP_CELSIUS_HIGH,
     EXO_TEMP_CELSIUS_LOW,
@@ -308,3 +309,11 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         assert len(self.respx_calls) == 1
         content = self.respx_calls[0].request.content.decode("utf-8")
         assert "heating" in content
+
+    async def test_set_temperature_too_low(self) -> None:
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_temperature(0)  # below sp_min=1
+
+    async def test_set_temperature_too_high(self) -> None:
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_temperature(41)  # above sp_max=40
