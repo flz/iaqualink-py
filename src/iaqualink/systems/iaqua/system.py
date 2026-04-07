@@ -277,10 +277,10 @@ class IaquaSystem(AqualinkSystem):
     def _parse_onetouch_response(self, response: httpx.Response) -> None:
         data = response.json()
 
-        LOGGER.debug(f"OneTouch response: {data}")
+        LOGGER.debug("OneTouch response: %s", data)
 
-        if data["one_touch"][0]["status"] == "Offline":
-            LOGGER.warning(f"Status for system {self.serial} is Offline.")
+        if data["one_touch"][0]["status"] != "Online":
+            LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
         # Make the data a bit flatter.
@@ -331,6 +331,6 @@ class IaquaSystem(AqualinkSystem):
         self._parse_devices_response(r)
 
     async def set_onetouch(self, name: str) -> None:
-        cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.replace("onetouch_", "")
+        cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.removeprefix("onetouch_")
         r = await self._send_session_request(cmd)
         self._parse_onetouch_response(r)
