@@ -124,6 +124,8 @@ class IaquaSystem(AqualinkSystem):
             try:
                 r3 = await self._send_onetouch_screen_request()
                 self._onetouch_supported = True
+            except AqualinkServiceThrottledException:
+                raise
             except AqualinkServiceException:
                 if self._onetouch_supported is None:
                     LOGGER.warning(
@@ -299,6 +301,34 @@ class IaquaSystem(AqualinkSystem):
                     self.devices[k] = IaquaDevice.from_data(self, v)
                 except AqualinkDeviceNotSupported as e:
                     LOGGER.debug("Device found was ignored: %s", e)
+
+    async def set_switch(self, command: str) -> None:
+        r = await self._send_session_request(command)
+        self._parse_home_response(r)
+
+    async def set_temps(self, temps: Payload) -> None:
+        # I'm not proud of this. If you read this, please submit a PR to make it better.
+        # We need to pass the temperatures for both pool and spa (if present) in the same request.
+        # Set args to current target temperatures and override with the request payload.
+        args = {}
+        i = 1
+        if "spa_set_point" in self.devices:
+            args[f"temp{i}"] = self.devices["spa_set_point"].target_temperature
+            i += 1
+        args[f"temp{i}"] = self.devices["pool_set_point"].target_temperature
+        args.update(temps)
+
+        r = await self._send_session_request(IAQUA_COMMAND_SET_TEMPS, args)
+        self._parse_home_response(r)
+
+    async def set_aux(self, aux: str) -> None:
+        aux = IAQUA_COMMAND_SET_AUX + "_" + aux.replace("aux_", "")
+        r = await self._send_session_request(aux)
+        self._parse_devices_response(r)
+
+    async def set_light(self, data: Payload) -> None:
+        r = await self._send_session_request(IAQUA_COMMAND_SET_LIGHT, data)
+        self._parse_devices_response(r)
 
     async def set_onetouch(self, name: str) -> None:
         cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.replace("onetouch_", "")

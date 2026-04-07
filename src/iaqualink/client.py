@@ -179,7 +179,7 @@ class AqualinkClient:
         LOGGER.debug("-> %s %s %s", method.upper(), url, kwargs)
         try:
             r = await client.request(method, url, headers=headers, **kwargs)
-        except httpx.ReadTimeout as e:
+        except httpx.TimeoutException as e:
             raise AqualinkServiceException(
                 f"Request timed out: {method.upper()} {url}"
             ) from e

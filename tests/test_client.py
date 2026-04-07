@@ -366,13 +366,16 @@ class TestAqualinkClient(TestBase):
 
 
     @patch("httpx.AsyncClient.request")
-    async def test_read_timeout_raises_service_exception(
-        self, mock_request
-    ) -> None:
-        mock_request.side_effect = httpx.ReadTimeout("timed out")
-
-        with pytest.raises(AqualinkServiceException):
-            await self.client.send_request("https://example.com")
+    async def test_timeout_raises_service_exception(self, mock_request) -> None:
+        for exc_class in (
+            httpx.ReadTimeout,
+            httpx.ConnectTimeout,
+            httpx.WriteTimeout,
+            httpx.PoolTimeout,
+        ):
+            mock_request.side_effect = exc_class("timed out")
+            with pytest.raises(AqualinkServiceException):
+                await self.client.send_request("https://example.com")
 
 
     @patch("httpx.AsyncClient.request")
