@@ -16,6 +16,7 @@ LOGGER = logging.getLogger("iaqualink")
 
 class AqualinkSystem:
     subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
+    MIN_SECS_TO_REFRESH: ClassVar[int] = 5
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink

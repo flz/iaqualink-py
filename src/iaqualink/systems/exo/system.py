@@ -2,12 +2,11 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
-from iaqualink.const import MIN_SECS_TO_REFRESH
 from iaqualink.exception import (
     AqualinkServiceException,
-    AqualinkServiceUnauthorizedException,
+    AqualinkServiceThrottledException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
@@ -21,12 +20,13 @@ if TYPE_CHECKING:
 
 EXO_DEVICES_URL = "https://prod.zodiac-io.com/devices/v1"
 
-
 LOGGER = logging.getLogger("iaqualink")
 
 
 class ExoSystem(AqualinkSystem):
     NAME = "exo"
+    # Empiric value; eXO systems returned HTTP 429 when polled every 15s.
+    MIN_SECS_TO_REFRESH: ClassVar[int] = 50
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         super().__init__(aqualink, data)
@@ -42,16 +42,7 @@ class ExoSystem(AqualinkSystem):
     async def send_devices_request(self, **kwargs: Any) -> httpx.Response:
         url = f"{EXO_DEVICES_URL}/{self.serial}/shadow"
         headers = {"Authorization": self.aqualink.id_token}
-
-        try:
-            r = await self.aqualink.send_request(url, headers=headers, **kwargs)
-        except AqualinkServiceUnauthorizedException:
-            # token expired so refresh the token and try again
-            await self.aqualink.login()
-            headers = {"Authorization": self.aqualink.id_token}
-            r = await self.aqualink.send_request(url, headers=headers, **kwargs)
-
-        return r
+        return await self.aqualink.send_request(url, headers=headers, **kwargs)
 
     async def send_reported_state_request(self) -> httpx.Response:
         return await self.send_devices_request()
@@ -67,12 +58,16 @@ class ExoSystem(AqualinkSystem):
         # Be nice to Aqualink servers since we rely on polling.
         now = int(time.time())
         delta = now - self.last_refresh
-        if delta < MIN_SECS_TO_REFRESH:
+        if delta < self.MIN_SECS_TO_REFRESH:
             LOGGER.debug(f"Only {delta}s since last refresh.")
             return
 
         try:
             r = await self.send_reported_state_request()
+        except AqualinkServiceThrottledException:
+            # Re-raise without setting online=None; rate-limiting does
+            # not indicate the system is offline.
+            raise
         except AqualinkServiceException:
             self.online = None
             raise

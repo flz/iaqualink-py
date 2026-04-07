@@ -14,20 +14,16 @@ iAqua systems use the iaqualink.net API.
 
 ### API Endpoint
 
-- **Base URL:** `https://support.iaqualink.com`
-- **API Version:** v1
+- **Base URL:** `https://r-api.iaqualink.net`
+- **Session URL:** `https://r-api.iaqualink.net/v2/mobile/session.json`
+- **API Version:** v2
 
 ### Authentication
 
-```python
-# Authentication returns session tokens
-{
-    "session_id": "...",
-    "authentication_token": "..."
-}
-```
-
-Credentials are passed as query parameters in API requests.
+All session requests use:
+- `Authorization: Bearer {idToken}` header (Cognito JWT from login)
+- `api_key: {key}` header
+- `sessionID={sessionId}` query parameter
 
 ### Device Refresh
 
@@ -80,8 +76,8 @@ Commands are sent as session requests with specific command names:
 - `spa_set_point` - Spa temperature setpoint
 
 Temperature ranges:
-- **Fahrenheit:** 32°F - 104°F
-- **Celsius:** 0°C - 40°C
+- **Fahrenheit:** 34°F - 104°F
+- **Celsius:** 1°C - 40°C
 
 ### Lights
 
