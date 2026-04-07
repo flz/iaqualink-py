@@ -364,6 +364,17 @@ class TestAqualinkClient(TestBase):
         with pytest.raises(AqualinkServiceThrottledException):
             await self.client.send_request("https://example.com")
 
+
+    @patch("httpx.AsyncClient.request")
+    async def test_read_timeout_raises_service_exception(
+        self, mock_request
+    ) -> None:
+        mock_request.side_effect = httpx.ReadTimeout("timed out")
+
+        with pytest.raises(AqualinkServiceException):
+            await self.client.send_request("https://example.com")
+
+
     @patch("httpx.AsyncClient.request")
     async def test_500_not_retried(self, mock_request) -> None:
         mock_request.return_value.status_code = (
