@@ -37,6 +37,7 @@ IAQUA_COMMAND_GET_HOME = "get_home"
 IAQUA_COMMAND_GET_ONETOUCH = "get_onetouch"
 
 IAQUA_COMMAND_SET_AUX = "set_aux"
+IAQUA_COMMAND_SET_ONETOUCH = "set_onetouch"
 IAQUA_COMMAND_SET_LIGHT = "set_light"
 IAQUA_COMMAND_SET_POOL_HEATER = "set_pool_heater"
 IAQUA_COMMAND_SET_POOL_PUMP = "set_pool_pump"
@@ -102,10 +103,14 @@ class IaquaSystem(AqualinkSystem):
     async def _send_devices_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_DEVICES)
 
+    async def _send_onetouch_screen_request(self) -> httpx.Response:
+        return await self._send_session_request(IAQUA_COMMAND_GET_ONETOUCH)
+
     async def update(self) -> None:
         try:
             r1 = await self._send_home_screen_request()
             r2 = await self._send_devices_screen_request()
+            r3 = await self._send_onetouch_screen_request()
         except AqualinkServiceThrottledException:
             self.status = SystemStatus.UNKNOWN
             raise
@@ -116,6 +121,7 @@ class IaquaSystem(AqualinkSystem):
         try:
             self._parse_home_response(r1)
             self._parse_devices_response(r2)
+            self._parse_onetouch_response(r3)
         except AqualinkSystemOfflineException:
             self.status = SystemStatus.OFFLINE
             raise
@@ -240,3 +246,36 @@ class IaquaSystem(AqualinkSystem):
     async def set_light(self, data: Payload) -> None:
         r = await self._send_session_request(IAQUA_COMMAND_SET_LIGHT, data)
         self._parse_devices_response(r)
+
+    def _parse_onetouch_response(self, response: httpx.Response) -> None:
+        data = response.json()
+
+        LOGGER.debug(f"OneTouch response: {data}")
+
+        if data["one_touch"][0]["status"] == "Offline":
+            LOGGER.warning(f"Status for system {self.serial} is Offline.")
+            raise AqualinkSystemOfflineException
+
+        # Make the data a bit flatter.
+        devices = {}
+        for x in data["one_touch"][2:]:
+            name = next(iter(x.keys()))
+            attrs = {"name": name}
+            for y in next(iter(x.values())):
+                attrs.update(y)
+            devices[name] = attrs
+
+        for k, v in devices.items():
+            if k in self.devices:
+                for dk, dv in v.items():
+                    self.devices[k].data[dk] = dv
+            else:
+                try:
+                    self.devices[k] = IaquaDevice.from_data(self, v)
+                except AqualinkDeviceNotSupported as e:
+                    LOGGER.debug("Device found was ignored: %s", e)
+
+    async def set_onetouch(self, name: str) -> None:
+        cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.replace("onetouch_", "")
+        r = await self._send_session_request(cmd)
+        self._parse_onetouch_response(r)

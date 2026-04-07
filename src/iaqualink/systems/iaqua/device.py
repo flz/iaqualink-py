@@ -121,6 +121,11 @@ class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
             await self._toggle()
 
 
+class IaquaOneTouchSwitch(IaquaSwitch):
+    async def _toggle(self) -> None:
+        await self.system.set_onetouch(self.data["name"])
+
+
 class IaquaHeater(IaquaSwitch):
     @property
     def is_on(self) -> bool:
