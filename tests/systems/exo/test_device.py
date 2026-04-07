@@ -11,6 +11,7 @@ from iaqualink.systems.exo.device import (
     ExoAttributeSensor,
     ExoAttributeSwitch,
     ExoAuxSwitch,
+    ExoChlorinatorSensor,
     ExoDevice,
     ExoSensor,
     ExoSwitch,
@@ -308,3 +309,24 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         assert len(self.respx_calls) == 1
         content = self.respx_calls[0].request.content.decode("utf-8")
         assert "heating" in content
+
+
+class TestExoChlorinatorSensor(TestExoDevice):
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {
+            "name": "swc",
+            "state": 50,
+        }
+        self.sut = ExoDevice.from_data(self.system, data)
+        self.sut_class = ExoChlorinatorSensor
+
+    def test_property_label(self) -> None:
+        assert self.sut.label == "Chlorinator Output"
+
+    def test_property_state(self) -> None:
+        assert self.sut.state == "50%"
+
+    def test_property_is_instance(self) -> None:
+        assert isinstance(self.sut, ExoChlorinatorSensor)

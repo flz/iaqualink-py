@@ -72,6 +72,8 @@ class ExoDevice(AqualinkDevice):
             class_ = ExoHeater
         elif data["name"] in ["production", "boost", "low"]:
             class_ = ExoAttributeSwitch
+        elif data["name"] == "swc":
+            class_ = ExoChlorinatorSensor
         else:
             class_ = ExoAttributeSensor
 
@@ -104,6 +106,18 @@ class ExoSensor(ExoDevice, AqualinkSensor):
 
 class ExoAttributeSensor(ExoDevice, AqualinkSensor):
     """These sensors are a simple key/value in equipment->swc_0."""
+
+
+class ExoChlorinatorSensor(ExoAttributeSensor):
+    """Represents the salt water chlorinator output percentage."""
+
+    @property
+    def label(self) -> str:
+        return "Chlorinator Output"
+
+    @property
+    def state(self) -> str:
+        return f"{self.data['state']}%"
 
 
 # This is an abstract class, not to be instantiated directly.
