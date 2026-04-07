@@ -151,7 +151,7 @@ class IaquaSystem(AqualinkSystem):
                         "OneTouch request failed on first attempt; "
                         "disabling for this session."
                     )
-                self._onetouch_supported = False
+                    self._onetouch_supported = False
 
         try:
             self._parse_devices_response(r2)
