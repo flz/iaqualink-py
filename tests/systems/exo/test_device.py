@@ -249,7 +249,9 @@ class TestExoHeater(TestExoDevice):
         assert isinstance(self.sut, ExoHeater)
 
     def test_from_data_heater_type(self) -> None:
-        device = ExoDevice.from_data(self.system, {"name": "heater", "state": 0})
+        device = ExoDevice.from_data(
+            self.system, {"name": "heater", "state": 0}
+        )
         assert type(device) is ExoHeater
 
 
