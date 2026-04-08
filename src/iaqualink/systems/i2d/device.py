@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from enum import IntEnum, unique
 from typing import TYPE_CHECKING
 
 from iaqualink.device import AqualinkSwitch
@@ -11,6 +12,17 @@ if TYPE_CHECKING:
     from iaqualink.typing import DeviceData
 
 LOGGER = logging.getLogger("iaqualink")
+
+
+@unique
+class IQPumpOpMode(IntEnum):
+    SCHEDULE = 0
+    CUSTOM = 1
+    STOP = 2
+    QUICK_CLEAN = 3
+    TIMED_RUN = 4
+    TIMEOUT = 5
+    SERVICE_OFF = 7
 
 
 class IQPumpDevice(AqualinkSwitch):
@@ -67,9 +79,14 @@ class IQPumpDevice(AqualinkSwitch):
     # --- Configuration ---
 
     @property
-    def opmode(self) -> int | None:
+    def opmode(self) -> IQPumpOpMode | None:
         val = self.data.get("opmode")
-        return int(val) if val is not None else None
+        if val is None:
+            return None
+        try:
+            return IQPumpOpMode(int(val))
+        except ValueError:
+            return None
 
     @property
     def rpm_min(self) -> int | None:
@@ -100,11 +117,11 @@ class IQPumpDevice(AqualinkSwitch):
 
     async def turn_on(self) -> None:
         if not self.is_on:
-            await self.system.set_opmode(1)  # Custom mode
+            await self.system.set_opmode(IQPumpOpMode.CUSTOM)
 
     async def turn_off(self) -> None:
         if self.is_on:
-            await self.system.set_opmode(2)  # Stop
+            await self.system.set_opmode(IQPumpOpMode.STOP)
 
     async def set_speed(self, rpm: int) -> None:
         """Set custom speed RPM, validating against the pump's configured min/max."""

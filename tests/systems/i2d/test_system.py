@@ -8,16 +8,17 @@ import pytest
 
 from iaqualink.client import AqualinkClient
 from iaqualink.exception import (
+    AqualinkInvalidParameterException,
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
-from iaqualink.systems.i2d.device import IQPumpDevice
+from iaqualink.systems.i2d.device import IQPumpDevice, IQPumpOpMode
 from iaqualink.systems.i2d.system import I2DSystem
 
-from ...common import async_noop, async_raises
+from ...common import async_noop, async_raises, async_returns
 
 SAMPLE_DATA = {
     "alldata": {
@@ -186,7 +187,7 @@ class TestI2DSystem(unittest.IsolatedAsyncioTestCase):
         assert device.motor_power == 180
         assert device.motor_temperature == 110
         assert device.horsepower == 1.65
-        assert device.opmode == 0
+        assert device.opmode == IQPumpOpMode.SCHEDULE
         assert device.rpm_min == 600
         assert device.rpm_max == 3450
         assert device.custom_speed_rpm == 1500
@@ -263,3 +264,39 @@ class TestI2DSystem(unittest.IsolatedAsyncioTestCase):
         assert mock_request.called
         call_kwargs = mock_request.call_args
         assert call_kwargs[0][0] == "post"
+
+    def test_opmode_enum_values(self):
+        assert IQPumpOpMode.SCHEDULE == 0
+        assert IQPumpOpMode.CUSTOM == 1
+        assert IQPumpOpMode.STOP == 2
+        assert IQPumpOpMode.QUICK_CLEAN == 3
+        assert IQPumpOpMode.TIMED_RUN == 4
+        assert IQPumpOpMode.TIMEOUT == 5
+        assert IQPumpOpMode.SERVICE_OFF == 7
+
+    async def test_set_opmode_valid_enum(self):
+        aqualink = MagicMock()
+        data = {"id": 1, "serial_number": "ABC123", "device_type": "iQPump"}
+        system = I2DSystem.from_data(aqualink, data)
+        system.send_control_command = async_returns(MagicMock())
+        await system.set_opmode(IQPumpOpMode.STOP)
+        system.send_control_command.assert_awaited_once_with(
+            "/opmode/write", "value=2"
+        )
+
+    async def test_set_opmode_valid_int(self):
+        aqualink = MagicMock()
+        data = {"id": 1, "serial_number": "ABC123", "device_type": "iQPump"}
+        system = I2DSystem.from_data(aqualink, data)
+        system.send_control_command = async_returns(MagicMock())
+        await system.set_opmode(2)
+        system.send_control_command.assert_awaited_once_with(
+            "/opmode/write", "value=2"
+        )
+
+    async def test_set_opmode_invalid_raises(self):
+        aqualink = MagicMock()
+        data = {"id": 1, "serial_number": "ABC123", "device_type": "iQPump"}
+        system = I2DSystem.from_data(aqualink, data)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await system.set_opmode(99)

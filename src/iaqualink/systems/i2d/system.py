@@ -6,12 +6,13 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
+    AqualinkInvalidParameterException,
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
-from iaqualink.systems.i2d.device import IQPumpDevice
+from iaqualink.systems.i2d.device import IQPumpDevice, IQPumpOpMode
 
 if TYPE_CHECKING:
     import httpx
@@ -111,9 +112,19 @@ class I2DSystem(AqualinkSystem):
 
     # --- Control methods ---
 
-    async def set_opmode(self, mode: int) -> None:
-        """Set operation mode: 0=schedule, 1=custom speed, 2=stop."""
-        r = await self.send_control_command("/opmode/write", f"value={mode}")
+    async def set_opmode(self, mode: IQPumpOpMode) -> None:
+        """Set the pump operation mode."""
+        if not isinstance(mode, IQPumpOpMode):
+            try:
+                mode = IQPumpOpMode(mode)
+            except ValueError:
+                valid = ", ".join(f"{m.value}={m.name}" for m in IQPumpOpMode)
+                raise AqualinkInvalidParameterException(
+                    f"{mode!r} is not a valid operation mode. Valid: {valid}"
+                )
+        r = await self.send_control_command(
+            "/opmode/write", f"value={mode.value}"
+        )
         r.raise_for_status()
 
     async def set_custom_speed(self, rpm: int) -> None:
