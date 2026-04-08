@@ -144,3 +144,9 @@ class ExoSystem(AqualinkSystem):
             {"equipment": {"swc_0": {name: state}}}
         )
         r.raise_for_status()
+
+    async def set_filter_pump(self, name: str, state: int) -> None:
+        r = await self.send_desired_state_request(
+            {"equipment": {"swc_0": {name: {"state": state}}}}
+        )
+        r.raise_for_status()
