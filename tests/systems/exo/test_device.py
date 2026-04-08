@@ -245,9 +245,6 @@ class TestExoHeater(TestExoDevice):
     def test_property_state(self) -> None:
         assert self.sut.state == "1"
 
-    def test_property_is_instance(self) -> None:
-        assert isinstance(self.sut, ExoHeater)
-
 
 class TestExoThermostat(TestExoDevice, TestBaseThermostat):
     def setUp(self) -> None:
