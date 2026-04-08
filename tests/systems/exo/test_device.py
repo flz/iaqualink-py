@@ -245,6 +245,13 @@ class TestExoHeater(TestExoDevice):
     def test_property_state(self) -> None:
         assert self.sut.state == "1"
 
+    def test_property_is_instance(self) -> None:
+        assert isinstance(self.sut, ExoHeater)
+
+    def test_from_data_heater_type(self) -> None:
+        device = ExoDevice.from_data(self.system, {"name": "heater", "state": 0})
+        assert type(device) is ExoHeater
+
 
 class TestExoThermostat(TestExoDevice, TestBaseThermostat):
     def setUp(self) -> None:
