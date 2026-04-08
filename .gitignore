@@ -106,5 +106,8 @@ venv.bak/
 # Editors
 .vscode/
 
+# Local API specs
+spec/
+
 # Version file is automatically generated
 src/iaqualink/version.py

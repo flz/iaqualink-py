@@ -5,6 +5,7 @@ from typing import cast
 
 import pytest
 
+from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.systems.exo.device import (
     EXO_TEMP_CELSIUS_HIGH,
     EXO_TEMP_CELSIUS_LOW,
@@ -12,7 +13,9 @@ from iaqualink.systems.exo.device import (
     ExoAttributeSwitch,
     ExoAuxSwitch,
     ExoDevice,
+    ExoErrorSensor,
     ExoFilterPump,
+    ExoHeater,
     ExoSensor,
     ExoSwitch,
     ExoThermostat,
@@ -84,7 +87,7 @@ class TestExoSensor(TestExoDevice, TestBaseSensor):
         assert self.sut.state == str(self.sut.data["value"])
 
 
-class TestExoAttributeSensor(TestExoDevice):
+class TestExoAttributeSensor(TestExoDevice, TestBaseSensor):
     def setUp(self) -> None:
         super().setUp()
 
@@ -94,6 +97,30 @@ class TestExoAttributeSensor(TestExoDevice):
         }
         self.sut = ExoDevice.from_data(self.system, data)
         self.sut_class = ExoAttributeSensor
+
+
+class TestExoErrorSensor(TestExoDevice, TestBaseSensor):
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {
+            "name": "error_code",
+            "state": 0,
+        }
+        self.sut = ExoDevice.from_data(self.system, data)
+        self.sut_class = ExoErrorSensor
+
+    def test_property_label(self) -> None:
+        assert self.sut.label == "Error Code"
+
+    def test_property_state(self) -> None:
+        assert self.sut.state == "0"
+
+    def test_error_state_routing(self) -> None:
+        data = {"name": "error_state", "state": 0}
+        device = ExoDevice.from_data(self.system, data)
+        assert isinstance(device, ExoErrorSensor)
+        assert device.label == "Error State"
 
 
 class ExoSwitchMixin:
@@ -198,7 +225,7 @@ class TestExoAttributeSwitch(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
         self.sut.data["state"] = 0
         await super().test_turn_off_noop()
 
-
+        
 class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
     def setUp(self) -> None:
         super().setUp()
@@ -225,7 +252,36 @@ class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
 
     async def test_turn_off_noop(self) -> None:
         self.sut.data["state"] = 0
-        await super().test_turn_off_noop()
+        await super().test_turn_off_noop()        
+    
+class TestExoHeater(TestExoDevice):
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {
+            "name": "heater",
+            "state": 1,
+        }
+        self.sut = ExoDevice.from_data(self.system, data)
+        self.sut_class = ExoHeater
+
+    def test_property_label(self) -> None:
+        assert self.sut.label == "Heater"
+
+    def test_property_name(self) -> None:
+        assert self.sut.name == "heater"
+
+    def test_property_state(self) -> None:
+        assert self.sut.state == "1"
+
+    def test_property_is_instance(self) -> None:
+        assert isinstance(self.sut, ExoHeater)
+
+    def test_from_data_heater_type(self) -> None:
+        device = ExoDevice.from_data(
+            self.system, {"name": "heater", "state": 0}
+        )
+        assert type(device) is ExoHeater
 
 
 class TestExoThermostat(TestExoDevice, TestBaseThermostat):
@@ -338,3 +394,11 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         assert len(self.respx_calls) == 1
         content = self.respx_calls[0].request.content.decode("utf-8")
         assert "heating" in content
+
+    async def test_set_temperature_too_low(self) -> None:
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_temperature(0)  # below sp_min=1
+
+    async def test_set_temperature_too_high(self) -> None:
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_temperature(41)  # above sp_max=40

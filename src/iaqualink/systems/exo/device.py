@@ -74,6 +74,8 @@ class ExoDevice(AqualinkDevice):
             class_ = ExoAttributeSwitch
         elif data["name"] == "filter_pump":
             class_ = ExoFilterPump
+        elif data["name"] in ["error_code", "error_state"]:
+            class_ = ExoErrorSensor
         else:
             class_ = ExoAttributeSensor
 
@@ -106,6 +108,10 @@ class ExoSensor(ExoDevice, AqualinkSensor):
 
 class ExoAttributeSensor(ExoDevice, AqualinkSensor):
     """These sensors are a simple key/value in equipment->swc_0."""
+
+
+class ExoErrorSensor(ExoAttributeSensor):
+    """Sensor for error_code and error_state diagnostic fields."""
 
 
 # This is an abstract class, not to be instantiated directly.
@@ -150,7 +156,7 @@ class ExoAttributeSwitch(ExoSwitch):
 
 
 class ExoHeater(ExoDevice):
-    """This device is to seperate the state of the heater from the thermostat to maintain the existing homeassistant API"""
+    """This device is to separate the state of the heater from the thermostat to maintain the existing homeassistant API"""
 
 
 class ExoThermostat(ExoSwitch, AqualinkThermostat):
@@ -168,7 +174,7 @@ class ExoThermostat(ExoSwitch, AqualinkThermostat):
 
     @property
     def _heater(self) -> ExoHeater:
-        return cast(ExoSensor, self.system.devices["heater"])
+        return cast(ExoHeater, self.system.devices["heater"])
 
     @property
     def current_temperature(self) -> str:
