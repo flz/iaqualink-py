@@ -5,13 +5,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.iaqua.device import IaquaAuxSwitch
-from iaqualink.systems.iaqua.system import IaquaSystem
+from iaqualink.systems.iaqua.system import IAQUA_SESSION_URL, IaquaSystem
 
 from ...base_test_system import TestBaseSystem
 
@@ -137,6 +138,28 @@ class TestIaquaSystem(TestBaseSystem):
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
             await self.sut._send_devices_screen_request()
+
+    @patch("httpx.AsyncClient.request")
+    async def test_session_request_uses_v2_url(self, mock_request) -> None:
+        mock_request.return_value.status_code = 200
+
+        await self.sut._send_home_screen_request()
+
+        called_url = mock_request.call_args[0][1]
+        assert called_url.startswith(IAQUA_SESSION_URL)
+
+    @patch("httpx.AsyncClient.request")
+    async def test_session_request_sends_auth_headers(
+        self, mock_request
+    ) -> None:
+        mock_request.return_value.status_code = 200
+        self.client.id_token = "test-id-token"
+
+        await self.sut._send_home_screen_request()
+
+        headers = mock_request.call_args[1]["headers"]
+        assert headers["Authorization"] == "Bearer test-id-token"
+        assert headers["api_key"] == AQUALINK_API_KEY
 
     async def test_update_skipped_within_refresh_interval(self) -> None:
         now = int(time.time())

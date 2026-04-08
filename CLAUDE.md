@@ -132,6 +132,16 @@ To add a new system type:
 6. In `update()`, re-raise `AqualinkServiceThrottledException` before the broader `AqualinkServiceException` handler to prevent `online = None` on rate-limiting (see existing implementations in `iaqua/system.py` and `exo/system.py`)
 7. Add tests following existing patterns in `tests/systems/newsystem/`
 
+## Quality Gates
+
+Before finalizing any change, validate it against the API spec files in `spec/` if they exist and are relevant to the change:
+
+1. Read the relevant section(s) of any spec files found under `spec/` for any endpoint, field, or behavior being added or modified.
+2. Ensure URL paths, HTTP methods, request/response field names, and authentication flows match the spec exactly.
+3. If the implementation diverges from the spec, document the reason explicitly in the code with a comment.
+
+This step is mandatory alongside linting, type checking, and tests.
+
 ## Notes
 
 - All API calls are asynchronous using httpx

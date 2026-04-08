@@ -5,6 +5,7 @@ from typing import cast
 
 import pytest
 
+from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.systems.exo.device import (
     EXO_TEMP_CELSIUS_HIGH,
     EXO_TEMP_CELSIUS_LOW,
@@ -12,6 +13,7 @@ from iaqualink.systems.exo.device import (
     ExoAttributeSwitch,
     ExoAuxSwitch,
     ExoDevice,
+    ExoErrorSensor,
     ExoHeater,
     ExoSensor,
     ExoSwitch,
@@ -84,7 +86,7 @@ class TestExoSensor(TestExoDevice, TestBaseSensor):
         assert self.sut.state == str(self.sut.data["value"])
 
 
-class TestExoAttributeSensor(TestExoDevice):
+class TestExoAttributeSensor(TestExoDevice, TestBaseSensor):
     def setUp(self) -> None:
         super().setUp()
 
@@ -94,6 +96,30 @@ class TestExoAttributeSensor(TestExoDevice):
         }
         self.sut = ExoDevice.from_data(self.system, data)
         self.sut_class = ExoAttributeSensor
+
+
+class TestExoErrorSensor(TestExoDevice, TestBaseSensor):
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {
+            "name": "error_code",
+            "state": 0,
+        }
+        self.sut = ExoDevice.from_data(self.system, data)
+        self.sut_class = ExoErrorSensor
+
+    def test_property_label(self) -> None:
+        assert self.sut.label == "Error Code"
+
+    def test_property_state(self) -> None:
+        assert self.sut.state == "0"
+
+    def test_error_state_routing(self) -> None:
+        data = {"name": "error_state", "state": 0}
+        device = ExoDevice.from_data(self.system, data)
+        assert isinstance(device, ExoErrorSensor)
+        assert device.label == "Error State"
 
 
 class ExoSwitchMixin:
@@ -333,3 +359,11 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         assert len(self.respx_calls) == 1
         content = self.respx_calls[0].request.content.decode("utf-8")
         assert "heating" in content
+
+    async def test_set_temperature_too_low(self) -> None:
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_temperature(0)  # below sp_min=1
+
+    async def test_set_temperature_too_high(self) -> None:
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_temperature(41)  # above sp_max=40
