@@ -109,7 +109,7 @@ class ExoAttributeSensor(ExoDevice, AqualinkSensor):
 
 
 class ExoErrorSensor(ExoAttributeSensor):
-    """Diagnostic sensor for error_code and error_state fields."""
+    """Sensor for error_code and error_state diagnostic fields."""
 
 
 # This is an abstract class, not to be instantiated directly.

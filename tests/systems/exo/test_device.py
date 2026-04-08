@@ -84,7 +84,7 @@ class TestExoSensor(TestExoDevice, TestBaseSensor):
         assert self.sut.state == str(self.sut.data["value"])
 
 
-class TestExoAttributeSensor(TestExoDevice):
+class TestExoAttributeSensor(TestExoDevice, TestBaseSensor):
     def setUp(self) -> None:
         super().setUp()
 
@@ -96,7 +96,7 @@ class TestExoAttributeSensor(TestExoDevice):
         self.sut_class = ExoAttributeSensor
 
 
-class TestExoErrorSensor(TestExoDevice):
+class TestExoErrorSensor(TestExoDevice, TestBaseSensor):
     def setUp(self) -> None:
         super().setUp()
 
@@ -112,9 +112,6 @@ class TestExoErrorSensor(TestExoDevice):
 
     def test_property_state(self) -> None:
         assert self.sut.state == "0"
-
-    def test_property_is_instance(self) -> None:
-        assert isinstance(self.sut, ExoErrorSensor)
 
     def test_error_state_routing(self) -> None:
         data = {"name": "error_state", "state": 0}
