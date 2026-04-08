@@ -146,7 +146,7 @@ class ExoAuxSwitch(ExoSwitch):
 class ExoFilterPump(ExoSwitch):
     @property
     def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
-        return self.system.set_filter_pump
+        return self.system.set_aux
 
 
 class ExoAttributeSwitch(ExoSwitch):

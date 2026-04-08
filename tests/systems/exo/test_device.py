@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from typing import cast
 
 import pytest
@@ -241,6 +242,15 @@ class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
     async def test_turn_on(self) -> None:
         self.sut.data["state"] = 0
         await super().test_turn_on()
+        assert len(self.respx_calls) == 1
+        payload = json.loads(self.respx_calls[0].request.content)
+        assert payload == {
+            "state": {
+                "desired": {
+                    "equipment": {"swc_0": {"filter_pump": {"state": 1}}}
+                }
+            }
+        }
 
     async def test_turn_on_noop(self) -> None:
         self.sut.data["state"] = 1
@@ -249,6 +259,15 @@ class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
     async def test_turn_off(self) -> None:
         self.sut.data["state"] = 1
         await super().test_turn_off()
+        assert len(self.respx_calls) == 1
+        payload = json.loads(self.respx_calls[0].request.content)
+        assert payload == {
+            "state": {
+                "desired": {
+                    "equipment": {"swc_0": {"filter_pump": {"state": 0}}}
+                }
+            }
+        }
 
     async def test_turn_off_noop(self) -> None:
         self.sut.data["state"] = 0
