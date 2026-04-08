@@ -314,7 +314,7 @@ class TestIaquaSystem(TestBaseSystem):
             await self.sut._send_devices_screen_request()
 
     async def test_parse_onetouch_offline(self) -> None:
-        message = {"message": "", "one_touch": [{"status": "Offline"}]}
+        message = {"message": "", "onetouch_screen": [{"status": "Offline"}]}
         response = MagicMock()
         response.json.return_value = message
 
@@ -325,7 +325,7 @@ class TestIaquaSystem(TestBaseSystem):
     async def test_parse_onetouch_good(self) -> None:
         message = {
             "message": "",
-            "one_touch": [
+            "onetouch_screen": [
                 {"status": "Online"},
                 {"response": ""},
                 {

@@ -205,6 +205,7 @@ class AqualinkClient:
             self._client = httpx.AsyncClient(
                 http2=True,
                 limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
+                timeout=10,
             )
         return self._client
 

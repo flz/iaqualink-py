@@ -287,13 +287,13 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("OneTouch response: %s", data)
 
-        if data["one_touch"][0]["status"] == "Offline":
+        if data["onetouch_screen"][0]["status"] == "Offline":
             LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
         # Make the data a bit flatter.
         devices = {}
-        for x in data["one_touch"][2:]:
+        for x in data["onetouch_screen"][2:]:
             name = next(iter(x.keys()))
             attrs = {"name": name}
             for y in next(iter(x.values())):
