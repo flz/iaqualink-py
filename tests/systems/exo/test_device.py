@@ -225,7 +225,7 @@ class TestExoAttributeSwitch(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
         self.sut.data["state"] = 0
         await super().test_turn_off_noop()
 
-        
+
 class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
     def setUp(self) -> None:
         super().setUp()
@@ -252,8 +252,9 @@ class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
 
     async def test_turn_off_noop(self) -> None:
         self.sut.data["state"] = 0
-        await super().test_turn_off_noop()        
-    
+        await super().test_turn_off_noop()
+
+
 class TestExoHeater(TestExoDevice):
     def setUp(self) -> None:
         super().setUp()
