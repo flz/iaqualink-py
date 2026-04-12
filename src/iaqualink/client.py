@@ -4,6 +4,7 @@ import asyncio
 import contextlib
 import importlib
 import logging
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
@@ -54,6 +55,37 @@ RETRYABLE_METHODS = frozenset({"GET", "POST"})
 LOGGER = logging.getLogger("iaqualink")
 
 
+@dataclass(frozen=True)
+class AqualinkAuthState:
+    username: str
+    client_id: str
+    authentication_token: str
+    user_id: str
+    id_token: str
+    refresh_token: str
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "username": self.username,
+            "client_id": self.client_id,
+            "authentication_token": self.authentication_token,
+            "user_id": self.user_id,
+            "id_token": self.id_token,
+            "refresh_token": self.refresh_token,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> Self:
+        return cls(
+            username=str(data.get("username", "")),
+            client_id=str(data.get("client_id", "")),
+            authentication_token=str(data.get("authentication_token", "")),
+            user_id=str(data.get("user_id", "")),
+            id_token=str(data.get("id_token", "")),
+            refresh_token=str(data.get("refresh_token", "")),
+        )
+
+
 class AqualinkRetry(Retry):
     def parse_retry_after(self, retry_after: str) -> float:
         try:
@@ -97,6 +129,34 @@ class AqualinkClient:
     def logged(self) -> bool:
         return self._logged
 
+    @property
+    def auth_state(self) -> AqualinkAuthState | None:
+        if not self._logged:
+            return None
+
+        return AqualinkAuthState(
+            username=self._username,
+            client_id=self.client_id,
+            authentication_token=self._token,
+            user_id=self._user_id,
+            id_token=self.id_token,
+            refresh_token=self._refresh_token,
+        )
+
+    @auth_state.setter
+    def auth_state(self, state: AqualinkAuthState | None) -> None:
+        if state is None:
+            self._clear_auth_state()
+            return
+
+        self._username = state.username
+        self.client_id = state.client_id
+        self._token = state.authentication_token
+        self._user_id = state.user_id
+        self.id_token = state.id_token
+        self._refresh_token = state.refresh_token
+        self._logged = True
+
     async def close(self) -> None:
         if self._must_close_client is False:
             return
@@ -107,7 +167,8 @@ class AqualinkClient:
 
     async def __aenter__(self) -> Self:
         try:
-            await self.login()
+            if not self._logged:
+                await self.login()
         except AqualinkServiceException:
             await self.close()
             raise
@@ -241,6 +302,14 @@ class AqualinkClient:
         r = await self._send_login_request()
         self._apply_login_data(r.json(), refresh_token_fallback="")
 
+    def _clear_auth_state(self) -> None:
+        self.client_id = ""
+        self._token = ""
+        self._user_id = ""
+        self.id_token = ""
+        self._refresh_token = ""
+        self._logged = False
+
     def _apply_login_data(
         self,
         data: dict[str, Any],
@@ -277,7 +346,8 @@ class AqualinkClient:
         except AqualinkServiceException as e:
             if "404" in str(e):
                 raise AqualinkServiceUnauthorizedException from e
-            raise
+            else:
+                raise
 
         data = r.json()
 

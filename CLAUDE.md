@@ -27,6 +27,9 @@ uv run pytest --cov-report=xml --cov=iaqualink
 # Run a single test file
 uv run pytest tests/test_client.py
 
+# Run CLI tests
+uv run pytest tests/test_cli.py
+
 # Run a specific test
 uv run pytest tests/test_client.py::TestClassName::test_method_name
 ```
@@ -94,6 +97,22 @@ The library follows a plugin-style architecture with base classes and system-spe
      - **IaquaDevice** ([systems/iaqua/device.py](src/iaqualink/systems/iaqua/device.py))
      - **ExoDevice** ([systems/exo/device.py](src/iaqualink/systems/exo/device.py))
    - Device types include: sensors, pumps, heaters, lights, thermostats, aux toggles
+
+4. **CLI package** ([src/iaqualink/cli](src/iaqualink/cli)) - User-facing Typer command line client
+   - Entry point is the packaged `iaqualink` script
+   - Centralizes config loading from CLI options, environment variables, and `typer.get_app_dir("iaqualink") / "config.yaml"`
+   - Persists session state in a JSON cookie jar at `typer.get_app_dir("iaqualink") / "session.json"` by default
+   - Supports a global `--debug` flag that enables root logging at DEBUG before command execution
+   - Exposes discovery commands such as `list-systems`, `list-devices`, and `status`
+   - Exposes initial control commands such as `turn-on`, `turn-off`, and `set-temperature`
+
+### Session Persistence
+
+- `AqualinkClient` exposes typed auth snapshots through `AqualinkAuthState` and the `auth_state` getter/setter for CLI session reuse.
+- Restored sessions skip the initial `login()` inside `__aenter__()`.
+- The CLI performs one full login retry when a restored cookie jar is stale during systems discovery, then updates the jar on success.
+- The CLI only restores a saved jar when the username in the jar matches the requested username.
+- Cookie jars are written atomically via a temporary file and store tokens in plain text, so docs should keep the security tradeoff explicit.
 
 ### API Differences
 

@@ -9,7 +9,11 @@ import httpx
 import pytest
 import respx
 
-from iaqualink.client import AqualinkClient, AqualinkRetry
+from iaqualink.client import (
+    AqualinkAuthState,
+    AqualinkClient,
+    AqualinkRetry,
+)
 from iaqualink.const import (
     DEFAULT_REQUEST_TIMEOUT,
     RETRY_AFTER_MAX_DELAY,
@@ -81,6 +85,77 @@ class TestAqualinkClient(TestBase):
         with pytest.raises(AqualinkServiceException):
             async with self.client:
                 pass
+
+    async def test_auth_state_when_not_logged_in(self) -> None:
+        assert self.client.auth_state is None
+
+    @patch("httpx.AsyncClient.request")
+    async def test_auth_state_when_logged_in(self, mock_request) -> None:
+        mock_request.return_value = _make_resp(200, LOGIN_DATA_WITH_REFRESH)
+
+        await self.client.login()
+
+        expected = AqualinkAuthState(
+            username="foo",
+            client_id="session_id",
+            authentication_token="token",
+            user_id="id",
+            id_token="userPoolOAuth:IdToken",
+            refresh_token="userPoolOAuth:RefreshToken",
+        )
+
+        assert self.client.auth_state == expected
+
+    async def test_auth_state_setter_accepts_none(self) -> None:
+        self.client.auth_state = None
+
+        assert self.client.logged is False
+        assert self.client.auth_state is None
+
+    async def test_auth_state_setter(self) -> None:
+        auth_state = AqualinkAuthState(
+            username="restored-user",
+            client_id="restored-session-id",
+            authentication_token="restored-token",
+            user_id="restored-id",
+            id_token="restored-id-token",
+            refresh_token="restored-refresh-token",
+        )
+        self.client.auth_state = auth_state
+
+        assert self.client.logged is True
+        assert self.client.auth_state == auth_state
+
+    async def test_auth_state_setter_clears_client(self) -> None:
+        self.client.auth_state = AqualinkAuthState(
+            username="restored-user",
+            client_id="restored-session-id",
+            authentication_token="restored-token",
+            user_id="restored-id",
+            id_token="restored-id-token",
+            refresh_token="restored-refresh-token",
+        )
+
+        self.client.auth_state = None
+
+        assert self.client.logged is False
+        assert self.client.auth_state is None
+
+    async def test_context_manager_skips_login_when_auth_restored(self) -> None:
+        self.client.auth_state = AqualinkAuthState(
+            username="restored-user",
+            client_id="restored-session-id",
+            authentication_token="restored-token",
+            user_id="restored-id",
+            id_token="restored-id-token",
+            refresh_token="restored-refresh-token",
+        )
+
+        with patch.object(self.client, "login") as mock_login:
+            async with self.client:
+                pass
+
+        mock_login.assert_not_called()
 
     @patch("iaqualink.client.AqualinkClient.login", async_noop)
     async def test_context_manager_with_client(self) -> None:

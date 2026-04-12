@@ -41,6 +41,69 @@ Or using [uv](https://github.com/astral-sh/uv):
 uv add iaqualink
 ```
 
+## 💻 CLI
+
+The package now ships with an `iaqualink` command for common discovery and control tasks.
+
+Credentials can be provided in this order:
+- command-line options such as `--username` and `--password`
+- environment variables `IAQUALINK_USERNAME` and `IAQUALINK_PASSWORD`
+- a YAML config file, defaulting to `typer.get_app_dir("iaqualink") / "config.yaml"`
+
+Example config:
+
+```yaml
+username: user@example.com
+password: super-secret-password
+```
+
+Example commands:
+
+```bash
+# Enable verbose debug logging
+iaqualink --debug list-systems
+
+# List the systems on the account
+iaqualink list-systems
+
+# Show devices for a system
+iaqualink list-devices --system YOUR-SERIAL
+
+# Show a tree view of all systems and devices
+iaqualink status
+
+# Turn on a device by key or label
+iaqualink turn-on pool_pump --system YOUR-SERIAL
+
+# Change a thermostat set point
+iaqualink set-temperature spa_set_point 102 --system YOUR-SERIAL
+```
+
+## Session Persistence
+
+The CLI can persist login state across runs so repeated commands do not need to authenticate every time.
+
+By default, session state is stored at `typer.get_app_dir("iaqualink") / "session.json"`, which resolves to an app-specific config directory on macOS, Linux, and Windows.
+
+All commands accept `--cookie-jar` to override that location:
+
+```bash
+iaqualink list-systems --cookie-jar ~/.cache/iaqualink/session.json
+```
+
+Session lifecycle:
+
+1. First run logs in normally and writes the current auth state to the jar.
+2. Later runs restore that state when the saved username matches the requested username.
+3. If a restored session is stale during systems discovery, the CLI reauthenticates and updates the jar automatically.
+
+Security notes:
+
+- The cookie jar stores authentication tokens in plain text.
+- On shared systems, use a location with appropriate file permissions.
+- If you change credentials or want to force a fresh login, delete the jar file.
+- Use `--debug` on any command to enable verbose logging while troubleshooting CLI or API behavior.
+
 ## 🚀 Quick Start
 
 ### Basic Usage
@@ -170,6 +233,9 @@ uv run pytest --cov-report=xml --cov=iaqualink
 
 # Run specific test file
 uv run pytest tests/test_client.py
+
+# Run CLI tests
+uv run pytest tests/test_cli.py
 ```
 
 ### Code Quality
