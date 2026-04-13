@@ -306,21 +306,6 @@ class TestAqualinkClient(TestBase):
 
         assert mock_request.call_count == 1
 
-    @respx.mock
-    @patch("iaqualink.client.AqualinkRetry.asleep", new_callable=AsyncMock)
-    async def test_429_no_retry_when_disabled(self, mock_sleep) -> None:
-        route = respx.get("https://example.com").mock(
-            return_value=httpx.Response(
-                status_code=httpx.codes.TOO_MANY_REQUESTS
-            )
-        )
-
-        with pytest.raises(AqualinkServiceThrottledException):
-            await self.client.send_request("https://example.com", retry=False)
-
-        assert route.call_count == 1
-        mock_sleep.assert_not_called()
-
     async def test_refresh_auth_propagates_throttled(self) -> None:
         self.client._refresh_token = "some-refresh-token"
         with (

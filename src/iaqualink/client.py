@@ -66,14 +66,12 @@ class AqualinkClient:
         self._logged = False
 
         self._client: httpx.AsyncClient | None = None
-        self._single_attempt_client: httpx.AsyncClient | None = None
 
         if httpx_client is None:
             self._client = None
             self._must_close_client = True
         else:
             self._client = httpx_client
-            self._single_attempt_client = httpx_client
             self._must_close_client = False
 
         self.client_id = ""
@@ -95,12 +93,6 @@ class AqualinkClient:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
-        if (
-            self._single_attempt_client is not None
-            and self._single_attempt_client is not self._client
-        ):
-            await self._single_attempt_client.aclose()
-            self._single_attempt_client = None
 
     async def __aenter__(self) -> Self:
         try:
@@ -125,17 +117,14 @@ class AqualinkClient:
         self,
         url: str,
         method: str = "get",
-        retry: bool = True,
         **kwargs: Any,
     ) -> httpx.Response:
         """Send an HTTP request.
 
-        When ``retry=True`` the managed client uses ``httpx-retries`` to
-        handle HTTP 429 responses with exponential backoff and ``Retry-After``.
-        When ``retry=False`` the request is sent through a plain client with no
-        transport-level retries.
+        The managed client uses ``httpx-retries`` to handle HTTP 429
+        responses with exponential backoff and ``Retry-After``.
         """
-        client = self._get_httpx_client(retry)
+        client = self._get_httpx_client()
 
         headers = AQUALINK_HTTP_HEADERS.copy()
         headers.update(kwargs.pop("headers", {}))
@@ -150,13 +139,12 @@ class AqualinkClient:
             raise AqualinkServiceUnauthorizedException()
 
         if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
-            attempts = RETRY_MAX_ATTEMPTS if retry else 1
             LOGGER.warning(
                 "Rate limited (429), giving up after %d attempt(s)",
-                attempts,
+                RETRY_MAX_ATTEMPTS,
             )
             raise AqualinkServiceThrottledException(
-                f"Rate limited after {attempts} attempt(s)"
+                f"Rate limited after {RETRY_MAX_ATTEMPTS} attempt(s)"
             )
 
         if r.status_code != httpx.codes.OK:
@@ -165,13 +153,11 @@ class AqualinkClient:
 
         return r
 
-    def _build_httpx_client(self, retry: bool) -> httpx.AsyncClient:
+    def _build_httpx_client(self) -> httpx.AsyncClient:
         kwargs: dict[str, Any] = {
             "http2": True,
             "limits": httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
-        }
-        if retry:
-            kwargs["transport"] = RetryTransport(
+            "transport": RetryTransport(
                 retry=AqualinkRetry(
                     total=RETRY_MAX_ATTEMPTS - 1,
                     backoff_factor=RETRY_BASE_DELAY,
@@ -179,18 +165,14 @@ class AqualinkClient:
                     allowed_methods=RETRYABLE_METHODS,
                     status_forcelist={httpx.codes.TOO_MANY_REQUESTS},
                 )
-            )
+            ),
+        }
         return httpx.AsyncClient(**kwargs)
 
-    def _get_httpx_client(self, retry: bool) -> httpx.AsyncClient:
-        if retry:
-            if self._client is None:
-                self._client = self._build_httpx_client(retry=True)
-            return self._client
-
-        if self._single_attempt_client is None:
-            self._single_attempt_client = self._build_httpx_client(retry=False)
-        return self._single_attempt_client
+    def _get_httpx_client(self) -> httpx.AsyncClient:
+        if self._client is None:
+            self._client = self._build_httpx_client()
+        return self._client
 
     async def _send_login_request(self) -> httpx.Response:
         data = {
