@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -81,25 +82,32 @@ class ExoSystem(AqualinkSystem):
 
         LOGGER.debug(f"Shadow response: {data}")
 
-        devices = {}
+        devices: dict[str, Any] = {}
 
-        # Process the chlorinator attributes (equipment).
-        # Make the data a bit flatter.
         root = data.state.reported.equipment["swc_0"]
-        for name, state in root.items():
-            attrs = {"name": name}
-            if isinstance(state, dict):
-                attrs.update(state)
-            else:
-                attrs.update({"state": state})
-            devices.update({name: attrs})
 
-        # Remove those values, they're not handled properly.
-        devices.pop("boost_time", None)
-        devices.pop("vsp_speed", None)
-        devices.pop("sn", None)
-        devices.pop("vr", None)
-        devices.pop("version", None)
+        # Scalar int fields — each becomes a simple state device.
+        _COMPLEX = frozenset(
+            {"aux_devices", "sensors", "filter_pump", "vsp_speed"}
+        )
+        for f in dataclasses.fields(root):
+            if f.name in _COMPLEX:
+                continue
+            devices[f.name] = {"name": f.name, "state": getattr(root, f.name)}
+
+        # Aux switches.
+        for name, aux in root.aux_devices.items():
+            devices[name] = {"name": name, **dataclasses.asdict(aux)}
+
+        # Chemistry / temperature sensors.
+        for name, sensor in root.sensors.items():
+            devices[name] = {"name": name, **dataclasses.asdict(sensor)}
+
+        # Filter pump.
+        devices["filter_pump"] = {
+            "name": "filter_pump",
+            **dataclasses.asdict(root.filter_pump),
+        }
 
         # Process the heating control attributes.
         if data.state.reported.heating is not None:
