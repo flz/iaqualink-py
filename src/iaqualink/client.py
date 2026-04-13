@@ -6,7 +6,7 @@ import logging
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Self
 
-from serde.json import from_json
+from mashumaro.codecs.json import JSONDecoder
 
 import httpx
 
@@ -35,6 +35,8 @@ for module_name in (
     "iaqualink.systems.iaqua.system",
 ):
     importlib.import_module(module_name)
+
+_devices_decoder = JSONDecoder(DevicesResponse)
 
 AQUALINK_HTTP_HEADERS = {
     "user-agent": "okhttp/3.14.7",
@@ -76,7 +78,6 @@ class AqualinkAuthState:
             values[field_name] = value
 
         return cls(**values)
-
 
 
 class AqualinkClient:
@@ -262,7 +263,6 @@ class AqualinkClient:
 
     async def login(self) -> None:
         r = await self._send_login_request()
-        self._apply_login_data(r.json(), refresh_token_fallback="")
 
     def _clear_auth_state(self) -> None:
         self.client_id = ""
@@ -310,6 +310,6 @@ class AqualinkClient:
                 raise AqualinkServiceUnauthorizedException from e
             raise
 
-        response = from_json(DevicesResponse, r.text)
+        response = _devices_decoder.decode(r.text)
         systems = [AqualinkSystem.from_data(self, x) for x in response]
         return {x.serial: x for x in systems}

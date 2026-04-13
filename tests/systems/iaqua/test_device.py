@@ -20,6 +20,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaThermostat,
 )
 from iaqualink.systems.iaqua.system import IaquaSystem
+from iaqualink.types import DevicesResponseElement
 
 from ...base_test_device import (
     TestBaseBinarySensor,
@@ -35,7 +36,9 @@ class TestIaquaDevice(TestBaseDevice):
     def setUp(self) -> None:
         super().setUp()
 
-        data = {"serial_number": "SN123456", "device_type": "iaqua"}
+        data = DevicesResponseElement(
+            device_type="iaqua", serial_number="SN123456"
+        )
         self.system = IaquaSystem(self.client, data=data)
 
         data = {"name": "device", "state": "42"}

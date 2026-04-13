@@ -1,271 +1,95 @@
-from serde import field, serde, Untagged
-
+from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Union, Optional, List
-from uuid import UUID
+from typing import List
+
+from mashumaro import field_options
+from mashumaro.mixins.json import DataClassJSONMixin
 
 
-@serde
-class CognitoPool:
-    app_client_id: str = field(rename="appClientId")
+@dataclass
+class CognitoPool(DataClassJSONMixin):
+    app_client_id: str = field(metadata=field_options(alias="appClientId"))
     domain: str
-    pool_id: str = field(rename="poolId")
+    pool_id: str = field(metadata=field_options(alias="poolId"))
     region: str
 
 
-@serde(rename_all="pascalcase")
-class Credentials:
-    access_key_id: str
-    secret_key: str
-    session_token: str
-    expiration: datetime
-    identity_id: str
+@dataclass
+class Credentials(DataClassJSONMixin):
+    access_key_id: str = field(metadata=field_options(alias="AccessKeyId"))
+    secret_key: str = field(metadata=field_options(alias="SecretKey"))
+    session_token: str = field(metadata=field_options(alias="SessionToken"))
+    expiration: datetime = field(metadata=field_options(alias="Expiration"))
+    identity_id: str = field(metadata=field_options(alias="IdentityId"))
 
 
-@serde(rename_all="pascalcase")
-class UserPoolOAuth:
-    expires_in: int
-    token_type: str
-    refresh_token: str
-    id_token: str
+@dataclass
+class UserPoolOAuth(DataClassJSONMixin):
+    id_token: str = field(metadata=field_options(alias="IdToken"))
+    access_token: str | None = field(
+        default=None, metadata=field_options(alias="AccessToken")
+    )
+    expires_in: int | None = field(
+        default=None, metadata=field_options(alias="ExpiresIn")
+    )
+    token_type: str | None = field(
+        default=None, metadata=field_options(alias="TokenType")
+    )
+    refresh_token: str | None = field(
+        default=None, metadata=field_options(alias="RefreshToken")
+    )
 
 
-@serde
-class LoginResponse:
-    username: UUID
-    email: str
-    first_name: str
-    last_name: str
-    address: str
-    address_1: str
-    address_2: None
-    city: str
-    state: None
-    country: str
-    postal_code: str
+@dataclass
+class LoginResponse(DataClassJSONMixin):
+    # Fields used by application code — required.
     id: int
     authentication_token: str
     session_id: str
-    created_at: datetime
-    updated_at: datetime
-    time_zone: None
-    phone: str
-    opt_in_1: str
-    opt_in_2: str
-    role: str
-    cognito_pool: CognitoPool = field(rename="cognitoPool")
-    credentials: Credentials
-    user_pool_o_auth: UserPoolOAuth = field(rename="userPoolOAuth")
+    user_pool_o_auth: UserPoolOAuth = field(
+        metadata=field_options(alias="userPoolOAuth")
+    )
+    # Remaining spec fields — optional so minimal test fixtures still parse.
+    username: str = ""
+    email: str = ""
+    first_name: str = ""
+    last_name: str = ""
+    address: str = ""
+    address_1: str = ""
+    address_2: str | None = None
+    city: str = ""
+    state: str | None = None
+    country: str = ""
+    postal_code: str = ""
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    time_zone: str | None = None
+    phone: str = ""
+    opt_in_1: bool = False
+    opt_in_2: bool = False
+    role: str = ""
+    cognito_pool: CognitoPool | None = field(
+        default=None, metadata=field_options(alias="cognitoPool")
+    )
+    credentials: Credentials | None = None
 
 
-@serde
-class DevicesResponseElement:
-    id: int
-    serial_number: str
-    created_at: datetime
-    updated_at: datetime
-    name: str
+@dataclass
+class DevicesResponseElement(DataClassJSONMixin):
+    # Fields used by application code — required.
     device_type: str
-    owner_id: None
-    updating: bool
-    firmware_version: None
-    target_firmware_version: None
-    update_firmware_start_at: None
-    last_activity_at: None
+    serial_number: str
+    # Remaining spec fields — optional so minimal test fixtures still parse.
+    id: int = 0
+    name: str = ""
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    owner_id: int | None = None
+    updating: bool = False
+    firmware_version: str | None = None
+    target_firmware_version: str | None = None
+    update_firmware_start_at: str | None = None
+    last_activity_at: datetime | None = None
 
 
 DevicesResponse = List[DevicesResponseElement]
-
-
-### Home Screen Response
-
-
-@serde(rename_all="camelcase")
-class HeatpumpInfo:
-    isheatpump_present: Optional[bool] = False
-    heatpumpstatus: Optional[str] = None
-    is_chill_available: Optional[bool] = False
-    heatpumpmode: Optional[str] = None
-    heatpumptype: Optional[str] = None
-
-
-@serde
-class IclCustomColorInfo:
-    zone_id: int = field(rename="zoneId")
-    red_val: int
-    green_val: int
-    blue_val: int
-    white_val: int
-
-
-@serde(rename_all="camelcase")
-class SwcInfo:
-    isswc_present: bool
-    swc_pool_value: Optional[str] = None
-    swc_pool_status: Optional[str] = None
-
-
-@serde
-class HomeScreenStatus:
-    status: str
-
-
-@serde
-class HomeScreenResponse:
-    response: str
-
-
-@serde
-class HomeScreenSystemType:
-    system_type: str
-
-
-@serde
-class HomeScreenTempScale:
-    temp_scale: str
-
-
-@serde
-class HomeScreenSpaTemp:
-    spa_temp: str
-
-
-@serde
-class HomeScreenPoolTemp:
-    pool_temp: str
-
-
-@serde
-class HomeScreenAirTemp:
-    air_temp: str
-
-
-@serde
-class HomeScreenSetPoint:
-    spa_set_point: str
-
-
-@serde
-class HomeScreenPoolSetPoint:
-    pool_set_point: str
-
-
-@serde
-class HomeScreenCoverPool:
-    cover_pool: str
-
-
-@serde
-class HomeScreenFreezeProtection:
-    freeze_protection: str
-
-
-@serde
-class HomeScreenSpaPump:
-    spa_pump: str
-
-
-@serde
-class HomeScreenPoolPump:
-    pool_pump: str
-
-
-@serde
-class HomeScreenSpaHeater:
-    spa_heater: str
-
-
-@serde
-class HomeScreenPoolHeater:
-    pool_heater: str
-
-
-@serde
-class HomeScreenSolarHeater:
-    solar_heater: str
-
-
-@serde
-class HomeScreenSpaSalinity:
-    spa_salinity: str
-
-
-@serde
-class HomeScreenPoolSalinity:
-    pool_salinity: str
-
-
-@serde
-class HomeScreenOrp:
-    orp: str
-
-
-@serde
-class HomeScreenPh:
-    ph: str
-
-
-@serde
-class HomeScreenIsIclPresent:
-    is_icl_present: str
-
-
-@serde
-class HomeScreenIclCustomColor:
-    icl_custom_color_info: List[IclCustomColorInfo]
-
-
-@serde
-class HomeScreenHeatpumpInfo:
-    heatpump_info: HeatpumpInfo
-
-
-@serde
-class HomeScreenPoolChillSetPoint:
-    pool_chill_set_point: str
-
-
-@serde
-class HomeScreenSwcInfo:
-    swc_info: SwcInfo
-
-
-@serde
-class HomeScreenRelayCount:
-    relay_count: str
-
-
-@serde(tagging=Untagged)
-class HomeResponse:
-    message: str
-    serial: str
-    home_screen: List[
-        Union[
-            HomeScreenAirTemp
-            | HomeScreenCoverPool
-            | HomeScreenFreezeProtection
-            | HomeScreenHeatpumpInfo
-            | HomeScreenIclCustomColor
-            | HomeScreenIsIclPresent
-            | HomeScreenOrp
-            | HomeScreenPh
-            | HomeScreenPoolChillSetPoint
-            | HomeScreenPoolHeater
-            | HomeScreenPoolPump
-            | HomeScreenPoolSalinity
-            | HomeScreenPoolSetPoint
-            | HomeScreenPoolTemp
-            | HomeScreenRelayCount
-            | HomeScreenResponse
-            | HomeScreenSetPoint
-            | HomeScreenSolarHeater
-            | HomeScreenSpaHeater
-            | HomeScreenSpaPump
-            | HomeScreenSpaSalinity
-            | HomeScreenSpaTemp
-            | HomeScreenStatus
-            | HomeScreenSwcInfo
-            | HomeScreenSystemType
-            | HomeScreenTempScale
-        ]
-    ]

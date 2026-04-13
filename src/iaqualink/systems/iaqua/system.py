@@ -12,11 +12,17 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaDevice
+from iaqualink.systems.iaqua.types import (
+    IaquaDevicesResponse,
+    IaquaHomeResponse,
+)
+from iaqualink.util import json_to_dataclass
 
 if TYPE_CHECKING:
     import httpx
 
     from iaqualink.client import AqualinkClient
+    from iaqualink.types import DevicesResponseElement
     from iaqualink.typing import Payload
 
 IAQUA_SESSION_URL = "https://r-api.iaqualink.net/v2/mobile/session.json"
@@ -40,7 +46,7 @@ LOGGER = logging.getLogger("iaqualink")
 class IaquaSystem(AqualinkSystem):
     NAME = "iaqua"
 
-    def __init__(self, aqualink: AqualinkClient, data: Payload):
+    def __init__(self, aqualink: AqualinkClient, data: DevicesResponseElement):
         super().__init__(aqualink, data)
 
         self.temp_unit: str = ""
@@ -111,27 +117,23 @@ class IaquaSystem(AqualinkSystem):
         self.status = SystemStatus.ONLINE
 
     def _parse_home_response(self, response: httpx.Response) -> None:
-        from iaqualink.types import HomeResponse
-        from iaqualink.util import json_to_dataclass
-
-        _data = json_to_dataclass(HomeResponse, response.text)
-        data = response.json()
+        data = json_to_dataclass(IaquaHomeResponse, response.text)
 
         LOGGER.debug(f"Home response: {data}")
 
-        if data["home_screen"][0]["status"] == "Offline":
+        if data.home_screen[0]["status"] == "Offline":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
 
-        if data["home_screen"][2]["system_type"] == "":
+        if data.home_screen[2]["system_type"] == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
 
-        self.temp_unit = data["home_screen"][3]["temp_scale"]
+        self.temp_unit = data.home_screen[3]["temp_scale"]
 
         # Make the data a bit flatter.
         devices = {}
-        for x in data["home_screen"][4:]:
+        for x in data.home_screen[4:]:
             name = next(iter(x.keys()))
             state = next(iter(x.values()))
             attrs = {"name": name, "state": state}
@@ -148,11 +150,11 @@ class IaquaSystem(AqualinkSystem):
                     LOGGER.debug("Device found was ignored: %s", e)
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
-        data = response.json()
+        data = json_to_dataclass(IaquaDevicesResponse, response.text)
 
         LOGGER.debug(f"Devices response: {data}")
 
-        if data["devices_screen"][0]["status"] == "Offline":
+        if data.devices_screen[0]["status"] == "Offline":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
 
@@ -166,7 +168,7 @@ class IaquaSystem(AqualinkSystem):
 
         # Make the data a bit flatter.
         devices = {}
-        for x in data["devices_screen"][3:]:
+        for x in data.devices_screen[3:]:
             aux = next(iter(x.keys()))
             attrs = {"aux": aux.replace("aux_", ""), "name": aux}
             for y in next(iter(x.values())):
