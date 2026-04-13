@@ -73,6 +73,8 @@ The library follows a plugin-style architecture with base classes and system-spe
 1. **AqualinkClient** ([client.py](src/iaqualink/client.py)) - Entry point for authentication and system discovery
    - Handles login/authentication for both API types
    - Uses httpx with HTTP/2 support
+   - Uses `httpx-retries` for transport-level 429 retries with exponential backoff and `Retry-After`
+   - Rebuilds and retries auth-bearing client-owned requests such as systems discovery through the shared reauth helper instead of replaying stale requests inside `send_request()`
    - Manages session tokens and credentials
    - Factory method `get_systems()` returns appropriate system subclasses
 
@@ -83,6 +85,7 @@ The library follows a plugin-style architecture with base classes and system-spe
      - **IaquaSystem** ([systems/iaqua/system.py](src/iaqualink/systems/iaqua/system.py)) - For "iaqua" device_type
      - **ExoSystem** ([systems/exo/system.py](src/iaqualink/systems/exo/system.py)) - For "exo" device_type
    - Implements polling with rate limiting (MIN_SECS_TO_REFRESH per system: 5s iaqua, 50s exo)
+   - Uses the shared Tenacity-based reauth helper to retry iaqua and exo system requests once after refreshing auth on `AqualinkServiceUnauthorizedException`
    - Tracks online/offline status
 
 3. **AqualinkDevice** ([device.py](src/iaqualink/device.py)) - Base class for devices

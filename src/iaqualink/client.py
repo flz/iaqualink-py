@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import asyncio
 import contextlib
+import importlib
 import logging
-import random
-from datetime import datetime, timezone
-from email.utils import parsedate_to_datetime
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
+from httpx_retries import Retry, RetryTransport
 
 from iaqualink.const import (
     AQUALINK_API_KEY,
@@ -27,18 +25,33 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
     AqualinkSystemUnsupportedException,
 )
+from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
-from iaqualink.systems import *  # noqa: F403
 
 if TYPE_CHECKING:
     from types import TracebackType
+
+for module_name in (
+    "iaqualink.systems.exo.system",
+    "iaqualink.systems.iaqua.system",
+):
+    importlib.import_module(module_name)
 
 AQUALINK_HTTP_HEADERS = {
     "user-agent": "okhttp/3.14.7",
     "content-type": "application/json",
 }
+RETRYABLE_METHODS = frozenset({"GET", "POST"})
 
 LOGGER = logging.getLogger("iaqualink")
+
+
+class AqualinkRetry(Retry):
+    def parse_retry_after(self, retry_after: str) -> float:
+        return min(
+            super().parse_retry_after(retry_after),
+            RETRY_AFTER_MAX_DELAY,
+        )
 
 
 class AqualinkClient:
@@ -53,12 +66,14 @@ class AqualinkClient:
         self._logged = False
 
         self._client: httpx.AsyncClient | None = None
+        self._single_attempt_client: httpx.AsyncClient | None = None
 
         if httpx_client is None:
             self._client = None
             self._must_close_client = True
         else:
             self._client = httpx_client
+            self._single_attempt_client = httpx_client
             self._must_close_client = False
 
         self.client_id = ""
@@ -77,10 +92,15 @@ class AqualinkClient:
         if self._must_close_client is False:
             return
 
-        # There shouldn't be a case where this is None but this quietens mypy.
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+        if (
+            self._single_attempt_client is not None
+            and self._single_attempt_client is not self._client
+        ):
+            await self._single_attempt_client.aclose()
+            self._single_attempt_client = None
 
     async def __aenter__(self) -> Self:
         try:
@@ -108,129 +128,69 @@ class AqualinkClient:
         retry: bool = True,
         **kwargs: Any,
     ) -> httpx.Response:
-        """Send an HTTP request with optional retry on 429 responses.
+        """Send an HTTP request.
 
-        By default (``retry=True``) every request, including login,
-        retries up to :data:`RETRY_MAX_ATTEMPTS` times on 429.
-        Server-provided ``Retry-After`` values are honoured up to
-        :data:`RETRY_AFTER_MAX_DELAY` (60 s); callers that need
-        tighter latency should catch
-        :exc:`AqualinkServiceThrottledException` or wrap calls with
-        :func:`asyncio.wait_for`.
-
-        When ``retry=False`` (``max_attempts=1``) the single attempt
-        raises :exc:`AqualinkServiceThrottledException` immediately on
-        429 with no actual retry.
+        When ``retry=True`` the managed client uses ``httpx-retries`` to
+        handle HTTP 429 responses with exponential backoff and ``Retry-After``.
+        When ``retry=False`` the request is sent through a plain client with no
+        transport-level retries.
         """
-        if self._client is None:
-            self._client = httpx.AsyncClient(
-                http2=True,
-                limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
-            )
+        client = self._get_httpx_client(retry)
 
         headers = AQUALINK_HTTP_HEADERS.copy()
         headers.update(kwargs.pop("headers", {}))
 
-        max_attempts = RETRY_MAX_ATTEMPTS if retry else 1
+        LOGGER.debug("-> %s %s %s", method.upper(), url, kwargs)
+        r = await client.request(method, url, headers=headers, **kwargs)
 
-        attempt_429 = 0
-        refreshed = False
+        LOGGER.debug("<- %s %s - %s", r.status_code, r.reason_phrase, url)
 
-        while True:
-            LOGGER.debug("-> %s %s %s", method.upper(), url, kwargs)
-            r = await self._client.request(
-                method, url, headers=headers, **kwargs
+        if r.status_code == httpx.codes.UNAUTHORIZED:
+            self._logged = False
+            raise AqualinkServiceUnauthorizedException()
+
+        if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
+            attempts = RETRY_MAX_ATTEMPTS if retry else 1
+            LOGGER.warning(
+                "Rate limited (429), giving up after %d attempt(s)",
+                attempts,
+            )
+            raise AqualinkServiceThrottledException(
+                f"Rate limited after {attempts} attempt(s)"
             )
 
-            LOGGER.debug("<- %s %s - %s", r.status_code, r.reason_phrase, url)
+        if r.status_code != httpx.codes.OK:
+            m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
+            raise AqualinkServiceException(m)
 
-            if r.status_code == httpx.codes.UNAUTHORIZED:
-                was_logged = self._logged
-                self._logged = False
-                if was_logged and self._refresh_token and not refreshed:
-                    refreshed = True
-                    await self._refresh_auth()
-                    # _refresh_auth sets _logged=True, but the Authorization
-                    # header below hasn't been updated yet. The window is
-                    # narrow (no await between here and continue) so a
-                    # concurrent coroutine that reads _logged=True would still
-                    # use its own locally-built headers — not ours.
-                    if "Authorization" in headers:
-                        old = headers["Authorization"]
-                        # Preserve caller format: "Bearer <token>" (iAqua) or
-                        # raw token (eXO). Case-sensitive match is intentional
-                        # — `headers` is a plain dict whose keys are set by
-                        # this method and by callers, all using title-case.
-                        # Converting to httpx.Headers just for this check
-                        # would be over-engineered.
-                        prefix = "Bearer " if old.startswith("Bearer ") else ""
-                        headers["Authorization"] = f"{prefix}{self.id_token}"
-                    # Reset the 429 counter so the post-refresh retry gets
-                    # its own full rate-limit budget; 429s before the token
-                    # expired should not penalise the refreshed request.
-                    attempt_429 = 0
-                    # Re-enter the loop so 429 backoff applies to the retry.
-                    continue
-                raise AqualinkServiceUnauthorizedException()
+        return r
 
-            if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
-                LOGGER.debug("429 response headers: %s", dict(r.headers))
-                if attempt_429 < max_attempts - 1:
-                    delay = self._get_retry_delay(r, attempt_429)
-                    LOGGER.warning(
-                        "Rate limited (429), retry %d/%d in %.1fs",
-                        attempt_429 + 1,
-                        max_attempts,
-                        delay,
-                    )
-                    await asyncio.sleep(delay)
-                    attempt_429 += 1
-                    continue
-                break
-
-            if r.status_code != httpx.codes.OK:
-                m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
-                raise AqualinkServiceException(m)
-
-            return r
-
-        LOGGER.warning(
-            "Rate limited (429), giving up after %d attempt(s)",
-            max_attempts,
-        )
-        raise AqualinkServiceThrottledException(
-            f"Rate limited after {max_attempts} attempt(s)"
-        )
-
-    @staticmethod
-    def _get_retry_delay(response: httpx.Response, attempt: int) -> float:
-        """Determine delay before the next retry.
-
-        Fallback order: numeric Retry-After → HTTP-date Retry-After
-        → exponential backoff with half-jitter.
-        """
-        retry_after = response.headers.get("retry-after")
-        if retry_after is not None:
-            try:
-                return min(float(retry_after), RETRY_AFTER_MAX_DELAY)
-            except ValueError:
-                pass
-
-            try:
-                dt = parsedate_to_datetime(retry_after)
-                delay = (dt - datetime.now(tz=timezone.utc)).total_seconds()
-                if delay > 0:
-                    return min(delay, RETRY_AFTER_MAX_DELAY)
-            except (ValueError, TypeError):
-                pass
-
-            LOGGER.debug(
-                "Could not parse Retry-After header: %s",
-                retry_after,
+    def _build_httpx_client(self, retry: bool) -> httpx.AsyncClient:
+        kwargs: dict[str, Any] = {
+            "http2": True,
+            "limits": httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
+        }
+        if retry:
+            kwargs["transport"] = RetryTransport(
+                retry=AqualinkRetry(
+                    total=RETRY_MAX_ATTEMPTS - 1,
+                    backoff_factor=RETRY_BASE_DELAY,
+                    max_backoff_wait=RETRY_MAX_DELAY,
+                    allowed_methods=RETRYABLE_METHODS,
+                    status_forcelist={httpx.codes.TOO_MANY_REQUESTS},
+                )
             )
+        return httpx.AsyncClient(**kwargs)
 
-        delay = min(RETRY_BASE_DELAY * (2**attempt), RETRY_MAX_DELAY)
-        return random.uniform(delay / 2, delay)
+    def _get_httpx_client(self, retry: bool) -> httpx.AsyncClient:
+        if retry:
+            if self._client is None:
+                self._client = self._build_httpx_client(retry=True)
+            return self._client
+
+        if self._single_attempt_client is None:
+            self._single_attempt_client = self._build_httpx_client(retry=False)
+        return self._single_attempt_client
 
     async def _send_login_request(self) -> httpx.Response:
         data = {
@@ -279,36 +239,45 @@ class AqualinkClient:
             await self.login()
             return
 
-        data = r.json()
+        self._apply_login_data(
+            r.json(),
+            refresh_token_fallback=self._refresh_token,
+        )
+
+    async def login(self) -> None:
+        r = await self._send_login_request()
+        self._apply_login_data(r.json(), refresh_token_fallback="")
+
+    def _apply_login_data(
+        self,
+        data: dict[str, Any],
+        refresh_token_fallback: str,
+    ) -> None:
         self.client_id = data["session_id"]
         self._token = data["authentication_token"]
         self._user_id = data["id"]
         self.id_token = data["userPoolOAuth"]["IdToken"]
         self._refresh_token = data["userPoolOAuth"].get(
-            "RefreshToken", self._refresh_token
+            "RefreshToken", refresh_token_fallback
         )
         self._logged = True
 
-    async def login(self) -> None:
-        r = await self._send_login_request()
-
-        data = r.json()
-        self.client_id = data["session_id"]
-        self._token = data["authentication_token"]
-        self._user_id = data["id"]
-        self.id_token = data["userPoolOAuth"]["IdToken"]
-        self._refresh_token = data["userPoolOAuth"].get("RefreshToken", "")
-        self._logged = True
-
     async def _send_systems_request(self) -> httpx.Response:
-        params = {
-            "api_key": AQUALINK_API_KEY,
-            "authentication_token": self._token,
-            "user_id": self._user_id,
-        }
-        params_str = "&".join(f"{k}={v}" for k, v in params.items())
-        url = f"{AQUALINK_DEVICES_URL}?{params_str}"
-        return await self.send_request(url)
+        async def do_request() -> httpx.Response:
+            params = {
+                "api_key": AQUALINK_API_KEY,
+                "authentication_token": self._token,
+                "user_id": self._user_id,
+            }
+            params_str = "&".join(f"{k}={v}" for k, v in params.items())
+            url = f"{AQUALINK_DEVICES_URL}?{params_str}"
+            return await self.send_request(url)
+
+        return await send_with_reauth_retry(
+            do_request,
+            self._refresh_auth,
+            can_refresh=lambda: bool(self._refresh_token),
+        )
 
     async def get_systems(self) -> dict[str, AqualinkSystem]:
         try:

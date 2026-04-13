@@ -40,9 +40,16 @@ class ExoSystem(AqualinkSystem):
         return f"{self.__class__.__name__}({' '.join(attrs)})"
 
     async def send_devices_request(self, **kwargs: Any) -> httpx.Response:
-        url = f"{EXO_DEVICES_URL}/{self.serial}/shadow"
-        headers = {"Authorization": self.aqualink.id_token}
-        return await self.aqualink.send_request(url, headers=headers, **kwargs)
+        async def do_request() -> httpx.Response:
+            url = f"{EXO_DEVICES_URL}/{self.serial}/shadow"
+            headers = {"Authorization": self.aqualink.id_token}
+            return await self.aqualink.send_request(
+                url,
+                headers=headers,
+                **kwargs,
+            )
+
+        return await self._send_with_reauth_retry(do_request)
 
     async def send_reported_state_request(self) -> httpx.Response:
         return await self.send_devices_request()

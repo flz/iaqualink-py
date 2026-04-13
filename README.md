@@ -12,6 +12,8 @@
 ### ✨ Features
 
 - 🔄 **Fully Asynchronous** - Built with `asyncio` and `httpx` for efficient, non-blocking I/O
+- 🔁 **HTTP Retry Transport** - Uses `httpx-retries` for 429 backoff and `Retry-After` handling
+- 🔐 **401 Replay for Auth-Bearing Requests** - Uses `tenacity` to rebuild and replay systems discovery and iaqua/exo system requests after token refresh
 - 🏗️ **Multi-System Support**
   - **iAqua** systems (iaqualink.net API)
   - **eXO** systems (zodiac-io.com API)
@@ -190,6 +192,8 @@ uv run mypy src/
 
 - Python 3.14 or higher
 - httpx with HTTP/2 support
+- httpx-retries for transport-level 429 retry handling
+- tenacity for system-level 401 refresh-and-retry handling
 
 ## 📄 License
 

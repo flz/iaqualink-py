@@ -26,6 +26,8 @@ classifiers = [
 ]
 dependencies = [
     "httpx[http2]>=0.27.0",
+    "httpx-retries>=0.4.6",
+    "tenacity>=9.0.0",
 ]
 dynamic = [
     "version",

@@ -65,16 +65,26 @@ class IaquaSystem(AqualinkSystem):
                 "actionID": "command",
                 "command": command,
                 "serial": self.serial,
-                "sessionID": self.aqualink.client_id,
             }
         )
-        params_str = "&".join(f"{k}={v}" for k, v in params.items())
-        url = f"{IAQUA_SESSION_URL}?{params_str}"
-        headers = {
-            "Authorization": f"Bearer {self.aqualink.id_token}",
-            "api_key": AQUALINK_API_KEY,
-        }
-        return await self.aqualink.send_request(url, headers=headers)
+
+        async def do_request() -> httpx.Response:
+            request_params = {
+                **params,
+                "sessionID": self.aqualink.client_id,
+            }
+            params_str = "&".join(f"{k}={v}" for k, v in request_params.items())
+            url = f"{IAQUA_SESSION_URL}?{params_str}"
+            headers = {
+                "Authorization": f"Bearer {self.aqualink.id_token}",
+                "api_key": AQUALINK_API_KEY,
+            }
+            return await self.aqualink.send_request(
+                url,
+                headers=headers,
+            )
+
+        return await self._send_with_reauth_retry(do_request)
 
     async def _send_home_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_HOME)
