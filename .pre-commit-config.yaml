@@ -21,9 +21,8 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies:
-          - types-PyYAML==6.0.12
+          - types-PyYAML
         exclude: ^(tests/.*)
-        additional_dependencies: ["types-PyYAML"]
 
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: 0.6.5
