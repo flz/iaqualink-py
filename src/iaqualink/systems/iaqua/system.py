@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import TYPE_CHECKING
 
@@ -121,21 +122,23 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("Home response: %s", data)
 
-        if data.home_screen[0]["status"] == "Offline":
+        first = dataclasses.asdict(data.home_screen[0])
+        if first.get("status") == "Offline":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
 
-        if data.home_screen[2]["system_type"] == "":
+        if dataclasses.asdict(data.home_screen[2]).get("system_type") == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
 
-        self.temp_unit = data.home_screen[3]["temp_scale"]
+        self.temp_unit = dataclasses.asdict(data.home_screen[3])["temp_scale"]
 
         # Make the data a bit flatter.
         devices = {}
         for x in data.home_screen[4:]:
-            name = next(iter(x.keys()))
-            state = next(iter(x.values()))
+            d = dataclasses.asdict(x)
+            name = next(iter(d))
+            state = d[name]
             attrs = {"name": name, "state": state}
             devices.update({name: attrs})
 

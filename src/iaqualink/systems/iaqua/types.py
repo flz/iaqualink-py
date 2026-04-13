@@ -7,7 +7,7 @@ from mashumaro.mixins.json import DataClassJSONMixin
 
 @dataclass
 class IaquaHomeResponse(DataClassJSONMixin):
-    home_screen: list[dict[str, Any]]
+    home_screen: list["HomeScreenItem"]
     message: str = ""
     serial: str = ""
 
@@ -190,37 +190,38 @@ class HomeScreenRelayCount(DataClassJSONMixin):
     relay_count: str
 
 
+HomeScreenItem = Union[
+    HomeScreenAirTemp,
+    HomeScreenCoverPool,
+    HomeScreenFreezeProtection,
+    HomeScreenHeatpumpInfo,
+    HomeScreenIclCustomColor,
+    HomeScreenIsIclPresent,
+    HomeScreenOrp,
+    HomeScreenPh,
+    HomeScreenPoolChillSetPoint,
+    HomeScreenPoolHeater,
+    HomeScreenPoolPump,
+    HomeScreenPoolSalinity,
+    HomeScreenPoolSetPoint,
+    HomeScreenPoolTemp,
+    HomeScreenRelayCount,
+    HomeScreenResponse,
+    HomeScreenSetPoint,
+    HomeScreenSolarHeater,
+    HomeScreenSpaHeater,
+    HomeScreenSpaPump,
+    HomeScreenSpaSalinity,
+    HomeScreenSpaTemp,
+    HomeScreenStatus,
+    HomeScreenSwcInfo,
+    HomeScreenSystemType,
+    HomeScreenTempScale,
+]
+
+
 @dataclass
 class HomeResponse(DataClassJSONMixin):
     message: str
     serial: str
-    home_screen: List[
-        Union[
-            HomeScreenAirTemp
-            | HomeScreenCoverPool
-            | HomeScreenFreezeProtection
-            | HomeScreenHeatpumpInfo
-            | HomeScreenIclCustomColor
-            | HomeScreenIsIclPresent
-            | HomeScreenOrp
-            | HomeScreenPh
-            | HomeScreenPoolChillSetPoint
-            | HomeScreenPoolHeater
-            | HomeScreenPoolPump
-            | HomeScreenPoolSalinity
-            | HomeScreenPoolSetPoint
-            | HomeScreenPoolTemp
-            | HomeScreenRelayCount
-            | HomeScreenResponse
-            | HomeScreenSetPoint
-            | HomeScreenSolarHeater
-            | HomeScreenSpaHeater
-            | HomeScreenSpaPump
-            | HomeScreenSpaSalinity
-            | HomeScreenSpaTemp
-            | HomeScreenStatus
-            | HomeScreenSwcInfo
-            | HomeScreenSystemType
-            | HomeScreenTempScale
-        ]
-    ]
+    home_screen: List[HomeScreenItem]
