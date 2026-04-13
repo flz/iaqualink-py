@@ -14,6 +14,7 @@ from iaqualink.exception import (
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaDevice
 from iaqualink.systems.iaqua.types import (
+    HomeScreenStatus,
     IaquaDevicesResponse,
     IaquaHomeResponse,
 )
@@ -157,7 +158,8 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("Devices response: %s", data)
 
-        if data.devices_screen[0]["status"] == "Offline":
+        first = data.devices_screen[0]
+        if isinstance(first, HomeScreenStatus) and first.status == "Offline":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
 
@@ -172,10 +174,14 @@ class IaquaSystem(AqualinkSystem):
         # Make the data a bit flatter.
         devices = {}
         for x in data.devices_screen[3:]:
-            aux = next(iter(x.keys()))
-            attrs = {"aux": aux.replace("aux_", ""), "name": aux}
-            for y in next(iter(x.values())):
-                attrs.update(y)
+            if not isinstance(x, dict):
+                continue
+            aux = next(iter(x))
+            attrs = {
+                "aux": aux.replace("aux_", ""),
+                "name": aux,
+                **dataclasses.asdict(x[aux]),
+            }
             devices.update({aux: attrs})
 
         for k, v in devices.items():
