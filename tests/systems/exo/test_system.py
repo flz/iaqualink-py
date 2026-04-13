@@ -272,6 +272,56 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
         with pytest.raises(AqualinkServiceUnauthorizedException):
             await system.send_reported_state_request()
 
+    @patch("httpx.AsyncClient.request")
+    async def test_reported_state_request_retries_after_refresh(
+        self, mock_request
+    ):
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
+        aqualink = AqualinkClient("user", "pass")
+        system = ExoSystem.from_data(aqualink, data)
+
+        mock_request.side_effect = [
+            MagicMock(status_code=401),
+            MagicMock(status_code=200),
+        ]
+        aqualink.id_token = "old-id-token"
+
+        async def fake_refresh() -> None:
+            aqualink.id_token = "new-id-token"
+
+        with patch.object(
+            aqualink, "_refresh_auth", side_effect=fake_refresh
+        ) as mock_refresh:
+            await system.send_reported_state_request()
+
+        retry_headers = mock_request.call_args_list[1][1]["headers"]
+
+        mock_refresh.assert_awaited_once()
+        assert retry_headers["Authorization"] == "new-id-token"
+
+    @patch("httpx.AsyncClient.request")
+    async def test_reported_state_request_refreshes_only_once_on_repeated_401(
+        self, mock_request
+    ):
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
+        aqualink = AqualinkClient("user", "pass")
+        system = ExoSystem.from_data(aqualink, data)
+
+        mock_request.side_effect = [
+            MagicMock(status_code=401),
+            MagicMock(status_code=401),
+        ]
+
+        with (
+            patch.object(
+                aqualink, "_refresh_auth", return_value=None
+            ) as mock_refresh,
+            pytest.raises(AqualinkServiceUnauthorizedException),
+        ):
+            await system.send_reported_state_request()
+
+        mock_refresh.assert_awaited_once()
+
     async def test_update_skipped_within_refresh_interval(self):
         aqualink = MagicMock()
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}

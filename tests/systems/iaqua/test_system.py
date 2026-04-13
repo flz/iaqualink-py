@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+import urllib.parse
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -138,6 +139,55 @@ class TestIaquaSystem(TestBaseSystem):
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
             await self.sut._send_devices_screen_request()
+
+    @patch("httpx.AsyncClient.request")
+    async def test_session_request_retries_after_refresh(
+        self, mock_request
+    ) -> None:
+        mock_request.side_effect = [
+            MagicMock(status_code=401),
+            MagicMock(status_code=200),
+        ]
+        self.client.client_id = "old-session-id"
+        self.client.id_token = "old-id-token"
+
+        async def fake_refresh() -> None:
+            self.client.client_id = "new-session-id"
+            self.client.id_token = "new-id-token"
+
+        with patch.object(
+            self.client, "_refresh_auth", side_effect=fake_refresh
+        ) as mock_refresh:
+            await self.sut._send_home_screen_request()
+
+        retry_url = mock_request.call_args_list[1][0][1]
+        retry_headers = mock_request.call_args_list[1][1]["headers"]
+        retry_params = urllib.parse.parse_qs(
+            urllib.parse.urlparse(retry_url).query
+        )
+
+        mock_refresh.assert_awaited_once()
+        assert retry_params["sessionID"] == ["new-session-id"]
+        assert retry_headers["Authorization"] == "Bearer new-id-token"
+
+    @patch("httpx.AsyncClient.request")
+    async def test_session_request_refreshes_only_once_on_repeated_401(
+        self, mock_request
+    ) -> None:
+        mock_request.side_effect = [
+            MagicMock(status_code=401),
+            MagicMock(status_code=401),
+        ]
+
+        with (
+            patch.object(
+                self.client, "_refresh_auth", return_value=None
+            ) as mock_refresh,
+            pytest.raises(AqualinkServiceUnauthorizedException),
+        ):
+            await self.sut._send_home_screen_request()
+
+        mock_refresh.assert_awaited_once()
 
     @patch("httpx.AsyncClient.request")
     async def test_session_request_uses_v2_url(self, mock_request) -> None:

@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 import logging
 from typing import TYPE_CHECKING, ClassVar
 
 from iaqualink.exception import AqualinkSystemUnsupportedException
+from iaqualink.reauth import send_with_reauth_retry
 
 if TYPE_CHECKING:
+    import httpx
+
     from iaqualink.client import AqualinkClient
     from iaqualink.device import AqualinkDevice
     from iaqualink.typing import Payload
@@ -62,6 +66,15 @@ class AqualinkSystem:
         if not self.devices:
             await self.update()
         return self.devices
+
+    async def _send_with_reauth_retry(
+        self,
+        request_factory: Callable[[], Awaitable[httpx.Response]],
+    ) -> httpx.Response:
+        return await send_with_reauth_retry(
+            request_factory,
+            self.aqualink._refresh_auth,
+        )
 
     async def update(self) -> None:
         raise NotImplementedError
