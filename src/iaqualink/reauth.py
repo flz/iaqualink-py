@@ -13,13 +13,9 @@ async def send_with_reauth_retry(
     request_factory: Callable[[], Awaitable[httpx.Response]],
     refresh_auth: Callable[[], Awaitable[None]],
 ) -> httpx.Response:
-    for attempt in range(2):
-        try:
-            return await request_factory()
-        except AqualinkServiceUnauthorizedException:
-            if attempt == 0:
-                await refresh_auth()
-                continue
-            raise
+    try:
+        return await request_factory()
+    except AqualinkServiceUnauthorizedException:
+        await refresh_auth()
 
-    raise AssertionError("unreachable")  # pragma: no cover
+    return await request_factory()

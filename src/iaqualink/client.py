@@ -46,6 +46,8 @@ AQUALINK_HTTP_HEADERS = {
 # responses, where the server asked the client to retry later rather than
 # acknowledging the request. That covers auth POSTs plus the eXO desired-state
 # update, which replaces a target state instead of appending a side effect.
+# iAqua command POSTs are a trade-off: a retried 429 assumes the server rejected
+# the command before processing it, which matches observed rate-limit behavior.
 RETRYABLE_METHODS = frozenset({"GET", "POST"})
 
 LOGGER = logging.getLogger("iaqualink")
@@ -53,10 +55,12 @@ LOGGER = logging.getLogger("iaqualink")
 
 class AqualinkRetry(Retry):
     def parse_retry_after(self, retry_after: str) -> float:
-        return min(
-            max(super().parse_retry_after(retry_after), 0.0),
-            RETRY_AFTER_MAX_DELAY,
-        )
+        try:
+            delay = super().parse_retry_after(retry_after)
+        except ValueError:
+            return 0.0
+
+        return min(max(delay, 0.0), RETRY_AFTER_MAX_DELAY)
 
 
 class AqualinkClient:
@@ -161,25 +165,21 @@ class AqualinkClient:
 
         return r
 
-    def _build_httpx_client(self) -> httpx.AsyncClient:
-        kwargs: dict[str, Any] = {
-            "http2": True,
-            "limits": httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
-            "transport": RetryTransport(
-                retry=AqualinkRetry(
-                    total=RETRY_MAX_ATTEMPTS - 1,
-                    backoff_factor=RETRY_BASE_DELAY,
-                    max_backoff_wait=RETRY_MAX_DELAY,
-                    allowed_methods=RETRYABLE_METHODS,
-                    status_forcelist={httpx.codes.TOO_MANY_REQUESTS},
-                )
-            ),
-        }
-        return httpx.AsyncClient(**kwargs)
-
     def _get_httpx_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = self._build_httpx_client()
+            self._client = httpx.AsyncClient(
+                http2=True,
+                limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
+                transport=RetryTransport(
+                    retry=AqualinkRetry(
+                        total=RETRY_MAX_ATTEMPTS - 1,
+                        backoff_factor=RETRY_BASE_DELAY,
+                        max_backoff_wait=RETRY_MAX_DELAY,
+                        allowed_methods=RETRYABLE_METHODS,
+                        status_forcelist={httpx.codes.TOO_MANY_REQUESTS},
+                    )
+                ),
+            )
         return self._client
 
     async def _send_login_request(self) -> httpx.Response:

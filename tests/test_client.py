@@ -234,7 +234,9 @@ class TestAqualinkClient(TestBase):
         mock_refresh.assert_awaited_once()
 
     @patch("httpx.AsyncClient.request")
-    async def test_systems_request_unauthorized(self, mock_request) -> None:
+    async def test_systems_request_404_maps_to_unauthorized(
+        self, mock_request
+    ) -> None:
         mock_request.return_value.status_code = 404
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
@@ -275,6 +277,13 @@ class TestAqualinkClient(TestBase):
         past = datetime.now(tz=UTC) - timedelta(days=1)
 
         assert retry.parse_retry_after(format_datetime(past, usegmt=True)) == 0
+
+    def test_429_retry_after_unparseable_does_not_raise(self) -> None:
+        retry = AqualinkRetry(total=RETRY_MAX_ATTEMPTS - 1)
+
+        result = retry.parse_retry_after("totally-invalid")
+
+        assert result >= 0.0
 
     @respx.mock
     @patch("iaqualink.client.AqualinkRetry.asleep", new_callable=AsyncMock)
