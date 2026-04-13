@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +18,7 @@ from iaqualink.systems.exo.device import (
     ExoSensor,
 )
 from iaqualink.systems.exo.system import ExoSystem
+from iaqualink.types import DevicesResponseElement
 
 from ...base_test_system import TestBaseSystem
 
@@ -174,14 +177,23 @@ class TestExoSystem(TestBaseSystem):
     def setUp(self) -> None:
         super().setUp()
 
-        data = {
-            "id": 1,
-            "serial_number": "ABCDEFG",
-            "device_type": "exo",
-            "name": "Pool",
-        }
+        data = DevicesResponseElement(
+            id=1,
+            serial_number="ABCDEFG",
+            device_type="exo",
+            name="Pool",
+        )
         self.sut = AqualinkSystem.from_data(self.client, data=data)
         self.sut_class = ExoSystem
+
+    def test_from_data_exo(self) -> None:
+        aqualink = MagicMock()
+        data = DevicesResponseElement(
+            device_type="exo", serial_number="ABCDEFG"
+        )
+        r = AqualinkSystem.from_data(aqualink, data)
+        assert r is not None
+        assert isinstance(r, ExoSystem)
 
     async def test_update_success(self) -> None:
         with patch.object(self.sut, "_parse_shadow_response"):
@@ -207,7 +219,7 @@ class TestExoSystem(TestBaseSystem):
 
     def test_parse_devices_good(self) -> None:
         response = MagicMock()
-        response.json.return_value = SAMPLE_DATA
+        response.text = json.dumps(SAMPLE_DATA)
         self.sut._parse_shadow_response(response)
 
         assert len(self.sut.devices) > 0
@@ -292,3 +304,34 @@ class TestExoSystem(TestBaseSystem):
             await self.sut.send_reported_state_request()
 
         mock_refresh.assert_awaited_once()
+
+    async def test_update_skipped_within_refresh_interval(self) -> None:
+        aqualink = MagicMock()
+        data = DevicesResponseElement(
+            device_type="exo", serial_number="ABCDEFG"
+        )
+        system = AqualinkSystem.from_data(aqualink, data)
+        system.send_reported_state_request = async_noop
+        system._parse_shadow_response = MagicMock()
+
+        # First update should go through.
+        now = int(time.time())
+        with patch("iaqualink.systems.exo.system.time") as mock_time:
+            mock_time.time.return_value = now
+            await system.update()
+        assert system._parse_shadow_response.call_count == 1
+
+        # Second update within MIN_SECS_TO_REFRESH should be skipped.
+        system._parse_shadow_response.reset_mock()
+        with patch("iaqualink.systems.exo.system.time") as mock_time:
+            mock_time.time.return_value = (
+                now + ExoSystem.MIN_SECS_TO_REFRESH - 1
+            )
+            await system.update()
+        assert system._parse_shadow_response.call_count == 0
+
+        # Update after MIN_SECS_TO_REFRESH should go through.
+        with patch("iaqualink.systems.exo.system.time") as mock_time:
+            mock_time.time.return_value = now + ExoSystem.MIN_SECS_TO_REFRESH
+            await system.update()
+        assert system._parse_shadow_response.call_count == 1

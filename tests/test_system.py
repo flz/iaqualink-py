@@ -8,6 +8,7 @@ import pytest
 
 from iaqualink.client import AqualinkClient
 from iaqualink.system import AqualinkSystem, UnsupportedSystem
+from iaqualink.types import DevicesResponseElement
 
 
 class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
@@ -16,12 +17,9 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
 
     def test_repr(self) -> None:
         aqualink = MagicMock()
-        data = {
-            "id": 1,
-            "serial_number": "ABCDEFG",
-            "device_type": "iaqua",
-            "name": "foo",
-        }
+        data = DevicesResponseElement(
+            device_type="iaqua", serial_number="ABCDEFG", name="foo", id=1
+        )
         system = AqualinkSystem(aqualink, data)
         assert (
             repr(system)
@@ -30,18 +28,24 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
 
     def test_from_data_iaqua(self) -> None:
         aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
+        data = DevicesResponseElement(
+            device_type="iaqua", serial_number="ABCDEFG"
+        )
         r = AqualinkSystem.from_data(aqualink, data)
         assert r is not None
 
     def test_supported_true_for_known_system(self) -> None:
         aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
+        data = DevicesResponseElement(
+            device_type="iaqua", serial_number="ABCDEFG"
+        )
         r = AqualinkSystem.from_data(aqualink, data)
         assert r.supported is True
 
     async def test_get_devices_needs_update(self) -> None:
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
+        data = DevicesResponseElement(
+            device_type="fake", serial_number="ABCDEFG"
+        )
         aqualink = AqualinkClient("user", "pass")
         system = AqualinkSystem(aqualink, data)
         system.devices = None
@@ -51,7 +55,9 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
             mock_update.assert_called_once()
 
     async def test_get_devices(self) -> None:
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
+        data = DevicesResponseElement(
+            device_type="fake", serial_number="ABCDEFG"
+        )
         aqualink = AqualinkClient("user", "pass")
         system = AqualinkSystem(aqualink, data)
         system.devices = {"foo": "bar"}
@@ -61,7 +67,9 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
             mock_update.assert_not_called()
 
     async def test_update_not_implemented(self) -> None:
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
+        data = DevicesResponseElement(
+            device_type="fake", serial_number="ABCDEFG"
+        )
         aqualink = AqualinkClient("user", "pass")
         system = AqualinkSystem(aqualink, data)
 

@@ -22,6 +22,7 @@ from iaqualink.systems.exo.device import (
     ExoThermostat,
 )
 from iaqualink.systems.exo.system import ExoSystem
+from iaqualink.types import DevicesResponseElement
 
 from ...base_test_device import (
     TestBaseDevice,
@@ -35,7 +36,9 @@ class TestExoDevice(TestBaseDevice):
     def setUp(self) -> None:
         super().setUp()
 
-        data = {"serial_number": "SN123456", "device_type": "exo"}
+        data = DevicesResponseElement(
+            device_type="exo", serial_number="SN123456"
+        )
         self.system = ExoSystem(self.client, data=data)
 
         data = {"name": "Test Device", "state": "42"}
