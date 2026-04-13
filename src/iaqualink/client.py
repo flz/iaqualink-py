@@ -41,6 +41,8 @@ AQUALINK_HTTP_HEADERS = {
     "user-agent": "okhttp/3.14.7",
     "content-type": "application/json",
 }
+# POST remains retryable here because the transport only retries 429 responses,
+# where the server declined the request due to rate limiting.
 RETRYABLE_METHODS = frozenset({"GET", "POST"})
 
 LOGGER = logging.getLogger("iaqualink")
@@ -139,6 +141,8 @@ class AqualinkClient:
             raise AqualinkServiceUnauthorizedException()
 
         if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
+            # RetryTransport returns the final 429 response once the retry
+            # budget is exhausted, so translate it to the library exception here.
             LOGGER.warning(
                 "Rate limited (429), giving up after %d attempt(s)",
                 RETRY_MAX_ATTEMPTS,
@@ -214,6 +218,10 @@ class AqualinkClient:
         # attempt another token refresh on 401 — that is prevented because
         # self._logged is False by the time this method is called, so the
         # re-entrant 401 path in send_request is skipped.
+        if not self._refresh_token:
+            await self.login()
+            return
+
         try:
             r = await self._send_refresh_request()
         except AqualinkServiceUnauthorizedException:
@@ -258,7 +266,6 @@ class AqualinkClient:
         return await send_with_reauth_retry(
             do_request,
             self._refresh_auth,
-            can_refresh=lambda: bool(self._refresh_token),
         )
 
     async def get_systems(self) -> dict[str, AqualinkSystem]:

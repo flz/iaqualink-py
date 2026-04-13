@@ -85,7 +85,7 @@ The library follows a plugin-style architecture with base classes and system-spe
      - **IaquaSystem** ([systems/iaqua/system.py](src/iaqualink/systems/iaqua/system.py)) - For "iaqua" device_type
      - **ExoSystem** ([systems/exo/system.py](src/iaqualink/systems/exo/system.py)) - For "exo" device_type
    - Implements polling with rate limiting (MIN_SECS_TO_REFRESH per system: 5s iaqua, 50s exo)
-   - Uses the shared Tenacity-based reauth helper to retry iaqua and exo system requests once after refreshing auth on `AqualinkServiceUnauthorizedException`
+   - Uses the shared reauth helper to retry iaqua and exo system requests once after refreshing auth on `AqualinkServiceUnauthorizedException`
    - Tracks online/offline status
 
 3. **AqualinkDevice** ([device.py](src/iaqualink/device.py)) - Base class for devices
@@ -133,7 +133,8 @@ To add a new system type:
 4. Implement device parsing in `_parse_*_response()` methods
 5. Create corresponding device classes extending base device types
 6. In `update()`, re-raise `AqualinkServiceThrottledException` before the broader `AqualinkServiceException` handler to prevent `online = None` on rate-limiting (see existing implementations in `iaqua/system.py` and `exo/system.py`)
-7. Add tests following existing patterns in `tests/systems/newsystem/`
+7. Register the new system module import in `src/iaqualink/client.py` so `AqualinkSystem.from_data()` can discover the subclass at runtime
+8. Add tests following existing patterns in `tests/systems/newsystem/`
 
 ## Quality Gates
 

@@ -355,19 +355,77 @@ class TestAqualinkClient(TestBase):
             await self.client._send_systems_request()
 
     @patch("httpx.AsyncClient.request")
-    async def test_401_without_refresh_token_raises_immediately(
+    async def test_401_without_refresh_token_falls_back_to_login(
         self, mock_request
     ) -> None:
-        # When no refresh token is available, 401 raises without any retry.
         mock_request.side_effect = [
             _make_resp(200, LOGIN_DATA),  # login — no RefreshToken in response
             _make_resp(401),
+            _make_resp(200, LOGIN_DATA),
+            _make_resp(200, []),
         ]
 
         await self.client.login()
-        with pytest.raises(AqualinkServiceUnauthorizedException):
+        response = await self.client._send_systems_request()
+
+        assert response.status_code == httpx.codes.OK
+        assert mock_request.call_count == 4
+
+    @respx.mock
+    @patch("iaqualink.client.AqualinkRetry.asleep", new_callable=AsyncMock)
+    async def test_systems_request_retry_after_refresh_gets_full_429_budget(
+        self, mock_sleep
+    ) -> None:
+        self.client._token = "old-token"
+        self.client._user_id = "id"
+
+        async def fake_refresh() -> None:
+            self.client._token = "new-token"
+
+        initial_route = respx.get(
+            "https://r-api.iaqualink.net/devices.json?api_key=EOOEMOW4YR6QNB07&authentication_token=old-token&user_id=id"
+        ).mock(
+            return_value=httpx.Response(status_code=httpx.codes.UNAUTHORIZED)
+        )
+        retry_route = respx.get(
+            "https://r-api.iaqualink.net/devices.json?api_key=EOOEMOW4YR6QNB07&authentication_token=new-token&user_id=id"
+        ).mock(
+            side_effect=[
+                httpx.Response(status_code=httpx.codes.TOO_MANY_REQUESTS)
+            ]
+            * RETRY_MAX_ATTEMPTS
+        )
+
+        with (
+            patch.object(
+                self.client, "_refresh_auth", side_effect=fake_refresh
+            ),
+            pytest.raises(AqualinkServiceThrottledException),
+        ):
             await self.client._send_systems_request()
-        assert mock_request.call_count == 2
+
+        assert initial_route.call_count == 1
+        assert retry_route.call_count == RETRY_MAX_ATTEMPTS
+        assert mock_sleep.call_count == RETRY_MAX_ATTEMPTS - 1
+
+    @patch("httpx.AsyncClient.request")
+    async def test_systems_request_500_after_refresh_raises_service_exception(
+        self, mock_request
+    ) -> None:
+        mock_request.side_effect = [
+            _make_resp(401),
+            _make_resp(500),
+        ]
+
+        with (
+            patch.object(self.client, "_refresh_auth", return_value=None),
+            pytest.raises(AqualinkServiceException) as exc_info,
+        ):
+            await self.client._send_systems_request()
+
+        assert not isinstance(
+            exc_info.value, AqualinkServiceUnauthorizedException
+        )
 
     @patch("httpx.AsyncClient.request")
     async def test_refresh_retains_existing_token_when_none_returned(
