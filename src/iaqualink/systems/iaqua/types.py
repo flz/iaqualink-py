@@ -14,7 +14,7 @@ class IaquaHomeResponse(DataClassJSONMixin):
 
 @dataclass
 class IaquaDevicesResponse(DataClassJSONMixin):
-    devices_screen: list[dict[str, Any]]
+    devices_screen: list["DevicesScreenItem"]
     message: str = ""
 
 
@@ -188,6 +188,44 @@ class HomeScreenSwcInfo(DataClassJSONMixin):
 @dataclass
 class HomeScreenRelayCount(DataClassJSONMixin):
     relay_count: str
+
+
+@dataclass
+class DevicesScreenGroup(DataClassJSONMixin):
+    group: str
+
+
+@dataclass
+class DevicesScreenAuxAttrs(DataClassJSONMixin):
+    """Aux device attributes, deserialized from a list of single-key dicts.
+
+    The API sends: [{"state": "0"}, {"label": "X"}, {"icon": "..."}, ...]
+    __pre_deserialize__ flattens that into a plain dict before mashumaro
+    maps it onto the dataclass fields.
+    """
+
+    state: str
+    label: str
+    icon: str
+    type: str
+    subtype: str
+
+    @classmethod
+    def __pre_deserialize__(cls, d: Any) -> Any:
+        if isinstance(d, list):
+            merged: dict[str, Any] = {}
+            for item in d:
+                merged.update(item)
+            return merged
+        return d
+
+
+DevicesScreenItem = Union[
+    HomeScreenStatus,
+    HomeScreenResponse,
+    DevicesScreenGroup,
+    dict[str, DevicesScreenAuxAttrs],
+]
 
 
 HomeScreenItem = Union[
