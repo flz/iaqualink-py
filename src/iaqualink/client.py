@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import importlib
 import logging
@@ -41,8 +42,10 @@ AQUALINK_HTTP_HEADERS = {
     "user-agent": "okhttp/3.14.7",
     "content-type": "application/json",
 }
-# POST remains retryable here because the transport only retries 429 responses,
-# where the server declined the request due to rate limiting.
+# POST remains retryable here because the transport only retries explicit 429
+# responses, where the server asked the client to retry later rather than
+# acknowledging the request. That covers auth POSTs plus the eXO desired-state
+# update, which replaces a target state instead of appending a side effect.
 RETRYABLE_METHODS = frozenset({"GET", "POST"})
 
 LOGGER = logging.getLogger("iaqualink")
@@ -51,7 +54,7 @@ LOGGER = logging.getLogger("iaqualink")
 class AqualinkRetry(Retry):
     def parse_retry_after(self, retry_after: str) -> float:
         return min(
-            super().parse_retry_after(retry_after),
+            max(super().parse_retry_after(retry_after), 0.0),
             RETRY_AFTER_MAX_DELAY,
         )
 
@@ -81,6 +84,7 @@ class AqualinkClient:
         self._user_id = ""
         self.id_token = ""
         self._refresh_token = ""
+        self._refresh_lock = asyncio.Lock()
 
         self._last_refresh = 0
 
@@ -202,37 +206,34 @@ class AqualinkClient:
     async def _refresh_auth(self) -> None:
         """Attempt a token refresh; fall back to full login on 401.
 
-        Called from :meth:`send_request` when a 401 is received and a
-        refresh token is available.  Re-entrancy is prevented because
-        :attr:`_logged` is ``False`` by the time this method is called,
-        so the inner call to :meth:`send_request` skips the refresh path.
+        Concurrent unauthorized requests share a single refresh/login attempt.
+        Once one waiter restores authentication, later waiters return without
+        sending an extra refresh request.
 
         Only :exc:`AqualinkServiceUnauthorizedException` (401) from the
         refresh endpoint is caught — other errors (5xx, throttle) propagate
-        to the caller of :meth:`send_request` unchanged.  If the fallback
-        :meth:`login` also raises (wrong password, network error, 429),
-        that exception likewise propagates from :meth:`send_request` with
-        no additional wrapping.
+        unchanged. If the fallback :meth:`login` also raises, that exception
+        likewise propagates with no additional wrapping.
         """
-        # _send_refresh_request calls send_request, which would normally
-        # attempt another token refresh on 401 — that is prevented because
-        # self._logged is False by the time this method is called, so the
-        # re-entrant 401 path in send_request is skipped.
-        if not self._refresh_token:
-            await self.login()
-            return
+        async with self._refresh_lock:
+            if self._logged:
+                return
 
-        try:
-            r = await self._send_refresh_request()
-        except AqualinkServiceUnauthorizedException:
-            # Refresh token is expired or invalid — fall back to full login.
-            await self.login()
-            return
+            if not self._refresh_token:
+                await self.login()
+                return
 
-        self._apply_login_data(
-            r.json(),
-            refresh_token_fallback=self._refresh_token,
-        )
+            try:
+                r = await self._send_refresh_request()
+            except AqualinkServiceUnauthorizedException:
+                # Refresh token is expired or invalid — fall back to full login.
+                await self.login()
+                return
+
+            self._apply_login_data(
+                r.json(),
+                refresh_token_fallback=self._refresh_token,
+            )
 
     async def login(self) -> None:
         r = await self._send_login_request()

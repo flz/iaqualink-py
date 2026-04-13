@@ -22,4 +22,4 @@ async def send_with_reauth_retry(
                 continue
             raise
 
-    raise AssertionError("unreachable")
+    raise AssertionError("unreachable")  # pragma: no cover

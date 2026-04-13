@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -269,6 +270,12 @@ class TestAqualinkClient(TestBase):
             == RETRY_AFTER_MAX_DELAY
         )
 
+    def test_429_retry_after_past_date_clamped_to_zero(self) -> None:
+        retry = AqualinkRetry(total=RETRY_MAX_ATTEMPTS - 1)
+        past = datetime.now(tz=UTC) - timedelta(days=1)
+
+        assert retry.parse_retry_after(format_datetime(past, usegmt=True)) == 0
+
     @respx.mock
     @patch("iaqualink.client.AqualinkRetry.asleep", new_callable=AsyncMock)
     async def test_429_retries_exhausted(self, mock_sleep) -> None:
@@ -317,6 +324,38 @@ class TestAqualinkClient(TestBase):
             pytest.raises(AqualinkServiceThrottledException),
         ):
             await self.client._refresh_auth()
+
+    async def test_refresh_auth_concurrent_calls_only_refresh_once(
+        self,
+    ) -> None:
+        self.client._refresh_token = "refresh-token"
+        self.client._logged = False
+
+        started = asyncio.Event()
+        release = asyncio.Event()
+
+        async def fake_send_refresh_request() -> MagicMock:
+            started.set()
+            await release.wait()
+            return _make_resp(200, REFRESH_RESPONSE_DATA)
+
+        with patch.object(
+            self.client,
+            "_send_refresh_request",
+            side_effect=fake_send_refresh_request,
+        ) as mock_refresh:
+            first = asyncio.create_task(self.client._refresh_auth())
+            await started.wait()
+            second = asyncio.create_task(self.client._refresh_auth())
+
+            release.set()
+            await asyncio.gather(first, second)
+
+        mock_refresh.assert_awaited_once()
+        assert self.client.logged is True
+        assert (
+            self.client._token == REFRESH_RESPONSE_DATA["authentication_token"]
+        )
 
     @patch("httpx.AsyncClient.request")
     async def test_refresh_request_does_not_retry_unauthorized(
