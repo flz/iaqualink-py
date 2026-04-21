@@ -4,7 +4,7 @@ description: Propose and create the next release tag (final or release candidate
 
 # Release Command
 
-Create the next versioned git tag. The GitHub Actions release workflow fires automatically on any `v*` tag push, handling GitHub Release creation and PyPI publishing.
+Create the next versioned git tag. The GitHub Actions release workflow fires automatically on any `v*` tag push, handling GitHub Release creation and PyPI publishing — including pre-releases, which are published to the real PyPI (not Test PyPI) with pre-release status.
 
 ## Input
 
@@ -12,7 +12,19 @@ The user may optionally pass `rc` to create a release candidate instead of a fin
 
 ## Steps to Execute
 
-### 1. Determine the Latest Tag
+### 1. Validate Branch and Sync Tags
+
+Run the following commands:
+
+```bash
+git rev-parse --abbrev-ref HEAD
+git fetch --tags
+```
+
+- If HEAD is detached or the branch is not `master`, **stop and tell the user**. Tagging from a non-master branch is almost certainly a mistake. Do not proceed unless the user explicitly confirms they know what they're doing and want to tag this commit anyway.
+- The `git fetch --tags` ensures the local tag list matches the remote before any version analysis — a developer may have pushed a tag that isn't local yet.
+
+### 2. Determine the Latest Tag
 
 Run:
 ```bash
@@ -23,7 +35,7 @@ Identify:
 - **Latest final release tag** — highest `vX.Y.Z` tag without a pre-release suffix (e.g. `v0.6.0`)
 - **Latest RC tag for the next version** — if any `vX.Y.Z-rc.N` tag exists beyond the latest final release, note the highest N
 
-### 2. Analyze Commits Since Last Final Release
+### 3. Analyze Commits Since Last Final Release
 
 Run:
 ```bash
@@ -42,7 +54,7 @@ Apply the highest-priority bump found.
 
 If there are **no commits** since the last final release, stop and tell the user there is nothing to release.
 
-### 3. Propose the Next Version
+### 4. Propose the Next Version
 
 Compute the proposed tag from the latest final release:
 
@@ -59,7 +71,7 @@ Final proposed tag examples:
 - First RC: `v0.7.0-rc.1`
 - Subsequent RC: `v0.7.0-rc.2`
 
-### 4. Present a Summary and Ask for Confirmation
+### 5. Present a Summary and Ask for Confirmation
 
 Display a clear summary to the user:
 
@@ -77,27 +89,31 @@ Notable commits:
   fix: update iAqua session URL to v2 r-api endpoint
   ... (only feat/fix/breaking — skip build/chore/ci/docs bumps)
 
+Note: RC tags are published to the real PyPI (pre-release status).
+      pip install iaqualink won't pick them up; pip install --pre will.
+
 Shall I create and push tag <proposed-tag>? (yes/no)
 ```
 
 Wait for explicit confirmation before proceeding. If the user suggests a different version, use that instead.
 
-### 5. Create and Push the Tag
+### 6. Create and Push the Tag
 
-Once confirmed:
+Once confirmed, create an **annotated** tag (stores tagger identity, timestamp, and message — preferred for release tags and required for `git describe` to work correctly):
 
 ```bash
-git tag <proposed-tag>
+git tag -a <proposed-tag> -m "Release <proposed-tag>"
 git push origin <proposed-tag>
 ```
 
-### 6. Report Outcome
+### 7. Report Outcome
 
 Tell the user:
 - The tag that was created and pushed
 - That the GitHub Actions release workflow has been triggered
 - The GitHub Actions URL to monitor progress: `https://github.com/flz/iaqualink-py/actions`
-- Whether this is a pre-release (RC) or final release, and what that means for PyPI
+- For RCs: this publishes to the real PyPI as a pre-release (`pip install --pre iaqualink` to install)
+- For final releases: this publishes to PyPI as a stable release
 
 ## Error Handling
 
