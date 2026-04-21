@@ -39,15 +39,17 @@ Identify:
 
 Run:
 ```bash
-git log <latest-final-tag>..HEAD --oneline
+git log <latest-final-tag>..HEAD --format="%s%n%b%n---"
 ```
 
-Classify each commit using conventional commit prefixes:
+This captures both the subject line and the full message body, which is necessary because `BREAKING CHANGE:` may appear in the commit footer rather than the subject (per the Conventional Commits spec).
+
+Classify across the full output of each commit using these rules:
 
 | Indicator | Bump |
 |-----------|------|
-| Any commit message contains `BREAKING CHANGE:` or a `!` after the type (e.g. `feat!:`, `fix!:`) | **major** |
-| Any commit starts with `feat` (and is not breaking) | **minor** |
+| Subject contains `!` after the type (e.g. `feat!:`, `fix!:`), **or** any line in the body/footer contains `BREAKING CHANGE:` | **major** |
+| Subject starts with `feat` (and no breaking change detected) | **minor** |
 | Only `fix`, `build`, `chore`, `ci`, `docs`, `refactor`, `test`, `perf`, `style` | **patch** |
 
 Apply the highest-priority bump found.
