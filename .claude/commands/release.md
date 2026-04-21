@@ -1,0 +1,106 @@
+---
+description: Propose and create the next release tag (final or release candidate)
+---
+
+# Release Command
+
+Create the next versioned git tag. The GitHub Actions release workflow fires automatically on any `v*` tag push, handling GitHub Release creation and PyPI publishing.
+
+## Input
+
+The user may optionally pass `rc` to create a release candidate instead of a final release.
+
+## Steps to Execute
+
+### 1. Determine the Latest Tag
+
+Run:
+```bash
+git tag --sort=-version:refname | head -20
+```
+
+Identify:
+- **Latest final release tag** — highest `vX.Y.Z` tag without a pre-release suffix (e.g. `v0.6.0`)
+- **Latest RC tag for the next version** — if any `vX.Y.Z-rc.N` tag exists beyond the latest final release, note the highest N
+
+### 2. Analyze Commits Since Last Final Release
+
+Run:
+```bash
+git log <latest-final-tag>..HEAD --oneline
+```
+
+Classify each commit using conventional commit prefixes:
+
+| Indicator | Bump |
+|-----------|------|
+| Any commit message contains `BREAKING CHANGE:` or a `!` after the type (e.g. `feat!:`, `fix!:`) | **major** |
+| Any commit starts with `feat` (and is not breaking) | **minor** |
+| Only `fix`, `build`, `chore`, `ci`, `docs`, `refactor`, `test`, `perf`, `style` | **patch** |
+
+Apply the highest-priority bump found.
+
+If there are **no commits** since the last final release, stop and tell the user there is nothing to release.
+
+### 3. Propose the Next Version
+
+Compute the proposed tag from the latest final release:
+
+- **major bump**: increment major, reset minor and patch to 0 → `vX+1.0.0`
+- **minor bump**: increment minor, reset patch to 0 → `vX.Y+1.0`
+- **patch bump**: increment patch → `vX.Y.Z+1`
+
+**If creating a release candidate (`rc` argument passed):**
+
+Check whether an RC tag for this proposed version already exists (e.g. `vX.Y.Z-rc.1`). If yes, increment N. Otherwise start at `-rc.1`.
+
+Final proposed tag examples:
+- Final release: `v0.7.0`
+- First RC: `v0.7.0-rc.1`
+- Subsequent RC: `v0.7.0-rc.2`
+
+### 4. Present a Summary and Ask for Confirmation
+
+Display a clear summary to the user:
+
+```
+Latest final release : v0.6.0
+Commits since release: 51
+Bump type            : minor  (new features detected)
+Proposed tag         : v0.7.0  [or v0.7.0-rc.1 for RC]
+
+Notable commits:
+  feat(exo): add ExoFilterPump controllable switch
+  feat(exo): add ExoErrorSensor for diagnostic error fields
+  feat: add token refresh with fallback to full re-login on 401
+  fix: cleanup retry logic for 401/429
+  fix: update iAqua session URL to v2 r-api endpoint
+  ... (only feat/fix/breaking — skip build/chore/ci/docs bumps)
+
+Shall I create and push tag <proposed-tag>? (yes/no)
+```
+
+Wait for explicit confirmation before proceeding. If the user suggests a different version, use that instead.
+
+### 5. Create and Push the Tag
+
+Once confirmed:
+
+```bash
+git tag <proposed-tag>
+git push origin <proposed-tag>
+```
+
+### 6. Report Outcome
+
+Tell the user:
+- The tag that was created and pushed
+- That the GitHub Actions release workflow has been triggered
+- The GitHub Actions URL to monitor progress: `https://github.com/flz/iaqualink-py/actions`
+- Whether this is a pre-release (RC) or final release, and what that means for PyPI
+
+## Error Handling
+
+- If `git push` fails (e.g. tag already exists remotely), report the error clearly and do not retry automatically.
+- If the working tree has uncommitted changes, warn the user but do not block — a tag points to a commit, not the working tree.
+- If no conventional commit prefixes are found, default to a **patch** bump and note the assumption.
