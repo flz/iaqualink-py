@@ -32,20 +32,31 @@ dynamic = [
     "version",
 ]
 
+[project.optional-dependencies]
+cli = [
+    "PyYAML>=6.0.2",
+    "typer>=0.12.5",
+]
+
+[project.scripts]
+iaqualink = "iaqualink.cli:main"
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.2.0",
     "mypy>=1.15.0",
-    "PyYAML>=6.0.2",
     "ruff>=0.11.2",
+    "types-PyYAML>=6.0.12.20250915",
 ]
 test = [
     "coverage[toml]>=7.7.1",
+    "PyYAML>=6.0.2",
     "pytest>=8.3.5",
     "pytest-cov>=6.0.0",
     "pytest-icdiff>=0.9",
     "pytest-sugar>=1.0.0",
     "respx>=0.22.0",
+    "typer>=0.12.5",
 ]
 docs = [
     "mkdocs>=1.6.0",
