@@ -101,6 +101,15 @@ class TestAqualinkClient(TestBase):
         await self.client.login()
 
         assert self.client.logged is True
+
+    @patch("httpx.AsyncClient.request")
+    async def test_send_request_uses_default_timeout(
+        self, mock_request
+    ) -> None:
+        mock_request.return_value.status_code = 200
+
+        await self.client.send_request("https://example.com")
+
         assert (
             mock_request.call_args.kwargs["timeout"] == DEFAULT_REQUEST_TIMEOUT
         )
