@@ -299,6 +299,10 @@ source = { editable = "." }
 dependencies = [
     { name = "httpx", extra = ["http2"] },
     { name = "httpx-retries" },
+]
+
+[package.optional-dependencies]
+cli = [
     { name = "pyyaml" },
     { name = "typer" },
 ]
@@ -329,9 +333,10 @@ test = [
 requires-dist = [
     { name = "httpx", extras = ["http2"], specifier = ">=0.27.0" },
     { name = "httpx-retries", specifier = ">=0.4.6" },
-    { name = "pyyaml", specifier = ">=6.0.2" },
-    { name = "typer", specifier = ">=0.12.5" },
+    { name = "pyyaml", marker = "extra == 'cli'", specifier = ">=6.0.2" },
+    { name = "typer", marker = "extra == 'cli'", specifier = ">=0.12.5" },
 ]
+provides-extras = ["cli"]
 
 [package.metadata.requires-dev]
 dev = [

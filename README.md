@@ -41,9 +41,21 @@ Or using [uv](https://github.com/astral-sh/uv):
 uv add iaqualink
 ```
 
+To install the optional CLI as well:
+
+```bash
+pip install 'iaqualink[cli]'
+```
+
+Or with [uv](https://github.com/astral-sh/uv):
+
+```bash
+uv add 'iaqualink[cli]'
+```
+
 ## 💻 CLI
 
-The package now ships with an `iaqualink` command for common discovery and control tasks.
+The optional `cli` extra installs an `iaqualink` command for common discovery and control tasks.
 
 Credentials can be provided in this order:
 - command-line options such as `--username` and `--password`

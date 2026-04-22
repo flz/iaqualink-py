@@ -1,4 +1,4 @@
-from iaqualink.cli.app import main
+from iaqualink.cli import main
 
 
 if __name__ == "__main__":
