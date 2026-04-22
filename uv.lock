@@ -326,7 +326,9 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-icdiff" },
     { name = "pytest-sugar" },
+    { name = "pyyaml" },
     { name = "respx" },
+    { name = "typer" },
 ]
 
 [package.metadata]
@@ -357,7 +359,9 @@ test = [
     { name = "pytest-cov", specifier = ">=6.0.0" },
     { name = "pytest-icdiff", specifier = ">=0.9" },
     { name = "pytest-sugar", specifier = ">=1.0.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "respx", specifier = ">=0.22.0" },
+    { name = "typer", specifier = ">=0.12.5" },
 ]
 
 [[package]]
