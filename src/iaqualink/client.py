@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import importlib
 import logging
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
@@ -65,25 +65,28 @@ class AqualinkAuthState:
     refresh_token: str
 
     def to_dict(self) -> dict[str, str]:
-        return {
-            "username": self.username,
-            "client_id": self.client_id,
-            "authentication_token": self.authentication_token,
-            "user_id": self.user_id,
-            "id_token": self.id_token,
-            "refresh_token": self.refresh_token,
-        }
+        return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Self:
-        return cls(
-            username=str(data.get("username", "")),
-            client_id=str(data.get("client_id", "")),
-            authentication_token=str(data.get("authentication_token", "")),
-            user_id=str(data.get("user_id", "")),
-            id_token=str(data.get("id_token", "")),
-            refresh_token=str(data.get("refresh_token", "")),
+        required_fields = (
+            "username",
+            "client_id",
+            "authentication_token",
+            "user_id",
+            "id_token",
+            "refresh_token",
         )
+        values: dict[str, str] = {}
+        for field_name in required_fields:
+            value = data.get(field_name)
+            if not isinstance(value, str) or not value:
+                raise ValueError(
+                    f"Missing or invalid auth state field: {field_name}"
+                )
+            values[field_name] = value
+
+        return cls(**values)
 
 
 class AqualinkRetry(Retry):
@@ -346,8 +349,7 @@ class AqualinkClient:
         except AqualinkServiceException as e:
             if "404" in str(e):
                 raise AqualinkServiceUnauthorizedException from e
-            else:
-                raise
+            raise
 
         data = r.json()
 

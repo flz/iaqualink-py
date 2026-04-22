@@ -112,6 +112,22 @@ class TestAqualinkClient(TestBase):
         assert self.client.logged is False
         assert self.client.auth_state is None
 
+    def test_auth_state_from_dict_requires_all_fields(self) -> None:
+        with pytest.raises(ValueError):
+            AqualinkAuthState.from_dict({"username": "foo"})
+
+    def test_auth_state_to_dict_round_trip(self) -> None:
+        auth_state = AqualinkAuthState(
+            username="restored-user",
+            client_id="restored-session-id",
+            authentication_token="restored-token",
+            user_id="restored-id",
+            id_token="restored-id-token",
+            refresh_token="restored-refresh-token",
+        )
+
+        assert AqualinkAuthState.from_dict(auth_state.to_dict()) == auth_state
+
     async def test_auth_state_setter(self) -> None:
         auth_state = AqualinkAuthState(
             username="restored-user",

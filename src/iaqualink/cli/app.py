@@ -286,6 +286,11 @@ def _resolve_system(
         ]
         if len(matching_systems) == 1:
             return matching_systems[0]
+        if len(matching_systems) > 1:
+            _exit_with_error(
+                f"System name {selector!r} matches multiple systems. "
+                "Use --system with the serial number instead.",
+            )
 
         available = ", ".join(serial for serial, _ in _sorted_systems(systems))
         _exit_with_error(
@@ -325,7 +330,11 @@ def _load_session_jar(
     if data.get("username") != username:
         return None
 
-    return AqualinkAuthState.from_dict(data)
+    try:
+        return AqualinkAuthState.from_dict(data)
+    except ValueError as exc:
+        LOGGER.debug("Could not restore session jar %s: %s", jar_path, exc)
+        return None
 
 
 def _save_session_jar(
@@ -338,7 +347,12 @@ def _save_session_jar(
     try:
         jar_path.parent.mkdir(parents=True, exist_ok=True)
         temp_path = jar_path.with_suffix(".tmp")
-        with temp_path.open("w", encoding="utf-8") as file_handle:
+        fd = os.open(
+            temp_path,
+            os.O_WRONLY | os.O_CREAT | os.O_TRUNC,
+            0o600,
+        )
+        with os.fdopen(fd, "w", encoding="utf-8") as file_handle:
             json.dump(auth_state.to_dict(), file_handle, indent=2)
         temp_path.replace(jar_path)
     except OSError as exc:
