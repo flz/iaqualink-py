@@ -7,6 +7,7 @@ AQUALINK_REFRESH_URL = "https://prod.zodiac-io.com/users/v1/refresh"
 AQUALINK_DEVICES_URL = "https://r-api.iaqualink.net/devices.json"
 
 KEEPALIVE_EXPIRY = 30
+DEFAULT_REQUEST_TIMEOUT = 10.0
 
 RETRY_MAX_ATTEMPTS = 5
 RETRY_BASE_DELAY = 1.0

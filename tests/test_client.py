@@ -11,6 +11,7 @@ import respx
 
 from iaqualink.client import AqualinkClient, AqualinkRetry
 from iaqualink.const import (
+    DEFAULT_REQUEST_TIMEOUT,
     RETRY_AFTER_MAX_DELAY,
     RETRY_MAX_ATTEMPTS,
 )
@@ -100,6 +101,19 @@ class TestAqualinkClient(TestBase):
         await self.client.login()
 
         assert self.client.logged is True
+        assert (
+            mock_request.call_args.kwargs["timeout"] == DEFAULT_REQUEST_TIMEOUT
+        )
+
+    @patch("httpx.AsyncClient.request")
+    async def test_send_request_preserves_explicit_timeout(
+        self, mock_request
+    ) -> None:
+        mock_request.return_value.status_code = 200
+
+        await self.client.send_request("https://example.com", timeout=3.0)
+
+        assert mock_request.call_args.kwargs["timeout"] == 3.0
 
     @patch("httpx.AsyncClient.request")
     async def test_login_failed(self, mock_request) -> None:
