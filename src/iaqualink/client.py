@@ -14,6 +14,7 @@ from iaqualink.const import (
     AQUALINK_DEVICES_URL,
     AQUALINK_LOGIN_URL,
     AQUALINK_REFRESH_URL,
+    DEFAULT_REQUEST_TIMEOUT,
     KEEPALIVE_EXPIRY,
     RETRY_AFTER_MAX_DELAY,
     RETRY_BASE_DELAY,
@@ -138,6 +139,7 @@ class AqualinkClient:
 
         headers = AQUALINK_HTTP_HEADERS.copy()
         headers.update(kwargs.pop("headers", {}))
+        kwargs.setdefault("timeout", DEFAULT_REQUEST_TIMEOUT)
 
         LOGGER.debug("-> %s %s %s", method.upper(), url, kwargs)
         r = await client.request(method, url, headers=headers, **kwargs)
