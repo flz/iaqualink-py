@@ -319,7 +319,7 @@ class TestAqualinkClient(TestBase):
             _make_resp(401),
         ]
         self.client._logged = True
-        self.client._refresh_token = "refresh-token"
+        self.client.refresh_token = "refresh-token"
 
         with (
             patch.object(
@@ -421,7 +421,7 @@ class TestAqualinkClient(TestBase):
         assert mock_request.call_count == 1
 
     async def test_refresh_auth_propagates_throttled(self) -> None:
-        self.client._refresh_token = "some-refresh-token"
+        self.client.refresh_token = "some-refresh-token"
         with (
             patch.object(
                 self.client,
@@ -435,7 +435,7 @@ class TestAqualinkClient(TestBase):
     async def test_refresh_auth_concurrent_calls_only_refresh_once(
         self,
     ) -> None:
-        self.client._refresh_token = "refresh-token"
+        self.client.refresh_token = "refresh-token"
         self.client._logged = False
 
         started = asyncio.Event()
@@ -461,7 +461,8 @@ class TestAqualinkClient(TestBase):
         mock_refresh.assert_awaited_once()
         assert self.client.logged is True
         assert (
-            self.client._token == REFRESH_RESPONSE_DATA["authentication_token"]
+            self.client.authentication_token
+            == REFRESH_RESPONSE_DATA["authentication_token"]
         )
 
     @patch("httpx.AsyncClient.request")
@@ -469,7 +470,7 @@ class TestAqualinkClient(TestBase):
         self, mock_request
     ) -> None:
         mock_request.return_value.status_code = 401
-        self.client._refresh_token = "refresh-token"
+        self.client.refresh_token = "refresh-token"
 
         with (
             pytest.raises(AqualinkServiceUnauthorizedException),
@@ -522,11 +523,11 @@ class TestAqualinkClient(TestBase):
     async def test_systems_request_retry_after_refresh_gets_full_429_budget(
         self, mock_sleep
     ) -> None:
-        self.client._token = "old-token"
-        self.client._user_id = "id"
+        self.client.authentication_token = "old-token"
+        self.client.user_id = "id"
 
         async def fake_refresh() -> None:
-            self.client._token = "new-token"
+            self.client.authentication_token = "new-token"
 
         initial_route = respx.get(
             "https://r-api.iaqualink.net/devices.json?api_key=EOOEMOW4YR6QNB07&authentication_token=old-token&user_id=id"
@@ -592,7 +593,7 @@ class TestAqualinkClient(TestBase):
         ]
 
         await self.client.login()
-        original_refresh_token = self.client._refresh_token
+        original_refresh_token = self.client.refresh_token
         await self.client._send_systems_request()
 
-        assert self.client._refresh_token == original_refresh_token
+        assert self.client.refresh_token == original_refresh_token

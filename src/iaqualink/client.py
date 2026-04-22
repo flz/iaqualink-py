@@ -103,7 +103,7 @@ class AqualinkClient:
         password: str,
         httpx_client: httpx.AsyncClient | None = None,
     ):
-        self._username = username
+        self.username = username
         self._password = password
         self._logged = False
 
@@ -117,10 +117,10 @@ class AqualinkClient:
             self._must_close_client = False
 
         self.client_id = ""
-        self._token = ""
-        self._user_id = ""
+        self.authentication_token = ""
+        self.user_id = ""
         self.id_token = ""
-        self._refresh_token = ""
+        self.refresh_token = ""
         self._refresh_lock = asyncio.Lock()
 
         self._last_refresh = 0
@@ -135,12 +135,12 @@ class AqualinkClient:
             return None
 
         return AqualinkAuthState(
-            username=self._username,
+            username=self.username,
             client_id=self.client_id,
-            authentication_token=self._token,
-            user_id=self._user_id,
+            authentication_token=self.authentication_token,
+            user_id=self.user_id,
             id_token=self.id_token,
-            refresh_token=self._refresh_token,
+            refresh_token=self.refresh_token,
         )
 
     @auth_state.setter
@@ -149,12 +149,12 @@ class AqualinkClient:
             self._clear_auth_state()
             return
 
-        self._username = state.username
+        self.username = state.username
         self.client_id = state.client_id
-        self._token = state.authentication_token
-        self._user_id = state.user_id
+        self.authentication_token = state.authentication_token
+        self.user_id = state.user_id
         self.id_token = state.id_token
-        self._refresh_token = state.refresh_token
+        self.refresh_token = state.refresh_token
         self._logged = True
 
     async def close(self) -> None:
@@ -248,7 +248,7 @@ class AqualinkClient:
     async def _send_login_request(self) -> httpx.Response:
         data = {
             "api_key": AQUALINK_API_KEY,
-            "email": self._username,
+            "email": self.username,
             "password": self._password,
         }
         return await self.send_request(
@@ -259,8 +259,8 @@ class AqualinkClient:
         # api_key is intentionally omitted — the refresh endpoint does not
         # require it (unlike the login endpoint).
         data = {
-            "email": self._username,
-            "refresh_token": self._refresh_token,
+            "email": self.username,
+            "refresh_token": self.refresh_token,
         }
         return await self.send_request(
             AQUALINK_REFRESH_URL, method="post", json=data
@@ -282,7 +282,7 @@ class AqualinkClient:
             if self._logged:
                 return
 
-            if not self._refresh_token:
+            if not self.refresh_token:
                 await self.login()
                 return
 
@@ -295,7 +295,7 @@ class AqualinkClient:
 
             self._apply_login_data(
                 r.json(),
-                refresh_token_fallback=self._refresh_token,
+                refresh_token_fallback=self.refresh_token,
             )
 
     async def login(self) -> None:
@@ -304,10 +304,10 @@ class AqualinkClient:
 
     def _clear_auth_state(self) -> None:
         self.client_id = ""
-        self._token = ""
-        self._user_id = ""
+        self.authentication_token = ""
+        self.user_id = ""
         self.id_token = ""
-        self._refresh_token = ""
+        self.refresh_token = ""
         self._logged = False
 
     def _apply_login_data(
@@ -316,10 +316,10 @@ class AqualinkClient:
         refresh_token_fallback: str,
     ) -> None:
         self.client_id = data["session_id"]
-        self._token = data["authentication_token"]
-        self._user_id = data["id"]
+        self.authentication_token = data["authentication_token"]
+        self.user_id = data["id"]
         self.id_token = data["userPoolOAuth"]["IdToken"]
-        self._refresh_token = data["userPoolOAuth"].get(
+        self.refresh_token = data["userPoolOAuth"].get(
             "RefreshToken", refresh_token_fallback
         )
         self._logged = True
@@ -328,8 +328,8 @@ class AqualinkClient:
         async def do_request() -> httpx.Response:
             params = {
                 "api_key": AQUALINK_API_KEY,
-                "authentication_token": self._token,
-                "user_id": self._user_id,
+                "authentication_token": self.authentication_token,
+                "user_id": self.user_id,
             }
             params_str = "&".join(f"{k}={v}" for k, v in params.items())
             url = f"{AQUALINK_DEVICES_URL}?{params_str}"
