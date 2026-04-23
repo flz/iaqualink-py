@@ -115,6 +115,9 @@ class TestIaquaSystem(TestBaseSystem):
         assert self.sut.devices == expected
 
     async def test_parse_devices_skipped_on_nan_state(self) -> None:
+        existing = MagicMock()
+        self.sut.devices["aux_existing"] = existing
+
         message = {
             "message": "",
             "devices_screen": [
@@ -136,9 +139,12 @@ class TestIaquaSystem(TestBaseSystem):
         response.json.return_value = message
 
         self.sut._parse_devices_response(response)
-        assert self.sut.devices == {}
+        assert self.sut.devices == {"aux_existing": existing}
 
     async def test_parse_home_skipped_on_empty_system_type(self) -> None:
+        existing = MagicMock()
+        self.sut.devices["pool_pump"] = existing
+
         message = {
             "message": "",
             "home_screen": [
@@ -151,7 +157,7 @@ class TestIaquaSystem(TestBaseSystem):
         response.json.return_value = message
 
         self.sut._parse_home_response(response)
-        assert self.sut.devices == {}
+        assert self.sut.devices == {"pool_pump": existing}
 
     @patch("httpx.AsyncClient.request")
     async def test_home_request(self, mock_request) -> None:
