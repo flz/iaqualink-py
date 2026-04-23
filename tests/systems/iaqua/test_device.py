@@ -4,7 +4,11 @@ import copy
 from typing import cast
 from unittest.mock import patch
 
+import respx
+import respx.router
+
 from iaqualink.systems.iaqua.device import (
+    ICL_EFFECTS,
     IAQUA_TEMP_CELSIUS_HIGH,
     IAQUA_TEMP_CELSIUS_LOW,
     IAQUA_TEMP_FAHRENHEIT_HIGH,
@@ -14,6 +18,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaColorLight,
     IaquaDevice,
     IaquaDimmableLight,
+    IaquaIclLight,
     IaquaLightSwitch,
     IaquaSensor,
     IaquaSwitch,
@@ -21,6 +26,7 @@ from iaqualink.systems.iaqua.device import (
 )
 from iaqualink.systems.iaqua.system import IaquaSystem
 
+from ...base import dotstar, resp_200
 from ...base_test_device import (
     TestBaseBinarySensor,
     TestBaseDevice,
@@ -457,3 +463,249 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
 
     async def test_temp_name_no_spa(self) -> None:
         assert self.pool_set_point._temperature == "temp1"
+
+
+class TestIaquaIclLight(TestIaquaDevice):
+    """Tests for IaquaIclLight (IntellliCenter Light) device."""
+
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {
+            "zoneId": "1",
+            "zoneName": "Pool Light",
+            "zoneStatus": "on",
+            "zoneColor": "6",
+            "zoneColorVal": "Emerald Green",
+            "dim_level": "100",
+            "red_val": "255",
+            "green_val": "128",
+            "blue_val": "64",
+            "white_val": "0",
+        }
+        self.sut = IaquaIclLight(self.system, data)
+        self.sut_class = IaquaIclLight
+
+    def test_property_name(self) -> None:
+        assert self.sut.name == "icl_zone_1"
+
+    def test_property_label(self) -> None:
+        assert self.sut.label == "Pool Light"
+
+    def test_property_state(self) -> None:
+        assert self.sut.state == "1"
+
+    def test_property_state_off(self) -> None:
+        self.sut.data["zoneStatus"] = "off"
+        assert self.sut.state == "0"
+
+    def test_property_is_on_true(self) -> None:
+        assert self.sut.is_on is True
+
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["zoneStatus"] = "off"
+        assert self.sut.is_on is False
+
+    def test_property_is_absent(self) -> None:
+        self.sut.data["zoneStatus"] = "absent"
+        assert self.sut.is_absent is True
+        assert self.sut.is_on is False
+
+    def test_property_manufacturer(self) -> None:
+        assert self.sut.manufacturer == "Jandy"
+
+    def test_property_model(self) -> None:
+        assert self.sut.model == "IntellliCenter Light"
+
+    def test_property_zone_id(self) -> None:
+        assert self.sut.zone_id == 1
+
+    def test_property_brightness(self) -> None:
+        assert self.sut.brightness == 100
+
+    def test_property_supports_brightness(self) -> None:
+        assert self.sut.supports_brightness is True
+
+    def test_property_effect(self) -> None:
+        assert self.sut.effect == "Emerald Green"
+
+    def test_property_supports_effect(self) -> None:
+        assert self.sut.supports_effect is True
+
+    def test_property_color_id(self) -> None:
+        assert self.sut.color_id == 6
+
+    def test_property_rgb(self) -> None:
+        assert self.sut.rgb == (255, 128, 64)
+
+    def test_property_white(self) -> None:
+        assert self.sut.white == 0
+
+    def test_property_supports_rgb(self) -> None:
+        assert self.sut.supports_rgb is True
+
+    def test_property_supported_effects(self) -> None:
+        assert self.sut.supported_effects == ICL_EFFECTS
+        assert "Emerald Green" in self.sut.supported_effects
+        assert self.sut.supported_effects["Emerald Green"] == 6
+
+    @respx.mock
+    async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
+        self.sut.data["zoneStatus"] = "off"
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(self.sut.system, "_parse_icl_info_response"):
+            await self.sut.turn_on()
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "onoff_iclzone" in url
+        assert "zone_id=1" in url
+        assert "on_off_action=on" in url
+
+    @respx.mock
+    async def test_turn_on_noop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        # Already on, should not make API call
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.turn_on()
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_turn_on_absent_noop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        # Absent zone, should not make API call
+        self.sut.data["zoneStatus"] = "absent"
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.turn_on()
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(self.sut.system, "_parse_icl_info_response"):
+            await self.sut.turn_off()
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "onoff_iclzone" in url
+        assert "zone_id=1" in url
+        assert "on_off_action=off" in url
+
+    @respx.mock
+    async def test_turn_off_noop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        self.sut.data["zoneStatus"] = "off"
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.turn_off()
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_set_brightness_75(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(self.sut.system, "_parse_icl_info_response"):
+            await self.sut.set_brightness(75)
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "set_iclzone_dim" in url
+        assert "zone_id=1" in url
+        assert "dim_level=75" in url
+
+    async def test_set_brightness_invalid_negative(self) -> None:
+        from iaqualink.exception import AqualinkInvalidParameterException
+
+        with self.assertRaises(AqualinkInvalidParameterException):
+            await self.sut.set_brightness(-1)
+
+    async def test_set_brightness_invalid_over_100(self) -> None:
+        from iaqualink.exception import AqualinkInvalidParameterException
+
+        with self.assertRaises(AqualinkInvalidParameterException):
+            await self.sut.set_brightness(101)
+
+    @respx.mock
+    async def test_set_effect_by_id_4(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(self.sut.system, "_parse_icl_info_response"):
+            await self.sut.set_effect_by_id(4)
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "set_iclzone_color" in url
+        assert "zone_id=1" in url
+        assert "color_id=4" in url
+
+    async def test_set_effect_by_id_invalid_27(self) -> None:
+        from iaqualink.exception import AqualinkInvalidParameterException
+
+        with self.assertRaises(AqualinkInvalidParameterException):
+            await self.sut.set_effect_by_id(27)
+
+    @respx.mock
+    async def test_set_effect_by_name_emerald_green(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(self.sut.system, "_parse_icl_info_response"):
+            await self.sut.set_effect_by_name("Emerald Green")
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "set_iclzone_color" in url
+        assert "color_id=6" in url
+
+    @respx.mock
+    async def test_set_effect_by_name_off(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(self.sut.system, "_parse_icl_info_response"):
+            await self.sut.set_effect_by_name("Off")
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "color_id=0" in url
+
+    async def test_set_effect_by_name_invalid_amaranth(self) -> None:
+        from iaqualink.exception import AqualinkInvalidParameterException
+
+        with self.assertRaises(AqualinkInvalidParameterException):
+            await self.sut.set_effect_by_name("Amaranth")
+
+    @respx.mock
+    async def test_set_rgb(self, respx_mock: respx.router.MockRouter) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(self.sut.system, "_parse_icl_info_response"):
+            await self.sut.set_rgb(255, 0, 128)
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "define_iclzone_customcolor" in url
+        assert "zone_id=1" in url
+        assert "red_val=255" in url
+        assert "green_val=0" in url
+        assert "blue_val=128" in url
+        assert "white_val=0" in url
+
+    @respx.mock
+    async def test_set_rgb_with_white(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(self.sut.system, "_parse_icl_info_response"):
+            await self.sut.set_rgb(100, 150, 200, white=50)
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "white_val=50" in url
+
+    async def test_set_rgb_invalid_red(self) -> None:
+        from iaqualink.exception import AqualinkInvalidParameterException
+
+        with self.assertRaises(AqualinkInvalidParameterException):
+            await self.sut.set_rgb(256, 0, 0)
+
+    async def test_set_rgb_invalid_negative(self) -> None:
+        from iaqualink.exception import AqualinkInvalidParameterException
+
+        with self.assertRaises(AqualinkInvalidParameterException):
+            await self.sut.set_rgb(-1, 0, 0)
