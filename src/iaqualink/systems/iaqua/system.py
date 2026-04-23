@@ -130,6 +130,10 @@ class IaquaSystem(AqualinkSystem):
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
 
+        if data["home_screen"][2]["system_type"] == "":
+            LOGGER.debug("Skipping home screen update with empty system_type.")
+            return
+
         self.temp_unit = data["home_screen"][3]["temp_scale"]
 
         # Make the data a bit flatter.
@@ -143,11 +147,7 @@ class IaquaSystem(AqualinkSystem):
         for k, v in devices.items():
             if k in self.devices:
                 for dk, dv in v.items():
-                    # Don't allow empty updates through, except current temperature which can be empty depending on if it is in pool mode or spa mode
-                    if (dv != '') or (k == 'spa_temp') or (k == 'pool_temp'):
-                        self.devices[k].data[dk] = dv
-                    else:
-                        LOGGER.debug(f"Received empty update for home screen device {k}: {dk}, skipping")
+                    self.devices[k].data[dk] = dv
             else:
                 try:
                     self.devices[k] = IaquaDevice.from_data(self, v)
@@ -163,15 +163,20 @@ class IaquaSystem(AqualinkSystem):
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
 
+        for x in data["devices_screen"][3:]:
+            for attr in next(iter(x.values())):
+                if attr.get("state") == "NaN":
+                    LOGGER.debug(
+                        "Skipping devices screen update with NaN state."
+                    )
+                    return
+
         # Make the data a bit flatter.
         devices = {}
         for x in data["devices_screen"][3:]:
             aux = next(iter(x.keys()))
             attrs = {"aux": aux.replace("aux_", ""), "name": aux}
             for y in next(iter(x.values())):
-                if 'NaN' in y.values():
-                    LOGGER.debug("Received invalid devices screen state update, skipping")
-                    return
                 attrs.update(y)
             devices.update({aux: attrs})
 
