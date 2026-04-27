@@ -130,6 +130,10 @@ class IaquaSystem(AqualinkSystem):
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
 
+        if data["home_screen"][2]["system_type"] == "":
+            LOGGER.debug("Skipping home screen update with empty system_type.")
+            return
+
         self.temp_unit = data["home_screen"][3]["temp_scale"]
 
         # Make the data a bit flatter.
@@ -158,6 +162,14 @@ class IaquaSystem(AqualinkSystem):
         if data["devices_screen"][0]["status"] == "Offline":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
+
+        for x in data["devices_screen"][3:]:
+            for attr in next(iter(x.values())):
+                if attr.get("state") == "NaN":
+                    LOGGER.debug(
+                        "Skipping devices screen update with NaN state."
+                    )
+                    return
 
         # Make the data a bit flatter.
         devices = {}
