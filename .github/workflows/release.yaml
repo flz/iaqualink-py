@@ -16,10 +16,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Detect release type
+        id: type
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          if [[ "$TAG" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "make_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+            echo "make_latest=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
+          prerelease: ${{ steps.type.outputs.prerelease }}
+          make_latest: ${{ steps.type.outputs.make_latest }}
 
   pypi:
     runs-on: ubuntu-latest

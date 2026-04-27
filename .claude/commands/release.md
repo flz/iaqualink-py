@@ -91,8 +91,9 @@ Notable commits:
   fix: update iAqua session URL to v2 r-api endpoint
   ... (only feat/fix/breaking — skip build/chore/ci/docs bumps)
 
-Note: RC tags are published to the real PyPI (pre-release status).
-      pip install iaqualink won't pick them up; pip install --pre will.
+Note: RC tags create a pre-release GitHub Release (not marked as latest) and publish
+      to the real PyPI with pre-release status. pip install iaqualink won't pick them
+      up; pip install --pre will. Final releases are marked as the latest GitHub Release.
 
 Shall I create and push tag <proposed-tag>? (yes/no)
 ```
@@ -114,8 +115,8 @@ Tell the user:
 - The tag that was created and pushed
 - That the GitHub Actions release workflow has been triggered
 - The GitHub Actions URL to monitor progress: `https://github.com/flz/iaqualink-py/actions`
-- For RCs: this publishes to the real PyPI as a pre-release (`pip install --pre iaqualink` to install)
-- For final releases: this publishes to PyPI as a stable release
+- For RCs: the GitHub Release is marked as **pre-release** (not latest); PyPI publishes as a pre-release (`pip install --pre iaqualink` to install)
+- For final releases: the GitHub Release is marked as **latest**; PyPI publishes as a stable release
 
 ## Error Handling
 
