@@ -14,6 +14,7 @@ from iaqualink.client import (
     AqualinkClient,
     AqualinkRetry,
 )
+from iaqualink.system import UnsupportedSystem
 from iaqualink.const import (
     DEFAULT_REQUEST_TIMEOUT,
     RETRY_AFTER_MAX_DELAY,
@@ -287,7 +288,8 @@ class TestAqualinkClient(TestBase):
         ]
 
         systems = await self.client.get_systems()
-        assert len(systems) == 0
+        assert len(systems) == 1
+        assert isinstance(next(iter(systems.values())), UnsupportedSystem)
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request(self, mock_request) -> None:

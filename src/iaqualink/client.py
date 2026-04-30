@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import importlib
 import logging
 from dataclasses import asdict, dataclass
@@ -26,7 +25,6 @@ from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
-    AqualinkSystemUnsupportedException,
 )
 from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
@@ -353,9 +351,5 @@ class AqualinkClient:
 
         data = r.json()
 
-        systems = []
-        for x in data:
-            with contextlib.suppress(AqualinkSystemUnsupportedException):
-                systems += [AqualinkSystem.from_data(self, x)]
-
-        return {x.serial: x for x in systems if x is not None}
+        systems = [AqualinkSystem.from_data(self, x) for x in data]
+        return {x.serial: x for x in systems}
