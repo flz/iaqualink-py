@@ -82,7 +82,7 @@ class AqualinkSystem:
 
 class UnsupportedSystem(AqualinkSystem):
     async def update(self) -> None:
-        pass
+        LOGGER.debug("Skipping update for unsupported system %r", self.serial)
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
         return {}

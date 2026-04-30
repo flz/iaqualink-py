@@ -21,7 +21,7 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
-from iaqualink.system import AqualinkSystem
+from iaqualink.system import AqualinkSystem, UnsupportedSystem
 from iaqualink.version import __version__
 
 app = typer.Typer(
@@ -233,7 +233,8 @@ def _sorted_devices(
 
 def _format_system_line(system: AqualinkSystem) -> str:
     system_type = system.data.get("device_type", "unknown")
-    return f"{system.name} ({system.serial}) [{system_type}]"
+    suffix = " (unsupported)" if isinstance(system, UnsupportedSystem) else ""
+    return f"{system.name} ({system.serial}) [{system_type}]{suffix}"
 
 
 def _format_device_line(device_name: str, device: AqualinkDevice) -> str:
@@ -255,7 +256,10 @@ def _render_device_tree(
 
         devices = _sorted_devices(devices_by_system.get(serial, {}))
         if not devices:
-            lines.append(f"{child_indent}└── No devices found")
+            if isinstance(system, UnsupportedSystem):
+                lines.append(f"{child_indent}└── System type not supported")
+            else:
+                lines.append(f"{child_indent}└── No devices found")
             continue
 
         for device_index, (device_name, device) in enumerate(devices):

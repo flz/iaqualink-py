@@ -26,7 +26,7 @@ class AqualinkServiceThrottledException(AqualinkServiceException):
 
 
 class AqualinkSystemUnsupportedException(AqualinkServiceException):
-    """Exception raised when a system isn't supported by the library."""
+    """Deprecated: no longer raised. Unknown systems return UnsupportedSystem."""
 
 
 class AqualinkOperationNotSupportedException(AqualinkException):

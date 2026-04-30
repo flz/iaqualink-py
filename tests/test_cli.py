@@ -4,11 +4,13 @@ import importlib
 import json
 import stat
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from typer.testing import CliRunner
 
 from iaqualink.client import AqualinkAuthState
+from iaqualink.system import UnsupportedSystem
 
 cli_module = importlib.import_module("iaqualink.cli.app")
 
@@ -150,3 +152,50 @@ def test_list_devices_reports_ambiguous_system_name(tmp_path: Path) -> None:
         "System name 'Backyard' matches multiple systems. "
         "Use --system with the serial number instead."
     ) in result.stderr
+
+
+def _make_unsupported_system(
+    serial: str = "SN001", name: str = "Pool"
+) -> UnsupportedSystem:
+    data = {"serial_number": serial, "name": name, "device_type": "foo"}
+    return UnsupportedSystem(MagicMock(), data)
+
+
+def test_format_system_line_unsupported() -> None:
+    system = _make_unsupported_system()
+    line = cli_module._format_system_line(system)
+    assert "(unsupported)" in line
+    assert "foo" in line
+
+
+def test_render_device_tree_unsupported_system() -> None:
+    system = _make_unsupported_system(serial="SN001", name="Pool")
+    output = cli_module._render_device_tree(
+        [("SN001", system)],
+        {"SN001": {}},
+    )
+    assert "System type not supported" in output
+    assert "No devices found" not in output
+
+
+def test_list_systems_shows_unsupported_note(tmp_path: Path) -> None:
+    cookie_jar = tmp_path / "session.json"
+    FakeClient.systems_factory = staticmethod(
+        lambda: {"SN001": _make_unsupported_system()}
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "list-systems",
+            "--username",
+            "user@example.com",
+            "--password",
+            "secret",
+            "--cookie-jar",
+            str(cookie_jar),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "(unsupported)" in result.output

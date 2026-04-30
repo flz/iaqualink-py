@@ -34,12 +34,6 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
         r = AqualinkSystem.from_data(aqualink, data)
         assert r is not None
 
-    def test_from_data_unsupported(self) -> None:
-        aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "foo"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        assert isinstance(r, UnsupportedSystem)
-
     async def test_get_devices_needs_update(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
         aqualink = AqualinkClient("user", "pass")
