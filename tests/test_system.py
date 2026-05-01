@@ -34,6 +34,12 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
         r = AqualinkSystem.from_data(aqualink, data)
         assert r is not None
 
+    def test_supported_true_for_known_system(self) -> None:
+        aqualink = MagicMock()
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
+        r = AqualinkSystem.from_data(aqualink, data)
+        assert r.supported is True
+
     async def test_get_devices_needs_update(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
         aqualink = AqualinkClient("user", "pass")
@@ -82,6 +88,9 @@ class TestUnsupportedSystem(unittest.IsolatedAsyncioTestCase):
         with self.assertLogs("iaqualink", level=logging.WARNING) as cm:
             AqualinkSystem.from_data(self.aqualink, self.data)
         assert any("unknown_type" in line for line in cm.output)
+
+    def test_supported_false(self) -> None:
+        assert self.system.supported is False
 
     async def test_update_is_noop(self) -> None:
         await self.system.update()

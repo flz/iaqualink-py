@@ -50,6 +50,10 @@ class AqualinkSystem:
     def serial(self) -> str:
         return self.data["serial_number"]
 
+    @property
+    def supported(self) -> bool:
+        return True
+
     @classmethod
     def from_data(
         cls, aqualink: AqualinkClient, data: Payload
@@ -81,6 +85,10 @@ class AqualinkSystem:
 
 
 class UnsupportedSystem(AqualinkSystem):
+    @property
+    def supported(self) -> bool:
+        return False
+
     async def update(self) -> None:
         LOGGER.debug("Skipping update for unsupported system %r", self.serial)
 
