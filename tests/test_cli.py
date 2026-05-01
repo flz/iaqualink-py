@@ -18,6 +18,8 @@ app = cli_module.app
 
 
 class FakeSystem:
+    supported = True
+
     def __init__(self, serial: str, name: str) -> None:
         self.serial = serial
         self.name = name
