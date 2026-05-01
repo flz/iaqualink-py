@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 
 class AqualinkException(Exception):  # noqa: N818
     """Base exception for iAqualink library."""
@@ -34,10 +36,10 @@ class AqualinkDeviceNotSupported(AqualinkException):
 
 
 class _AqualinkSystemUnsupportedDeprecated(AqualinkServiceException):
-    """Deprecated stub; see AqualinkSystemUnsupportedException."""
+    """Backward-compat stub; use iaqualink.system.UnsupportedSystem instead."""
 
 
-def __getattr__(name: str) -> type[_AqualinkSystemUnsupportedDeprecated]:
+def __getattr__(name: str) -> Any:
     if name == "AqualinkSystemUnsupportedException":
         import warnings
 
