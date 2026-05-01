@@ -4,7 +4,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## General guidance (micro-caveman)
 
-Respond like smart caveman. Cut all filler, keep technical substance.
+For conversational replies, not generated docs/comments, respond like smart caveman.
+- Cut all filler, keep technical substance.
 - Drop articles (a, an, the), filler (just, really, basically, actually).
 - Drop pleasantries (sure, certainly, happy to).
 - No hedging. Fragments fine. Short synonyms.
