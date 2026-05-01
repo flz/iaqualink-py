@@ -9,7 +9,8 @@ AqualinkException (base)
 ├── AqualinkInvalidParameterException
 ├── AqualinkServiceException
 │   ├── AqualinkServiceUnauthorizedException
-│   └── AqualinkSystemOfflineException
+│   ├── AqualinkSystemOfflineException
+│   └── AqualinkSystemUnsupportedException (deprecated)
 ├── AqualinkOperationNotSupportedException
 └── AqualinkDeviceNotSupported
 ```
@@ -33,6 +34,14 @@ AqualinkException (base)
 ## AqualinkSystemOfflineException
 
 ::: iaqualink.exception.AqualinkSystemOfflineException
+
+## AqualinkSystemUnsupportedException
+
+!!! warning "Deprecated"
+    This exception is no longer raised. Unknown device types now return
+    [`UnsupportedSystem`](system.md#unsupportedsystem) instead.
+    `AqualinkSystemUnsupportedException` will be removed in a future release.
+    Importing it emits a `DeprecationWarning`.
 
 ## AqualinkOperationNotSupportedException
 

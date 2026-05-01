@@ -31,3 +31,22 @@ class AqualinkOperationNotSupportedException(AqualinkException):
 
 class AqualinkDeviceNotSupported(AqualinkException):
     """Exception raised when a device isn't known-unsupported."""
+
+
+class _AqualinkSystemUnsupportedDeprecated(AqualinkServiceException):
+    """Deprecated stub; see AqualinkSystemUnsupportedException."""
+
+
+def __getattr__(name: str) -> type[_AqualinkSystemUnsupportedDeprecated]:
+    if name == "AqualinkSystemUnsupportedException":
+        import warnings
+
+        warnings.warn(
+            "AqualinkSystemUnsupportedException is deprecated and will be removed "
+            "in a future release. Unknown device types now return "
+            "iaqualink.system.UnsupportedSystem instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _AqualinkSystemUnsupportedDeprecated
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
