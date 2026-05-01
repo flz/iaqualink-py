@@ -25,10 +25,6 @@ class AqualinkServiceThrottledException(AqualinkServiceException):
     """Exception raised when the service returns 429 Too Many Requests."""
 
 
-class AqualinkSystemUnsupportedException(AqualinkServiceException):
-    """Deprecated: no longer raised. Unknown systems return UnsupportedSystem."""
-
-
 class AqualinkOperationNotSupportedException(AqualinkException):
     """Exception raised when trying to issue an unsupported operation."""
 

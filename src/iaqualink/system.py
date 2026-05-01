@@ -60,8 +60,9 @@ class AqualinkSystem:
     ) -> AqualinkSystem:
         if data["device_type"] not in cls.subclasses:
             LOGGER.warning(
-                f"{data['device_type']} is not a supported system type."
+                "%s is not a supported system type.", data["device_type"]
             )
+            # UnsupportedSystem is defined after this class in this module.
             return UnsupportedSystem(aqualink, data)
 
         return cls.subclasses[data["device_type"]](aqualink, data)
