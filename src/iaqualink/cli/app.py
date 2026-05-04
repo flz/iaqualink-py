@@ -17,11 +17,23 @@ from iaqualink.exception import (
     AqualinkException,
     AqualinkInvalidParameterException,
     AqualinkOperationNotSupportedException,
+    AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem
+from iaqualink.systems.cyclobat.system import CyclobatSystem
+from iaqualink.systems.cyclonext.const import (
+    CYCLE_FLOOR,
+    CYCLE_FLOOR_AND_WALLS,
+    CYCLE_LABELS,
+    MODE_LABELS,
+)
+from iaqualink.systems.cyclonext.system import CyclonextSystem
+from iaqualink.systems.i2d_robot.system import I2dRobotSystem
+from iaqualink.systems.vortrax.system import VortraxSystem
+from iaqualink.systems.vr.system import VrSystem
 from iaqualink.version import __version__
 
 app = typer.Typer(
@@ -598,3 +610,400 @@ def set_temperature(
             )
         )
     )
+
+
+robot_app = typer.Typer(
+    help="Cyclonext robot control commands.",
+    no_args_is_help=True,
+)
+app.add_typer(robot_app, name="robot")
+
+
+_ROBOT_CYCLE_CHOICES: dict[str, int] = {
+    "floor": CYCLE_FLOOR,
+    "floor-wall": CYCLE_FLOOR_AND_WALLS,
+}
+
+
+_ROBOT_SYSTEM_TYPES: tuple[type[AqualinkSystem], ...] = (
+    CyclonextSystem,
+    VrSystem,
+    VortraxSystem,
+    CyclobatSystem,
+    I2dRobotSystem,
+)
+
+
+def _resolve_robot_system(
+    systems: dict[str, AqualinkSystem],
+    selector: str | None,
+) -> AqualinkSystem:
+    system = _resolve_system(systems, selector)
+    if not isinstance(system, _ROBOT_SYSTEM_TYPES):
+        _exit_with_error(
+            f"System {system.serial!r} is not a supported robot.",
+        )
+    return system
+
+
+def _resolve_cyclonext_system(
+    systems: dict[str, AqualinkSystem],
+    selector: str | None,
+) -> CyclonextSystem:
+    # Narrows further than _resolve_robot_system; returned type is
+    # CyclonextSystem so callers get its full method surface from ty.
+    system = _resolve_robot_system(systems, selector)
+    if not isinstance(system, CyclonextSystem):
+        _exit_with_error(
+            f"System {system.serial!r} is not a cyclonext robot.",
+        )
+    return system
+
+
+async def _robot_set_mode(
+    credentials: Credentials,
+    selector: str | None,
+    cookie_jar: Path,
+    action: str,
+    cycle: int | None = None,
+) -> str:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_cyclonext_system(systems, selector)
+    if action == "start":
+        await system.start_cleaning(cycle=cycle)
+        suffix = (
+            f" with cycle={CYCLE_LABELS.get(cycle, cycle)}"
+            if cycle is not None
+            else ""
+        )
+        return f"Started cleaning on {system.name} ({system.serial}){suffix}."
+    if action == "stop":
+        await system.stop_cleaning()
+        return f"Stopped {system.name} ({system.serial})."
+    if action == "pause":
+        await system.pause_cleaning()
+        return f"Paused {system.name} ({system.serial})."
+    raise ValueError(f"unknown robot action: {action}")  # pragma: no cover
+
+
+async def _robot_status(
+    credentials: Credentials,
+    selector: str | None,
+    cookie_jar: Path,
+) -> str:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_cyclonext_system(systems, selector)
+    try:
+        await system.update()
+    except (
+        AqualinkServiceException,
+        AqualinkSystemOfflineException,
+        AqualinkServiceUnauthorizedException,
+        AqualinkServiceThrottledException,
+    ) as exc:
+        _exit_with_error(f"Could not refresh {system.serial}: {exc}")
+
+    devices = system.devices
+    mode_value = devices["mode"].state if "mode" in devices else "?"
+    cycle_value = devices["cycle"].state if "cycle" in devices else "?"
+    remaining = devices.get("time_remaining_sec")
+    remaining_str = (
+        "n/a" if remaining is None else _format_seconds(int(remaining.state))
+    )
+
+    try:
+        mode_label = MODE_LABELS[int(mode_value)]
+    except (KeyError, ValueError):
+        mode_label = str(mode_value)
+    try:
+        cycle_label = CYCLE_LABELS[int(cycle_value)]
+    except (KeyError, ValueError):
+        cycle_label = str(cycle_value)
+
+    lines = [
+        f"{system.name} ({system.serial})",
+        f"  mode      : {mode_label} ({mode_value})",
+        f"  cycle     : {cycle_label} ({cycle_value})",
+        f"  remaining : {remaining_str}",
+    ]
+    if "model_number" in devices:
+        lines.append(f"  model     : {devices['model_number'].state}")
+    if "totRunTime" in devices:
+        total_min = int(devices["totRunTime"].state)
+        lines.append(f"  total run : {total_min // 60}h {total_min % 60}m")
+    return "\n".join(lines)
+
+
+def _format_seconds(secs: int) -> str:
+    if secs <= 0:
+        return "0:00"
+    minutes, seconds = divmod(secs, 60)
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def _parse_cycle(value: str | None) -> int | None:
+    if value is None:
+        return None
+    key = value.lower()
+    if key not in _ROBOT_CYCLE_CHOICES:
+        choices = ", ".join(sorted(_ROBOT_CYCLE_CHOICES))
+        _exit_with_error(
+            f"Unknown cycle {value!r}. Choose one of: {choices}.",
+        )
+    return _ROBOT_CYCLE_CHOICES[key]
+
+
+@robot_app.command("start")
+def robot_start(
+    cycle: Annotated[
+        str | None,
+        typer.Option(
+            "--cycle",
+            help="Cycle preset to set before starting (floor or floor-wall).",
+        ),
+    ] = None,
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    cycle_id = _parse_cycle(cycle)
+    typer.echo(
+        _run_async(
+            _robot_set_mode(credentials, system, cookie_jar, "start", cycle_id)
+        )
+    )
+
+
+@robot_app.command(
+    "stop",
+    help=(
+        "Stop the robot. Single canonical exit: stops a running cycle "
+        "and also exits Remote or Lift mode (sends mode=0)."
+    ),
+)
+def robot_stop(
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    typer.echo(
+        _run_async(_robot_set_mode(credentials, system, cookie_jar, "stop"))
+    )
+
+
+@robot_app.command("pause")
+def robot_pause(
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    typer.echo(
+        _run_async(_robot_set_mode(credentials, system, cookie_jar, "pause"))
+    )
+
+
+@robot_app.command("status")
+def robot_status(
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    typer.echo(_run_async(_robot_status(credentials, system, cookie_jar)))
+
+
+@robot_app.command("extend")
+def robot_extend(
+    minutes: Annotated[
+        int,
+        typer.Argument(
+            help="Absolute runtime extension in minutes. Must be a "
+            "non-negative multiple of 15. Use 0 to clear.",
+        ),
+    ],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+
+    async def _run() -> str:
+        systems = await _fetch_systems(credentials, cookie_jar)
+        sys_obj = _resolve_cyclonext_system(systems, system)
+        try:
+            await sys_obj.set_runtime_extension(minutes)
+        except AqualinkInvalidParameterException as exc:
+            _exit_with_error(str(exc))
+        return (
+            f"Set runtime extension to {minutes} min on "
+            f"{sys_obj.name} ({sys_obj.serial})."
+        )
+
+    typer.echo(_run_async(_run()))
+
+
+@robot_app.command(
+    "adjust-time",
+    context_settings={"ignore_unknown_options": True},
+)
+def robot_adjust_time(
+    delta: Annotated[
+        str,
+        typer.Argument(
+            help='Delta minutes — pass as "+15" or "-15". Multiples of 15 only.',
+        ),
+    ],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    try:
+        delta_min = int(delta.lstrip("+"))
+    except ValueError:
+        _exit_with_error(f"Invalid delta {delta!r}. Use e.g. +15 or -15.")
+
+    async def _run() -> str:
+        systems = await _fetch_systems(credentials, cookie_jar)
+        sys_obj = _resolve_cyclonext_system(systems, system)
+        try:
+            await sys_obj.update()
+        except AqualinkException as exc:
+            _exit_with_error(f"Could not refresh {sys_obj.serial}: {exc}")
+        try:
+            new_value = await sys_obj.adjust_runtime(delta_min)
+        except AqualinkInvalidParameterException as exc:
+            _exit_with_error(str(exc))
+        return (
+            f"Adjusted runtime extension by {delta_min:+d} min "
+            f"(now {new_value} min) on {sys_obj.name} ({sys_obj.serial})."
+        )
+
+    typer.echo(_run_async(_run()))
+
+
+@robot_app.command("set-cycle")
+def robot_set_cycle(
+    cycle: Annotated[
+        str,
+        typer.Argument(help="Cycle preset (floor or floor-wall)."),
+    ],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    cycle_id = _parse_cycle(cycle)
+    assert cycle_id is not None  # _parse_cycle exits on invalid input
+
+    async def _run() -> str:
+        systems = await _fetch_systems(credentials, cookie_jar)
+        sys_obj = _resolve_cyclonext_system(systems, system)
+        await sys_obj.set_cycle(cycle_id)
+        return (
+            f"Set cycle to {CYCLE_LABELS.get(cycle_id, cycle_id)} "
+            f"on {sys_obj.name} ({sys_obj.serial})."
+        )
+
+    typer.echo(_run_async(_run()))
+
+
+_REMOTE_ACTIONS: dict[str, str] = {
+    "forward": "remote_forward",
+    "backward": "remote_backward",
+    "left": "remote_rotate_left",
+    "right": "remote_rotate_right",
+    "stop": "remote_stop",
+}
+
+_LIFT_ACTIONS: dict[str, str] = {
+    "eject": "lift_eject",
+    "left": "lift_rotate_left",
+    "right": "lift_rotate_right",
+    "stop": "lift_stop",
+}
+
+
+@robot_app.command("remote")
+def robot_remote(
+    action: Annotated[
+        str,
+        typer.Argument(
+            help="Direction: forward, backward, left, right, stop.",
+        ),
+    ],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    method_name = _REMOTE_ACTIONS.get(action.lower())
+    if method_name is None:
+        choices = ", ".join(sorted(_REMOTE_ACTIONS))
+        _exit_with_error(
+            f"Unknown remote action {action!r}. Choose: {choices}."
+        )
+
+    async def _run() -> str:
+        systems = await _fetch_systems(credentials, cookie_jar)
+        sys_obj = _resolve_cyclonext_system(systems, system)
+        if not isinstance(sys_obj, CyclonextSystem):
+            _exit_with_error(
+                "Remote control is only available on cyclonext robots.",
+            )
+        await getattr(sys_obj, method_name)()
+        return f"Sent remote {action} to {sys_obj.name} ({sys_obj.serial})."
+
+    typer.echo(_run_async(_run()))
+
+
+@robot_app.command("lift")
+def robot_lift(
+    action: Annotated[
+        str,
+        typer.Argument(
+            help="Lift action: eject, left, right, stop.",
+        ),
+    ],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    method_name = _LIFT_ACTIONS.get(action.lower())
+    if method_name is None:
+        choices = ", ".join(sorted(_LIFT_ACTIONS))
+        _exit_with_error(f"Unknown lift action {action!r}. Choose: {choices}.")
+
+    async def _run() -> str:
+        systems = await _fetch_systems(credentials, cookie_jar)
+        sys_obj = _resolve_cyclonext_system(systems, system)
+        if not isinstance(sys_obj, CyclonextSystem):
+            _exit_with_error(
+                "Lift system is only available on cyclonext robots.",
+            )
+        await getattr(sys_obj, method_name)()
+        return f"Sent lift {action} to {sys_obj.name} ({sys_obj.serial})."
+
+    typer.echo(_run_async(_run()))

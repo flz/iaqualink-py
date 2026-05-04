@@ -11,12 +11,12 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.exo.device import ExoDevice
+from iaqualink.typing import Payload
 
 if TYPE_CHECKING:
     import httpx
 
     from iaqualink.client import AqualinkClient
-    from iaqualink.typing import Payload
 
 EXO_DEVICES_URL = "https://prod.zodiac-io.com/devices/v1"
 
@@ -66,7 +66,7 @@ class ExoSystem(AqualinkSystem):
         now = int(time.time())
         delta = now - self.last_refresh
         if delta < self.MIN_SECS_TO_REFRESH:
-            LOGGER.debug(f"Only {delta}s since last refresh.")
+            LOGGER.debug("Only %ds since last refresh.", delta)
             return
 
         try:
@@ -91,7 +91,7 @@ class ExoSystem(AqualinkSystem):
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()
 
-        LOGGER.debug(f"Shadow response: {data}")
+        LOGGER.debug("Shadow response: %s", data)
 
         devices = {}
 
@@ -127,7 +127,7 @@ class ExoSystem(AqualinkSystem):
             )
             devices.update({name: attrs})
 
-        LOGGER.debug(f"devices: {devices}")
+        LOGGER.debug("devices: %s", devices)
 
         for k, v in devices.items():
             if k in self.devices:

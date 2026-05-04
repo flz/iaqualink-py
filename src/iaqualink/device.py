@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from iaqualink.exception import AqualinkOperationNotSupportedException
-
-if TYPE_CHECKING:
-    from iaqualink.typing import DeviceData
+from iaqualink.typing import DeviceData
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -86,7 +84,8 @@ class AqualinkLight(AqualinkSwitch, AqualinkDevice):
     def supports_brightness(self) -> bool:
         return self.brightness is not None
 
-    async def set_brightness(self, _: int) -> None:
+    async def set_brightness(self, brightness: int) -> None:
+        del brightness
         if self.supports_brightness is True:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
@@ -99,12 +98,14 @@ class AqualinkLight(AqualinkSwitch, AqualinkDevice):
     def supports_effect(self) -> bool:
         return self.effect is not None
 
-    async def set_effect_by_name(self, _: str) -> None:
+    async def set_effect_by_name(self, effect: str) -> None:
+        del effect
         if self.supports_effect is True:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
-    async def set_effect_by_id(self, _: int) -> None:
+    async def set_effect_by_id(self, effect_id: int) -> None:
+        del effect_id
         if self.supports_effect is True:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
@@ -131,5 +132,6 @@ class AqualinkThermostat(AqualinkSwitch, AqualinkDevice):
     def min_temperature(self) -> int:
         raise NotImplementedError
 
-    async def set_temperature(self, _: int) -> None:
+    async def set_temperature(self, temperature: int) -> None:
+        del temperature
         raise NotImplementedError

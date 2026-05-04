@@ -35,8 +35,13 @@ if TYPE_CHECKING:
     from types import TracebackType
 
 for module_name in (
+    "iaqualink.systems.cyclobat.system",
+    "iaqualink.systems.cyclonext.system",
     "iaqualink.systems.exo.system",
+    "iaqualink.systems.i2d_robot.system",
     "iaqualink.systems.iaqua.system",
+    "iaqualink.systems.vortrax.system",
+    "iaqualink.systems.vr.system",
 ):
     importlib.import_module(module_name)
 
@@ -63,6 +68,7 @@ class AqualinkAuthState:
     user_id: str
     id_token: str
     refresh_token: str
+    app_client_id: str = ""
 
     def to_dict(self) -> dict[str, str]:
         return asdict(self)
@@ -86,7 +92,12 @@ class AqualinkAuthState:
                 )
             values[field_name] = value
 
-        return cls(**values)
+        # Optional: older session jars predate app_client_id.
+        app_client_id = data.get("app_client_id", "")
+        if not isinstance(app_client_id, str):
+            app_client_id = ""
+
+        return cls(app_client_id=app_client_id, **values)
 
 
 class AqualinkRetry(Retry):
@@ -124,6 +135,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.app_client_id = ""
         self._refresh_lock = asyncio.Lock()
 
         self._last_refresh = 0
@@ -144,6 +156,7 @@ class AqualinkClient:
             user_id=self.user_id,
             id_token=self.id_token,
             refresh_token=self.refresh_token,
+            app_client_id=self.app_client_id,
         )
 
     @auth_state.setter
@@ -158,6 +171,7 @@ class AqualinkClient:
         self.user_id = state.user_id
         self.id_token = state.id_token
         self.refresh_token = state.refresh_token
+        self.app_client_id = state.app_client_id
         self._logged = True
 
     async def close(self) -> None:
@@ -311,6 +325,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.app_client_id = ""
         self._logged = False
 
     def _apply_login_data(
@@ -325,6 +340,11 @@ class AqualinkClient:
         self.refresh_token = data["userPoolOAuth"].get(
             "RefreshToken", refresh_token_fallback
         )
+        # Cognito appClientId — needed for the 3-part `clientToken` used by
+        # vr / vortrax / cyclobat WebSocket frames. Optional: cyclonext accepts
+        # a 2-part token; we only enforce its presence at use time.
+        cognito = data.get("cognitoPool") or {}
+        self.app_client_id = cognito.get("appClientId", "")
         self._logged = True
 
     async def _send_systems_request(self) -> httpx.Response:
