@@ -37,6 +37,9 @@ cli = [
     "PyYAML>=6.0.2",
     "typer>=0.12.5",
 ]
+robot = [
+    "websockets>=13.0",
+]
 
 [project.scripts]
 iaqualink = "iaqualink.cli:main"
@@ -46,7 +49,9 @@ dev = [
     "pre-commit>=4.2.0",
     "mypy>=1.15.0",
     "ruff>=0.11.2",
+    "ty>=0.0.32",
     "types-PyYAML>=6.0.12.20250915",
+    "websockets>=13.0",
 ]
 test = [
     "coverage[toml]>=7.7.1",
@@ -83,10 +88,7 @@ packages = ["src/iaqualink"]
 line-length = 80
 
 [tool.ruff.lint]
-ignore = [
-    "SLF001",  # Some tests currently use private members
-    "G004",    # Will fix all f-string logging calls later
-]
+
 
 [tool.coverage.run]
 omit = [
@@ -101,6 +103,9 @@ exclude_lines = [
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.ty.src]
+include = ["src"]
 
 [tool.pytest.ini_options]
 filterwarnings = [
