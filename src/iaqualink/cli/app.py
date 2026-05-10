@@ -232,7 +232,7 @@ def _sorted_devices(
 
 
 def _format_system_line(system: AqualinkSystem) -> str:
-    system_type = system.data.get("device_type", "unknown")
+    system_type = system.data.device_type
     suffix = " (unsupported)" if not system.supported else ""
     return f"{system.name} ({system.serial}) [{system_type}]{suffix}"
 

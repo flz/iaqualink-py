@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import time
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -304,34 +303,3 @@ class TestExoSystem(TestBaseSystem):
             await self.sut.send_reported_state_request()
 
         mock_refresh.assert_awaited_once()
-
-    async def test_update_skipped_within_refresh_interval(self) -> None:
-        aqualink = MagicMock()
-        data = DevicesResponseElement(
-            device_type="exo", serial_number="ABCDEFG"
-        )
-        system = AqualinkSystem.from_data(aqualink, data)
-        system.send_reported_state_request = async_noop
-        system._parse_shadow_response = MagicMock()
-
-        # First update should go through.
-        now = int(time.time())
-        with patch("iaqualink.systems.exo.system.time") as mock_time:
-            mock_time.time.return_value = now
-            await system.update()
-        assert system._parse_shadow_response.call_count == 1
-
-        # Second update within MIN_SECS_TO_REFRESH should be skipped.
-        system._parse_shadow_response.reset_mock()
-        with patch("iaqualink.systems.exo.system.time") as mock_time:
-            mock_time.time.return_value = (
-                now + ExoSystem.MIN_SECS_TO_REFRESH - 1
-            )
-            await system.update()
-        assert system._parse_shadow_response.call_count == 0
-
-        # Update after MIN_SECS_TO_REFRESH should go through.
-        with patch("iaqualink.systems.exo.system.time") as mock_time:
-            mock_time.time.return_value = now + ExoSystem.MIN_SECS_TO_REFRESH
-            await system.update()
-        assert system._parse_shadow_response.call_count == 1

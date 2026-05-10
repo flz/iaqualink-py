@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -25,14 +26,14 @@ from .base import TestBase
 from .common import async_noop, async_raises
 
 LOGIN_DATA = {
-    "id": 1,
+    "id": "id",
     "authentication_token": "token",
     "session_id": "session_id",
     "userPoolOAuth": {"IdToken": "userPoolOAuth:IdToken"},
 }
 
 LOGIN_DATA_WITH_REFRESH = {
-    "id": 1,
+    "id": "id",
     "authentication_token": "token",
     "session_id": "session_id",
     "userPoolOAuth": {
@@ -42,7 +43,7 @@ LOGIN_DATA_WITH_REFRESH = {
 }
 
 REFRESH_RESPONSE_DATA = {
-    "id": 1,
+    "id": "id",
     "authentication_token": "new-token",
     "session_id": "new-session-id",
     "userPoolOAuth": {
@@ -320,7 +321,7 @@ class TestAqualinkClient(TestBase):
         assert systems == {}
         retry_url = mock_request.call_args_list[3][0][1]
         assert "authentication_token=new-token" in retry_url
-        assert "user_id=1" in retry_url
+        assert "user_id=id" in retry_url
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_repeated_401_refreshes_only_once(
@@ -470,8 +471,6 @@ class TestAqualinkClient(TestBase):
         assert response.status_code == httpx.codes.OK
         assert mock_request.call_count == 4
 
-
-
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_500_after_refresh_raises_service_exception(
         self, mock_request
@@ -497,7 +496,7 @@ class TestAqualinkClient(TestBase):
     ) -> None:
         # If the refresh response omits RefreshToken, keep the existing one.
         refresh_no_new_token = {
-            "id": 1,
+            "id": "id",
             "authentication_token": "new-token",
             "session_id": "new-session-id",
             "userPoolOAuth": {"IdToken": "new-id-token"},

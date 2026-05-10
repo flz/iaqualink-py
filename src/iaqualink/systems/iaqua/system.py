@@ -163,9 +163,11 @@ class IaquaSystem(AqualinkSystem):
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
 
-        for x in data["devices_screen"][3:]:
-            for attr in next(iter(x.values())):
-                if attr.get("state") == "NaN":
+        for x in data.devices_screen[3:]:
+            if not isinstance(x, dict):
+                continue
+            for attrs in x.values():
+                if attrs.state == "NaN":
                     LOGGER.debug(
                         "Skipping devices screen update with NaN state."
                     )

@@ -6,7 +6,7 @@ from mashumaro.exceptions import (
     SuitableVariantNotFoundError,
 )
 
-from .exception import AqualinkException
+from .exception import AqualinkUnexpectedResponseException
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -24,6 +24,8 @@ def json_to_dataclass(cls, json_str: str):
         LOGGER.error(
             "Failed to parse JSON into %s: %s\n%s", cls.__name__, e, json_str
         )
-        raise AqualinkException(f"Error parsing JSON: {e}") from e
+        raise AqualinkUnexpectedResponseException(
+            f"Error parsing JSON: {e}"
+        ) from e
     else:
         return res
