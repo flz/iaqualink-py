@@ -24,7 +24,9 @@ class FakeSystem:
     def __init__(self, serial: str, name: str) -> None:
         self.serial = serial
         self.name = name
-        self.data = DevicesResponseElement(device_type="iaqua", serial_number=serial)
+        self.data = DevicesResponseElement(
+            device_type="iaqua", serial_number=serial
+        )
 
     async def get_devices(self) -> dict[str, object]:
         return {}
@@ -160,7 +162,9 @@ def test_list_devices_reports_ambiguous_system_name(tmp_path: Path) -> None:
 def _make_unsupported_system(
     serial: str = "SN001", name: str = "Pool"
 ) -> UnsupportedSystem:
-    data = DevicesResponseElement(device_type="foo", serial_number=serial, name=name)
+    data = DevicesResponseElement(
+        device_type="foo", serial_number=serial, name=name
+    )
     return UnsupportedSystem(MagicMock(), data)
 
 
