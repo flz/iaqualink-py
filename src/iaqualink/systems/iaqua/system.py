@@ -15,6 +15,7 @@ from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaDevice
 from iaqualink.systems.iaqua.types import (
     DevicesScreenAux,
+    HomeScreenResponse,
     HomeScreenStatus,
     HomeScreenSystemType,
     HomeScreenTempScale,
@@ -46,6 +47,13 @@ IAQUA_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 IAQUA_COMMAND_SET_TEMPS = "set_temps"
 
 LOGGER = logging.getLogger("iaqualink")
+
+_HOME_SCREEN_HEADER_TYPES = (
+    HomeScreenResponse,
+    HomeScreenStatus,
+    HomeScreenSystemType,
+    HomeScreenTempScale,
+)
 
 
 class IaquaSystem(AqualinkSystem):
@@ -126,26 +134,38 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("Home response: %s", data)
 
-        first = data.home_screen[0]
-        if isinstance(first, HomeScreenStatus) and first.status == "Offline":
+        status = next(
+            (x for x in data.home_screen if isinstance(x, HomeScreenStatus)),
+            None,
+        )
+        if status is not None and status.status == "Offline":
             LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
-        second = data.home_screen[2]
-        if (
-            isinstance(second, HomeScreenSystemType)
-            and second.system_type == ""
-        ):
+        system_type = next(
+            (
+                x
+                for x in data.home_screen
+                if isinstance(x, HomeScreenSystemType)
+            ),
+            None,
+        )
+        if system_type is not None and system_type.system_type == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
 
-        third = data.home_screen[3]
-        if isinstance(third, HomeScreenTempScale):
-            self.temp_unit = third.temp_scale
+        temp_scale = next(
+            (x for x in data.home_screen if isinstance(x, HomeScreenTempScale)),
+            None,
+        )
+        if temp_scale is not None:
+            self.temp_unit = temp_scale.temp_scale
 
         # Make the data a bit flatter.
         devices = {}
-        for x in data.home_screen[4:]:
+        for x in data.home_screen:
+            if isinstance(x, _HOME_SCREEN_HEADER_TYPES):
+                continue
             f = dataclasses.fields(x)[0]
             name = f.name
             state = getattr(x, name)
