@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, TypeVar
+from typing import Any, Callable, TypeVar
 
 from mashumaro.codecs.json import JSONDecoder
 from mashumaro.exceptions import (
@@ -22,16 +22,21 @@ _MASHUMARO_ERRORS = (
 )
 
 _T = TypeVar("_T", bound=DataClassJSONMixin)
+_D = TypeVar("_D")
 
 
-def json_to_dataclass(cls: type[_T], json_str: str) -> _T:
+def _parse(operation: Callable[[], _D], label: str) -> _D:
     try:
-        return cls.from_json(json_str)
+        return operation()
     except _MASHUMARO_ERRORS as e:
-        LOGGER.error("Failed to parse JSON into %s: %s", cls.__name__, e)
+        LOGGER.error("Failed to parse JSON into %s: %s", label, e)
         raise AqualinkUnexpectedResponseException(
             f"Error parsing JSON: {e}"
         ) from e
+
+
+def json_to_dataclass(cls: type[_T], json_str: str) -> _T:
+    return _parse(lambda: cls.from_json(json_str), cls.__name__)
 
 
 def decode_json(decoder: JSONDecoder[Any], json_str: str) -> Any:
@@ -40,10 +45,4 @@ def decode_json(decoder: JSONDecoder[Any], json_str: str) -> Any:
     Use this instead of json_to_dataclass when the target type is not a
     DataClassJSONMixin subclass (e.g. a bare list type alias).
     """
-    try:
-        return decoder.decode(json_str)
-    except _MASHUMARO_ERRORS as e:
-        LOGGER.error("Failed to decode JSON response: %s", e)
-        raise AqualinkUnexpectedResponseException(
-            f"Error parsing JSON: {e}"
-        ) from e
+    return _parse(lambda: decoder.decode(json_str), "response")
