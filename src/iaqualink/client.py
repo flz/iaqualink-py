@@ -25,7 +25,8 @@ from iaqualink.exception import (
 )
 from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
-from iaqualink.types import DevicesResponse
+from iaqualink.types import DevicesResponse, LoginResponse
+from iaqualink.util import json_to_dataclass
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -257,13 +258,16 @@ class AqualinkClient:
                 return
 
             self._apply_login_data(
-                r.json(),
+                json_to_dataclass(LoginResponse, r.text),
                 refresh_token_fallback=self.refresh_token,
             )
 
     async def login(self) -> None:
         r = await self._send_login_request()
-        self._apply_login_data(r.json(), refresh_token_fallback="")
+        self._apply_login_data(
+            json_to_dataclass(LoginResponse, r.text),
+            refresh_token_fallback="",
+        )
 
     def _clear_auth_state(self) -> None:
         self.client_id = ""
@@ -275,15 +279,15 @@ class AqualinkClient:
 
     def _apply_login_data(
         self,
-        data: dict[str, Any],
+        data: LoginResponse,
         refresh_token_fallback: str,
     ) -> None:
-        self.client_id = data["session_id"]
-        self.authentication_token = data["authentication_token"]
-        self.user_id = str(data["id"])
-        self.id_token = data["userPoolOAuth"]["IdToken"]
-        self.refresh_token = data["userPoolOAuth"].get(
-            "RefreshToken", refresh_token_fallback
+        self.client_id = data.session_id
+        self.authentication_token = data.authentication_token
+        self.user_id = str(data.id)
+        self.id_token = data.user_pool_o_auth.id_token
+        self.refresh_token = (
+            data.user_pool_o_auth.refresh_token or refresh_token_fallback
         )
         self._logged = True
 

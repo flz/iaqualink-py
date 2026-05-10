@@ -1,13 +1,12 @@
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import List
 
 from mashumaro import field_options
 from mashumaro.mixins.json import DataClassJSONMixin
 
 
 @dataclass
-class CognitoPool(DataClassJSONMixin):
+class CognitoPool:
     app_client_id: str = field(metadata=field_options(alias="appClientId"))
     domain: str
     pool_id: str = field(metadata=field_options(alias="poolId"))
@@ -15,7 +14,7 @@ class CognitoPool(DataClassJSONMixin):
 
 
 @dataclass
-class Credentials(DataClassJSONMixin):
+class Credentials:
     access_key_id: str = field(metadata=field_options(alias="AccessKeyId"))
     secret_key: str = field(metadata=field_options(alias="SecretKey"))
     session_token: str = field(metadata=field_options(alias="SessionToken"))
@@ -24,7 +23,7 @@ class Credentials(DataClassJSONMixin):
 
 
 @dataclass
-class UserPoolOAuth(DataClassJSONMixin):
+class UserPoolOAuth:
     id_token: str = field(metadata=field_options(alias="IdToken"))
     access_token: str | None = field(
         default=None, metadata=field_options(alias="AccessToken")
@@ -92,4 +91,4 @@ class DevicesResponseElement(DataClassJSONMixin):
     last_activity_at: datetime | None = None
 
 
-DevicesResponse = List[DevicesResponseElement]
+type DevicesResponse = list[DevicesResponseElement]

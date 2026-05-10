@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List, Optional, Union
+from typing import Any
 
 from mashumaro import field_options
 from mashumaro.mixins.json import DataClassJSONMixin
@@ -22,26 +22,26 @@ class IaquaDevicesResponse(DataClassJSONMixin):
 
 
 @dataclass
-class HeatpumpInfo(DataClassJSONMixin):
-    isheatpump_present: Optional[bool] = field(
+class HeatpumpInfo:
+    isheatpump_present: bool | None = field(
         default=False, metadata=field_options(alias="isheatpumpPresent")
     )
-    heatpumpstatus: Optional[str] = field(
+    heatpumpstatus: str | None = field(
         default=None, metadata=field_options(alias="heatpumpstatus")
     )
-    is_chill_available: Optional[bool] = field(
+    is_chill_available: bool | None = field(
         default=False, metadata=field_options(alias="isChillAvailable")
     )
-    heatpumpmode: Optional[str] = field(
+    heatpumpmode: str | None = field(
         default=None, metadata=field_options(alias="heatpumpmode")
     )
-    heatpumptype: Optional[str] = field(
+    heatpumptype: str | None = field(
         default=None, metadata=field_options(alias="heatpumptype")
     )
 
 
 @dataclass
-class IclCustomColorInfo(DataClassJSONMixin):
+class IclCustomColorInfo:
     zone_id: int = field(metadata=field_options(alias="zoneId"))
     red_val: int
     green_val: int
@@ -50,159 +50,159 @@ class IclCustomColorInfo(DataClassJSONMixin):
 
 
 @dataclass
-class SwcInfo(DataClassJSONMixin):
+class SwcInfo:
     isswc_present: bool = field(metadata=field_options(alias="isswcPresent"))
-    swc_pool_value: Optional[str] = field(
+    swc_pool_value: str | None = field(
         default=None, metadata=field_options(alias="swcPoolValue")
     )
-    swc_pool_status: Optional[str] = field(
+    swc_pool_status: str | None = field(
         default=None, metadata=field_options(alias="swcPoolStatus")
     )
-    swc_spa_value: Optional[str] = field(
+    swc_spa_value: str | None = field(
         default=None, metadata=field_options(alias="swcSpaValue")
     )
-    swc_spa_status: Optional[str] = field(
+    swc_spa_status: str | None = field(
         default=None, metadata=field_options(alias="swcSpaStatus")
     )
 
 
 @dataclass
-class HomeScreenStatus(DataClassJSONMixin):
+class HomeScreenStatus:
     status: str
 
 
 @dataclass
-class HomeScreenResponse(DataClassJSONMixin):
+class HomeScreenResponse:
     response: str
 
 
 @dataclass
-class HomeScreenSystemType(DataClassJSONMixin):
+class HomeScreenSystemType:
     system_type: str
 
 
 @dataclass
-class HomeScreenTempScale(DataClassJSONMixin):
+class HomeScreenTempScale:
     temp_scale: str
 
 
 @dataclass
-class HomeScreenSpaTemp(DataClassJSONMixin):
+class HomeScreenSpaTemp:
     spa_temp: str
 
 
 @dataclass
-class HomeScreenPoolTemp(DataClassJSONMixin):
+class HomeScreenPoolTemp:
     pool_temp: str
 
 
 @dataclass
-class HomeScreenAirTemp(DataClassJSONMixin):
+class HomeScreenAirTemp:
     air_temp: str
 
 
 @dataclass
-class HomeScreenSetPoint(DataClassJSONMixin):
+class HomeScreenSetPoint:
     spa_set_point: str
 
 
 @dataclass
-class HomeScreenPoolSetPoint(DataClassJSONMixin):
+class HomeScreenPoolSetPoint:
     pool_set_point: str
 
 
 @dataclass
-class HomeScreenCoverPool(DataClassJSONMixin):
+class HomeScreenCoverPool:
     cover_pool: str
 
 
 @dataclass
-class HomeScreenFreezeProtection(DataClassJSONMixin):
+class HomeScreenFreezeProtection:
     freeze_protection: str
 
 
 @dataclass
-class HomeScreenSpaPump(DataClassJSONMixin):
+class HomeScreenSpaPump:
     spa_pump: str
 
 
 @dataclass
-class HomeScreenPoolPump(DataClassJSONMixin):
+class HomeScreenPoolPump:
     pool_pump: str
 
 
 @dataclass
-class HomeScreenSpaHeater(DataClassJSONMixin):
+class HomeScreenSpaHeater:
     spa_heater: str
 
 
 @dataclass
-class HomeScreenPoolHeater(DataClassJSONMixin):
+class HomeScreenPoolHeater:
     pool_heater: str
 
 
 @dataclass
-class HomeScreenSolarHeater(DataClassJSONMixin):
+class HomeScreenSolarHeater:
     solar_heater: str
 
 
 @dataclass
-class HomeScreenSpaSalinity(DataClassJSONMixin):
+class HomeScreenSpaSalinity:
     spa_salinity: str
 
 
 @dataclass
-class HomeScreenPoolSalinity(DataClassJSONMixin):
+class HomeScreenPoolSalinity:
     pool_salinity: str
 
 
 @dataclass
-class HomeScreenOrp(DataClassJSONMixin):
+class HomeScreenOrp:
     orp: str
 
 
 @dataclass
-class HomeScreenPh(DataClassJSONMixin):
+class HomeScreenPh:
     ph: str
 
 
 @dataclass
-class HomeScreenIsIclPresent(DataClassJSONMixin):
+class HomeScreenIsIclPresent:
     is_icl_present: str
 
 
 @dataclass
-class HomeScreenIclCustomColor(DataClassJSONMixin):
-    icl_custom_color_info: List[IclCustomColorInfo]
+class HomeScreenIclCustomColor:
+    icl_custom_color_info: list[IclCustomColorInfo]
 
 
 @dataclass
-class HomeScreenHeatpumpInfo(DataClassJSONMixin):
+class HomeScreenHeatpumpInfo:
     heatpump_info: HeatpumpInfo
 
 
 @dataclass
-class HomeScreenPoolChillSetPoint(DataClassJSONMixin):
+class HomeScreenPoolChillSetPoint:
     pool_chill_set_point: str
 
 
 @dataclass
-class HomeScreenSwcInfo(DataClassJSONMixin):
+class HomeScreenSwcInfo:
     swc_info: SwcInfo
 
 
 @dataclass
-class HomeScreenRelayCount(DataClassJSONMixin):
+class HomeScreenRelayCount:
     relay_count: str
 
 
 @dataclass
-class DevicesScreenGroup(DataClassJSONMixin):
+class DevicesScreenGroup:
     group: str
 
 
 @dataclass
-class DevicesScreenAuxAttrs(DataClassJSONMixin):
+class DevicesScreenAuxAttrs:
     """Aux device attributes, deserialized from a list of single-key dicts.
 
     The API sends: [{"state": "0"}, {"label": "X"}, {"icon": "..."}, ...]
@@ -226,46 +226,41 @@ class DevicesScreenAuxAttrs(DataClassJSONMixin):
         return d
 
 
-DevicesScreenItem = Union[
-    HomeScreenStatus,
-    HomeScreenResponse,
-    DevicesScreenGroup,
-    dict[str, DevicesScreenAuxAttrs],
-]
+DevicesScreenItem = (
+    HomeScreenStatus
+    | HomeScreenResponse
+    | DevicesScreenGroup
+    | dict[str, DevicesScreenAuxAttrs]
+)
 
-
-HomeScreenItem = Union[
-    HomeScreenAirTemp,
-    HomeScreenCoverPool,
-    HomeScreenFreezeProtection,
-    HomeScreenHeatpumpInfo,
-    HomeScreenIclCustomColor,
-    HomeScreenIsIclPresent,
-    HomeScreenOrp,
-    HomeScreenPh,
-    HomeScreenPoolChillSetPoint,
-    HomeScreenPoolHeater,
-    HomeScreenPoolPump,
-    HomeScreenPoolSalinity,
-    HomeScreenPoolSetPoint,
-    HomeScreenPoolTemp,
-    HomeScreenRelayCount,
-    HomeScreenResponse,
-    HomeScreenSetPoint,
-    HomeScreenSolarHeater,
-    HomeScreenSpaHeater,
-    HomeScreenSpaPump,
-    HomeScreenSpaSalinity,
-    HomeScreenSpaTemp,
-    HomeScreenStatus,
-    HomeScreenSwcInfo,
-    HomeScreenSystemType,
-    HomeScreenTempScale,
-]
-
-
-@dataclass
-class HomeResponse(DataClassJSONMixin):
-    message: str
-    serial: str
-    home_screen: List[HomeScreenItem]
+# mashumaro resolves union variants in declaration order. The ordering below
+# is intentional: more specific single-field types are tried before broader
+# ones. Do not reorder without verifying against real API responses.
+HomeScreenItem = (
+    HomeScreenAirTemp
+    | HomeScreenCoverPool
+    | HomeScreenFreezeProtection
+    | HomeScreenHeatpumpInfo
+    | HomeScreenIclCustomColor
+    | HomeScreenIsIclPresent
+    | HomeScreenOrp
+    | HomeScreenPh
+    | HomeScreenPoolChillSetPoint
+    | HomeScreenPoolHeater
+    | HomeScreenPoolPump
+    | HomeScreenPoolSalinity
+    | HomeScreenPoolSetPoint
+    | HomeScreenPoolTemp
+    | HomeScreenRelayCount
+    | HomeScreenResponse
+    | HomeScreenSetPoint
+    | HomeScreenSolarHeater
+    | HomeScreenSpaHeater
+    | HomeScreenSpaPump
+    | HomeScreenSpaSalinity
+    | HomeScreenSpaTemp
+    | HomeScreenStatus
+    | HomeScreenSwcInfo
+    | HomeScreenSystemType
+    | HomeScreenTempScale
+)

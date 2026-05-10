@@ -26,14 +26,14 @@ from .base import TestBase
 from .common import async_noop, async_raises
 
 LOGIN_DATA = {
-    "id": "id",
+    "id": 1,
     "authentication_token": "token",
     "session_id": "session_id",
     "userPoolOAuth": {"IdToken": "userPoolOAuth:IdToken"},
 }
 
 LOGIN_DATA_WITH_REFRESH = {
-    "id": "id",
+    "id": 1,
     "authentication_token": "token",
     "session_id": "session_id",
     "userPoolOAuth": {
@@ -43,7 +43,7 @@ LOGIN_DATA_WITH_REFRESH = {
 }
 
 REFRESH_RESPONSE_DATA = {
-    "id": "id",
+    "id": 1,
     "authentication_token": "new-token",
     "session_id": "new-session-id",
     "userPoolOAuth": {
@@ -97,7 +97,7 @@ class TestAqualinkClient(TestBase):
             username="foo",
             client_id="session_id",
             authentication_token="token",
-            user_id="id",
+            user_id="1",
             id_token="userPoolOAuth:IdToken",
             refresh_token="userPoolOAuth:RefreshToken",
         )
@@ -321,7 +321,7 @@ class TestAqualinkClient(TestBase):
         assert systems == {}
         retry_url = mock_request.call_args_list[3][0][1]
         assert "authentication_token=new-token" in retry_url
-        assert "user_id=id" in retry_url
+        assert "user_id=1" in retry_url
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_repeated_401_refreshes_only_once(
@@ -496,7 +496,7 @@ class TestAqualinkClient(TestBase):
     ) -> None:
         # If the refresh response omits RefreshToken, keep the existing one.
         refresh_no_new_token = {
-            "id": "id",
+            "id": 1,
             "authentication_token": "new-token",
             "session_id": "new-session-id",
             "userPoolOAuth": {"IdToken": "new-id-token"},

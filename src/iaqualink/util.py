@@ -1,10 +1,12 @@
 import logging
+from typing import TypeVar
 
 from mashumaro.exceptions import (
     InvalidFieldValue,
     MissingField,
     SuitableVariantNotFoundError,
 )
+from mashumaro.mixins.json import DataClassJSONMixin
 
 from .exception import AqualinkUnexpectedResponseException
 
@@ -16,8 +18,10 @@ _MASHUMARO_ERRORS = (
     SuitableVariantNotFoundError,
 )
 
+_T = TypeVar("_T", bound=DataClassJSONMixin)
 
-def json_to_dataclass(cls, json_str: str):
+
+def json_to_dataclass(cls: type[_T], json_str: str) -> _T:
     try:
         res = cls.from_json(json_str)
     except _MASHUMARO_ERRORS as e:

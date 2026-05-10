@@ -15,6 +15,8 @@ from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaDevice
 from iaqualink.systems.iaqua.types import (
     HomeScreenStatus,
+    HomeScreenSystemType,
+    HomeScreenTempScale,
     IaquaDevicesResponse,
     IaquaHomeResponse,
 )
@@ -123,23 +125,29 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("Home response: %s", data)
 
-        first = dataclasses.asdict(data.home_screen[0])
-        if first.get("status") == "Offline":
+        first = data.home_screen[0]
+        if isinstance(first, HomeScreenStatus) and first.status == "Offline":
             LOGGER.warning(f"Status for system {self.serial} is Offline.")
             raise AqualinkSystemOfflineException
 
-        if dataclasses.asdict(data.home_screen[2]).get("system_type") == "":
+        second = data.home_screen[2]
+        if (
+            isinstance(second, HomeScreenSystemType)
+            and second.system_type == ""
+        ):
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
 
-        self.temp_unit = dataclasses.asdict(data.home_screen[3])["temp_scale"]
+        third = data.home_screen[3]
+        if isinstance(third, HomeScreenTempScale):
+            self.temp_unit = third.temp_scale
 
         # Make the data a bit flatter.
         devices = {}
         for x in data.home_screen[4:]:
-            d = dataclasses.asdict(x)
-            name = next(iter(d))
-            state = d[name]
+            f = dataclasses.fields(x)[0]
+            name = f.name
+            state = getattr(x, name)
             attrs = {"name": name, "state": state}
             devices.update({name: attrs})
 

@@ -87,11 +87,8 @@ class ExoSystem(AqualinkSystem):
         root = data.state.reported.equipment["swc_0"]
 
         # Scalar int fields — each becomes a simple state device.
-        _COMPLEX = frozenset(
-            {"aux_devices", "sensors", "filter_pump", "vsp_speed"}
-        )
         for f in dataclasses.fields(root):
-            if f.name in _COMPLEX:
+            if f.name in root.COMPLEX_FIELDS:
                 continue
             devices[f.name] = {"name": f.name, "state": getattr(root, f.name)}
 

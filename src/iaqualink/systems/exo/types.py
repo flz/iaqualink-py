@@ -1,11 +1,11 @@
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, ClassVar
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
 
 @dataclass
-class ExoAux(DataClassJSONMixin):
+class ExoAux:
     mode: int
     type: str
     color: int
@@ -13,32 +13,38 @@ class ExoAux(DataClassJSONMixin):
 
 
 @dataclass
-class ExoSensorData(DataClassJSONMixin):
+class ExoSensorData:
     state: int
     value: int
     sensor_type: str
 
 
 @dataclass
-class ExoFilterPumpData(DataClassJSONMixin):
+class ExoFilterPumpData:
     type: int
     state: int
 
 
 @dataclass
-class ExoVspSpeed(DataClassJSONMixin):
+class ExoVspSpeed:
     min: int
     max: int
 
 
 @dataclass
-class ExoSwcDevice(DataClassJSONMixin):
+class ExoSwcDevice:
     """Represents the swc_0 equipment block in the shadow response.
 
     ``__pre_deserialize__`` collects the variable-key ``aux_*`` and ``sns_*``
     entries into typed dicts so that the rest of the fields can be declared
     as fixed dataclass members.
     """
+
+    # Fields handled explicitly by _parse_shadow_response; all other fields
+    # are emitted as scalar state devices. Update when adding structured fields.
+    COMPLEX_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"aux_devices", "sensors", "filter_pump", "vsp_speed"}
+    )
 
     filter_pump: ExoFilterPumpData
     aux_devices: dict[str, ExoAux]
@@ -78,7 +84,7 @@ class ExoSwcDevice(DataClassJSONMixin):
 
 
 @dataclass
-class ExoHeating(DataClassJSONMixin):
+class ExoHeating:
     state: int
     sp: int
     enabled: int
@@ -90,13 +96,13 @@ class ExoHeating(DataClassJSONMixin):
 
 
 @dataclass
-class ExoShadowReported(DataClassJSONMixin):
+class ExoShadowReported:
     equipment: dict[str, ExoSwcDevice]
     heating: ExoHeating | None = None
 
 
 @dataclass
-class ExoShadowState(DataClassJSONMixin):
+class ExoShadowState:
     reported: ExoShadowReported
 
 
