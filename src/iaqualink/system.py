@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
 import enum
 import logging
+from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, ClassVar
 
 from iaqualink.reauth import send_with_reauth_retry
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger("iaqualink")
 
 
-class SystemStatus(enum.Enum):
+class SystemStatus(enum.StrEnum):
     UNKNOWN = "unknown"
     OFFLINE = "offline"
     ONLINE = "online"
