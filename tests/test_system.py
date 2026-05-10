@@ -1,13 +1,13 @@
 from __future__ import annotations
 
+import logging
 import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from iaqualink.client import AqualinkClient
-from iaqualink.exception import AqualinkSystemUnsupportedException
-from iaqualink.system import AqualinkSystem
+from iaqualink.system import AqualinkSystem, UnsupportedSystem
 
 
 class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
@@ -34,11 +34,11 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
         r = AqualinkSystem.from_data(aqualink, data)
         assert r is not None
 
-    def test_from_data_unsupported(self) -> None:
+    def test_supported_true_for_known_system(self) -> None:
         aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "foo"}
-        with pytest.raises(AqualinkSystemUnsupportedException):
-            AqualinkSystem.from_data(aqualink, data)
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "iaqua"}
+        r = AqualinkSystem.from_data(aqualink, data)
+        assert r.supported is True
 
     async def test_get_devices_needs_update(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
@@ -67,3 +67,34 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
 
         with pytest.raises(NotImplementedError):
             await system.update()
+
+
+class TestUnsupportedSystem(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        self.aqualink = MagicMock()
+        self.data = {
+            "id": 1,
+            "serial_number": "ABCDEFG",
+            "device_type": "unknown_type",
+            "name": "pool",
+        }
+        self.system = UnsupportedSystem(self.aqualink, self.data)
+
+    def test_from_data_returns_unsupported_system(self) -> None:
+        r = AqualinkSystem.from_data(self.aqualink, self.data)
+        assert isinstance(r, UnsupportedSystem)
+
+    def test_from_data_logs_warning(self) -> None:
+        with self.assertLogs("iaqualink", level=logging.WARNING) as cm:
+            AqualinkSystem.from_data(self.aqualink, self.data)
+        assert any("unknown_type" in line for line in cm.output)
+
+    def test_supported_false(self) -> None:
+        assert self.system.supported is False
+
+    async def test_update_is_noop(self) -> None:
+        await self.system.update()
+
+    async def test_get_devices_returns_empty(self) -> None:
+        devices = await self.system.get_devices()
+        assert devices == {}

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 
 class AqualinkException(Exception):  # noqa: N818
     """Base exception for iAqualink library."""
@@ -25,13 +27,28 @@ class AqualinkServiceThrottledException(AqualinkServiceException):
     """Exception raised when the service returns 429 Too Many Requests."""
 
 
-class AqualinkSystemUnsupportedException(AqualinkServiceException):
-    """Exception raised when a system isn't supported by the library."""
-
-
 class AqualinkOperationNotSupportedException(AqualinkException):
     """Exception raised when trying to issue an unsupported operation."""
 
 
 class AqualinkDeviceNotSupported(AqualinkException):
     """Exception raised when a device isn't known-unsupported."""
+
+
+class _AqualinkSystemUnsupportedDeprecated(AqualinkServiceException):
+    """Backward-compat stub; use iaqualink.system.UnsupportedSystem instead."""
+
+
+def __getattr__(name: str) -> Any:
+    if name == "AqualinkSystemUnsupportedException":
+        import warnings
+
+        warnings.warn(
+            "AqualinkSystemUnsupportedException is deprecated and will be removed "
+            "in a future release. Unknown device types now return "
+            "iaqualink.system.UnsupportedSystem instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return _AqualinkSystemUnsupportedDeprecated
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

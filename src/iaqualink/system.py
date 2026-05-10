@@ -4,7 +4,6 @@ from collections.abc import Awaitable, Callable
 import logging
 from typing import TYPE_CHECKING, ClassVar
 
-from iaqualink.exception import AqualinkSystemUnsupportedException
 from iaqualink.reauth import send_with_reauth_retry
 
 if TYPE_CHECKING:
@@ -51,14 +50,20 @@ class AqualinkSystem:
     def serial(self) -> str:
         return self.data["serial_number"]
 
+    @property
+    def supported(self) -> bool:
+        return True
+
     @classmethod
     def from_data(
         cls, aqualink: AqualinkClient, data: Payload
     ) -> AqualinkSystem:
         if data["device_type"] not in cls.subclasses:
-            m = f"{data['device_type']} is not a supported system type."
-            LOGGER.warning(m)
-            raise AqualinkSystemUnsupportedException(m)
+            LOGGER.warning(
+                "%s is not a supported system type.", data["device_type"]
+            )
+            # UnsupportedSystem is defined after this class in this module.
+            return UnsupportedSystem(aqualink, data)
 
         return cls.subclasses[data["device_type"]](aqualink, data)
 
@@ -78,3 +83,15 @@ class AqualinkSystem:
 
     async def update(self) -> None:
         raise NotImplementedError
+
+
+class UnsupportedSystem(AqualinkSystem):
+    @property
+    def supported(self) -> bool:
+        return False
+
+    async def update(self) -> None:
+        LOGGER.debug("Skipping update for unsupported system %r", self.serial)
+
+    async def get_devices(self) -> dict[str, AqualinkDevice]:
+        return {}

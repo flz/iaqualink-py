@@ -92,6 +92,22 @@ Get all devices associated with this system.
 **Raises:**
 - `AqualinkServiceException` - Service error occurred
 
+## UnsupportedSystem
+
+::: iaqualink.system.UnsupportedSystem
+
+Returned by `AqualinkSystem.from_data()` when the `device_type` is not recognised.
+`get_devices()` returns `{}` and `update()` is a no-op. `supported` is `False`.
+
+```python
+from iaqualink.system import UnsupportedSystem
+
+systems = await client.get_systems()
+for system in systems.values():
+    if not system.supported:
+        print(f"{system.name} uses an unrecognised device type")
+```
+
 ## System Types
 
 The library includes two system implementations:

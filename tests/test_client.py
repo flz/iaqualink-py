@@ -24,6 +24,7 @@ from iaqualink.exception import (
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
 )
+from iaqualink.system import UnsupportedSystem
 
 from .base import TestBase
 from .common import async_noop, async_raises
@@ -287,7 +288,8 @@ class TestAqualinkClient(TestBase):
         ]
 
         systems = await self.client.get_systems()
-        assert len(systems) == 0
+        assert len(systems) == 1
+        assert isinstance(next(iter(systems.values())), UnsupportedSystem)
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request(self, mock_request) -> None:
