@@ -8,6 +8,7 @@ from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceUnauthorizedException,
 )
+from iaqualink.system import SystemStatus
 
 from .base import TestBase, dotstar, resp_200
 
@@ -30,6 +31,7 @@ class TestBaseSystem(TestBase):
         respx_mock.route(dotstar).mock(resp_200)
         await self.sut.update()
         assert len(respx_mock.calls) > 0
+        assert self.sut.status is SystemStatus.ONLINE
         self.respx_calls = copy.copy(respx_mock.calls)
 
     @respx.mock

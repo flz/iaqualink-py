@@ -10,7 +10,7 @@ from iaqualink.exception import (
     AqualinkServiceThrottledException,
     AqualinkSystemOfflineException,
 )
-from iaqualink.system import AqualinkSystem
+from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaDevice
 
 if TYPE_CHECKING:
@@ -95,19 +95,20 @@ class IaquaSystem(AqualinkSystem):
             r1 = await self._send_home_screen_request()
             r2 = await self._send_devices_screen_request()
         except AqualinkServiceThrottledException:
+            self.status = SystemStatus.UNKNOWN
             raise
         except AqualinkServiceException:
-            self.online = None
+            self.status = SystemStatus.ERROR
             raise
 
         try:
             self._parse_home_response(r1)
             self._parse_devices_response(r2)
         except AqualinkSystemOfflineException:
-            self.online = False
+            self.status = SystemStatus.OFFLINE
             raise
 
-        self.online = True
+        self.status = SystemStatus.ONLINE
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()

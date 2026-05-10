@@ -8,10 +8,11 @@ import pytest
 from iaqualink.client import AqualinkClient
 from iaqualink.exception import (
     AqualinkServiceException,
+    AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
-from iaqualink.system import AqualinkSystem
+from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import (
     ExoAttributeSwitch,
     ExoAuxSwitch,
@@ -190,7 +191,7 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
         r.send_reported_state_request = async_noop
         r._parse_shadow_response = MagicMock()
         await r.update()
-        assert r.online is True
+        assert r.status is SystemStatus.ONLINE
 
     async def test_update_service_exception(self):
         aqualink = MagicMock()
@@ -199,7 +200,18 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
         r.send_reported_state_request = async_raises(AqualinkServiceException)
         with pytest.raises(AqualinkServiceException):
             await r.update()
-        assert r.online is None
+        assert r.status is SystemStatus.ERROR
+
+    async def test_update_throttled(self):
+        aqualink = MagicMock()
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
+        r = AqualinkSystem.from_data(aqualink, data)
+        r.send_reported_state_request = async_raises(
+            AqualinkServiceThrottledException
+        )
+        with pytest.raises(AqualinkServiceThrottledException):
+            await r.update()
+        assert r.status is SystemStatus.UNKNOWN
 
     async def test_update_offline(self):
         aqualink = MagicMock()
@@ -213,7 +225,7 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
 
         with pytest.raises(AqualinkSystemOfflineException):
             await r.update()
-        assert r.online is False
+        assert r.status is SystemStatus.OFFLINE
 
     def test_parse_devices_good(self):
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}

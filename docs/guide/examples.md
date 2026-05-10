@@ -90,6 +90,7 @@ Generate a comprehensive status report:
 ```python
 import asyncio
 from iaqualink import AqualinkClient
+from iaqualink.system import SystemStatus
 
 async def system_status_report():
     async with AqualinkClient('user@example.com', 'password') as client:
@@ -100,10 +101,10 @@ async def system_status_report():
             print(f"System: {system.name}")
             print(f"Serial: {serial}")
             print(f"Type: {system.data.get('device_type')}")
-            print(f"Online: {system.online}")
+            print(f"Status: {system.status}")
             print(f"{'='*60}")
 
-            if not system.online:
+            if system.status is not SystemStatus.ONLINE:
                 print("System is offline")
                 continue
 
@@ -194,6 +195,7 @@ Manage multiple pool systems:
 ```python
 import asyncio
 from iaqualink import AqualinkClient
+from iaqualink.system import SystemStatus
 
 async def manage_multiple_systems():
     async with AqualinkClient('user@example.com', 'password') as client:
@@ -208,7 +210,7 @@ async def manage_multiple_systems():
         for serial, system in systems.items():
             print(f"\nSystem: {system.name}")
 
-            if not system.online:
+            if system.status is not SystemStatus.ONLINE:
                 print("  Status: OFFLINE")
                 continue
 

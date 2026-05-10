@@ -80,7 +80,9 @@ if pool_thermostat:
 await system.update()
 
 # Check if system is online
-if system.online:
+from iaqualink.system import SystemStatus
+
+if system.status is SystemStatus.ONLINE:
     print(f"System {system.name} is online")
 
     # Get all temperature readings

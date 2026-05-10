@@ -23,7 +23,9 @@ async with AqualinkClient(username, password) as client:
 await system.update()
 
 # Check if online
-if system.online:
+from iaqualink.system import SystemStatus
+
+if system.status is SystemStatus.ONLINE:
     print(f"System {system.name} is online")
 ```
 
@@ -51,11 +53,18 @@ Unique serial number identifying the system.
 
 **Type:** `str`
 
-### online
+### status
 
-Whether the system is currently online.
+Current connectivity state of the system.
 
-**Type:** `bool`
+**Type:** `SystemStatus`
+
+One of:
+
+- `SystemStatus.ONLINE` — last update succeeded
+- `SystemStatus.OFFLINE` — system is definitively offline
+- `SystemStatus.UNKNOWN` — initial state, or last update was rate-limited
+- `SystemStatus.ERROR` — last update failed with a non-recoverable service error
 
 ### data
 
