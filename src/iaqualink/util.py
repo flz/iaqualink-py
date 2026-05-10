@@ -29,7 +29,7 @@ def _parse(operation: Callable[[], _D], label: str) -> _D:
     try:
         return operation()
     except _MASHUMARO_ERRORS as e:
-        LOGGER.error("Failed to parse JSON into %s: %s", label, e)
+        LOGGER.debug("Failed to parse JSON into %s: %s", label, e)
         raise AqualinkUnexpectedResponseException(
             f"Error parsing JSON: {e}"
         ) from e
