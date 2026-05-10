@@ -14,11 +14,11 @@ from .base import TestBase, dotstar, resp_200
 
 
 class TestBaseSystem(TestBase):
-    def test_propery_name(self) -> None:
+    def test_property_name(self) -> None:
         assert isinstance(self.sut.name, str)
 
     def test_property_serial(self) -> None:
-        assert isinstance(self.sut.name, str)
+        assert isinstance(self.sut.serial, str)
 
     def test_from_data(self) -> None:
         if sut_class := getattr(self, "sut_class", None):
@@ -42,6 +42,7 @@ class TestBaseSystem(TestBase):
         respx_mock.route(dotstar).mock(resp_500)
         with pytest.raises(AqualinkServiceException):
             await self.sut.update()
+        assert self.sut.status is SystemStatus.ERROR
         self.respx_calls = copy.copy(respx_mock.calls)
 
     @respx.mock
