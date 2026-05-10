@@ -1,13 +1,10 @@
 from __future__ import annotations
 
-import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from iaqualink.client import AqualinkClient
 from iaqualink.exception import (
-    AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
@@ -20,7 +17,7 @@ from iaqualink.systems.exo.device import (
 )
 from iaqualink.systems.exo.system import ExoSystem
 
-from ...common import async_noop, async_raises
+from ...base_test_system import TestBaseSystem
 
 SAMPLE_DATA = {
     "state": {
@@ -173,137 +170,108 @@ SAMPLE_DATA = {
 }
 
 
-class TestExoSystem(unittest.IsolatedAsyncioTestCase):
+class TestExoSystem(TestBaseSystem):
     def setUp(self) -> None:
-        pass
+        super().setUp()
 
-    def test_from_data_iaqua(self):
-        aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        assert r is not None
-        assert isinstance(r, ExoSystem)
+        data = {
+            "id": 1,
+            "serial_number": "ABCDEFG",
+            "device_type": "exo",
+            "name": "Pool",
+        }
+        self.sut = AqualinkSystem.from_data(self.client, data=data)
+        self.sut_class = ExoSystem
 
-    async def test_update_success(self):
-        aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        r.send_reported_state_request = async_noop
-        r._parse_shadow_response = MagicMock()
-        await r.update()
-        assert r.status is SystemStatus.ONLINE
+    async def test_update_success(self) -> None:
+        with patch.object(self.sut, "_parse_shadow_response"):
+            await super().test_update_success()
 
-    async def test_update_service_exception(self):
-        aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        r.send_reported_state_request = async_raises(AqualinkServiceException)
-        with pytest.raises(AqualinkServiceException):
-            await r.update()
-        assert r.status is SystemStatus.ERROR
+    async def test_update_service_exception(self) -> None:
+        await super().test_update_service_exception()
+        assert self.sut.status is SystemStatus.ERROR
 
-    async def test_update_throttled(self):
-        aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        r.send_reported_state_request = async_raises(
-            AqualinkServiceThrottledException
-        )
-        with pytest.raises(AqualinkServiceThrottledException):
-            await r.update()
-        assert r.status is SystemStatus.UNKNOWN
+    async def test_update_throttled(self) -> None:
+        with patch.object(self.sut, "send_reported_state_request") as mock_req:
+            mock_req.side_effect = AqualinkServiceThrottledException
+            with pytest.raises(AqualinkServiceThrottledException):
+                await self.sut.update()
+        assert self.sut.status is SystemStatus.UNKNOWN
 
-    async def test_update_offline(self):
-        aqualink = MagicMock()
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        r = AqualinkSystem.from_data(aqualink, data)
-        r.send_reported_state_request = async_noop
-        r._send_devices_screen_request = async_noop
-        r._parse_shadow_response = MagicMock(
-            side_effect=AqualinkSystemOfflineException
-        )
+    async def test_update_offline(self) -> None:
+        with patch.object(self.sut, "_parse_shadow_response") as mock_parse:
+            mock_parse.side_effect = AqualinkSystemOfflineException
+            with pytest.raises(AqualinkSystemOfflineException):
+                await super().test_update_success()
+            assert self.sut.status is SystemStatus.OFFLINE
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            await r.update()
-        assert r.status is SystemStatus.OFFLINE
+    async def test_get_devices_needs_update(self) -> None:
+        with patch.object(self.sut, "_parse_shadow_response"):
+            await super().test_get_devices_needs_update()
 
-    def test_parse_devices_good(self):
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        aqualink = MagicMock()
-        system = ExoSystem.from_data(aqualink, data)
-
+    def test_parse_devices_good(self) -> None:
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
-        system._parse_shadow_response(response)
+        self.sut._parse_shadow_response(response)
 
-        assert len(system.devices) > 0
+        assert len(self.sut.devices) > 0
         # Chemistry sensors
-        assert "sns_1" in system.devices
-        assert isinstance(system.devices["sns_1"], ExoSensor)
-        assert "sns_2" in system.devices
-        assert isinstance(system.devices["sns_2"], ExoSensor)
-        assert "sns_3" in system.devices
-        assert isinstance(system.devices["sns_3"], ExoSensor)
+        assert "sns_1" in self.sut.devices
+        assert isinstance(self.sut.devices["sns_1"], ExoSensor)
+        assert "sns_2" in self.sut.devices
+        assert isinstance(self.sut.devices["sns_2"], ExoSensor)
+        assert "sns_3" in self.sut.devices
+        assert isinstance(self.sut.devices["sns_3"], ExoSensor)
         # Auxiliary switches
-        assert "aux_1" in system.devices
-        assert isinstance(system.devices["aux_1"], ExoAuxSwitch)
-        assert "aux_2" in system.devices
-        assert isinstance(system.devices["aux_2"], ExoAuxSwitch)
+        assert "aux_1" in self.sut.devices
+        assert isinstance(self.sut.devices["aux_1"], ExoAuxSwitch)
+        assert "aux_2" in self.sut.devices
+        assert isinstance(self.sut.devices["aux_2"], ExoAuxSwitch)
         # Attribute switches
-        assert "boost" in system.devices
-        assert isinstance(system.devices["boost"], ExoAttributeSwitch)
-        assert "production" in system.devices
-        assert isinstance(system.devices["production"], ExoAttributeSwitch)
+        assert "boost" in self.sut.devices
+        assert isinstance(self.sut.devices["boost"], ExoAttributeSwitch)
+        assert "production" in self.sut.devices
+        assert isinstance(self.sut.devices["production"], ExoAttributeSwitch)
         # Filter pump
-        assert "filter_pump" in system.devices
+        assert "filter_pump" in self.sut.devices
         # Excluded keys must be absent
-        assert "sn" not in system.devices
-        assert "vr" not in system.devices
-        assert "version" not in system.devices
-        assert "boost_time" not in system.devices
+        assert "sn" not in self.sut.devices
+        assert "vr" not in self.sut.devices
+        assert "version" not in self.sut.devices
+        assert "boost_time" not in self.sut.devices
 
     @patch("httpx.AsyncClient.request")
-    async def test_reported_state_request(self, mock_request):
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        aqualink = AqualinkClient("user", "pass")
-        system = ExoSystem.from_data(aqualink, data)
-
+    async def test_reported_state_request(self, mock_request) -> None:
         mock_request.return_value.status_code = 200
 
-        await system.send_reported_state_request()
+        await self.sut.send_reported_state_request()
 
     @patch("httpx.AsyncClient.request")
-    async def test_reported_state_request_unauthorized(self, mock_request):
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        aqualink = AqualinkClient("user", "pass")
-        system = ExoSystem.from_data(aqualink, data)
-
+    async def test_reported_state_request_unauthorized(
+        self, mock_request
+    ) -> None:
         mock_request.return_value.status_code = 401
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
-            await system.send_reported_state_request()
+            await self.sut.send_reported_state_request()
 
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request_retries_after_refresh(
         self, mock_request
-    ):
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        aqualink = AqualinkClient("user", "pass")
-        system = ExoSystem.from_data(aqualink, data)
-
+    ) -> None:
         mock_request.side_effect = [
             MagicMock(status_code=401),
             MagicMock(status_code=200),
         ]
-        aqualink.id_token = "old-id-token"
+        self.client.id_token = "old-id-token"
 
         async def fake_refresh() -> None:
-            aqualink.id_token = "new-id-token"
+            self.client.id_token = "new-id-token"
 
         with patch.object(
-            aqualink, "_refresh_auth", side_effect=fake_refresh
+            self.client, "_refresh_auth", side_effect=fake_refresh
         ) as mock_refresh:
-            await system.send_reported_state_request()
+            await self.sut.send_reported_state_request()
 
         retry_headers = mock_request.call_args_list[1][1]["headers"]
 
@@ -313,11 +281,7 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request_refreshes_only_once_on_repeated_401(
         self, mock_request
-    ):
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
-        aqualink = AqualinkClient("user", "pass")
-        system = ExoSystem.from_data(aqualink, data)
-
+    ) -> None:
         mock_request.side_effect = [
             MagicMock(status_code=401),
             MagicMock(status_code=401),
@@ -325,10 +289,10 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(
-                aqualink, "_refresh_auth", return_value=None
+                self.client, "_refresh_auth", return_value=None
             ) as mock_refresh,
             pytest.raises(AqualinkServiceUnauthorizedException),
         ):
-            await system.send_reported_state_request()
+            await self.sut.send_reported_state_request()
 
         mock_refresh.assert_awaited_once()
