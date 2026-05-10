@@ -10,7 +10,6 @@ from mashumaro.codecs.json import JSONDecoder
 
 import httpx
 
-
 from iaqualink.const import (
     AQUALINK_API_KEY,
     AQUALINK_DEVICES_URL,

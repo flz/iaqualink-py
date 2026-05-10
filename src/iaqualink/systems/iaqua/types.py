@@ -18,7 +18,7 @@ class IaquaDevicesResponse(DataClassJSONMixin):
     message: str = ""
 
 
-### Home Screen Response
+# Home Screen Response
 
 
 @dataclass
@@ -226,11 +226,30 @@ class DevicesScreenAuxAttrs:
         return d
 
 
+@dataclass
+class DevicesScreenAux:
+    """Single aux entry from devices_screen: {"aux_N": [attrs...]}.
+
+    __pre_deserialize__ extracts the aux name and passes attrs to
+    DevicesScreenAuxAttrs for further flattening.
+    """
+
+    name: str
+    attrs: DevicesScreenAuxAttrs
+
+    @classmethod
+    def __pre_deserialize__(cls, d: Any) -> Any:
+        if isinstance(d, dict) and len(d) == 1:
+            name, attrs = next(iter(d.items()))
+            return {"name": name, "attrs": attrs}
+        return d
+
+
 DevicesScreenItem = (
     HomeScreenStatus
     | HomeScreenResponse
     | DevicesScreenGroup
-    | dict[str, DevicesScreenAuxAttrs]
+    | DevicesScreenAux
 )
 
 # mashumaro resolves union variants in declaration order. The ordering below

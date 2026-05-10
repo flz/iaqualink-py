@@ -14,6 +14,7 @@ from iaqualink.exception import (
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaDevice
 from iaqualink.systems.iaqua.types import (
+    DevicesScreenAux,
     HomeScreenStatus,
     HomeScreenSystemType,
     HomeScreenTempScale,
@@ -172,27 +173,23 @@ class IaquaSystem(AqualinkSystem):
             raise AqualinkSystemOfflineException
 
         for x in data.devices_screen[3:]:
-            if not isinstance(x, dict):
+            if not isinstance(x, DevicesScreenAux):
                 continue
-            for attrs in x.values():
-                if attrs.state == "NaN":
-                    LOGGER.debug(
-                        "Skipping devices screen update with NaN state."
-                    )
-                    return
+            if x.attrs.state == "NaN":
+                LOGGER.debug("Skipping devices screen update with NaN state.")
+                return
 
         # Make the data a bit flatter.
         devices = {}
         for x in data.devices_screen[3:]:
-            if not isinstance(x, dict):
+            if not isinstance(x, DevicesScreenAux):
                 continue
-            aux = next(iter(x))
             attrs = {
-                "aux": aux.replace("aux_", ""),
-                "name": aux,
-                **dataclasses.asdict(x[aux]),
+                "aux": x.name.replace("aux_", ""),
+                "name": x.name,
+                **dataclasses.asdict(x.attrs),
             }
-            devices.update({aux: attrs})
+            devices.update({x.name: attrs})
 
         for k, v in devices.items():
             if k in self.devices:

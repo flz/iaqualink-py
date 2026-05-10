@@ -1,3 +1,4 @@
+import dataclasses
 from dataclasses import dataclass
 from typing import Any, ClassVar
 
@@ -67,6 +68,14 @@ class ExoSwcDevice:
     error_state: int
     aux230: int
     vsp_speed: ExoVspSpeed | None = None
+
+    def scalar_devices(self) -> dict[str, int]:
+        """Return all scalar int state fields as {name: value} pairs."""
+        return {
+            f.name: getattr(self, f.name)
+            for f in dataclasses.fields(self)
+            if f.name not in self.COMPLEX_FIELDS
+        }
 
     @classmethod
     def __pre_deserialize__(cls, d: dict[str, Any]) -> dict[str, Any]:

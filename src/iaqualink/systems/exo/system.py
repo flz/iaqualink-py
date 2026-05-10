@@ -87,10 +87,8 @@ class ExoSystem(AqualinkSystem):
         root = data.state.reported.equipment["swc_0"]
 
         # Scalar int fields — each becomes a simple state device.
-        for f in dataclasses.fields(root):
-            if f.name in root.COMPLEX_FIELDS:
-                continue
-            devices[f.name] = {"name": f.name, "state": getattr(root, f.name)}
+        for name, state in root.scalar_devices().items():
+            devices[name] = {"name": name, "state": state}
 
         # Aux switches.
         for name, aux in root.aux_devices.items():

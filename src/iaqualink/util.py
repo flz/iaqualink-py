@@ -35,6 +35,11 @@ def json_to_dataclass(cls: type[_T], json_str: str) -> _T:
 
 
 def decode_json(decoder: JSONDecoder[Any], json_str: str) -> Any:
+    """Decode JSON using a pre-built mashumaro JSONDecoder.
+
+    Use this instead of json_to_dataclass when the target type is not a
+    DataClassJSONMixin subclass (e.g. a bare list type alias).
+    """
     try:
         return decoder.decode(json_str)
     except _MASHUMARO_ERRORS as e:
