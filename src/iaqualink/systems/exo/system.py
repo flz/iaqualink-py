@@ -77,7 +77,7 @@ class ExoSystem(AqualinkSystem):
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()
 
-        LOGGER.debug(f"Shadow response: {data}")
+        LOGGER.debug("Shadow response: %s", data)
 
         devices = {}
 
@@ -113,7 +113,7 @@ class ExoSystem(AqualinkSystem):
             )
             devices.update({name: attrs})
 
-        LOGGER.debug(f"devices: {devices}")
+        LOGGER.debug("devices: %s", devices)
 
         for k, v in devices.items():
             if k in self.devices:

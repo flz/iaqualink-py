@@ -113,10 +113,10 @@ class IaquaSystem(AqualinkSystem):
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
 
-        LOGGER.debug(f"Home response: {data}")
+        LOGGER.debug("Home response: %s", data)
 
         if data["home_screen"][0]["status"] == "Offline":
-            LOGGER.warning(f"Status for system {self.serial} is Offline.")
+            LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
         if data["home_screen"][2]["system_type"] == "":
@@ -146,10 +146,10 @@ class IaquaSystem(AqualinkSystem):
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
 
-        LOGGER.debug(f"Devices response: {data}")
+        LOGGER.debug("Devices response: %s", data)
 
         if data["devices_screen"][0]["status"] == "Offline":
-            LOGGER.warning(f"Status for system {self.serial} is Offline.")
+            LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
         for x in data["devices_screen"][3:]:
