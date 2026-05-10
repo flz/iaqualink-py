@@ -10,6 +10,7 @@ from mashumaro.codecs.json import JSONDecoder
 
 import httpx
 
+
 from iaqualink.const import (
     AQUALINK_API_KEY,
     AQUALINK_DEVICES_URL,
@@ -26,7 +27,7 @@ from iaqualink.exception import (
 from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
 from iaqualink.types import DevicesResponse, LoginResponse
-from iaqualink.util import json_to_dataclass
+from iaqualink.util import decode_json, json_to_dataclass
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -285,9 +286,9 @@ class AqualinkClient:
         self.client_id = data.session_id
         self.authentication_token = data.authentication_token
         self.user_id = str(data.id)
-        self.id_token = data.user_pool_o_auth.id_token
+        self.id_token = data.user_pool_oauth.id_token
         self.refresh_token = (
-            data.user_pool_o_auth.refresh_token or refresh_token_fallback
+            data.user_pool_oauth.refresh_token or refresh_token_fallback
         )
         self._logged = True
 
@@ -315,6 +316,6 @@ class AqualinkClient:
                 raise AqualinkServiceUnauthorizedException from e
             raise
 
-        response = _devices_decoder.decode(r.text)
+        response = decode_json(_devices_decoder, r.text)
         systems = [AqualinkSystem.from_data(self, x) for x in response]
         return {x.serial: x for x in systems}

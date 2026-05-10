@@ -45,7 +45,7 @@ class LoginResponse(DataClassJSONMixin):
     id: int
     authentication_token: str
     session_id: str
-    user_pool_o_auth: UserPoolOAuth = field(
+    user_pool_oauth: UserPoolOAuth = field(
         metadata=field_options(alias="userPoolOAuth")
     )
     # Remaining spec fields — optional so minimal test fixtures still parse.
