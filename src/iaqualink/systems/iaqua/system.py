@@ -95,9 +95,10 @@ class IaquaSystem(AqualinkSystem):
             r1 = await self._send_home_screen_request()
             r2 = await self._send_devices_screen_request()
         except AqualinkServiceThrottledException:
+            self.status = SystemStatus.UNKNOWN
             raise
         except AqualinkServiceException:
-            self.status = SystemStatus.UNKNOWN
+            self.status = SystemStatus.ERROR
             raise
 
         try:

@@ -8,6 +8,7 @@ import pytest
 from iaqualink.client import AqualinkClient
 from iaqualink.exception import (
     AqualinkServiceException,
+    AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
@@ -198,6 +199,17 @@ class TestExoSystem(unittest.IsolatedAsyncioTestCase):
         r = AqualinkSystem.from_data(aqualink, data)
         r.send_reported_state_request = async_raises(AqualinkServiceException)
         with pytest.raises(AqualinkServiceException):
+            await r.update()
+        assert r.status is SystemStatus.ERROR
+
+    async def test_update_throttled(self):
+        aqualink = MagicMock()
+        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "exo"}
+        r = AqualinkSystem.from_data(aqualink, data)
+        r.send_reported_state_request = async_raises(
+            AqualinkServiceThrottledException
+        )
+        with pytest.raises(AqualinkServiceThrottledException):
             await r.update()
         assert r.status is SystemStatus.UNKNOWN
 

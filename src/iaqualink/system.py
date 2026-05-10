@@ -22,6 +22,7 @@ class SystemStatus(enum.StrEnum):
     UNKNOWN = "unknown"
     OFFLINE = "offline"
     ONLINE = "online"
+    ERROR = "error"
 
 
 class AqualinkSystem:

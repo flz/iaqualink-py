@@ -60,9 +60,10 @@ class ExoSystem(AqualinkSystem):
         try:
             r = await self.send_reported_state_request()
         except AqualinkServiceThrottledException:
+            self.status = SystemStatus.UNKNOWN
             raise
         except AqualinkServiceException:
-            self.status = SystemStatus.UNKNOWN
+            self.status = SystemStatus.ERROR
             raise
 
         try:
