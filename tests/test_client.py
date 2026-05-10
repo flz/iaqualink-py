@@ -14,7 +14,6 @@ from iaqualink.client import (
     AqualinkClient,
     AqualinkRetry,
 )
-from iaqualink.system import UnsupportedSystem
 from iaqualink.const import (
     DEFAULT_REQUEST_TIMEOUT,
     RETRY_AFTER_MAX_DELAY,
@@ -25,6 +24,7 @@ from iaqualink.exception import (
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
 )
+from iaqualink.system import UnsupportedSystem
 
 from .base import TestBase
 from .common import async_noop, async_raises

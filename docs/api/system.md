@@ -100,7 +100,7 @@ Returned by `AqualinkSystem.from_data()` when the `device_type` is not recognise
 `get_devices()` returns `{}` and `update()` is a no-op. `supported` is `False`.
 
 ```python
-from iaqualink import UnsupportedSystem
+from iaqualink.system import UnsupportedSystem
 
 systems = await client.get_systems()
 for system in systems.values():
