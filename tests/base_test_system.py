@@ -33,16 +33,6 @@ class TestBaseSystem(TestBase):
         self.respx_calls = copy.copy(respx_mock.calls)
 
     @respx.mock
-    async def test_update_consecutive(
-        self, respx_mock: respx.router.MockRouter
-    ) -> None:
-        respx_mock.route(dotstar).mock(resp_200)
-        await self.sut.update()
-        respx_mock.reset()
-        await self.sut.update()
-        assert len(respx_mock.calls) == 0
-
-    @respx.mock
     async def test_update_service_exception(
         self, respx_mock: respx.router.MockRouter
     ) -> None:

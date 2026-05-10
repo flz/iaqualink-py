@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 import urllib.parse
 from unittest.mock import MagicMock, patch
 
@@ -52,13 +51,6 @@ class TestIaquaSystem(TestBaseSystem):
             with pytest.raises(AqualinkSystemOfflineException):
                 await super().test_update_success()
             assert self.sut.online is False
-
-    async def test_update_consecutive(self) -> None:
-        with (
-            patch.object(self.sut, "_parse_home_response"),
-            patch.object(self.sut, "_parse_devices_response"),
-        ):
-            await super().test_update_consecutive()
 
     async def test_get_devices_needs_update(self) -> None:
         with (
@@ -255,31 +247,3 @@ class TestIaquaSystem(TestBaseSystem):
         headers = mock_request.call_args[1]["headers"]
         assert headers["Authorization"] == "Bearer test-id-token"
         assert headers["api_key"] == AQUALINK_API_KEY
-
-    async def test_update_skipped_within_refresh_interval(self) -> None:
-        now = int(time.time())
-
-        with (
-            patch.object(self.sut, "_parse_home_response"),
-            patch.object(self.sut, "_parse_devices_response") as mock_parse,
-            patch("iaqualink.systems.iaqua.system.time") as mock_time,
-            patch.object(self.sut, "_send_home_screen_request"),
-            patch.object(self.sut, "_send_devices_screen_request"),
-        ):
-            # First update should go through.
-            mock_time.time.return_value = now
-            await self.sut.update()
-            assert mock_parse.call_count == 1
-
-            # Second update within MIN_SECS_TO_REFRESH should be skipped.
-            mock_parse.reset_mock()
-            mock_time.time.return_value = (
-                now + IaquaSystem.MIN_SECS_TO_REFRESH - 1
-            )
-            await self.sut.update()
-            assert mock_parse.call_count == 0
-
-            # Update after MIN_SECS_TO_REFRESH should go through.
-            mock_time.time.return_value = now + IaquaSystem.MIN_SECS_TO_REFRESH
-            await self.sut.update()
-            assert mock_parse.call_count == 1

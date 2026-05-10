@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
 from typing import TYPE_CHECKING
 
 from iaqualink.const import AQUALINK_API_KEY
@@ -45,7 +44,6 @@ class IaquaSystem(AqualinkSystem):
         super().__init__(aqualink, data)
 
         self.temp_unit: str = ""
-        self.last_refresh: int = 0
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -93,19 +91,10 @@ class IaquaSystem(AqualinkSystem):
         return await self._send_session_request(IAQUA_COMMAND_GET_DEVICES)
 
     async def update(self) -> None:
-        # Be nice to Aqualink servers since we rely on polling.
-        now = int(time.time())
-        delta = now - self.last_refresh
-        if delta < self.MIN_SECS_TO_REFRESH:
-            LOGGER.debug(f"Only {delta}s since last refresh.")
-            return
-
         try:
             r1 = await self._send_home_screen_request()
             r2 = await self._send_devices_screen_request()
         except AqualinkServiceThrottledException:
-            # Re-raise without setting online=None; rate-limiting does
-            # not indicate the system is offline.
             raise
         except AqualinkServiceException:
             self.online = None
@@ -119,7 +108,6 @@ class IaquaSystem(AqualinkSystem):
             raise
 
         self.online = True
-        self.last_refresh = int(time.time())
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()

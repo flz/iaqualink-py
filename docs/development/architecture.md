@@ -33,8 +33,7 @@ Base class for pool systems using a registry pattern.
 
 **Responsibilities:**
 - Device management
-- State polling and caching
-- Rate limiting (5-second minimum interval)
+- State polling
 - Online/offline status tracking
 
 **Design Pattern: Subclass Registry**
@@ -143,12 +142,9 @@ client.get_systems()
 
 ```
 system.update()
-      → Check rate limit (MIN_SECS_TO_REFRESH: 5s default, 50s exo)
-      → If cached, return immediately
       → Fetch from API (system-specific)
       → Parse response
       → Update device states
-      → Cache timestamp
 ```
 
 ### Command Flow
@@ -158,28 +154,6 @@ device.turn_on()
       → Build command (system-specific)
       → Send to API via system
       → Return (state updates on next poll)
-```
-
-## Rate Limiting
-
-Systems implement rate limiting to respect API limits:
-
-```python
-class AqualinkSystem:
-    MIN_SECS_TO_REFRESH: ClassVar[int] = 5  # default
-
-class ExoSystem(AqualinkSystem):
-    MIN_SECS_TO_REFRESH: ClassVar[int] = 50  # empiric
-
-async def update(self):
-    now = int(time.time())
-    delta = now - self.last_refresh
-    if delta < self.MIN_SECS_TO_REFRESH:
-        return  # Use cached data
-
-    # Fetch from API
-    await self._update_impl()
-    self.last_refresh = now
 ```
 
 ## Type System

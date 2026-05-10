@@ -25,7 +25,6 @@
     - Freeze protection monitoring
 - **Context Manager Support** - Automatic resource cleanup
 - **Type Safe** - Full type hints for modern Python development
-- **Rate Limiting** - Built-in throttling to respect API limits
 
 ## Quick Example
 

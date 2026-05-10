@@ -12,7 +12,6 @@
 ### ✨ Features
 
 - 🔄 **Fully Asynchronous** - Built with `asyncio` and `httpx` for efficient, non-blocking I/O
-- 🔁 **HTTP Retry Transport** - Uses `httpx-retries` for 429 backoff and `Retry-After` handling
 - 🔐 **401 Replay for Auth-Bearing Requests** - Rebuilds and replays systems discovery and iaqua/exo system requests after auth refresh
 - 🏗️ **Multi-System Support**
   - **iAqua** systems (iaqualink.net API)
@@ -27,7 +26,6 @@
   - Freeze protection monitoring
 - 🔌 **Context Manager Support** - Automatic resource cleanup
 - 🛡️ **Type Safe** - Full type hints for modern Python development
-- ⚡ **Rate Limiting** - Built-in throttling to respect API limits
 
 ## 📦 Installation
 
@@ -195,22 +193,6 @@ async with AqualinkClient('user@example.com', 'password') as client:
         print(f"Devices: {len(devices)}")
 ```
 
-### Custom Update Intervals
-
-The library automatically rate-limits updates to once every 5 seconds per system to respect API limits. Subsequent calls within this window return cached data.
-
-```python
-# First call - fetches from API
-await system.update()
-
-# Immediate second call - returns cached data
-await system.update()
-
-# After 5+ seconds - fetches fresh data
-await asyncio.sleep(5)
-await system.update()
-```
-
 ## 🏗️ Architecture
 
 The library uses a plugin-style architecture with base classes and system-specific implementations:
@@ -270,7 +252,6 @@ uv run mypy src/
 
 - Python 3.14 or higher
 - httpx with HTTP/2 support
-- httpx-retries for transport-level 429 retry handling
 
 ## 📄 License
 
