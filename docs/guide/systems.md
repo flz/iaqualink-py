@@ -49,7 +49,7 @@ system.name          # User-friendly name
 system.serial        # Unique serial number
 
 # System status
-system.status        # SystemStatus enum: ONLINE, OFFLINE, or UNKNOWN
+system.status        # SystemStatus enum: ONLINE, OFFLINE, UNKNOWN, or ERROR
 system.data          # Raw system data from API
 
 # Last update time

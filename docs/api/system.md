@@ -63,7 +63,8 @@ One of:
 
 - `SystemStatus.ONLINE` — last update succeeded
 - `SystemStatus.OFFLINE` — system is definitively offline
-- `SystemStatus.UNKNOWN` — never successfully fetched, or last update raised a service error
+- `SystemStatus.UNKNOWN` — initial state, or last update was rate-limited
+- `SystemStatus.ERROR` — last update failed with a non-recoverable service error
 
 ### data
 
