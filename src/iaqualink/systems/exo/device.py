@@ -11,12 +11,12 @@ from iaqualink.device import (
     AqualinkThermostat,
 )
 from iaqualink.exception import AqualinkInvalidParameterException
+from iaqualink.typing import DeviceData
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
 
     from iaqualink.systems.exo.system import ExoSystem
-    from iaqualink.typing import DeviceData
 
 EXO_TEMP_CELSIUS_LOW = 1
 EXO_TEMP_CELSIUS_HIGH = 40

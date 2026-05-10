@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
@@ -13,12 +13,12 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.iaqua.device import IaquaDevice
+from iaqualink.typing import Payload
 
 if TYPE_CHECKING:
     import httpx
 
     from iaqualink.client import AqualinkClient
-    from iaqualink.typing import Payload
 
 IAQUA_SESSION_URL = "https://r-api.iaqualink.net/v2/mobile/session.json"
 
@@ -97,7 +97,7 @@ class IaquaSystem(AqualinkSystem):
         now = int(time.time())
         delta = now - self.last_refresh
         if delta < self.MIN_SECS_TO_REFRESH:
-            LOGGER.debug(f"Only {delta}s since last refresh.")
+            LOGGER.debug("Only %ds since last refresh.", delta)
             return
 
         try:
@@ -124,10 +124,10 @@ class IaquaSystem(AqualinkSystem):
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
 
-        LOGGER.debug(f"Home response: {data}")
+        LOGGER.debug("Home response: %s", data)
 
         if data["home_screen"][0]["status"] == "Offline":
-            LOGGER.warning(f"Status for system {self.serial} is Offline.")
+            LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
         if data["home_screen"][2]["system_type"] == "":
@@ -157,10 +157,10 @@ class IaquaSystem(AqualinkSystem):
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
 
-        LOGGER.debug(f"Devices response: {data}")
+        LOGGER.debug("Devices response: %s", data)
 
         if data["devices_screen"][0]["status"] == "Offline":
-            LOGGER.warning(f"Status for system {self.serial} is Offline.")
+            LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
         for x in data["devices_screen"][3:]:
@@ -198,12 +198,16 @@ class IaquaSystem(AqualinkSystem):
         # I'm not proud of this. If you read this, please submit a PR to make it better.
         # We need to pass the temperatures for both pool and spa (if present) in the same request.
         # Set args to current target temperatures and override with the request payload.
+        from iaqualink.systems.iaqua.device import IaquaThermostat
+
         args = {}
         i = 1
         if "spa_set_point" in self.devices:
-            args[f"temp{i}"] = self.devices["spa_set_point"].target_temperature
+            spa = cast(IaquaThermostat, self.devices["spa_set_point"])
+            args[f"temp{i}"] = spa.target_temperature
             i += 1
-        args[f"temp{i}"] = self.devices["pool_set_point"].target_temperature
+        pool = cast(IaquaThermostat, self.devices["pool_set_point"])
+        args[f"temp{i}"] = pool.target_temperature
         args.update(temps)
 
         r = await self._send_session_request(IAQUA_COMMAND_SET_TEMPS, args)

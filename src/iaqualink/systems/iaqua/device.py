@@ -16,10 +16,10 @@ from iaqualink.exception import (
     AqualinkDeviceNotSupported,
     AqualinkInvalidParameterException,
 )
+from iaqualink.typing import DeviceData
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import IaquaSystem
-    from iaqualink.typing import DeviceData
 
 IAQUA_TEMP_CELSIUS_LOW = 1
 IAQUA_TEMP_CELSIUS_HIGH = 40

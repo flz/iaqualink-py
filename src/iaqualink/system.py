@@ -5,13 +5,13 @@ import logging
 from typing import TYPE_CHECKING, ClassVar
 
 from iaqualink.reauth import send_with_reauth_retry
+from iaqualink.typing import Payload
 
 if TYPE_CHECKING:
     import httpx
 
     from iaqualink.client import AqualinkClient
     from iaqualink.device import AqualinkDevice
-    from iaqualink.typing import Payload
 
 
 LOGGER = logging.getLogger("iaqualink")
@@ -34,8 +34,9 @@ class AqualinkSystem:
     @classmethod
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
-        if hasattr(cls, "NAME"):
-            cls.subclasses[cls.NAME] = cls
+        name = getattr(cls, "NAME", None)
+        if isinstance(name, str):
+            cls.subclasses[name] = cls
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
