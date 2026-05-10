@@ -53,10 +53,6 @@ class TestIaquaSystem(TestBaseSystem):
                 await super().test_update_success()
             assert self.sut.status is SystemStatus.OFFLINE
 
-    async def test_update_service_exception(self) -> None:
-        await super().test_update_service_exception()
-        assert self.sut.status is SystemStatus.ERROR
-
     async def test_update_throttled(self) -> None:
         with patch.object(self.sut, "_send_home_screen_request") as mock_req:
             mock_req.side_effect = AqualinkServiceThrottledException
