@@ -128,7 +128,7 @@ class IaquaSystem(AqualinkSystem):
 
         first = data.home_screen[0]
         if isinstance(first, HomeScreenStatus) and first.status == "Offline":
-            LOGGER.warning(f"Status for system {self.serial} is Offline.")
+            LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
         second = data.home_screen[2]
@@ -169,7 +169,7 @@ class IaquaSystem(AqualinkSystem):
 
         first = data.devices_screen[0]
         if isinstance(first, HomeScreenStatus) and first.status == "Offline":
-            LOGGER.warning(f"Status for system {self.serial} is Offline.")
+            LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
         for x in data.devices_screen[3:]:
