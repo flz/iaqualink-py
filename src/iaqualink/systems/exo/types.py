@@ -7,17 +7,17 @@ from mashumaro.mixins.json import DataClassJSONMixin
 
 @dataclass
 class ExoAux:
-    mode: int
-    type: str
-    color: int
-    state: int
+    mode: int | None = None
+    type: str | None = None
+    color: int | None = None
+    state: int | None = None
 
 
 @dataclass
 class ExoSensorData:
     state: int
     value: int
-    sensor_type: str
+    sensor_type: str | None = None
 
 
 @dataclass
