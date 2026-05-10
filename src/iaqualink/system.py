@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
+import enum
 import logging
 from typing import TYPE_CHECKING, ClassVar
 
@@ -17,6 +18,12 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger("iaqualink")
 
 
+class SystemStatus(enum.Enum):
+    UNKNOWN = "unknown"
+    OFFLINE = "offline"
+    ONLINE = "online"
+
+
 class AqualinkSystem:
     subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
 
@@ -24,10 +31,7 @@ class AqualinkSystem:
         self.aqualink = aqualink
         self.data = data
         self.devices: dict[str, AqualinkDevice] = {}
-
-        # Semantics here are somewhat odd.
-        # True/False are obvious, None means "unknown".
-        self.online: bool | None = None
+        self.status: SystemStatus = SystemStatus.UNKNOWN
 
     @classmethod
     def __init_subclass__(cls) -> None:

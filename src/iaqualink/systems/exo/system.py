@@ -8,7 +8,7 @@ from iaqualink.exception import (
     AqualinkServiceThrottledException,
     AqualinkSystemOfflineException,
 )
-from iaqualink.system import AqualinkSystem
+from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import ExoDevice
 
 if TYPE_CHECKING:
@@ -62,16 +62,16 @@ class ExoSystem(AqualinkSystem):
         except AqualinkServiceThrottledException:
             raise
         except AqualinkServiceException:
-            self.online = None
+            self.status = SystemStatus.UNKNOWN
             raise
 
         try:
             self._parse_shadow_response(r)
         except AqualinkSystemOfflineException:
-            self.online = False
+            self.status = SystemStatus.OFFLINE
             raise
 
-        self.online = True
+        self.status = SystemStatus.ONLINE
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()

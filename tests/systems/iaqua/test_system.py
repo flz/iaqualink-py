@@ -10,7 +10,7 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
-from iaqualink.system import AqualinkSystem
+from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaAuxSwitch
 from iaqualink.systems.iaqua.system import IAQUA_SESSION_URL, IaquaSystem
 
@@ -50,7 +50,7 @@ class TestIaquaSystem(TestBaseSystem):
             mock_parse.side_effect = AqualinkSystemOfflineException
             with pytest.raises(AqualinkSystemOfflineException):
                 await super().test_update_success()
-            assert self.sut.online is False
+            assert self.sut.status is SystemStatus.OFFLINE
 
     async def test_get_devices_needs_update(self) -> None:
         with (
