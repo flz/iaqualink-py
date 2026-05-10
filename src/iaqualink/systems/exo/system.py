@@ -98,11 +98,12 @@ class ExoSystem(AqualinkSystem):
         for name, sensor in root.sensors.items():
             devices[name] = {"name": name, **dataclasses.asdict(sensor)}
 
-        # Filter pump.
-        devices["filter_pump"] = {
-            "name": "filter_pump",
-            **dataclasses.asdict(root.filter_pump),
-        }
+        # Filter pump (absent on salt-only units).
+        if root.filter_pump is not None:
+            devices["filter_pump"] = {
+                "name": "filter_pump",
+                **dataclasses.asdict(root.filter_pump),
+            }
 
         # Process the heating control attributes.
         if data.state.reported.heating is not None:

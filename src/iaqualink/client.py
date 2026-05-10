@@ -37,6 +37,8 @@ for module_name in (
 ):
     importlib.import_module(module_name)
 
+# DevicesResponse is a list type alias, not a DataClassJSONMixin, so it needs a
+# pre-built JSONDecoder rather than json_to_dataclass(). See decode_json() in util.py.
 _devices_decoder = JSONDecoder(DevicesResponse)
 
 AQUALINK_HTTP_HEADERS = {

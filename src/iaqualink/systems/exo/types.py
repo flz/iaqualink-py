@@ -1,6 +1,6 @@
 import dataclasses
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any
 
 from mashumaro.mixins.json import DataClassJSONMixin
 
@@ -41,13 +41,6 @@ class ExoSwcDevice:
     as fixed dataclass members.
     """
 
-    # Fields handled explicitly by _parse_shadow_response; all other fields
-    # are emitted as scalar state devices. Update when adding structured fields.
-    COMPLEX_FIELDS: ClassVar[frozenset[str]] = frozenset(
-        {"aux_devices", "sensors", "filter_pump", "vsp_speed"}
-    )
-
-    filter_pump: ExoFilterPumpData
     aux_devices: dict[str, ExoAux]
     sensors: dict[str, ExoSensorData]
     swc: int
@@ -67,14 +60,15 @@ class ExoSwcDevice:
     error_code: int
     error_state: int
     aux230: int
+    filter_pump: ExoFilterPumpData | None = None
     vsp_speed: ExoVspSpeed | None = None
 
     def scalar_devices(self) -> dict[str, int]:
-        """Return all scalar int state fields as {name: value} pairs."""
+        """Return scalar int state fields as {name: value} pairs."""
         return {
-            f.name: getattr(self, f.name)
+            f.name: v
             for f in dataclasses.fields(self)
-            if f.name not in self.COMPLEX_FIELDS
+            if isinstance(v := getattr(self, f.name), int)
         }
 
     @classmethod
