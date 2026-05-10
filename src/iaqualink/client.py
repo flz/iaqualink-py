@@ -7,7 +7,6 @@ from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
-from httpx_retries import Retry, RetryTransport
 
 from iaqualink.const import (
     AQUALINK_API_KEY,
@@ -16,10 +15,6 @@ from iaqualink.const import (
     AQUALINK_REFRESH_URL,
     DEFAULT_REQUEST_TIMEOUT,
     KEEPALIVE_EXPIRY,
-    RETRY_AFTER_MAX_DELAY,
-    RETRY_BASE_DELAY,
-    RETRY_MAX_ATTEMPTS,
-    RETRY_MAX_DELAY,
 )
 from iaqualink.exception import (
     AqualinkServiceException,
@@ -42,13 +37,6 @@ AQUALINK_HTTP_HEADERS = {
     "user-agent": "okhttp/3.14.7",
     "content-type": "application/json",
 }
-# POST remains retryable here because the transport only retries explicit 429
-# responses, where the server asked the client to retry later rather than
-# acknowledging the request. That covers auth POSTs plus the eXO desired-state
-# update, which replaces a target state instead of appending a side effect.
-# iAqua command POSTs are a trade-off: a retried 429 assumes the server rejected
-# the command before processing it, which matches observed rate-limit behavior.
-RETRYABLE_METHODS = frozenset({"GET", "POST"})
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -85,16 +73,6 @@ class AqualinkAuthState:
             values[field_name] = value
 
         return cls(**values)
-
-
-class AqualinkRetry(Retry):
-    def parse_retry_after(self, retry_after: str) -> float:
-        try:
-            delay = super().parse_retry_after(retry_after)
-        except ValueError:
-            return 0.0
-
-        return min(max(delay, 0.0), RETRY_AFTER_MAX_DELAY)
 
 
 class AqualinkClient:
@@ -192,11 +170,6 @@ class AqualinkClient:
         method: str = "get",
         **kwargs: Any,
     ) -> httpx.Response:
-        """Send an HTTP request.
-
-        The managed client uses ``httpx-retries`` to handle HTTP 429
-        responses with exponential backoff and ``Retry-After``.
-        """
         client = self._get_httpx_client()
 
         headers = AQUALINK_HTTP_HEADERS.copy()
@@ -213,15 +186,8 @@ class AqualinkClient:
             raise AqualinkServiceUnauthorizedException()
 
         if r.status_code == httpx.codes.TOO_MANY_REQUESTS:
-            # RetryTransport returns the final 429 response once the retry
-            # budget is exhausted, so translate it to the library exception here.
-            LOGGER.warning(
-                "Rate limited (429), giving up after %d attempt(s)",
-                RETRY_MAX_ATTEMPTS,
-            )
-            raise AqualinkServiceThrottledException(
-                f"Rate limited after {RETRY_MAX_ATTEMPTS} attempt(s)"
-            )
+            LOGGER.warning("Rate limited (429)")
+            raise AqualinkServiceThrottledException("Rate limited")
 
         if r.status_code != httpx.codes.OK:
             m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
@@ -234,15 +200,6 @@ class AqualinkClient:
             self._client = httpx.AsyncClient(
                 http2=True,
                 limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
-                transport=RetryTransport(
-                    retry=AqualinkRetry(
-                        total=RETRY_MAX_ATTEMPTS - 1,
-                        backoff_factor=RETRY_BASE_DELAY,
-                        max_backoff_wait=RETRY_MAX_DELAY,
-                        allowed_methods=RETRYABLE_METHODS,
-                        status_forcelist={httpx.codes.TOO_MANY_REQUESTS},
-                    )
-                ),
             )
         return self._client
 

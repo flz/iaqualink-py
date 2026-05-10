@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime, timedelta
-from email.utils import format_datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
@@ -12,12 +10,9 @@ import respx
 from iaqualink.client import (
     AqualinkAuthState,
     AqualinkClient,
-    AqualinkRetry,
 )
 from iaqualink.const import (
     DEFAULT_REQUEST_TIMEOUT,
-    RETRY_AFTER_MAX_DELAY,
-    RETRY_MAX_ATTEMPTS,
 )
 from iaqualink.exception import (
     AqualinkServiceException,
@@ -359,63 +354,15 @@ class TestAqualinkClient(TestBase):
             await self.client.get_systems()
 
     @respx.mock
-    @patch("iaqualink.client.AqualinkRetry.asleep", new_callable=AsyncMock)
-    async def test_429_retry_then_success(self, mock_sleep) -> None:
-        route = respx.get("https://example.com").mock(
-            side_effect=[
-                httpx.Response(status_code=httpx.codes.TOO_MANY_REQUESTS),
-                httpx.Response(status_code=httpx.codes.OK, json={}),
-            ]
-        )
-
-        r = await self.client.send_request("https://example.com")
-
-        assert r.status_code == httpx.codes.OK
-        assert route.call_count == 2
-        mock_sleep.assert_called_once()
-
-    def test_429_retry_after_header_is_capped(self) -> None:
-        retry = AqualinkRetry(total=RETRY_MAX_ATTEMPTS - 1)
-
-        assert retry.parse_retry_after("999") == RETRY_AFTER_MAX_DELAY
-
-    def test_429_retry_after_http_date_is_capped(self) -> None:
-        retry = AqualinkRetry(total=RETRY_MAX_ATTEMPTS - 1)
-        future = datetime.now(tz=UTC) + timedelta(days=365)
-
-        assert (
-            retry.parse_retry_after(format_datetime(future, usegmt=True))
-            == RETRY_AFTER_MAX_DELAY
-        )
-
-    def test_429_retry_after_past_date_clamped_to_zero(self) -> None:
-        retry = AqualinkRetry(total=RETRY_MAX_ATTEMPTS - 1)
-        past = datetime.now(tz=UTC) - timedelta(days=1)
-
-        assert retry.parse_retry_after(format_datetime(past, usegmt=True)) == 0
-
-    def test_429_retry_after_unparseable_does_not_raise(self) -> None:
-        retry = AqualinkRetry(total=RETRY_MAX_ATTEMPTS - 1)
-
-        result = retry.parse_retry_after("totally-invalid")
-
-        assert result >= 0.0
-
-    @respx.mock
-    @patch("iaqualink.client.AqualinkRetry.asleep", new_callable=AsyncMock)
-    async def test_429_retries_exhausted(self, mock_sleep) -> None:
-        route = respx.get("https://example.com").mock(
-            side_effect=[
-                httpx.Response(status_code=httpx.codes.TOO_MANY_REQUESTS)
-            ]
-            * RETRY_MAX_ATTEMPTS
+    async def test_429_raises_throttled_immediately(self) -> None:
+        respx.get("https://example.com").mock(
+            return_value=httpx.Response(
+                status_code=httpx.codes.TOO_MANY_REQUESTS
+            )
         )
 
         with pytest.raises(AqualinkServiceThrottledException):
             await self.client.send_request("https://example.com")
-
-        assert route.call_count == RETRY_MAX_ATTEMPTS
-        assert mock_sleep.call_count == RETRY_MAX_ATTEMPTS - 1
 
     @patch("httpx.AsyncClient.request")
     async def test_500_not_retried(self, mock_request) -> None:
@@ -437,18 +384,6 @@ class TestAqualinkClient(TestBase):
             await self.client.send_request("https://example.com")
 
         assert mock_request.call_count == 1
-
-    async def test_refresh_auth_propagates_throttled(self) -> None:
-        self.client.refresh_token = "some-refresh-token"
-        with (
-            patch.object(
-                self.client,
-                "_send_refresh_request",
-                side_effect=AqualinkServiceThrottledException("Rate limited"),
-            ),
-            pytest.raises(AqualinkServiceThrottledException),
-        ):
-            await self.client._refresh_auth()
 
     async def test_refresh_auth_concurrent_calls_only_refresh_once(
         self,
@@ -535,43 +470,6 @@ class TestAqualinkClient(TestBase):
 
         assert response.status_code == httpx.codes.OK
         assert mock_request.call_count == 4
-
-    @respx.mock
-    @patch("iaqualink.client.AqualinkRetry.asleep", new_callable=AsyncMock)
-    async def test_systems_request_retry_after_refresh_gets_full_429_budget(
-        self, mock_sleep
-    ) -> None:
-        self.client.authentication_token = "old-token"
-        self.client.user_id = "id"
-
-        async def fake_refresh() -> None:
-            self.client.authentication_token = "new-token"
-
-        initial_route = respx.get(
-            "https://r-api.iaqualink.net/devices.json?api_key=EOOEMOW4YR6QNB07&authentication_token=old-token&user_id=id"
-        ).mock(
-            return_value=httpx.Response(status_code=httpx.codes.UNAUTHORIZED)
-        )
-        retry_route = respx.get(
-            "https://r-api.iaqualink.net/devices.json?api_key=EOOEMOW4YR6QNB07&authentication_token=new-token&user_id=id"
-        ).mock(
-            side_effect=[
-                httpx.Response(status_code=httpx.codes.TOO_MANY_REQUESTS)
-            ]
-            * RETRY_MAX_ATTEMPTS
-        )
-
-        with (
-            patch.object(
-                self.client, "_refresh_auth", side_effect=fake_refresh
-            ),
-            pytest.raises(AqualinkServiceThrottledException),
-        ):
-            await self.client._send_systems_request()
-
-        assert initial_route.call_count == 1
-        assert retry_route.call_count == RETRY_MAX_ATTEMPTS
-        assert mock_sleep.call_count == RETRY_MAX_ATTEMPTS - 1
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_500_after_refresh_raises_service_exception(

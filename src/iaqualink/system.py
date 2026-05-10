@@ -19,13 +19,11 @@ LOGGER = logging.getLogger("iaqualink")
 
 class AqualinkSystem:
     subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
-    MIN_SECS_TO_REFRESH: ClassVar[int] = 5
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
         self.data = data
         self.devices: dict[str, AqualinkDevice] = {}
-        self.last_refresh: int
 
         # Semantics here are somewhat odd.
         # True/False are obvious, None means "unknown".

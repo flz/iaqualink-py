@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-import time
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from iaqualink.exception import (
     AqualinkServiceException,
@@ -25,13 +24,9 @@ LOGGER = logging.getLogger("iaqualink")
 
 class ExoSystem(AqualinkSystem):
     NAME = "exo"
-    # Empiric value; eXO systems returned HTTP 429 when polled every 15s.
-    MIN_SECS_TO_REFRESH: ClassVar[int] = 50
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         super().__init__(aqualink, data)
-        # This lives in the parent class but mypy complains.
-        self.last_refresh: int = 0
         self.temp_unit = "C"  # TODO: check if unit can be changed on panel?
 
     def __repr__(self) -> str:
@@ -62,18 +57,9 @@ class ExoSystem(AqualinkSystem):
         )
 
     async def update(self) -> None:
-        # Be nice to Aqualink servers since we rely on polling.
-        now = int(time.time())
-        delta = now - self.last_refresh
-        if delta < self.MIN_SECS_TO_REFRESH:
-            LOGGER.debug(f"Only {delta}s since last refresh.")
-            return
-
         try:
             r = await self.send_reported_state_request()
         except AqualinkServiceThrottledException:
-            # Re-raise without setting online=None; rate-limiting does
-            # not indicate the system is offline.
             raise
         except AqualinkServiceException:
             self.online = None
@@ -86,7 +72,6 @@ class ExoSystem(AqualinkSystem):
             raise
 
         self.online = True
-        self.last_refresh = int(time.time())
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()

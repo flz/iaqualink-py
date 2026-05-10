@@ -169,7 +169,7 @@ Exception arguments tuple.
 - API request failed
 - Invalid response format
 - Network connectivity issues
-- Rate limiting (though built-in rate limiting should prevent this)
+- Rate limiting (HTTP 429 from the server)
 
 ### AqualinkSystemOfflineException
 

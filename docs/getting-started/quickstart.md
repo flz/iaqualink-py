@@ -105,22 +105,6 @@ async with AqualinkClient('user@example.com', 'password') as client:
         print(f"Devices: {len(devices)}")
 ```
 
-## Rate Limiting
-
-The library automatically rate-limits updates to once every 5 seconds per system to respect API limits. Subsequent calls within this window return cached data.
-
-```python
-# First call - fetches from API
-await system.update()
-
-# Immediate second call - returns cached data
-await system.update()
-
-# After 5+ seconds - fetches fresh data
-await asyncio.sleep(5)
-await system.update()
-```
-
 ## Error Handling
 
 ```python

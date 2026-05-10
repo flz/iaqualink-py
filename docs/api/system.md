@@ -75,8 +75,6 @@ Timestamp of the last successful update.
 
 Fetch the latest system state from the API.
 
-Updates are rate-limited to once every 5 seconds. Calls within this window return cached data.
-
 **Returns:** `None`
 
 **Raises:**
@@ -139,22 +137,6 @@ system = AqualinkSystem.from_data(client, system_data)
 - `data` (`dict[str, Any]`) - System data from API
 
 **Returns:** `AqualinkSystem` - Appropriate system subclass instance
-
-## Rate Limiting
-
-Systems implement automatic rate limiting with a minimum interval of 5 seconds between API calls:
-
-```python
-# First call - fetches from API
-await system.update()
-
-# Immediate call - returns cached data
-await system.update()
-
-# After 5+ seconds - fetches fresh data
-await asyncio.sleep(5)
-await system.update()
-```
 
 ## See Also
 
