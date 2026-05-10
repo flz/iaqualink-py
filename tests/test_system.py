@@ -80,12 +80,12 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
 class TestUnsupportedSystem(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.aqualink = MagicMock()
-        self.data = {
-            "id": 1,
-            "serial_number": "ABCDEFG",
-            "device_type": "unknown_type",
-            "name": "pool",
-        }
+        self.data = DevicesResponseElement(
+            id=1,
+            serial_number="ABCDEFG",
+            device_type="unknown_type",
+            name="pool",
+        )
         self.system = UnsupportedSystem(self.aqualink, self.data)
 
     def test_from_data_returns_unsupported_system(self) -> None:

@@ -11,6 +11,7 @@ from typer.testing import CliRunner
 
 from iaqualink.client import AqualinkAuthState
 from iaqualink.system import UnsupportedSystem
+from iaqualink.types import DevicesResponseElement
 
 cli_module = importlib.import_module("iaqualink.cli.app")
 
@@ -23,7 +24,7 @@ class FakeSystem:
     def __init__(self, serial: str, name: str) -> None:
         self.serial = serial
         self.name = name
-        self.data = {"device_type": "iaqua"}
+        self.data = DevicesResponseElement(device_type="iaqua", serial_number=serial)
 
     async def get_devices(self) -> dict[str, object]:
         return {}
@@ -159,7 +160,7 @@ def test_list_devices_reports_ambiguous_system_name(tmp_path: Path) -> None:
 def _make_unsupported_system(
     serial: str = "SN001", name: str = "Pool"
 ) -> UnsupportedSystem:
-    data = {"serial_number": serial, "name": name, "device_type": "foo"}
+    data = DevicesResponseElement(device_type="foo", serial_number=serial, name=name)
     return UnsupportedSystem(MagicMock(), data)
 
 

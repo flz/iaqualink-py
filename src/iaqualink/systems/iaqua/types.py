@@ -58,6 +58,12 @@ class SwcInfo(DataClassJSONMixin):
     swc_pool_status: Optional[str] = field(
         default=None, metadata=field_options(alias="swcPoolStatus")
     )
+    swc_spa_value: Optional[str] = field(
+        default=None, metadata=field_options(alias="swcSpaValue")
+    )
+    swc_spa_status: Optional[str] = field(
+        default=None, metadata=field_options(alias="swcSpaStatus")
+    )
 
 
 @dataclass

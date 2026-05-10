@@ -263,6 +263,7 @@ class AqualinkClient:
 
     async def login(self) -> None:
         r = await self._send_login_request()
+        self._apply_login_data(r.json(), refresh_token_fallback="")
 
     def _clear_auth_state(self) -> None:
         self.client_id = ""
@@ -279,7 +280,7 @@ class AqualinkClient:
     ) -> None:
         self.client_id = data["session_id"]
         self.authentication_token = data["authentication_token"]
-        self.user_id = data["id"]
+        self.user_id = str(data["id"])
         self.id_token = data["userPoolOAuth"]["IdToken"]
         self.refresh_token = data["userPoolOAuth"].get(
             "RefreshToken", refresh_token_fallback

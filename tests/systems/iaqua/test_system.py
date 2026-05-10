@@ -164,7 +164,7 @@ class TestIaquaSystem(TestBaseSystem):
             ],
         }
         response = MagicMock()
-        response.json.return_value = message
+        response.text = json.dumps(message)
 
         self.sut._parse_devices_response(response)
         assert self.sut.devices == {"aux_existing": existing}
@@ -182,7 +182,7 @@ class TestIaquaSystem(TestBaseSystem):
             ],
         }
         response = MagicMock()
-        response.json.return_value = message
+        response.text = json.dumps(message)
 
         self.sut._parse_home_response(response)
         assert self.sut.devices == {"pool_pump": existing}
