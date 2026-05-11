@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import logging
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -84,10 +83,8 @@ class TestUnsupportedSystem(unittest.IsolatedAsyncioTestCase):
         r = AqualinkSystem.from_data(self.aqualink, self.data)
         assert isinstance(r, UnsupportedSystem)
 
-    def test_from_data_logs_warning(self) -> None:
-        with self.assertLogs("iaqualink", level=logging.WARNING) as cm:
-            AqualinkSystem.from_data(self.aqualink, self.data)
-        assert any("unknown_type" in line for line in cm.output)
+    def test_type(self) -> None:
+        assert self.system.type == "unknown_type"
 
     def test_supported_false(self) -> None:
         assert self.system.supported is False

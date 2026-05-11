@@ -54,6 +54,10 @@ class AqualinkSystem:
         return self.data["serial_number"]
 
     @property
+    def type(self) -> str:
+        return self.data["device_type"]
+
+    @property
     def supported(self) -> bool:
         return True
 
@@ -62,10 +66,6 @@ class AqualinkSystem:
         cls, aqualink: AqualinkClient, data: Payload
     ) -> AqualinkSystem:
         if data["device_type"] not in cls.subclasses:
-            LOGGER.warning(
-                "%s is not a supported system type.", data["device_type"]
-            )
-            # UnsupportedSystem is defined after this class in this module.
             return UnsupportedSystem(aqualink, data)
 
         return cls.subclasses[data["device_type"]](aqualink, data)
@@ -97,4 +97,7 @@ class UnsupportedSystem(AqualinkSystem):
         LOGGER.debug("Skipping update for unsupported system %r", self.serial)
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
+        LOGGER.debug(
+            "Skipping get_devices for unsupported system %r", self.serial
+        )
         return {}
