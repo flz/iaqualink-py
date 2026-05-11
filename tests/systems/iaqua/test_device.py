@@ -15,6 +15,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaDevice,
     IaquaDimmableLight,
     IaquaLightSwitch,
+    IaquaPresenceSensor,
     IaquaSensor,
     IaquaSwitch,
     IaquaThermostat,
@@ -92,6 +93,27 @@ class TestIaquaBinarySensor(TestIaquaSensor, TestBaseBinarySensor):
         self.sut.data["state"] = "1"
         super().test_property_is_on_true()
         assert self.sut.is_on is True
+
+
+class TestIaquaPresenceSensor(TestIaquaBinarySensor):
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {"name": "spa_present", "state": "present"}
+        self.sut_class = IaquaPresenceSensor
+        self.sut = IaquaDevice.from_data(self.system, data)
+
+    def test_property_is_on_true(self) -> None:
+        self.sut.data["state"] = "present"
+        assert self.sut.is_on is True
+
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["state"] = "absent"
+        assert self.sut.is_on is False
+
+    def test_property_is_on_false_empty(self) -> None:
+        self.sut.data["state"] = ""
+        assert self.sut.is_on is False
 
 
 class TestIaquaSwitch(TestIaquaBinarySensor, TestBaseSwitch):

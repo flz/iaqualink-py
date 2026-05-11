@@ -37,6 +37,12 @@ class IaquaAuxState(StrEnum):
     ENABLED = "3"
 
 
+@unique
+class IaquaDevicePresence(StrEnum):
+    ABSENT = "absent"
+    PRESENT = "present"
+
+
 class IaquaDevice(AqualinkDevice):
     def __init__(self, system: IaquaSystem, data: DeviceData):
         super().__init__(system, data)
@@ -87,7 +93,7 @@ class IaquaDevice(AqualinkDevice):
         elif data["name"] == "freeze_protection":
             class_ = IaquaBinarySensor
         elif data["name"].endswith("_present"):
-            class_ = IaquaSensor
+            class_ = IaquaPresenceSensor
         elif data["name"].startswith("aux_"):
             if data["type"] == "2":
                 class_ = light_subtype_to_class[data["subtype"]]
@@ -117,6 +123,12 @@ class IaquaBinarySensor(IaquaSensor, AqualinkBinarySensor):
             if self.state
             else False
         )
+
+
+class IaquaPresenceSensor(IaquaBinarySensor):
+    @property
+    def is_on(self) -> bool:
+        return self.state == IaquaDevicePresence.PRESENT
 
 
 class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
