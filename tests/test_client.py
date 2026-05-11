@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -25,14 +26,14 @@ from .base import TestBase
 from .common import async_noop, async_raises
 
 LOGIN_DATA = {
-    "id": "id",
+    "id": 1,
     "authentication_token": "token",
     "session_id": "session_id",
     "userPoolOAuth": {"IdToken": "userPoolOAuth:IdToken"},
 }
 
 LOGIN_DATA_WITH_REFRESH = {
-    "id": "id",
+    "id": 1,
     "authentication_token": "token",
     "session_id": "session_id",
     "userPoolOAuth": {
@@ -42,7 +43,7 @@ LOGIN_DATA_WITH_REFRESH = {
 }
 
 REFRESH_RESPONSE_DATA = {
-    "id": "id",
+    "id": 1,
     "authentication_token": "new-token",
     "session_id": "new-session-id",
     "userPoolOAuth": {
@@ -58,6 +59,7 @@ def _make_resp(status: int, data: dict | None = None) -> MagicMock:
     r.reason_phrase = httpx.codes.get_reason_phrase(status)
     if data is not None:
         r.json = MagicMock(return_value=data)
+        r.text = json.dumps(data)
     if status == httpx.codes.TOO_MANY_REQUESTS:
         r.headers = httpx.Headers({})
     return r
@@ -95,7 +97,7 @@ class TestAqualinkClient(TestBase):
             username="foo",
             client_id="session_id",
             authentication_token="token",
-            user_id="id",
+            user_id="1",
             id_token="userPoolOAuth:IdToken",
             refresh_token="userPoolOAuth:RefreshToken",
         )
@@ -182,6 +184,7 @@ class TestAqualinkClient(TestBase):
     async def test_login_success(self, mock_request) -> None:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+        mock_request.return_value.text = json.dumps(LOGIN_DATA)
 
         assert self.client.logged is False
 
@@ -252,6 +255,7 @@ class TestAqualinkClient(TestBase):
     async def test_unexpectedly_logged_out(self, mock_request) -> None:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+        mock_request.return_value.text = json.dumps(LOGIN_DATA)
 
         await self.client.login()
 
@@ -271,16 +275,14 @@ class TestAqualinkClient(TestBase):
     ) -> None:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+        mock_request.return_value.text = json.dumps(LOGIN_DATA)
 
         await self.client.login()
 
+        systems_data = [{"device_type": "foo", "serial_number": "SN123456"}]
         mock_request.return_value.status_code = 200
-        mock_request.return_value.json.return_value = [
-            {
-                "device_type": "foo",
-                "serial_number": "SN123456",
-            }
-        ]
+        mock_request.return_value.json.return_value = systems_data
+        mock_request.return_value.text = json.dumps(systems_data)
 
         systems = await self.client.get_systems()
         assert len(systems) == 1
@@ -290,16 +292,14 @@ class TestAqualinkClient(TestBase):
     async def test_systems_request(self, mock_request) -> None:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+        mock_request.return_value.text = json.dumps(LOGIN_DATA)
 
         await self.client.login()
 
+        systems_data = [{"device_type": "iaqua", "serial_number": "SN123456"}]
         mock_request.return_value.status_code = 200
-        mock_request.return_value.json.return_value = [
-            {
-                "device_type": "iaqua",
-                "serial_number": "SN123456",
-            }
-        ]
+        mock_request.return_value.json.return_value = systems_data
+        mock_request.return_value.text = json.dumps(systems_data)
 
         systems = await self.client.get_systems()
         assert len(systems) == 1
@@ -321,7 +321,7 @@ class TestAqualinkClient(TestBase):
         assert systems == {}
         retry_url = mock_request.call_args_list[3][0][1]
         assert "authentication_token=new-token" in retry_url
-        assert "user_id=id" in retry_url
+        assert "user_id=1" in retry_url
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_repeated_401_refreshes_only_once(
@@ -496,7 +496,7 @@ class TestAqualinkClient(TestBase):
     ) -> None:
         # If the refresh response omits RefreshToken, keep the existing one.
         refresh_no_new_token = {
-            "id": "id",
+            "id": 1,
             "authentication_token": "new-token",
             "session_id": "new-session-id",
             "userPoolOAuth": {"IdToken": "new-id-token"},

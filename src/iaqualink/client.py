@@ -6,6 +6,8 @@ import logging
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Self
 
+from mashumaro.codecs.json import JSONDecoder
+
 import httpx
 
 from iaqualink.const import (
@@ -23,6 +25,8 @@ from iaqualink.exception import (
 )
 from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
+from iaqualink.types import DevicesResponse, LoginResponse
+from iaqualink.util import decode_json, json_to_dataclass
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -32,6 +36,10 @@ for module_name in (
     "iaqualink.systems.iaqua.system",
 ):
     importlib.import_module(module_name)
+
+# DevicesResponse is a list type alias, not a DataClassJSONMixin, so it needs a
+# pre-built JSONDecoder rather than json_to_dataclass(). See decode_json() in util.py.
+_devices_decoder = JSONDecoder(DevicesResponse)
 
 AQUALINK_HTTP_HEADERS = {
     "user-agent": "okhttp/3.14.7",
@@ -252,13 +260,16 @@ class AqualinkClient:
                 return
 
             self._apply_login_data(
-                r.json(),
+                json_to_dataclass(LoginResponse, r.text),
                 refresh_token_fallback=self.refresh_token,
             )
 
     async def login(self) -> None:
         r = await self._send_login_request()
-        self._apply_login_data(r.json(), refresh_token_fallback="")
+        self._apply_login_data(
+            json_to_dataclass(LoginResponse, r.text),
+            refresh_token_fallback="",
+        )
 
     def _clear_auth_state(self) -> None:
         self.client_id = ""
@@ -270,15 +281,15 @@ class AqualinkClient:
 
     def _apply_login_data(
         self,
-        data: dict[str, Any],
+        data: LoginResponse,
         refresh_token_fallback: str,
     ) -> None:
-        self.client_id = data["session_id"]
-        self.authentication_token = data["authentication_token"]
-        self.user_id = data["id"]
-        self.id_token = data["userPoolOAuth"]["IdToken"]
-        self.refresh_token = data["userPoolOAuth"].get(
-            "RefreshToken", refresh_token_fallback
+        self.client_id = data.session_id
+        self.authentication_token = data.authentication_token
+        self.user_id = str(data.id)
+        self.id_token = data.user_pool_oauth.id_token
+        self.refresh_token = (
+            data.user_pool_oauth.refresh_token or refresh_token_fallback
         )
         self._logged = True
 
@@ -306,7 +317,6 @@ class AqualinkClient:
                 raise AqualinkServiceUnauthorizedException from e
             raise
 
-        data = r.json()
-
-        systems = [AqualinkSystem.from_data(self, x) for x in data]
+        response = decode_json(_devices_decoder, r.text)
+        systems = [AqualinkSystem.from_data(self, x) for x in response]
         return {x.serial: x for x in systems}

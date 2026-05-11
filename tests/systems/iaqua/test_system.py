@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import urllib.parse
 from unittest.mock import MagicMock, patch
 
@@ -14,6 +15,7 @@ from iaqualink.exception import (
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaAuxSwitch
 from iaqualink.systems.iaqua.system import IAQUA_SESSION_URL, IaquaSystem
+from iaqualink.types import DevicesResponseElement
 
 from ...base_test_system import TestBaseSystem
 
@@ -22,20 +24,12 @@ class TestIaquaSystem(TestBaseSystem):
     def setUp(self) -> None:
         super().setUp()
 
-        data = {
-            "id": 123456,
-            "serial_number": "SN123456",
-            "created_at": "2017-09-23T01:00:08.000Z",
-            "updated_at": "2017-09-23T01:00:08.000Z",
-            "name": "Pool",
-            "device_type": "iaqua",
-            "owner_id": None,
-            "updating": False,
-            "firmware_version": None,
-            "target_firmware_version": None,
-            "update_firmware_start_at": None,
-            "last_activity_at": None,
-        }
+        data = DevicesResponseElement(
+            id=123456,
+            serial_number="SN123456",
+            name="Pool",
+            device_type="iaqua",
+        )
         self.sut = AqualinkSystem.from_data(self.client, data=data)
         self.sut_class = IaquaSystem
 
@@ -67,10 +61,44 @@ class TestIaquaSystem(TestBaseSystem):
         ):
             await super().test_get_devices_needs_update()
 
+    async def test_parse_home_offline(self) -> None:
+        message = {
+            "message": "",
+            "serial": "",
+            "home_screen": [{"status": "Offline"}],
+        }
+        response = MagicMock()
+        response.text = json.dumps(message)
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            self.sut._parse_home_response(response)
+        assert self.sut.devices == {}
+
+    async def test_parse_home_good(self) -> None:
+        message = {
+            "message": "",
+            "serial": "",
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "IQPRO+"},
+                {"temp_scale": "F"},
+                {"spa_temp": "90"},
+                {"pool_temp": "85"},
+            ],
+        }
+        response = MagicMock()
+        response.text = json.dumps(message)
+
+        self.sut._parse_home_response(response)
+        assert "spa_temp" in self.sut.devices
+        assert "pool_temp" in self.sut.devices
+        assert self.sut.temp_unit == "F"
+
     async def test_parse_devices_offline(self) -> None:
         message = {"message": "", "devices_screen": [{"status": "Offline"}]}
         response = MagicMock()
-        response.json.return_value = message
+        response.text = json.dumps(message)
 
         with pytest.raises(AqualinkSystemOfflineException):
             self.sut._parse_devices_response(response)
@@ -95,7 +123,7 @@ class TestIaquaSystem(TestBaseSystem):
             ],
         }
         response = MagicMock()
-        response.json.return_value = message
+        response.text = json.dumps(message)
 
         expected = {
             "aux_B1": IaquaAuxSwitch(
@@ -136,7 +164,7 @@ class TestIaquaSystem(TestBaseSystem):
             ],
         }
         response = MagicMock()
-        response.json.return_value = message
+        response.text = json.dumps(message)
 
         self.sut._parse_devices_response(response)
         assert self.sut.devices == {"aux_existing": existing}
@@ -154,7 +182,7 @@ class TestIaquaSystem(TestBaseSystem):
             ],
         }
         response = MagicMock()
-        response.json.return_value = message
+        response.text = json.dumps(message)
 
         self.sut._parse_home_response(response)
         assert self.sut.devices == {"pool_pump": existing}

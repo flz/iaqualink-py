@@ -27,6 +27,10 @@ class AqualinkServiceThrottledException(AqualinkServiceException):
     """Exception raised when the service returns 429 Too Many Requests."""
 
 
+class AqualinkUnexpectedResponseException(AqualinkServiceException):
+    """Exception raised when the service returns an unexpected or unparseable response."""
+
+
 class AqualinkOperationNotSupportedException(AqualinkException):
     """Exception raised when trying to issue an unsupported operation."""
 

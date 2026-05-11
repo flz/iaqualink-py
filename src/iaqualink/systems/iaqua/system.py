@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import TYPE_CHECKING
 
@@ -12,11 +13,22 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaDevice
+from iaqualink.systems.iaqua.types import (
+    DevicesScreenAux,
+    HomeScreenResponse,
+    HomeScreenStatus,
+    HomeScreenSystemType,
+    HomeScreenTempScale,
+    IaquaDevicesResponse,
+    IaquaHomeResponse,
+)
+from iaqualink.util import json_to_dataclass
 
 if TYPE_CHECKING:
     import httpx
 
     from iaqualink.client import AqualinkClient
+    from iaqualink.types import DevicesResponseElement
     from iaqualink.typing import Payload
 
 IAQUA_SESSION_URL = "https://r-api.iaqualink.net/v2/mobile/session.json"
@@ -36,11 +48,18 @@ IAQUA_COMMAND_SET_TEMPS = "set_temps"
 
 LOGGER = logging.getLogger("iaqualink")
 
+_HOME_SCREEN_HEADER_TYPES = (
+    HomeScreenResponse,
+    HomeScreenStatus,
+    HomeScreenSystemType,
+    HomeScreenTempScale,
+)
+
 
 class IaquaSystem(AqualinkSystem):
     NAME = "iaqua"
 
-    def __init__(self, aqualink: AqualinkClient, data: Payload):
+    def __init__(self, aqualink: AqualinkClient, data: DevicesResponseElement):
         super().__init__(aqualink, data)
 
         self.temp_unit: str = ""
@@ -111,25 +130,45 @@ class IaquaSystem(AqualinkSystem):
         self.status = SystemStatus.ONLINE
 
     def _parse_home_response(self, response: httpx.Response) -> None:
-        data = response.json()
+        data = json_to_dataclass(IaquaHomeResponse, response.text)
 
         LOGGER.debug("Home response: %s", data)
 
-        if data["home_screen"][0]["status"] == "Offline":
+        status = next(
+            (x for x in data.home_screen if isinstance(x, HomeScreenStatus)),
+            None,
+        )
+        if status is not None and status.status == "Offline":
             LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
-        if data["home_screen"][2]["system_type"] == "":
+        system_type = next(
+            (
+                x
+                for x in data.home_screen
+                if isinstance(x, HomeScreenSystemType)
+            ),
+            None,
+        )
+        if system_type is not None and system_type.system_type == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
 
-        self.temp_unit = data["home_screen"][3]["temp_scale"]
+        temp_scale = next(
+            (x for x in data.home_screen if isinstance(x, HomeScreenTempScale)),
+            None,
+        )
+        if temp_scale is not None:
+            self.temp_unit = temp_scale.temp_scale
 
         # Make the data a bit flatter.
         devices = {}
-        for x in data["home_screen"][4:]:
-            name = next(iter(x.keys()))
-            state = next(iter(x.values()))
+        for x in data.home_screen:
+            if isinstance(x, _HOME_SCREEN_HEADER_TYPES):
+                continue
+            f = dataclasses.fields(x)[0]
+            name = f.name
+            state = getattr(x, name)
             attrs = {"name": name, "state": state}
             devices.update({name: attrs})
 
@@ -144,30 +183,33 @@ class IaquaSystem(AqualinkSystem):
                     LOGGER.debug("Device found was ignored: %s", e)
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
-        data = response.json()
+        data = json_to_dataclass(IaquaDevicesResponse, response.text)
 
         LOGGER.debug("Devices response: %s", data)
 
-        if data["devices_screen"][0]["status"] == "Offline":
+        first = data.devices_screen[0]
+        if isinstance(first, HomeScreenStatus) and first.status == "Offline":
             LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
-        for x in data["devices_screen"][3:]:
-            for attr in next(iter(x.values())):
-                if attr.get("state") == "NaN":
-                    LOGGER.debug(
-                        "Skipping devices screen update with NaN state."
-                    )
-                    return
+        for x in data.devices_screen[3:]:
+            if not isinstance(x, DevicesScreenAux):
+                continue
+            if x.attrs.state == "NaN":
+                LOGGER.debug("Skipping devices screen update with NaN state.")
+                return
 
         # Make the data a bit flatter.
         devices = {}
-        for x in data["devices_screen"][3:]:
-            aux = next(iter(x.keys()))
-            attrs = {"aux": aux.replace("aux_", ""), "name": aux}
-            for y in next(iter(x.values())):
-                attrs.update(y)
-            devices.update({aux: attrs})
+        for x in data.devices_screen[3:]:
+            if not isinstance(x, DevicesScreenAux):
+                continue
+            attrs = {
+                "aux": x.name.replace("aux_", ""),
+                "name": x.name,
+                **dataclasses.asdict(x.attrs),
+            }
+            devices.update({x.name: attrs})
 
         for k, v in devices.items():
             if k in self.devices:

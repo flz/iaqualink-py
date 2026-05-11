@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -10,12 +11,14 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import ExoDevice
+from iaqualink.systems.exo.types import ExoShadowResponse
+from iaqualink.util import json_to_dataclass
 
 if TYPE_CHECKING:
     import httpx
 
     from iaqualink.client import AqualinkClient
-    from iaqualink.typing import Payload
+    from iaqualink.types import DevicesResponseElement
 
 EXO_DEVICES_URL = "https://prod.zodiac-io.com/devices/v1"
 
@@ -25,7 +28,7 @@ LOGGER = logging.getLogger("iaqualink")
 class ExoSystem(AqualinkSystem):
     NAME = "exo"
 
-    def __init__(self, aqualink: AqualinkClient, data: Payload):
+    def __init__(self, aqualink: AqualinkClient, data: DevicesResponseElement):
         super().__init__(aqualink, data)
         self.temp_unit = "C"  # TODO: check if unit can be changed on panel?
 
@@ -75,43 +78,46 @@ class ExoSystem(AqualinkSystem):
         self.status = SystemStatus.ONLINE
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
-        data = response.json()
+        data = json_to_dataclass(ExoShadowResponse, response.text)
 
         LOGGER.debug("Shadow response: %s", data)
 
-        devices = {}
+        devices: dict[str, Any] = {}
 
-        # Process the chlorinator attributes[equipmen]
-        # Make the data a bit flatter.
-        root = data["state"]["reported"]["equipment"]["swc_0"]
-        for name, state in root.items():
-            attrs = {"name": name}
-            if isinstance(state, dict):
-                attrs.update(state)
-            else:
-                attrs.update({"state": state})
-            devices.update({name: attrs})
+        root = data.state.reported.equipment["swc_0"]
 
-        # Remove those values, they're not handled properly.
-        devices.pop("boost_time", None)
-        devices.pop("vsp_speed", None)
-        devices.pop("sn", None)
-        devices.pop("vr", None)
-        devices.pop("version", None)
+        # Scalar int fields — each becomes a simple state device.
+        for name, state in root.scalar_devices().items():
+            devices[name] = {"name": name, "state": state}
 
-        # Process the heating control attributes
-        if "heating" in data["state"]["reported"]:
-            name = "heating"
-            attrs = {"name": name}
-            attrs.update(data["state"]["reported"]["heating"])
-            devices.update({name: attrs})
-            # extract heater state into seperate device to maintain homeassistant API
-            name = "heater"
-            attrs = {"name": name}
-            attrs.update(
-                {"state": data["state"]["reported"]["heating"]["state"]}
-            )
-            devices.update({name: attrs})
+        # Aux switches.
+        for name, aux in root.aux_devices.items():
+            devices[name] = {"name": name, **dataclasses.asdict(aux)}
+
+        # Chemistry / temperature sensors.
+        for name, sensor in root.sensors.items():
+            devices[name] = {"name": name, **dataclasses.asdict(sensor)}
+
+        # Filter pump (absent on salt-only units).
+        if root.filter_pump is not None:
+            devices["filter_pump"] = {
+                "name": "filter_pump",
+                **dataclasses.asdict(root.filter_pump),
+            }
+
+        # Process the heating control attributes.
+        if data.state.reported.heating is not None:
+            h = data.state.reported.heating
+            devices["heating"] = {
+                "name": "heating",
+                "state": h.state,
+                "sp": h.sp,
+                "enabled": h.enabled,
+                "sp_min": h.sp_min,
+                "sp_max": h.sp_max,
+            }
+            # Extract heater state into separate device to maintain HA API.
+            devices["heater"] = {"name": "heater", "state": h.state}
 
         LOGGER.debug("devices: %s", devices)
 

@@ -1,0 +1,114 @@
+import dataclasses
+from dataclasses import dataclass
+from typing import Any
+
+from mashumaro.mixins.json import DataClassJSONMixin
+
+
+@dataclass
+class ExoAux:
+    mode: int | None = None
+    type: str | None = None
+    color: int | None = None
+    state: int | None = None
+
+
+@dataclass
+class ExoSensorData:
+    state: int
+    value: int
+    sensor_type: str | None = None
+
+
+@dataclass
+class ExoFilterPumpData:
+    type: int
+    state: int
+
+
+@dataclass
+class ExoVspSpeed:
+    min: int
+    max: int
+
+
+@dataclass
+class ExoSwcDevice:
+    """Represents the swc_0 equipment block in the shadow response.
+
+    ``__pre_deserialize__`` collects the variable-key ``aux_*`` and ``sns_*``
+    entries into typed dicts so that the rest of the fields can be declared
+    as fixed dataclass members.
+    """
+
+    aux_devices: dict[str, ExoAux]
+    sensors: dict[str, ExoSensorData]
+    swc: int
+    low: int
+    vsp: int
+    amp: int
+    temp: int
+    lang: int
+    ph_sp: int
+    boost: int
+    orp_sp: int
+    ph_only: int
+    swc_low: int
+    exo_state: int
+    dual_link: int
+    production: int
+    error_code: int
+    error_state: int
+    aux230: int
+    filter_pump: ExoFilterPumpData | None = None
+    vsp_speed: ExoVspSpeed | None = None
+
+    def scalar_devices(self) -> dict[str, int]:
+        """Return scalar int state fields as {name: value} pairs."""
+        return {
+            f.name: v
+            for f in dataclasses.fields(self)
+            if isinstance(v := getattr(self, f.name), int)
+        }
+
+    @classmethod
+    def __pre_deserialize__(cls, d: dict[str, Any]) -> dict[str, Any]:
+        d = dict(d)
+        aux_devices: dict[str, Any] = {}
+        sensors: dict[str, Any] = {}
+        for key in list(d):
+            if key.startswith("aux_"):
+                aux_devices[key] = d.pop(key)
+            elif key.startswith("sns_"):
+                sensors[key] = d.pop(key)
+        d["aux_devices"] = aux_devices
+        d["sensors"] = sensors
+        return d
+
+
+@dataclass
+class ExoHeating:
+    state: int
+    sp: int
+    enabled: int
+    sp_min: int
+    sp_max: int
+    vsp_rpm_list: dict[str, int] | None = None
+    vsp_rpm_index: int | None = None
+    priority_enabled: int | None = None
+
+
+@dataclass
+class ExoShadowReported:
+    equipment: dict[str, ExoSwcDevice]
+    heating: ExoHeating | None = None
+
+
+@dataclass
+class ExoShadowState:
+    reported: ExoShadowReported
+
+
+@dataclass
+class ExoShadowResponse(DataClassJSONMixin):
+    state: ExoShadowState

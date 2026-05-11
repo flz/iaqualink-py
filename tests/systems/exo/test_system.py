@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -16,6 +17,7 @@ from iaqualink.systems.exo.device import (
     ExoSensor,
 )
 from iaqualink.systems.exo.system import ExoSystem
+from iaqualink.types import DevicesResponseElement
 
 from ...base_test_system import TestBaseSystem
 
@@ -174,14 +176,23 @@ class TestExoSystem(TestBaseSystem):
     def setUp(self) -> None:
         super().setUp()
 
-        data = {
-            "id": 1,
-            "serial_number": "ABCDEFG",
-            "device_type": "exo",
-            "name": "Pool",
-        }
+        data = DevicesResponseElement(
+            id=1,
+            serial_number="ABCDEFG",
+            device_type="exo",
+            name="Pool",
+        )
         self.sut = AqualinkSystem.from_data(self.client, data=data)
         self.sut_class = ExoSystem
+
+    def test_from_data_exo(self) -> None:
+        aqualink = MagicMock()
+        data = DevicesResponseElement(
+            device_type="exo", serial_number="ABCDEFG"
+        )
+        r = AqualinkSystem.from_data(aqualink, data)
+        assert r is not None
+        assert isinstance(r, ExoSystem)
 
     async def test_update_success(self) -> None:
         with patch.object(self.sut, "_parse_shadow_response"):
@@ -207,7 +218,7 @@ class TestExoSystem(TestBaseSystem):
 
     def test_parse_devices_good(self) -> None:
         response = MagicMock()
-        response.json.return_value = SAMPLE_DATA
+        response.text = json.dumps(SAMPLE_DATA)
         self.sut._parse_shadow_response(response)
 
         assert len(self.sut.devices) > 0
