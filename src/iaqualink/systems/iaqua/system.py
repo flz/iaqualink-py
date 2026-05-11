@@ -5,13 +5,19 @@ from typing import TYPE_CHECKING
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
-    AqualinkDeviceNotSupported,
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.iaqua.device import IaquaDevice
+from iaqualink.systems.iaqua.device import (
+    IaquaAuxSwitch,
+    IaquaDimmableLight,
+    IaquaLightSwitch,
+    IaquaThermostat,
+    _HOME_DEVICE_MAP,
+    light_subtype_to_class,
+)
 
 if TYPE_CHECKING:
     import httpx
@@ -115,33 +121,34 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("Home response: %s", data)
 
-        if data["home_screen"][0]["status"] == "Offline":
+        home: dict = {}
+        for x in data["home_screen"]:
+            home.update(x)
+
+        if home["status"] == "Offline":
             LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
-        if data["home_screen"][2]["system_type"] == "":
+        if home["system_type"] == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
 
-        self.temp_unit = data["home_screen"][3]["temp_scale"]
+        self.temp_unit = home["temp_scale"]
 
-        # Make the data a bit flatter.
-        devices = {}
-        for x in data["home_screen"][4:]:
-            name = next(iter(x.keys()))
-            state = next(iter(x.values()))
-            attrs = {"name": name, "state": state}
-            devices.update({name: attrs})
+        for name, device_class in _HOME_DEVICE_MAP.items():
+            if name not in home:
+                continue
 
-        for k, v in devices.items():
-            if k in self.devices:
-                for dk, dv in v.items():
-                    self.devices[k].data[dk] = dv
+            state = home[name]
+
+            if name in self.devices:
+                self.devices[name].data["state"] = state
             else:
-                try:
-                    self.devices[k] = IaquaDevice.from_data(self, v)
-                except AqualinkDeviceNotSupported as e:
-                    LOGGER.debug("Device found was ignored: %s", e)
+                if device_class is IaquaThermostat and not state:
+                    continue
+                self.devices[name] = device_class(
+                    self, {"name": name, "state": state}
+                )
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -160,24 +167,27 @@ class IaquaSystem(AqualinkSystem):
                     )
                     return
 
-        # Make the data a bit flatter.
-        devices = {}
         for x in data["devices_screen"][3:]:
             aux = next(iter(x.keys()))
             attrs = {"aux": aux.replace("aux_", ""), "name": aux}
             for y in next(iter(x.values())):
                 attrs.update(y)
-            devices.update({aux: attrs})
 
-        for k, v in devices.items():
-            if k in self.devices:
-                for dk, dv in v.items():
-                    self.devices[k].data[dk] = dv
+            if aux in self.devices:
+                for dk, dv in attrs.items():
+                    self.devices[aux].data[dk] = dv
             else:
-                try:
-                    self.devices[k] = IaquaDevice.from_data(self, v)
-                except AqualinkDeviceNotSupported as e:
-                    LOGGER.info("Device found was ignored: %s", e)
+                device_type = attrs.get("type", "0")
+                label = attrs.get("label", "")
+                if device_type == "2":
+                    device_class = light_subtype_to_class[attrs["subtype"]]
+                elif device_type == "1":
+                    device_class = IaquaDimmableLight
+                elif "LIGHT" in label:
+                    device_class = IaquaLightSwitch
+                else:
+                    device_class = IaquaAuxSwitch
+                self.devices[aux] = device_class(self, attrs)
 
     async def set_switch(self, command: str) -> None:
         r = await self._send_session_request(command)
