@@ -65,9 +65,8 @@ class AqualinkAuthState:
         )
         values: dict[str, str] = {}
         for field_name in required_fields:
-            raw = data.get(field_name)
-            value = str(raw) if raw is not None else None
-            if not value:
+            value = data.get(field_name)
+            if not isinstance(value, str) or not value:
                 raise ValueError(
                     f"Missing or invalid auth state field: {field_name}"
                 )

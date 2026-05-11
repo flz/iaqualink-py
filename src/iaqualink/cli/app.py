@@ -10,9 +10,18 @@ from typing import Annotated, Any, NoReturn
 
 import typer
 import yaml
+from rich.console import Console
+from rich.text import Text
+from rich.tree import Tree
 
 from iaqualink.client import AqualinkAuthState, AqualinkClient
-from iaqualink.device import AqualinkDevice, AqualinkSwitch, AqualinkThermostat
+from iaqualink.device import (
+    AqualinkDevice,
+    AqualinkLight,
+    AqualinkSensor,
+    AqualinkSwitch,
+    AqualinkThermostat,
+)
 from iaqualink.exception import (
     AqualinkException,
     AqualinkInvalidParameterException,
@@ -23,6 +32,9 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.version import __version__
+
+_console = Console()
+_error_console = Console(stderr=True, soft_wrap=True)
 
 app = typer.Typer(
     add_completion=False,
@@ -107,7 +119,7 @@ def _configure_logging(debug: bool) -> None:
 
 
 def _exit_with_error(message: str, code: int = 1) -> NoReturn:
-    typer.echo(f"Error: {message}", err=True)
+    _error_console.print(f"[bold red]Error:[/bold red] {message}")
     raise typer.Exit(code=code)
 
 
@@ -231,45 +243,95 @@ def _sorted_devices(
     )
 
 
-def _format_system_line(system: AqualinkSystem) -> str:
-    system_type = system.data.get("device_type", "unknown")
-    suffix = " (unsupported)" if not system.supported else ""
-    return f"{system.name} ({system.serial}) [{system_type}]{suffix}"
+# Subclasses must appear before their superclass (Light/Thermostat extend Switch).
+_DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
+    (AqualinkThermostat, "🌡️", "Thermostats"),
+    (AqualinkLight, "💡", "Lights"),
+    (AqualinkSwitch, "⚡", "Switches"),
+    (AqualinkSensor, "📊", "Sensors"),
+]
 
 
-def _format_device_line(device_name: str, device: AqualinkDevice) -> str:
-    line = f"{device.label} [{device_name}]"
-    if device.state:
-        line += f": {device.state}"
-    return line
+def _format_system_line(system: AqualinkSystem) -> Text:
+    t = Text()
+    t.append(system.name, style="bold")
+    t.append(f" ({system.serial})", style="dim")
+    t.append(f" [{system.data.get('device_type', 'unknown')}]", style="cyan")
+    if not system.supported:
+        t.append(" (unsupported)", style="bold red")
+    return t
+
+
+def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
+    if device.state is None or device.state == "":
+        t = Text()
+        t.append(device.label, style="bold dim")
+        t.append(f" [{device_name}]", style="dim")
+        return t
+    t = Text()
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    t.append(": ")
+    t.append(str(device.state), style="yellow")
+    return t
+
+
+def _group_devices(
+    devices: list[tuple[str, AqualinkDevice]],
+) -> list[tuple[str, str, list[tuple[str, AqualinkDevice]]]]:
+    assigned: set[str] = set()
+    groups: list[tuple[str, str, list[tuple[str, AqualinkDevice]]]] = []
+    for cls, icon, label in _DEVICE_GROUPS:
+        members = [
+            (name, dev)
+            for name, dev in devices
+            if isinstance(dev, cls) and name not in assigned
+        ]
+        for name, _ in members:
+            assigned.add(name)
+        if members:
+            groups.append((icon, label, members))
+    remaining = [(name, dev) for name, dev in devices if name not in assigned]
+    if remaining:
+        groups.append(("•", "Other", remaining))
+    return groups
+
+
+def _add_devices_to_tree(
+    branch: Tree,
+    serial: str,
+    system: AqualinkSystem,
+    devices_by_system: dict[str, dict[str, AqualinkDevice]],
+) -> None:
+    devices = _sorted_devices(devices_by_system.get(serial, {}))
+    if not devices:
+        msg = (
+            "System type not supported"
+            if not system.supported
+            else "No devices found"
+        )
+        branch.add(Text(msg, style="dim"))
+        return
+    for icon, label, members in _group_devices(devices):
+        group_label = Text()
+        group_label.append(f"{icon} {label}", style="bold")
+        group_branch = branch.add(group_label)
+        for device_name, device in members:
+            group_branch.add(_format_device_line(device_name, device))
 
 
 def _render_device_tree(
     systems: list[tuple[str, AqualinkSystem]],
     devices_by_system: dict[str, dict[str, AqualinkDevice]],
-) -> str:
-    lines: list[str] = []
-    for index, (serial, system) in enumerate(systems):
-        system_prefix = "└──" if index == len(systems) - 1 else "├──"
-        child_indent = "    " if index == len(systems) - 1 else "│   "
-        lines.append(f"{system_prefix} {_format_system_line(system)}")
-
-        devices = _sorted_devices(devices_by_system.get(serial, {}))
-        if not devices:
-            if not system.supported:
-                lines.append(f"{child_indent}└── System type not supported")
-            else:
-                lines.append(f"{child_indent}└── No devices found")
-            continue
-
-        for device_index, (device_name, device) in enumerate(devices):
-            device_prefix = "└──" if device_index == len(devices) - 1 else "├──"
-            lines.append(
-                f"{child_indent}{device_prefix} "
-                f"{_format_device_line(device_name, device)}"
-            )
-
-    return "\n".join(lines)
+) -> Tree:
+    root = Tree(Text("Systems", style="bold"))
+    if not systems:
+        root.add(Text("No systems found", style="dim"))
+        return root
+    for serial, system in systems:
+        branch = root.add(_format_system_line(system))
+        _add_devices_to_tree(branch, serial, system, devices_by_system)
+    return root
 
 
 def _resolve_system(
@@ -396,7 +458,7 @@ def _resolve_device(
 async def _list_systems(
     credentials: Credentials,
     cookie_jar: Path,
-) -> list[str]:
+) -> list[Text]:
     systems = await _fetch_systems(credentials, cookie_jar)
     return [
         _format_system_line(system) for _, system in _sorted_systems(systems)
@@ -407,7 +469,7 @@ async def _list_devices(
     credentials: Credentials,
     system_selector: str | None,
     cookie_jar: Path,
-) -> str:
+) -> Tree:
     systems = await _fetch_systems(credentials, cookie_jar)
     system = _resolve_system(systems, system_selector)
     devices = await _load_devices_for_system(system)
@@ -421,7 +483,7 @@ async def _status(
     credentials: Credentials,
     system_selector: str | None,
     cookie_jar: Path,
-) -> str:
+) -> Tree:
     systems = await _fetch_systems(credentials, cookie_jar)
     if system_selector is not None:
         system = _resolve_system(systems, system_selector)
@@ -433,8 +495,9 @@ async def _status(
     for serial, system in selected_systems:
         devices_by_system[serial] = await _load_devices_for_system(system)
 
-    _, any_system = selected_systems[0]
-    _save_session_jar(cookie_jar, any_system.aqualink.auth_state)
+    if selected_systems:
+        _, any_system = selected_systems[0]
+        _save_session_jar(cookie_jar, any_system.aqualink.auth_state)
     return _render_device_tree(selected_systems, devices_by_system)
 
 
@@ -444,7 +507,7 @@ async def _run_switch_command(
     device_selector: str,
     target_state: str,
     cookie_jar: Path,
-) -> str:
+) -> Text:
     systems = await _fetch_systems(credentials, cookie_jar)
     system = _resolve_system(systems, system_selector)
     devices = await _load_devices_for_system(system)
@@ -461,10 +524,14 @@ async def _run_switch_command(
         await device.turn_off()
 
     _save_session_jar(cookie_jar, system.aqualink.auth_state)
-    return (
-        f"Sent {target_state} command to {device.label} "
-        f"[{device_name}] on {_format_system_line(system)}"
-    )
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append(f"Sent {target_state} command to ")
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    t.append(" on ")
+    t.append_text(_format_system_line(system))
+    return t
 
 
 async def _set_temperature(
@@ -473,7 +540,7 @@ async def _set_temperature(
     device_selector: str,
     temperature: int,
     cookie_jar: Path,
-) -> str:
+) -> Text:
     systems = await _fetch_systems(credentials, cookie_jar)
     system = _resolve_system(systems, system_selector)
     devices = await _load_devices_for_system(system)
@@ -486,10 +553,14 @@ async def _set_temperature(
 
     await device.set_temperature(temperature)
     _save_session_jar(cookie_jar, system.aqualink.auth_state)
-    return (
-        f"Set {device.label} [{device_name}] to {temperature}{device.unit} "
-        f"on {_format_system_line(system)}"
-    )
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append("Set ")
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    t.append(f" to {temperature}{device.unit} on ")
+    t.append_text(_format_system_line(system))
+    return t
 
 
 @app.callback()
@@ -528,7 +599,7 @@ def list_systems(
     credentials = _resolve_credentials(username, password, config)
     lines = _run_async(_list_systems(credentials, cookie_jar))
     for line in lines:
-        typer.echo(line)
+        _console.print(line)
 
 
 @app.command("list-devices")
@@ -540,7 +611,7 @@ def list_devices(
     cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
 ) -> None:
     credentials = _resolve_credentials(username, password, config)
-    typer.echo(_run_async(_list_devices(credentials, system, cookie_jar)))
+    _console.print(_run_async(_list_devices(credentials, system, cookie_jar)))
 
 
 @app.command()
@@ -552,7 +623,7 @@ def status(
     cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
 ) -> None:
     credentials = _resolve_credentials(username, password, config)
-    typer.echo(_run_async(_status(credentials, system, cookie_jar)))
+    _console.print(_run_async(_status(credentials, system, cookie_jar)))
 
 
 @app.command("turn-on")
@@ -565,7 +636,7 @@ def turn_on(
     cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
 ) -> None:
     credentials = _resolve_credentials(username, password, config)
-    typer.echo(
+    _console.print(
         _run_async(
             _run_switch_command(credentials, system, device, "on", cookie_jar)
         )
@@ -582,7 +653,7 @@ def turn_off(
     cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
 ) -> None:
     credentials = _resolve_credentials(username, password, config)
-    typer.echo(
+    _console.print(
         _run_async(
             _run_switch_command(credentials, system, device, "off", cookie_jar)
         )
@@ -600,7 +671,7 @@ def set_temperature(
     cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
 ) -> None:
     credentials = _resolve_credentials(username, password, config)
-    typer.echo(
+    _console.print(
         _run_async(
             _set_temperature(
                 credentials, system, device, temperature, cookie_jar
