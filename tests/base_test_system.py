@@ -20,6 +20,9 @@ class TestBaseSystem(TestBase):
     def test_property_serial(self) -> None:
         assert isinstance(self.sut.serial, str)
 
+    def test_property_type(self) -> None:
+        assert self.sut.type == self.sut.__class__.NAME
+
     def test_from_data(self) -> None:
         if sut_class := getattr(self, "sut_class", None):
             assert isinstance(self.sut, sut_class)
