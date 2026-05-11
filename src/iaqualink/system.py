@@ -97,5 +97,7 @@ class UnsupportedSystem(AqualinkSystem):
         LOGGER.debug("Skipping update for unsupported system %r", self.serial)
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
-        LOGGER.debug("Skipping get_devices for unsupported system %r", self.serial)
+        LOGGER.debug(
+            "Skipping get_devices for unsupported system %r", self.serial
+        )
         return {}
