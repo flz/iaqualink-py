@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from enum import Enum, unique
+from enum import IntEnum, unique
 from typing import TYPE_CHECKING, Any, cast
 
 from iaqualink.device import (
@@ -25,7 +25,7 @@ LOGGER = logging.getLogger("iaqualink")
 
 
 @unique
-class ExoState(Enum):
+class ExoState(IntEnum):
     OFF = 0
     ON = 1
 
@@ -87,7 +87,7 @@ class ExoSensor(ExoDevice, AqualinkSensor):
 
     @property
     def is_on(self) -> bool:
-        return ExoState(self.data["state"]) == ExoState.ON
+        return self.data["state"] == ExoState.ON
 
     @property
     def state(self) -> str:
@@ -122,7 +122,7 @@ class ExoSwitch(ExoDevice, AqualinkSwitch):
 
     @property
     def is_on(self) -> bool:
-        return ExoState(self.data["state"]) == ExoState.ON
+        return self.data["state"] == ExoState.ON
 
     @property
     def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
@@ -206,7 +206,7 @@ class ExoThermostat(ExoSwitch, AqualinkThermostat):
 
     @property
     def is_on(self) -> bool:
-        return ExoState(self.data["enabled"]) == ExoState.ON
+        return self.data["enabled"] == ExoState.ON
 
     async def turn_on(self) -> None:
         if self.is_on is False:

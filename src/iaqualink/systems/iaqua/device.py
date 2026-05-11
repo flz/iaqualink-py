@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from enum import Enum, unique
+from enum import StrEnum, unique
 from typing import TYPE_CHECKING, cast
 
 from iaqualink.device import (
@@ -30,13 +30,11 @@ LOGGER = logging.getLogger("iaqualink")
 
 
 @unique
-class AqualinkState(Enum):
+class IaquaAuxState(StrEnum):
     OFF = "0"
     ON = "1"
     STANDBY = "2"
     ENABLED = "3"
-    ABSENT = "absent"
-    PRESENT = "present"
 
 
 class IaquaDevice(AqualinkDevice):
@@ -86,10 +84,10 @@ class IaquaDevice(AqualinkDevice):
             if data["state"] == "":
                 raise AqualinkDeviceNotSupported(data)
             class_ = IaquaThermostat
-        elif data["name"] == "freeze_protection" or data["name"].endswith(
-            "_present"
-        ):
+        elif data["name"] == "freeze_protection":
             class_ = IaquaBinarySensor
+        elif data["name"].endswith("_present"):
+            class_ = IaquaSensor
         elif data["name"].startswith("aux_"):
             if data["type"] == "2":
                 class_ = light_subtype_to_class[data["subtype"]]
@@ -115,8 +113,7 @@ class IaquaBinarySensor(IaquaSensor, AqualinkBinarySensor):
     @property
     def is_on(self) -> bool:
         return (
-            AqualinkState(self.state)
-            in [AqualinkState.ON, AqualinkState.ENABLED, AqualinkState.PRESENT]
+            self.state in [IaquaAuxState.ON, IaquaAuxState.ENABLED]
             if self.state
             else False
         )
@@ -138,11 +135,7 @@ class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
 class IaquaAuxSwitch(IaquaSwitch):
     @property
     def is_on(self) -> bool:
-        return (
-            AqualinkState(self.state) == AqualinkState.ON
-            if self.state
-            else False
-        )
+        return self.state == IaquaAuxState.ON if self.state else False
 
     async def _toggle(self) -> None:
         await self.system.set_aux(self.data["aux"])
