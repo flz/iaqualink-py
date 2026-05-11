@@ -411,6 +411,7 @@ async def _list_devices(
     systems = await _fetch_systems(credentials, cookie_jar)
     system = _resolve_system(systems, system_selector)
     devices = await _load_devices_for_system(system)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
     return _render_device_tree(
         [(system.serial, system)], {system.serial: devices}
     )
@@ -432,6 +433,8 @@ async def _status(
     for serial, system in selected_systems:
         devices_by_system[serial] = await _load_devices_for_system(system)
 
+    _, any_system = selected_systems[0]
+    _save_session_jar(cookie_jar, any_system.aqualink.auth_state)
     return _render_device_tree(selected_systems, devices_by_system)
 
 
@@ -457,6 +460,7 @@ async def _run_switch_command(
     else:
         await device.turn_off()
 
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
     return (
         f"Sent {target_state} command to {device.label} "
         f"[{device_name}] on {_format_system_line(system)}"
@@ -481,6 +485,7 @@ async def _set_temperature(
         )
 
     await device.set_temperature(temperature)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
     return (
         f"Set {device.label} [{device_name}] to {temperature}{device.unit} "
         f"on {_format_system_line(system)}"
