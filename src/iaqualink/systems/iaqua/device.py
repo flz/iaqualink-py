@@ -38,7 +38,7 @@ class IaquaAuxState(StrEnum):
 
 
 @unique
-class IaquaDevicePresence(StrEnum):
+class IaquaPresenceState(StrEnum):
     ABSENT = "absent"
     PRESENT = "present"
 
@@ -128,7 +128,7 @@ class IaquaBinarySensor(IaquaSensor, AqualinkBinarySensor):
 class IaquaPresenceSensor(IaquaBinarySensor):
     @property
     def is_on(self) -> bool:
-        return self.state == IaquaDevicePresence.PRESENT
+        return self.state == IaquaPresenceState.PRESENT
 
 
 class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
