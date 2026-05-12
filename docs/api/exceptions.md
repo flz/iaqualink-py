@@ -11,8 +11,7 @@ AqualinkException (base)
 │   ├── AqualinkServiceUnauthorizedException
 │   ├── AqualinkSystemOfflineException
 │   └── AqualinkSystemUnsupportedException (deprecated)
-├── AqualinkOperationNotSupportedException
-└── AqualinkDeviceNotSupported
+└── AqualinkOperationNotSupportedException
 ```
 
 ## AqualinkException
@@ -46,10 +45,6 @@ AqualinkException (base)
 ## AqualinkOperationNotSupportedException
 
 ::: iaqualink.exception.AqualinkOperationNotSupportedException
-
-## AqualinkDeviceNotSupported
-
-::: iaqualink.exception.AqualinkDeviceNotSupported
 
 ## Usage Examples
 

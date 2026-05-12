@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import copy
-from typing import cast
 from unittest.mock import patch
 
 from iaqualink.systems.iaqua.device import (
@@ -13,6 +12,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaBinaryState,
     IaquaBinarySensor,
     IaquaColorLight,
+    IaquaColorLightIB,
     IaquaDevice,
     IaquaDimmableLight,
     IaquaHeater,
@@ -76,7 +76,7 @@ class TestIaquaSensor(TestIaquaDevice, TestBaseSensor):
         super().setUp()
 
         data = {"name": "orp", "state": "42"}
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaSensor(self.system, data)
         self.sut_class = IaquaSensor
 
 
@@ -86,7 +86,7 @@ class TestIaquaBinarySensor(TestIaquaSensor, TestBaseBinarySensor):
 
         data = {"name": "freeze_protection", "state": "0"}
         self.sut_class = IaquaBinarySensor
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaBinarySensor(self.system, data)
 
     def test_property_is_on_false(self) -> None:
         self.sut.data["state"] = "0"
@@ -106,9 +106,9 @@ class TestIaquaPresenceSensor(TestIaquaBinarySensor):
     def setUp(self) -> None:
         super().setUp()
 
-        data = {"name": "spa_present", "state": "present"}
+        data = {"name": "is_icl_present", "state": "present"}
         self.sut_class = IaquaPresenceSensor
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaPresenceSensor(self.system, data)
 
     def test_property_is_on_true(self) -> None:
         self.sut.data["state"] = "present"
@@ -134,7 +134,7 @@ class TestIaquaSwitch(TestIaquaBinarySensor, TestBaseSwitch):
             "name": "pool_pump",
             "state": "0",
         }
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaSwitch(self.system, data)
         self.sut_class = IaquaSwitch
 
     async def test_turn_on(self) -> None:
@@ -166,7 +166,7 @@ class TestIaquaHeater(TestIaquaBinarySensor, TestBaseSwitch):
             "name": "pool_heater",
             "state": "0",
         }
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaHeater(self.system, data)
         self.sut_class = IaquaHeater
 
     async def test_turn_on(self) -> None:
@@ -208,7 +208,7 @@ class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):
             "type": "0",
             "label": "CLEANER",
         }
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaAuxSwitch(self.system, data)
         self.sut_class = IaquaAuxSwitch
 
     async def test_turn_on(self) -> None:
@@ -244,7 +244,7 @@ class TestIaquaLightSwitch(TestIaquaAuxSwitch, TestBaseLight):
             "label": "POOL LIGHT",
             "type": "0",
         }
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaLightSwitch(self.system, data)
         self.sut_class = IaquaLightSwitch
 
     def test_property_brightness(self) -> None:
@@ -266,7 +266,7 @@ class TestIaquaDimmableLight(TestIaquaAuxSwitch, TestBaseLight):
             "type": "1",
             "label": "SPA LIGHT",
         }
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaDimmableLight(self.system, data)
         self.sut_class = IaquaDimmableLight
 
     def test_property_name(self) -> None:
@@ -343,7 +343,7 @@ class TestIaquaColorLight(TestIaquaAuxSwitch, TestBaseLight):
             "subtype": "5",
             "label": "POOL LIGHT",
         }
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaColorLightIB(self.system, data)
         self.sut_class = IaquaColorLight
 
     def test_property_name(self) -> None:
@@ -406,20 +406,16 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
         super().setUp()
 
         pool_set_point = {"name": "pool_set_point", "state": "86"}
-        self.pool_set_point = cast(
-            IaquaThermostat, IaquaDevice.from_data(self.system, pool_set_point)
-        )
+        self.pool_set_point = IaquaThermostat(self.system, pool_set_point)
 
         pool_temp = {"name": "pool_temp", "state": "65"}
-        self.pool_temp = IaquaDevice.from_data(self.system, pool_temp)
+        self.pool_temp = IaquaSensor(self.system, pool_temp)
 
         pool_heater = {"name": "pool_heater", "state": "0"}
-        self.pool_heater = IaquaDevice.from_data(self.system, pool_heater)
+        self.pool_heater = IaquaSwitch(self.system, pool_heater)
 
         spa_set_point = {"name": "spa_set_point", "state": "102"}
-        self.spa_set_point = cast(
-            IaquaThermostat, IaquaDevice.from_data(self.system, spa_set_point)
-        )
+        self.spa_set_point = IaquaThermostat(self.system, spa_set_point)
 
         devices = [
             self.pool_set_point,

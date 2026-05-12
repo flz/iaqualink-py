@@ -31,10 +31,6 @@ class AqualinkOperationNotSupportedException(AqualinkException):
     """Exception raised when trying to issue an unsupported operation."""
 
 
-class AqualinkDeviceNotSupported(AqualinkException):
-    """Exception raised when a device isn't known-unsupported."""
-
-
 class _AqualinkSystemUnsupportedDeprecated(AqualinkServiceException):
     """Backward-compat stub; use iaqualink.system.UnsupportedSystem instead."""
 

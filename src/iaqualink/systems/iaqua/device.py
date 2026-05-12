@@ -12,10 +12,7 @@ from iaqualink.device import (
     AqualinkSwitch,
     AqualinkThermostat,
 )
-from iaqualink.exception import (
-    AqualinkDeviceNotSupported,
-    AqualinkInvalidParameterException,
-)
+from iaqualink.exception import AqualinkInvalidParameterException
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import IaquaSystem
@@ -79,41 +76,6 @@ class IaquaDevice(AqualinkDevice):
     @property
     def model(self) -> str:
         return self.__class__.__name__.replace("Iaqua", "")
-
-    @classmethod
-    def from_data(cls, system: IaquaSystem, data: DeviceData) -> IaquaDevice:
-        class_: type[IaquaDevice]
-
-        # I don't have a system where these fields get populated.
-        # No idea what they are and what to do with them.
-        if isinstance(data["state"], dict | list):
-            raise AqualinkDeviceNotSupported(data)
-
-        if data["name"].endswith("_heater"):
-            class_ = IaquaHeater
-        elif data["name"].endswith("_pump"):
-            class_ = IaquaSwitch
-        elif data["name"].endswith("_set_point"):
-            if data["state"] == "":
-                raise AqualinkDeviceNotSupported(data)
-            class_ = IaquaThermostat
-        elif data["name"] == "freeze_protection":
-            class_ = IaquaBinarySensor
-        elif data["name"].endswith("_present"):
-            class_ = IaquaPresenceSensor
-        elif data["name"].startswith("aux_"):
-            if data["type"] == "2":
-                class_ = light_subtype_to_class[data["subtype"]]
-            elif data["type"] == "1":
-                class_ = IaquaDimmableLight
-            elif "LIGHT" in data["label"]:
-                class_ = IaquaLightSwitch
-            else:
-                class_ = IaquaAuxSwitch
-        else:
-            class_ = IaquaSensor
-
-        return class_(system, data)
 
 
 class IaquaSensor(IaquaDevice, AqualinkSensor):
@@ -501,3 +463,26 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
     async def turn_off(self) -> None:
         if self._heater.is_on is True:
             await self._heater.turn_off()
+
+
+_HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
+    "spa_temp": IaquaSensor,
+    "pool_temp": IaquaSensor,
+    "air_temp": IaquaSensor,
+    "cover_pool": IaquaSensor,
+    "freeze_protection": IaquaBinarySensor,
+    "spa_pump": IaquaSwitch,
+    "pool_pump": IaquaSwitch,
+    "spa_heater": IaquaHeater,
+    "pool_heater": IaquaHeater,
+    "solar_heater": IaquaHeater,
+    "spa_salinity": IaquaSensor,
+    "pool_salinity": IaquaSensor,
+    "orp": IaquaSensor,
+    "ph": IaquaSensor,
+    "is_icl_present": IaquaPresenceSensor,
+    "spa_set_point": IaquaThermostat,
+    "pool_set_point": IaquaThermostat,
+    "pool_chill_set_point": IaquaThermostat,
+    "relay_count": IaquaSensor,
+}
