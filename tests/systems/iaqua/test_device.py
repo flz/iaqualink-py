@@ -106,7 +106,7 @@ class TestIaquaPresenceSensor(TestIaquaBinarySensor):
     def setUp(self) -> None:
         super().setUp()
 
-        data = {"name": "spa_present", "state": "present"}
+        data = {"name": "is_icl_present", "state": "present"}
         self.sut_class = IaquaPresenceSensor
         self.sut = IaquaPresenceSensor(self.system, data)
 
@@ -166,7 +166,7 @@ class TestIaquaHeater(TestIaquaBinarySensor, TestBaseSwitch):
             "name": "pool_heater",
             "state": "0",
         }
-        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut = IaquaHeater(self.system, data)
         self.sut_class = IaquaHeater
 
     async def test_turn_on(self) -> None:
