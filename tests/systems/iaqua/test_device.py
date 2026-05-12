@@ -3,6 +3,9 @@ from __future__ import annotations
 import copy
 from unittest.mock import patch
 
+import pytest
+
+from iaqualink.exception import AqualinkStateUnavailableException
 from iaqualink.systems.iaqua.device import (
     IAQUA_TEMP_CELSIUS_HIGH,
     IAQUA_TEMP_CELSIUS_LOW,
@@ -524,3 +527,8 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
 
     async def test_temp_name_no_spa(self) -> None:
         assert self.pool_set_point._temperature == "temp1"
+
+    def test_unit_raises_when_temp_unit_is_none(self) -> None:
+        self.sut.system.temp_unit = None
+        with pytest.raises(AqualinkStateUnavailableException):
+            _ = self.sut.unit

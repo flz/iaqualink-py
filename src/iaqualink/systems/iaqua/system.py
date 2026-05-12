@@ -18,6 +18,11 @@ from iaqualink.systems.iaqua.device import (
     _HOME_DEVICE_MAP,
     light_subtype_to_class,
 )
+from iaqualink.systems.iaqua.enums import (
+    IaquaSystemStatus,
+    IaquaSystemType,
+    IaquaTemperatureUnit,
+)
 
 if TYPE_CHECKING:
     import httpx
@@ -49,7 +54,8 @@ class IaquaSystem(AqualinkSystem):
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         super().__init__(aqualink, data)
 
-        self.temp_unit: str = ""
+        self.system_type: IaquaSystemType | None = None
+        self.temp_unit: IaquaTemperatureUnit | None = None
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -125,15 +131,32 @@ class IaquaSystem(AqualinkSystem):
         for x in data["home_screen"]:
             home.update(x)
 
-        if home["status"] == "Offline":
-            LOGGER.warning("Status for system %s is Offline.", self.serial)
+        if home["status"] in (
+            IaquaSystemStatus.OFFLINE,
+            IaquaSystemStatus.SERVICE,
+        ):
+            LOGGER.warning(
+                "Status for system %s is %s.", self.serial, home["status"]
+            )
             raise AqualinkSystemOfflineException
 
         if home["system_type"] == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
 
-        self.temp_unit = home["temp_scale"]
+        try:
+            self.system_type = IaquaSystemType(home["system_type"])
+        except ValueError:
+            LOGGER.warning(
+                "Unknown system_type %r; ignoring.", home["system_type"]
+            )
+
+        try:
+            self.temp_unit = IaquaTemperatureUnit(home["temp_scale"])
+        except ValueError:
+            LOGGER.warning(
+                "Unknown temp_scale %r; ignoring.", home["temp_scale"]
+            )
 
         for name, device_class in _HOME_DEVICE_MAP.items():
             if name not in home:
@@ -155,8 +178,9 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("Devices response: %s", data)
 
-        if data["devices_screen"][0]["status"] == "Offline":
-            LOGGER.warning("Status for system %s is Offline.", self.serial)
+        status = data["devices_screen"][0]["status"]
+        if status in (IaquaSystemStatus.OFFLINE, IaquaSystemStatus.SERVICE):
+            LOGGER.warning("Status for system %s is %s.", self.serial, status)
             raise AqualinkSystemOfflineException
 
         for x in data["devices_screen"][3:]:

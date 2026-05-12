@@ -31,6 +31,10 @@ class AqualinkOperationNotSupportedException(AqualinkException):
     """Exception raised when trying to issue an unsupported operation."""
 
 
+class AqualinkStateUnavailableException(AqualinkException):
+    """Exception raised when accessing state that requires update() to be called first."""
+
+
 class _AqualinkSystemUnsupportedDeprecated(AqualinkServiceException):
     """Backward-compat stub; use iaqualink.system.UnsupportedSystem instead."""
 

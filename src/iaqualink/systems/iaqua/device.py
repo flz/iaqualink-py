@@ -12,7 +12,11 @@ from iaqualink.device import (
     AqualinkSwitch,
     AqualinkThermostat,
 )
-from iaqualink.exception import AqualinkInvalidParameterException
+from iaqualink.exception import (
+    AqualinkInvalidParameterException,
+    AqualinkStateUnavailableException,
+)
+from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import IaquaSystem
@@ -408,7 +412,11 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
         return "temp1"
 
     @property
-    def unit(self) -> str:
+    def unit(self) -> IaquaTemperatureUnit:
+        if self.system.temp_unit is None:
+            raise AqualinkStateUnavailableException(
+                "Temperature unit unavailable; call update() first."
+            )
         return self.system.temp_unit
 
     @property
@@ -425,13 +433,13 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
 
     @property
     def min_temperature(self) -> int:
-        if self.unit == "F":
+        if self.unit == IaquaTemperatureUnit.FAHRENHEIT:
             return IAQUA_TEMP_FAHRENHEIT_LOW
         return IAQUA_TEMP_CELSIUS_LOW
 
     @property
     def max_temperature(self) -> int:
-        if self.unit == "F":
+        if self.unit == IaquaTemperatureUnit.FAHRENHEIT:
             return IAQUA_TEMP_FAHRENHEIT_HIGH
         return IAQUA_TEMP_CELSIUS_HIGH
 
