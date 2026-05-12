@@ -45,6 +45,7 @@ iaqualink = "iaqualink.cli:main"
 dev = [
     "pre-commit>=4.2.0",
     "mypy>=1.15.0",
+    "ty>=0.0.35",
     "ruff>=0.11.2",
     "types-PyYAML>=6.0.12.20250915",
 ]
@@ -100,6 +101,8 @@ exclude_lines = [
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.ty]
 
 [tool.pytest.ini_options]
 filterwarnings = [

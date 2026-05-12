@@ -24,6 +24,15 @@ repos:
           - types-PyYAML==6.0.12
         exclude: ^(tests/.*)
 
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty
+        entry: uv run ty check src/
+        language: system
+        pass_filenames: false
+        types: [python]
+
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: 0.6.5
     hooks:
