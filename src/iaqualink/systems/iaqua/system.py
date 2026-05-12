@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
@@ -200,9 +200,13 @@ class IaquaSystem(AqualinkSystem):
         args = {}
         i = 1
         if "spa_set_point" in self.devices:
-            args[f"temp{i}"] = self.devices["spa_set_point"].target_temperature
+            args[f"temp{i}"] = cast(
+                IaquaThermostat, self.devices["spa_set_point"]
+            ).target_temperature
             i += 1
-        args[f"temp{i}"] = self.devices["pool_set_point"].target_temperature
+        args[f"temp{i}"] = cast(
+            IaquaThermostat, self.devices["pool_set_point"]
+        ).target_temperature
         args.update(temps)
 
         r = await self._send_session_request(IAQUA_COMMAND_SET_TEMPS, args)

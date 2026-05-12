@@ -101,7 +101,7 @@ class AqualinkLight(AqualinkSwitch, AqualinkDevice):
     def supports_brightness(self) -> bool:
         return self.brightness is not None
 
-    async def set_brightness(self, _: int) -> None:
+    async def set_brightness(self, brightness: int) -> None:
         if self.supports_brightness is True:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
@@ -114,12 +114,12 @@ class AqualinkLight(AqualinkSwitch, AqualinkDevice):
     def supports_effect(self) -> bool:
         return self.effect is not None
 
-    async def set_effect_by_name(self, _: str) -> None:
+    async def set_effect_by_name(self, effect: str) -> None:
         if self.supports_effect is True:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
-    async def set_effect_by_id(self, _: int) -> None:
+    async def set_effect_by_id(self, effect_id: int) -> None:
         if self.supports_effect is True:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
@@ -146,5 +146,5 @@ class AqualinkThermostat(AqualinkSwitch, AqualinkDevice):
     def min_temperature(self) -> int:
         raise NotImplementedError
 
-    async def set_temperature(self, _: int) -> None:
+    async def set_temperature(self, temperature: int) -> None:
         raise NotImplementedError
