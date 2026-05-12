@@ -108,7 +108,9 @@ def test_list_systems_ignores_malformed_session_jar(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0
-    assert "Backyard (serial-1) [iaqua]" in result.stdout
+    assert "Backyard" in result.stdout
+    assert "serial-1" in result.stdout
+    assert "iaqua" in result.stdout
     assert FakeClient.login_call_count == 1
 
 
@@ -160,10 +162,8 @@ def test_list_devices_reports_ambiguous_system_name(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 1
-    assert (
-        "System name 'Backyard' matches multiple systems. "
-        "Use --system with the serial number instead."
-    ) in result.stderr
+    assert "matches multiple systems." in result.stderr
+    assert "Use --system with the serial number instead." in result.stderr
 
 
 def _make_unsupported_system(

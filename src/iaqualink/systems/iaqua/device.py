@@ -412,7 +412,7 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
         return "temp1"
 
     @property
-    def unit(self) -> str:
+    def unit(self) -> IaquaTemperatureUnit:
         if self.system.temp_unit is None:
             raise AqualinkStateUnavailableException(
                 "Temperature unit unavailable; call update() first."

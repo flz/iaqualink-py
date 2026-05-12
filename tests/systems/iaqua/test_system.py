@@ -12,12 +12,9 @@ from iaqualink.exception import (
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.iaqua.device import IaquaAuxSwitch, IaquaTemperatureUnit
-from iaqualink.systems.iaqua.system import (
-    IAQUA_SESSION_URL,
-    IaquaSystem,
-    IaquaSystemType,
-)
+from iaqualink.systems.iaqua.device import IaquaAuxSwitch
+from iaqualink.systems.iaqua.enums import IaquaSystemType, IaquaTemperatureUnit
+from iaqualink.systems.iaqua.system import IAQUA_SESSION_URL, IaquaSystem
 
 from ...base_test_system import TestBaseSystem
 
@@ -197,6 +194,38 @@ class TestIaquaSystem(TestBaseSystem):
 
         self.sut._parse_home_response(response)
         assert self.sut.system_type is IaquaSystemType.DUAL
+
+    async def test_parse_home_ignores_unknown_system_type(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "99"},
+                {"temp_scale": "F"},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.system_type is None
+
+    async def test_parse_home_ignores_unknown_temp_scale(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "1"},
+                {"temp_scale": "K"},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.temp_unit is None
 
     async def test_parse_home_offline_when_service(self) -> None:
         message = {

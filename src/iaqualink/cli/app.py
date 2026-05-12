@@ -265,7 +265,7 @@ def _format_system_line(system: AqualinkSystem) -> Text:
     t.append(system.name, style="bold")
     t.append(f" ({system.serial})", style="dim")
     t.append(f" [{system.data.get('device_type', 'unknown')}]", style="cyan")
-    style = _STATUS_STYLE[system.status]
+    style = _STATUS_STYLE.get(system.status, "")
     t.append(f" {system.status}", style=style)
     if not system.supported:
         t.append(" (unsupported)", style="bold red")

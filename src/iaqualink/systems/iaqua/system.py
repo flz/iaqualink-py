@@ -144,8 +144,19 @@ class IaquaSystem(AqualinkSystem):
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
 
-        self.system_type = IaquaSystemType(home["system_type"])
-        self.temp_unit = IaquaTemperatureUnit(home["temp_scale"])
+        try:
+            self.system_type = IaquaSystemType(home["system_type"])
+        except ValueError:
+            LOGGER.warning(
+                "Unknown system_type %r; ignoring.", home["system_type"]
+            )
+
+        try:
+            self.temp_unit = IaquaTemperatureUnit(home["temp_scale"])
+        except ValueError:
+            LOGGER.warning(
+                "Unknown temp_scale %r; ignoring.", home["temp_scale"]
+            )
 
         for name, device_class in _HOME_DEVICE_MAP.items():
             if name not in home:
