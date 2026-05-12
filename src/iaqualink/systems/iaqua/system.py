@@ -120,7 +120,7 @@ class IaquaSystem(AqualinkSystem):
             self.status = SystemStatus.ERROR
             raise
 
-        # Parse the home response first so the one_touch flag is available
+        # Parse the home response first so the onetouch flag is available
         # before deciding whether to issue the onetouch request.
         try:
             self._parse_home_response(r1)
@@ -128,30 +128,14 @@ class IaquaSystem(AqualinkSystem):
             self.status = SystemStatus.OFFLINE
             raise
 
-        # Honour the oneTouch enabled flag from the home response.
-        # If the controller reports it as disabled, stop polling it.
-        if self._onetouch_supported is not False:
-            one_touch_device = self.devices.get("one_touch")
-            if one_touch_device is not None and one_touch_device.state == "0":
-                LOGGER.debug(
-                    "OneTouch disabled per home response; skipping future polls."
-                )
-                self._onetouch_supported = False
-
         r3 = None
-        if self._onetouch_supported is not False:
+        if self._onetouch_supported:
             try:
                 r3 = await self._send_onetouch_screen_request()
-                self._onetouch_supported = True
             except AqualinkServiceThrottledException:
                 raise
             except AqualinkServiceException:
-                if self._onetouch_supported is None:
-                    LOGGER.warning(
-                        "OneTouch request failed on first attempt; "
-                        "disabling for this session."
-                    )
-                    self._onetouch_supported = False
+                LOGGER.warning("OneTouch request failed; skipping this update.")
 
         try:
             self._parse_devices_response(r2)
@@ -184,6 +168,8 @@ class IaquaSystem(AqualinkSystem):
         if home["system_type"] == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
+
+        self._onetouch_supported = data.get("onetouch") == "true"
 
         try:
             self.system_type = IaquaSystemType(home["system_type"])

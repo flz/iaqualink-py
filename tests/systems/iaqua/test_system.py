@@ -291,6 +291,39 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut._parse_home_response(response)
         assert self.sut.devices == {"pool_pump": existing}
 
+    async def test_parse_home_sets_onetouch_supported_true(self) -> None:
+        message = {
+            "onetouch": "true",
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "iaqua"},
+                {"temp_scale": "F"},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut._onetouch_supported is True
+
+    async def test_parse_home_sets_onetouch_supported_false_when_absent(
+        self,
+    ) -> None:
+        message = {
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "iaqua"},
+                {"temp_scale": "F"},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut._onetouch_supported is False
+
     @patch("httpx.AsyncClient.request")
     async def test_home_request(self, mock_request) -> None:
         mock_request.return_value.status_code = 200
@@ -383,6 +416,7 @@ class TestIaquaSystem(TestBaseSystem):
 
     async def test_update_onetouch_failure_is_nonfatal(self) -> None:
         """A failing onetouch request must not raise; update() should succeed."""
+        self.sut._onetouch_supported = True
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
@@ -397,10 +431,12 @@ class TestIaquaSystem(TestBaseSystem):
             # Should not raise despite onetouch failure.
             await self.sut.update()
 
-        assert self.sut._onetouch_supported is False
+        # Transient failures do not disable onetouch.
+        assert self.sut._onetouch_supported is True
 
     async def test_update_onetouch_throttle_does_not_disable(self) -> None:
         """A 429 on onetouch must propagate and not permanently disable it."""
+        self.sut._onetouch_supported = True
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
@@ -415,40 +451,64 @@ class TestIaquaSystem(TestBaseSystem):
             with pytest.raises(AqualinkServiceThrottledException):
                 await self.sut.update()
 
-        assert self.sut._onetouch_supported is None
+        assert self.sut._onetouch_supported is True
 
-    async def test_update_onetouch_disabled_after_first_failure(self) -> None:
-        """After a onetouch failure, subsequent updates skip the request."""
+    async def test_update_onetouch_not_requested_when_unsupported(self) -> None:
+        """When home response reports no onetouch, the request is never issued."""
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
             patch.object(
-                self.sut,
-                "_send_onetouch_screen_request",
-                side_effect=AqualinkServiceException,
-            ) as onetouch_mock,
+                self.sut, "_send_onetouch_screen_request"
+            ) as onetouch_req,
             patch.object(self.sut, "_parse_home_response"),
             patch.object(self.sut, "_parse_devices_response"),
         ):
+            # _onetouch_supported starts None (falsy) — request must be skipped.
             await self.sut.update()
-            assert onetouch_mock.call_count == 1
+            assert onetouch_req.call_count == 0
 
-            # Reset timer so a second update() is not rate-limited.
-            self.sut.last_refresh = 0
-            onetouch_mock.reset_mock()
+    async def test_update_onetouch_enabled_by_home_flag(self) -> None:
+        """onetouch='true' in home response enables onetouch polling."""
+        message = {
+            "onetouch": "true",
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "iaqua"},
+                {"temp_scale": "F"},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        with (
+            patch.object(
+                self.sut, "_send_home_screen_request", return_value=response
+            ),
+            patch.object(
+                self.sut, "_send_devices_screen_request", return_value=response
+            ),
+            patch.object(
+                self.sut, "_send_onetouch_screen_request", return_value=response
+            ) as onetouch_req,
+            patch.object(self.sut, "_parse_devices_response"),
+            patch.object(self.sut, "_parse_onetouch_response"),
+        ):
             await self.sut.update()
-            assert onetouch_mock.call_count == 0
+            assert onetouch_req.call_count == 1
+
+        assert self.sut._onetouch_supported is True
 
     async def test_update_onetouch_disabled_by_home_flag(self) -> None:
-        """oneTouch=0 in home response disables onetouch polling immediately."""
+        """Absent or false onetouch flag in home response skips the request."""
         message = {
             "home_screen": [
                 {"status": "Online"},
                 {"response": ""},
                 {"system_type": "iaqua"},
                 {"temp_scale": "F"},
-                {"one_touch": "0"},
-            ]
+            ],
         }
         response = MagicMock()
         response.json.return_value = message
@@ -467,8 +527,6 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
             await self.sut.update()
-            # Home response is parsed first; one_touch=0 disables the request
-            # before it is ever issued — not just on the second poll.
             assert onetouch_req.call_count == 0
 
         assert self.sut._onetouch_supported is False

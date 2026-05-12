@@ -498,5 +498,4 @@ _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
     "pool_set_point": IaquaThermostat,
     "pool_chill_set_point": IaquaThermostat,
     "relay_count": IaquaSensor,
-    "one_touch": IaquaBinarySensor,
 }
