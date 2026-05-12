@@ -182,6 +182,45 @@ class TestIaquaSystem(TestBaseSystem):
         assert self.sut.system_type is IaquaSystemType.SPA_AND_POOL
         assert self.sut.temp_unit is IaquaTemperatureUnit.CELSIUS
 
+    async def test_parse_home_sets_dual_system_type(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "2"},
+                {"temp_scale": "F"},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.system_type is IaquaSystemType.DUAL
+
+    async def test_parse_home_offline_when_service(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Service"},
+                {"response": ""},
+                {"system_type": ""},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            self.sut._parse_home_response(response)
+
+    async def test_parse_devices_offline_when_service(self) -> None:
+        message = {"message": "", "devices_screen": [{"status": "Service"}]}
+        response = MagicMock()
+        response.json.return_value = message
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            self.sut._parse_devices_response(response)
+
     async def test_parse_home_skipped_on_empty_system_type(self) -> None:
         existing = MagicMock()
         self.sut.devices["pool_pump"] = existing

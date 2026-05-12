@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from enum import StrEnum, unique
 from typing import TYPE_CHECKING
 
 from iaqualink.const import AQUALINK_API_KEY
@@ -16,9 +15,13 @@ from iaqualink.systems.iaqua.device import (
     IaquaDimmableLight,
     IaquaLightSwitch,
     IaquaThermostat,
-    IaquaTemperatureUnit,
     _HOME_DEVICE_MAP,
     light_subtype_to_class,
+)
+from iaqualink.systems.iaqua.enums import (
+    IaquaSystemStatus,
+    IaquaSystemType,
+    IaquaTemperatureUnit,
 )
 
 if TYPE_CHECKING:
@@ -43,20 +46,6 @@ IAQUA_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 IAQUA_COMMAND_SET_TEMPS = "set_temps"
 
 LOGGER = logging.getLogger("iaqualink")
-
-
-@unique
-class IaquaSystemType(StrEnum):
-    SPA_AND_POOL = "0"  # single pump shared by both spa and pool
-    POOL_ONLY = "1"
-    DUAL = "2"  # two separate pumps, one per body of water
-
-
-@unique
-class IaquaSystemStatus(StrEnum):
-    ONLINE = "Online"
-    OFFLINE = "Offline"
-    SERVICE = "Service"
 
 
 class IaquaSystem(AqualinkSystem):
@@ -146,7 +135,9 @@ class IaquaSystem(AqualinkSystem):
             IaquaSystemStatus.OFFLINE,
             IaquaSystemStatus.SERVICE,
         ):
-            LOGGER.warning("Status for system %s is Offline.", self.serial)
+            LOGGER.warning(
+                "Status for system %s is %s.", self.serial, home["status"]
+            )
             raise AqualinkSystemOfflineException
 
         if home["system_type"] == "":
@@ -176,11 +167,9 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("Devices response: %s", data)
 
-        if data["devices_screen"][0]["status"] in (
-            IaquaSystemStatus.OFFLINE,
-            IaquaSystemStatus.SERVICE,
-        ):
-            LOGGER.warning("Status for system %s is Offline.", self.serial)
+        status = data["devices_screen"][0]["status"]
+        if status in (IaquaSystemStatus.OFFLINE, IaquaSystemStatus.SERVICE):
+            LOGGER.warning("Status for system %s is %s.", self.serial, status)
             raise AqualinkSystemOfflineException
 
         for x in data["devices_screen"][3:]:

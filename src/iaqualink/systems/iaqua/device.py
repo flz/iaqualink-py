@@ -14,8 +14,9 @@ from iaqualink.device import (
 )
 from iaqualink.exception import (
     AqualinkInvalidParameterException,
-    AqualinkServiceException,
+    AqualinkStateUnavailableException,
 )
+from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import IaquaSystem
@@ -46,12 +47,6 @@ class IaquaHeaterState(StrEnum):
 class IaquaPresenceState(StrEnum):
     ABSENT = "absent"
     PRESENT = "present"
-
-
-@unique
-class IaquaTemperatureUnit(StrEnum):
-    FAHRENHEIT = "F"
-    CELSIUS = "C"
 
 
 class IaquaDevice(AqualinkDevice):
@@ -419,7 +414,7 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
     @property
     def unit(self) -> str:
         if self.system.temp_unit is None:
-            raise AqualinkServiceException(
+            raise AqualinkStateUnavailableException(
                 "Temperature unit unavailable; call update() first."
             )
         return self.system.temp_unit

@@ -52,6 +52,10 @@ system.serial        # Unique serial number
 system.status        # SystemStatus enum: ONLINE, OFFLINE, UNKNOWN, or ERROR
 system.data          # Raw system data from API
 
+# iAqua-specific (available after update())
+system.system_type   # IaquaSystemType: SPA_AND_POOL, POOL_ONLY, or DUAL
+system.temp_unit     # IaquaTemperatureUnit: FAHRENHEIT ("F") or CELSIUS ("C")
+
 # Last update time
 system.last_run_success  # Timestamp of last successful update
 ```
