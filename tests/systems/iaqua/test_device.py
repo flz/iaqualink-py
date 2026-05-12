@@ -14,6 +14,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaColorLight,
     IaquaDevice,
     IaquaDimmableLight,
+    IaquaHeater,
     IaquaLightSwitch,
     IaquaPresenceSensor,
     IaquaSensor,
@@ -121,11 +122,43 @@ class TestIaquaSwitch(TestIaquaBinarySensor, TestBaseSwitch):
         super().setUp()
 
         data = {
-            "name": "pool_heater",
+            "name": "pool_pump",
             "state": "0",
         }
         self.sut = IaquaDevice.from_data(self.system, data)
         self.sut_class = IaquaSwitch
+
+    async def test_turn_on(self) -> None:
+        self.sut.data["state"] = "0"
+        with patch.object(self.sut.system, "_parse_home_response"):
+            await super().test_turn_on()
+
+    async def test_turn_on_noop(self) -> None:
+        self.sut.data["state"] = "1"
+        with patch.object(self.sut.system, "_parse_home_response"):
+            await super().test_turn_on_noop()
+
+    async def test_turn_off(self) -> None:
+        self.sut.data["state"] = "1"
+        with patch.object(self.sut.system, "_parse_home_response"):
+            await super().test_turn_off()
+
+    async def test_turn_off_noop(self) -> None:
+        self.sut.data["state"] = "0"
+        with patch.object(self.sut.system, "_parse_home_response"):
+            await super().test_turn_off_noop()
+
+
+class TestIaquaHeater(TestIaquaBinarySensor, TestBaseSwitch):
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {
+            "name": "pool_heater",
+            "state": "0",
+        }
+        self.sut = IaquaDevice.from_data(self.system, data)
+        self.sut_class = IaquaHeater
 
     async def test_turn_on(self) -> None:
         self.sut.data["state"] = "0"

@@ -30,10 +30,15 @@ LOGGER = logging.getLogger("iaqualink")
 
 
 @unique
-class IaquaAuxState(StrEnum):
+class IaquaState(StrEnum):
     OFF = "0"
     ON = "1"
-    STANDBY = "2"
+
+
+@unique
+class IaquaHeaterState(StrEnum):
+    OFF = "0"
+    ON = "1"
     ENABLED = "3"
 
 
@@ -84,7 +89,9 @@ class IaquaDevice(AqualinkDevice):
         if isinstance(data["state"], dict | list):
             raise AqualinkDeviceNotSupported(data)
 
-        if data["name"].endswith("_heater") or data["name"].endswith("_pump"):
+        if data["name"].endswith("_heater"):
+            class_ = IaquaHeater
+        elif data["name"].endswith("_pump"):
             class_ = IaquaSwitch
         elif data["name"].endswith("_set_point"):
             if data["state"] == "":
@@ -118,11 +125,7 @@ class IaquaBinarySensor(IaquaSensor, AqualinkBinarySensor):
 
     @property
     def is_on(self) -> bool:
-        return (
-            self.state in [IaquaAuxState.ON, IaquaAuxState.ENABLED]
-            if self.state
-            else False
-        )
+        return self.state == IaquaState.ON if self.state else False
 
 
 class IaquaPresenceSensor(IaquaBinarySensor):
@@ -144,10 +147,20 @@ class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
             await self._toggle()
 
 
+class IaquaHeater(IaquaSwitch):
+    @property
+    def is_on(self) -> bool:
+        return (
+            self.state in [IaquaHeaterState.ON, IaquaHeaterState.ENABLED]
+            if self.state
+            else False
+        )
+
+
 class IaquaAuxSwitch(IaquaSwitch):
     @property
     def is_on(self) -> bool:
-        return self.state == IaquaAuxState.ON if self.state else False
+        return self.state == IaquaState.ON if self.state else False
 
     async def _toggle(self) -> None:
         await self.system.set_aux(self.data["aux"])
@@ -462,8 +475,8 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
         await self.system.set_temps(data)
 
     @property
-    def _heater(self) -> IaquaSwitch:
-        return cast(IaquaSwitch, self.system.devices[f"{self._type}_heater"])
+    def _heater(self) -> IaquaHeater:
+        return cast(IaquaHeater, self.system.devices[f"{self._type}_heater"])
 
     @property
     def is_on(self) -> bool:
