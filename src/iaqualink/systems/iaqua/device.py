@@ -12,7 +12,10 @@ from iaqualink.device import (
     AqualinkSwitch,
     AqualinkThermostat,
 )
-from iaqualink.exception import AqualinkInvalidParameterException
+from iaqualink.exception import (
+    AqualinkInvalidParameterException,
+    AqualinkServiceException,
+)
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import IaquaSystem
@@ -415,6 +418,10 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
 
     @property
     def unit(self) -> str:
+        if self.system.temp_unit is None:
+            raise AqualinkServiceException(
+                "Temperature unit unavailable; call update() first."
+            )
         return self.system.temp_unit
 
     @property

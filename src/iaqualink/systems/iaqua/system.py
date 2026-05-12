@@ -47,9 +47,9 @@ LOGGER = logging.getLogger("iaqualink")
 
 @unique
 class IaquaSystemType(StrEnum):
-    SPA_AND_POOL = "0"
+    SPA_AND_POOL = "0"  # single pump shared by both spa and pool
     POOL_ONLY = "1"
-    DUAL = "2"
+    DUAL = "2"  # two separate pumps, one per body of water
 
 
 @unique
@@ -142,7 +142,10 @@ class IaquaSystem(AqualinkSystem):
         for x in data["home_screen"]:
             home.update(x)
 
-        if home["status"] == IaquaSystemStatus.OFFLINE:
+        if home["status"] in (
+            IaquaSystemStatus.OFFLINE,
+            IaquaSystemStatus.SERVICE,
+        ):
             LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
@@ -173,7 +176,10 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("Devices response: %s", data)
 
-        if data["devices_screen"][0]["status"] == IaquaSystemStatus.OFFLINE:
+        if data["devices_screen"][0]["status"] in (
+            IaquaSystemStatus.OFFLINE,
+            IaquaSystemStatus.SERVICE,
+        ):
             LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 

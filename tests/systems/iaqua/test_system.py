@@ -12,8 +12,12 @@ from iaqualink.exception import (
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.iaqua.device import IaquaAuxSwitch
-from iaqualink.systems.iaqua.system import IAQUA_SESSION_URL, IaquaSystem
+from iaqualink.systems.iaqua.device import IaquaAuxSwitch, IaquaTemperatureUnit
+from iaqualink.systems.iaqua.system import (
+    IAQUA_SESSION_URL,
+    IaquaSystem,
+    IaquaSystemType,
+)
 
 from ...base_test_system import TestBaseSystem
 
@@ -158,8 +162,8 @@ class TestIaquaSystem(TestBaseSystem):
         response.json.return_value = message
 
         self.sut._parse_home_response(response)
-        assert self.sut.system_type == "1"
-        assert self.sut.temp_unit == "F"
+        assert self.sut.system_type is IaquaSystemType.POOL_ONLY
+        assert self.sut.temp_unit is IaquaTemperatureUnit.FAHRENHEIT
 
     async def test_parse_home_sets_celsius_temp_unit(self) -> None:
         message = {
@@ -175,8 +179,8 @@ class TestIaquaSystem(TestBaseSystem):
         response.json.return_value = message
 
         self.sut._parse_home_response(response)
-        assert self.sut.system_type == "0"
-        assert self.sut.temp_unit == "C"
+        assert self.sut.system_type is IaquaSystemType.SPA_AND_POOL
+        assert self.sut.temp_unit is IaquaTemperatureUnit.CELSIUS
 
     async def test_parse_home_skipped_on_empty_system_type(self) -> None:
         existing = MagicMock()

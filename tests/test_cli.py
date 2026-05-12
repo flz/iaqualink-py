@@ -19,7 +19,7 @@ from iaqualink.device import (
     AqualinkSwitch,
     AqualinkThermostat,
 )
-from iaqualink.system import UnsupportedSystem
+from iaqualink.system import SystemStatus, UnsupportedSystem
 
 cli_module = importlib.import_module("iaqualink.cli.app")
 
@@ -28,7 +28,7 @@ app = cli_module.app
 
 class FakeSystem:
     supported = True
-    status = "unknown"
+    status = SystemStatus.UNKNOWN
 
     def __init__(self, serial: str, name: str) -> None:
         self.serial = serial
