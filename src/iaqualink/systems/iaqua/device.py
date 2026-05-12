@@ -45,6 +45,12 @@ class IaquaPresenceState(StrEnum):
     PRESENT = "present"
 
 
+@unique
+class IaquaTemperatureUnit(StrEnum):
+    FAHRENHEIT = "F"
+    CELSIUS = "C"
+
+
 class IaquaDevice(AqualinkDevice):
     def __init__(self, system: IaquaSystem, data: DeviceData):
         super().__init__(system, data)
@@ -425,13 +431,13 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
 
     @property
     def min_temperature(self) -> int:
-        if self.unit == "F":
+        if self.unit == IaquaTemperatureUnit.FAHRENHEIT:
             return IAQUA_TEMP_FAHRENHEIT_LOW
         return IAQUA_TEMP_CELSIUS_LOW
 
     @property
     def max_temperature(self) -> int:
-        if self.unit == "F":
+        if self.unit == IaquaTemperatureUnit.FAHRENHEIT:
             return IAQUA_TEMP_FAHRENHEIT_HIGH
         return IAQUA_TEMP_CELSIUS_HIGH
 
