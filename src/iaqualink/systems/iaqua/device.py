@@ -30,7 +30,7 @@ LOGGER = logging.getLogger("iaqualink")
 
 
 @unique
-class IaquaState(StrEnum):
+class IaquaBinaryState(StrEnum):
     OFF = "0"
     ON = "1"
 
@@ -125,7 +125,7 @@ class IaquaBinarySensor(IaquaSensor, AqualinkBinarySensor):
 
     @property
     def is_on(self) -> bool:
-        return self.state == IaquaState.ON if self.state else False
+        return self.state == IaquaBinaryState.ON if self.state else False
 
 
 class IaquaPresenceSensor(IaquaBinarySensor):
@@ -160,7 +160,7 @@ class IaquaHeater(IaquaSwitch):
 class IaquaAuxSwitch(IaquaSwitch):
     @property
     def is_on(self) -> bool:
-        return self.state == IaquaState.ON if self.state else False
+        return self.state == IaquaBinaryState.ON if self.state else False
 
     async def _toggle(self) -> None:
         await self.system.set_aux(self.data["aux"])

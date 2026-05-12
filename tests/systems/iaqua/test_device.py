@@ -180,6 +180,10 @@ class TestIaquaHeater(TestIaquaBinarySensor, TestBaseSwitch):
         with patch.object(self.sut.system, "_parse_home_response"):
             await super().test_turn_off_noop()
 
+    def test_property_is_on_enabled(self) -> None:
+        self.sut.data["state"] = "3"
+        assert self.sut.is_on is True
+
 
 class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):
     def setUp(self) -> None:
