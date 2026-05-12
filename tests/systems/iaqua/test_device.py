@@ -10,13 +10,16 @@ from iaqualink.systems.iaqua.device import (
     IAQUA_TEMP_FAHRENHEIT_HIGH,
     IAQUA_TEMP_FAHRENHEIT_LOW,
     IaquaAuxSwitch,
+    IaquaBinaryState,
     IaquaBinarySensor,
     IaquaColorLight,
     IaquaDevice,
     IaquaDimmableLight,
     IaquaHeater,
+    IaquaHeaterState,
     IaquaLightSwitch,
     IaquaPresenceSensor,
+    IaquaPresenceState,
     IaquaSensor,
     IaquaSwitch,
     IaquaThermostat,
@@ -95,6 +98,9 @@ class TestIaquaBinarySensor(TestIaquaSensor, TestBaseBinarySensor):
         super().test_property_is_on_true()
         assert self.sut.is_on is True
 
+    def test_property_state_enum(self) -> None:
+        assert self.sut.state_enum is IaquaBinaryState
+
 
 class TestIaquaPresenceSensor(TestIaquaBinarySensor):
     def setUp(self) -> None:
@@ -115,6 +121,9 @@ class TestIaquaPresenceSensor(TestIaquaBinarySensor):
     def test_property_is_on_false_empty(self) -> None:
         self.sut.data["state"] = ""
         assert self.sut.is_on is False
+
+    def test_property_state_enum(self) -> None:
+        assert self.sut.state_enum is IaquaPresenceState
 
 
 class TestIaquaSwitch(TestIaquaBinarySensor, TestBaseSwitch):
@@ -183,6 +192,9 @@ class TestIaquaHeater(TestIaquaBinarySensor, TestBaseSwitch):
     def test_property_is_on_enabled(self) -> None:
         self.sut.data["state"] = "3"
         assert self.sut.is_on is True
+
+    def test_property_state_enum(self) -> None:
+        assert self.sut.state_enum is IaquaHeaterState
 
 
 class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):

@@ -61,6 +61,16 @@ class AqualinkDevice:
     def state_enum(self) -> type[Enum] | None:
         return None
 
+    @property
+    def state_translated(self) -> str | None:
+        cls = self.state_enum
+        if cls is None:
+            return None
+        try:
+            return cls(self.state).name
+        except ValueError:
+            return None
+
 
 class AqualinkSensor(AqualinkDevice):
     pass
