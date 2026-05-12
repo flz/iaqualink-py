@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from enum import Enum
 from typing import TYPE_CHECKING, Any
 
 from iaqualink.exception import AqualinkOperationNotSupportedException
@@ -55,6 +56,10 @@ class AqualinkDevice:
     @property
     def model(self) -> str:
         raise NotImplementedError
+
+    @property
+    def state_enum(self) -> type[Enum] | None:
+        return None
 
 
 class AqualinkSensor(AqualinkDevice):

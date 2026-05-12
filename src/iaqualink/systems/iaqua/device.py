@@ -127,11 +127,19 @@ class IaquaBinarySensor(IaquaSensor, AqualinkBinarySensor):
     def is_on(self) -> bool:
         return self.state == IaquaBinaryState.ON if self.state else False
 
+    @property
+    def state_enum(self) -> type[StrEnum] | None:
+        return IaquaBinaryState
+
 
 class IaquaPresenceSensor(IaquaBinarySensor):
     @property
     def is_on(self) -> bool:
         return self.state == IaquaPresenceState.PRESENT
+
+    @property
+    def state_enum(self) -> type[IaquaPresenceState] | None:
+        return IaquaPresenceState
 
 
 class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
@@ -155,6 +163,10 @@ class IaquaHeater(IaquaSwitch):
             if self.state
             else False
         )
+
+    @property
+    def state_enum(self) -> type[IaquaHeaterState] | None:
+        return IaquaHeaterState
 
 
 class IaquaAuxSwitch(IaquaSwitch):
