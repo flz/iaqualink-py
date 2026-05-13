@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import logging
-import time
-from typing import TYPE_CHECKING, Any, ClassVar
+from typing import TYPE_CHECKING, Any
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
@@ -17,8 +16,6 @@ from iaqualink.systems.i2d.device import IQPumpDevice, IQPumpOpMode
 if TYPE_CHECKING:
     import httpx
 
-    from iaqualink.client import AqualinkClient
-    from iaqualink.typing import Payload
 
 I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
 
@@ -27,12 +24,6 @@ LOGGER = logging.getLogger("iaqualink")
 
 class I2DSystem(AqualinkSystem):
     NAME = "iQPump"
-    # Conservative default; tune if 429s are observed in practice.
-    MIN_SECS_TO_REFRESH: ClassVar[int] = 30
-
-    def __init__(self, aqualink: AqualinkClient, data: Payload) -> None:
-        super().__init__(aqualink, data)
-        self.last_refresh: int = 0
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -67,12 +58,6 @@ class I2DSystem(AqualinkSystem):
         return await self._send_command(command, params=params, **kwargs)
 
     async def update(self) -> None:
-        now = int(time.time())
-        delta = now - self.last_refresh
-        if delta < self.MIN_SECS_TO_REFRESH:
-            LOGGER.debug(f"Only {delta}s since last refresh.")
-            return
-
         try:
             r = await self.send_devices_request()
         except AqualinkServiceThrottledException:
@@ -88,7 +73,6 @@ class I2DSystem(AqualinkSystem):
             raise
 
         self.online = True
-        self.last_refresh = int(time.time())
 
     def _parse_alldata_response(self, response: httpx.Response) -> None:
         data = response.json()
