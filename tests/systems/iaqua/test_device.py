@@ -234,6 +234,13 @@ class TestIaquaOneTouchSwitch(TestIaquaSwitch, TestBaseSwitch):
         with patch.object(self.sut.system, "_parse_onetouch_response"):
             await super().test_turn_off_noop()
 
+    async def test_toggle_skipped_when_unavailable(self) -> None:
+        self.sut.data["state"] = "0"
+        self.sut.data["status"] = "0"
+        with patch.object(self.sut.system, "set_onetouch") as mock_set:
+            await self.sut.turn_on()
+        mock_set.assert_not_called()
+
     def test_property_label(self) -> None:
         super().test_property_label()
         assert self.sut.label == "Morning Scene"

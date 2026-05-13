@@ -125,6 +125,11 @@ class IaquaOneTouchSwitch(IaquaSwitch):
     # set_onetouch has toggle semantics: sending the command flips the scene
     # state, so the inherited turn_on/turn_off guards are correct as-is.
     async def _toggle(self) -> None:
+        if self.data.get("status") == IaquaBinaryState.OFF:
+            LOGGER.warning(
+                "OneTouch %s is unavailable (status=0); skipping.", self.name
+            )
+            return
         await self.system.set_onetouch(self.data["name"])
 
 
