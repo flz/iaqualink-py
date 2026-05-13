@@ -179,7 +179,9 @@ class AqualinkClient:
         LOGGER.debug("-> %s %s %s", method.upper(), url, kwargs)
         try:
             r = await client.request(method, url, headers=headers, **kwargs)
-        except Exception as e:
+        except (httpx.TransportError, OSError) as e:
+            # TransportError covers all Timeout* and Connect*/Read*/WriteError variants;
+            # OSError covers platform-level socket errors (e.g. "network unreachable").
             raise AqualinkServiceException(
                 f"Request failed: {method.upper()} {url}"
             ) from e

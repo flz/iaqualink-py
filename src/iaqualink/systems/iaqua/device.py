@@ -122,6 +122,8 @@ class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
 
 
 class IaquaOneTouchSwitch(IaquaSwitch):
+    # set_onetouch has toggle semantics: sending the command flips the scene
+    # state, so the inherited turn_on/turn_off guards are correct as-is.
     async def _toggle(self) -> None:
         await self.system.set_onetouch(self.data["name"])
 

@@ -279,7 +279,7 @@ class IaquaSystem(AqualinkSystem):
         for x in data["onetouch_screen"]:
             onetouch.update(x)
 
-        if onetouch["status"] in (
+        if onetouch.get("status") in (
             IaquaSystemStatus.OFFLINE,
             IaquaSystemStatus.SERVICE,
         ):
@@ -289,7 +289,7 @@ class IaquaSystem(AqualinkSystem):
             raise AqualinkSystemOfflineException
 
         for name, val in onetouch.items():
-            if not isinstance(val, list):
+            if not isinstance(val, list) or not name.startswith("onetouch_"):
                 continue
             attrs = {"name": name}
             for y in val:

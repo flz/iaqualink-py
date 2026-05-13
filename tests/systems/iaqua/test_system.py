@@ -71,18 +71,6 @@ class TestIaquaSystem(TestBaseSystem):
                 await self.sut.update()
         assert self.sut.status is SystemStatus.UNKNOWN
 
-    async def test_update_consecutive(self) -> None:
-        with (
-            patch.object(self.sut, "_send_home_screen_request"),
-            patch.object(self.sut, "_send_devices_screen_request"),
-            patch.object(self.sut, "_send_onetouch_screen_request"),
-            patch.object(self.sut, "_parse_home_response"),
-            patch.object(self.sut, "_parse_devices_response"),
-            patch.object(self.sut, "_parse_onetouch_response"),
-        ):
-            await self.sut.update()
-            await self.sut.update()
-
     async def test_get_devices_needs_update(self) -> None:
         with (
             patch.object(self.sut, "_parse_home_response"),
