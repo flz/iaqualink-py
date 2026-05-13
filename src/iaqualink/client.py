@@ -183,7 +183,7 @@ class AqualinkClient:
             # TransportError covers all Timeout* and Connect*/Read*/WriteError variants;
             # OSError covers platform-level socket errors (e.g. "network unreachable").
             raise AqualinkServiceException(
-                f"Request failed: {method.upper()} {url}"
+                f"Request failed: {method.upper()} {url}: {e}"
             ) from e
 
         LOGGER.debug("<- %s %s - %s", r.status_code, r.reason_phrase, url)
