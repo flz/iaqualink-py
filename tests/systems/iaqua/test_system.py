@@ -359,6 +359,14 @@ class TestIaquaSystem(TestBaseSystem):
             self.sut._parse_onetouch_response(response)
         assert self.sut.devices == {}
 
+    async def test_parse_onetouch_offline_when_service(self) -> None:
+        message = {"message": "", "onetouch_screen": [{"status": "Service"}]}
+        response = MagicMock()
+        response.json.return_value = message
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            self.sut._parse_onetouch_response(response)
+
     async def test_parse_onetouch_good(self) -> None:
         message = {
             "message": "",

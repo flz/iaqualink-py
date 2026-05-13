@@ -279,8 +279,13 @@ class IaquaSystem(AqualinkSystem):
         for x in data["onetouch_screen"]:
             onetouch.update(x)
 
-        if onetouch["status"] == "Offline":
-            LOGGER.warning("Status for system %s is Offline.", self.serial)
+        if onetouch["status"] in (
+            IaquaSystemStatus.OFFLINE,
+            IaquaSystemStatus.SERVICE,
+        ):
+            LOGGER.warning(
+                "Status for system %s is %s.", self.serial, onetouch["status"]
+            )
             raise AqualinkSystemOfflineException
 
         for name, val in onetouch.items():
