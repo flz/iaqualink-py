@@ -100,6 +100,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.country = ""
         self._refresh_lock = asyncio.Lock()
 
         self._last_refresh = 0
@@ -148,6 +149,12 @@ class AqualinkClient:
         try:
             if not self._logged:
                 await self.login()
+            else:
+                # Auth was restored from a persisted session; force a refresh to
+                # obtain fresh tokens and populate attributes (e.g. country) that
+                # are not stored in the session.
+                self._logged = False
+                await self._refresh_auth()
         except AqualinkServiceException:
             await self.close()
             raise
@@ -273,6 +280,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.country = ""
         self._logged = False
 
     def _apply_login_data(
@@ -287,6 +295,7 @@ class AqualinkClient:
         self.refresh_token = data["userPoolOAuth"].get(
             "RefreshToken", refresh_token_fallback
         )
+        self.country = (data.get("country") or "us").lower()
         self._logged = True
 
     async def _send_systems_request(self) -> httpx.Response:

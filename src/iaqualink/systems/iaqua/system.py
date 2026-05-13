@@ -31,7 +31,10 @@ if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.typing import Payload
 
-IAQUA_SESSION_URL = "https://r-api.iaqualink.net/v2/mobile/session.json"
+# v2 session endpoint (p-api); used for all get_*/set_* commands.
+# r-api hosts v1 / swc endpoints — kept here for future reference.
+IAQUA_SESSION_URL = "https://p-api.iaqualink.net/v2/mobile/session.json"
+IAQUA_SESSION_V1_URL = "https://r-api.iaqualink.net/v1/mobile/session.json"
 
 IAQUA_COMMAND_GET_DEVICES = "get_devices"
 IAQUA_COMMAND_GET_HOME = "get_home"
@@ -102,7 +105,10 @@ class IaquaSystem(AqualinkSystem):
         return await self._send_with_reauth_retry(do_request)
 
     async def _send_home_screen_request(self) -> httpx.Response:
-        return await self._send_session_request(IAQUA_COMMAND_GET_HOME)
+        return await self._send_session_request(
+            IAQUA_COMMAND_GET_HOME,
+            {"attached_test": "true", "country": self.aqualink.country},
+        )
 
     async def _send_devices_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_DEVICES)
