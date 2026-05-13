@@ -365,14 +365,18 @@ class TestAqualinkClient(TestBase):
             await self.client.send_request("https://example.com")
 
     @patch("httpx.AsyncClient.request")
-    async def test_timeout_raises_service_exception(self, mock_request) -> None:
-        for exc_class in (
-            httpx.ReadTimeout,
-            httpx.ConnectTimeout,
-            httpx.WriteTimeout,
-            httpx.PoolTimeout,
+    async def test_transport_error_raises_service_exception(
+        self, mock_request
+    ) -> None:
+        for exc in (
+            httpx.ReadTimeout("timed out"),
+            httpx.ConnectTimeout("timed out"),
+            httpx.WriteTimeout("timed out"),
+            httpx.PoolTimeout("timed out"),
+            httpx.ConnectError("connection refused"),
+            OSError("network unreachable"),
         ):
-            mock_request.side_effect = exc_class("timed out")
+            mock_request.side_effect = exc
             with pytest.raises(AqualinkServiceException):
                 await self.client.send_request("https://example.com")
 

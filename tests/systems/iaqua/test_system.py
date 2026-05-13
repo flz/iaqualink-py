@@ -414,8 +414,8 @@ class TestIaquaSystem(TestBaseSystem):
             assert f"{IAQUA_COMMAND_SET_ONETOUCH}_1" in called_url
             mock_parse.assert_called_once_with(mock_request.return_value)
 
-    async def test_update_onetouch_failure_is_nonfatal(self) -> None:
-        """A failing onetouch request must not raise; update() should succeed."""
+    async def test_update_onetouch_failure_raises(self) -> None:
+        """A failing onetouch request raises and sets status to ERROR."""
         self.sut._onetouch_supported = True
         with (
             patch.object(self.sut, "_send_home_screen_request"),
@@ -428,14 +428,14 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_home_response"),
             patch.object(self.sut, "_parse_devices_response"),
         ):
-            # Should not raise despite onetouch failure.
-            await self.sut.update()
+            with pytest.raises(AqualinkServiceException):
+                await self.sut.update()
 
-        # Transient failures do not disable onetouch.
+        assert self.sut.status is SystemStatus.ERROR
         assert self.sut._onetouch_supported is True
 
-    async def test_update_onetouch_throttle_does_not_disable(self) -> None:
-        """A 429 on onetouch must propagate and not permanently disable it."""
+    async def test_update_onetouch_throttle_raises(self) -> None:
+        """A 429 on onetouch propagates and does not disable onetouch."""
         self.sut._onetouch_supported = True
         with (
             patch.object(self.sut, "_send_home_screen_request"),
@@ -451,6 +451,7 @@ class TestIaquaSystem(TestBaseSystem):
             with pytest.raises(AqualinkServiceThrottledException):
                 await self.sut.update()
 
+        assert self.sut.status is SystemStatus.UNKNOWN
         assert self.sut._onetouch_supported is True
 
     async def test_update_onetouch_not_requested_when_unsupported(self) -> None:

@@ -133,9 +133,11 @@ class IaquaSystem(AqualinkSystem):
             try:
                 r3 = await self._send_onetouch_screen_request()
             except AqualinkServiceThrottledException:
+                self.status = SystemStatus.UNKNOWN
                 raise
             except AqualinkServiceException:
-                LOGGER.warning("OneTouch request failed; skipping this update.")
+                self.status = SystemStatus.ERROR
+                raise
 
         try:
             self._parse_devices_response(r2)
