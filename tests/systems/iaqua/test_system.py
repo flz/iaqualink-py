@@ -387,6 +387,56 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut._parse_onetouch_response(response)
         assert self.sut.devices == expected
 
+    async def test_parse_onetouch_skips_disabled_device(self) -> None:
+        message = {
+            "message": "",
+            "onetouch_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {
+                    "onetouch_1": [
+                        {"state": "0"},
+                        {"label": "Morning Scene"},
+                        {"status": "0"},
+                    ]
+                },
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_onetouch_response(response)
+        assert "onetouch_1" not in self.sut.devices
+
+    async def test_parse_onetouch_removes_previously_added_disabled_device(
+        self,
+    ) -> None:
+        existing = IaquaOneTouchSwitch(
+            system=self.sut,
+            data={"name": "onetouch_1", "state": "1", "status": "1"},
+        )
+        self.sut.devices["onetouch_1"] = existing
+
+        message = {
+            "message": "",
+            "onetouch_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {
+                    "onetouch_1": [
+                        {"state": "0"},
+                        {"label": "Morning Scene"},
+                        {"status": "0"},
+                    ]
+                },
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_onetouch_response(response)
+        assert "onetouch_1" not in self.sut.devices
+
     @patch("httpx.AsyncClient.request")
     async def test_onetouch_request(self, mock_request) -> None:
         mock_request.return_value.status_code = 200

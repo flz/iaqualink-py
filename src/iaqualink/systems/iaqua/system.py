@@ -12,6 +12,7 @@ from iaqualink.exception import (
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
     IaquaAuxSwitch,
+    IaquaBinaryState,
     IaquaDimmableLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
@@ -301,6 +302,9 @@ class IaquaSystem(AqualinkSystem):
             attrs = {"name": name}
             for y in val:
                 attrs.update(y)
+            if attrs.get("status") == IaquaBinaryState.OFF:
+                self.devices.pop(name, None)
+                continue
             if name in self.devices:
                 for dk, dv in attrs.items():
                     self.devices[name].data[dk] = dv
