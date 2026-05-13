@@ -58,7 +58,8 @@ class IaquaSystem(AqualinkSystem):
 
         self.system_type: IaquaSystemType | None = None
         self.temp_unit: IaquaTemperatureUnit | None = None
-        # None = not yet tried, True = working, False = disabled
+        # Re-evaluated from the home response on every update() call.
+        # None = home response not yet parsed; True/False = last home response value.
         self._onetouch_supported: bool | None = None
 
     def __repr__(self) -> str:
