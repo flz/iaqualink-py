@@ -275,25 +275,25 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug("OneTouch response: %s", data)
 
-        if data["onetouch_screen"][0]["status"] == "Offline":
+        onetouch: dict = {}
+        for x in data["onetouch_screen"]:
+            onetouch.update(x)
+
+        if onetouch["status"] == "Offline":
             LOGGER.warning("Status for system %s is Offline.", self.serial)
             raise AqualinkSystemOfflineException
 
-        # Make the data a bit flatter.
-        devices = {}
-        for x in data["onetouch_screen"][2:]:
-            name = next(iter(x.keys()))
+        for name, val in onetouch.items():
+            if not isinstance(val, list):
+                continue
             attrs = {"name": name}
-            for y in next(iter(x.values())):
+            for y in val:
                 attrs.update(y)
-            devices[name] = attrs
-
-        for k, v in devices.items():
-            if k in self.devices:
-                for dk, dv in v.items():
-                    self.devices[k].data[dk] = dv
+            if name in self.devices:
+                for dk, dv in attrs.items():
+                    self.devices[name].data[dk] = dv
             else:
-                self.devices[k] = IaquaOneTouchSwitch(self, v)
+                self.devices[name] = IaquaOneTouchSwitch(self, attrs)
 
     async def set_onetouch(self, name: str) -> None:
         cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.removeprefix("onetouch_")
