@@ -11,7 +11,7 @@ import httpx
 
 from iaqualink.const import (
     AQUALINK_API_KEY,
-    AQUALINK_API_SECRET_KEY,
+    AQUALINK_API_SIGNING_KEY,
     AQUALINK_DEVICES_URL,
     AQUALINK_LOGIN_URL,
     AQUALINK_REFRESH_URL,
@@ -295,6 +295,8 @@ class AqualinkClient:
         self.authentication_token = data["authentication_token"]
         self.user_id = str(data["id"])
         self.id_token = data["userPoolOAuth"]["IdToken"]
+        if not self.id_token:
+            raise AqualinkServiceException("Login response missing IdToken")
         self.refresh_token = data["userPoolOAuth"].get(
             "RefreshToken", refresh_token_fallback
         )
@@ -304,7 +306,9 @@ class AqualinkClient:
     async def _send_systems_request(self) -> httpx.Response:
         async def do_request() -> httpx.Response:
             timestamp = str(int(time.time()))
-            signature = sign([self.user_id, timestamp], AQUALINK_API_SECRET_KEY)
+            signature = sign(
+                [self.user_id, timestamp], AQUALINK_API_SIGNING_KEY
+            )
             return await self.send_request(
                 AQUALINK_DEVICES_URL,
                 params={

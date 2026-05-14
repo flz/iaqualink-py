@@ -108,7 +108,7 @@ The library follows a plugin-style architecture with base classes and system-spe
 
 4. **Request signing** ([util.py](src/iaqualink/util.py)) - HMAC-SHA1 utility
    - `sign(parts, secret)` joins `parts` with `,` and returns lowercase hex HMAC-SHA1
-   - Used by `AqualinkClient` for system discovery; designed to cover all three signature variants (device list, shadow, commands)
+   - Used by `AqualinkClient` for system discovery; designed to cover all three signature variants from the spec (device list — implemented; shadow and commands — future)
 
 5. **CLI package** ([src/iaqualink/cli](src/iaqualink/cli)) - User-facing Typer command line client
    - Entry point is the packaged `iaqualink` script
@@ -130,7 +130,7 @@ The library follows a plugin-style architecture with base classes and system-spe
 
 **System Discovery (all system types):**
 - Uses `https://r-api.iaqualink.net/v2/devices.json`
-- HMAC-SHA1 signature over `"{user_id},{timestamp}"` with `AQUALINK_API_SECRET_KEY`
+- HMAC-SHA1 signature over `"{user_id},{timestamp}"` with `AQUALINK_API_SIGNING_KEY`
 - Auth via `Authorization: Bearer {IdToken}` header and `api_key` header
 
 **iAqua Systems:**

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import hmac as _hmac
+import hmac
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -15,7 +15,7 @@ from iaqualink.client import (
 )
 from iaqualink.const import (
     AQUALINK_API_KEY,
-    AQUALINK_API_SECRET_KEY,
+    AQUALINK_API_SIGNING_KEY,
     AQUALINK_DEVICES_URL,
     DEFAULT_REQUEST_TIMEOUT,
 )
@@ -282,6 +282,18 @@ class TestAqualinkClient(TestBase):
         assert self.client.logged is False
 
     @patch("httpx.AsyncClient.request")
+    async def test_login_fails_when_id_token_missing(
+        self, mock_request
+    ) -> None:
+        data = {**LOGIN_DATA, "userPoolOAuth": {"IdToken": ""}}
+        mock_request.return_value = _make_resp(200, data)
+
+        with pytest.raises(AqualinkServiceException):
+            await self.client.login()
+
+        assert self.client.logged is False
+
+    @patch("httpx.AsyncClient.request")
     async def test_unexpectedly_logged_out(self, mock_request) -> None:
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
@@ -361,8 +373,10 @@ class TestAqualinkClient(TestBase):
         assert params["timestamp"] == "1000000000"
         assert (
             params["signature"]
-            == _hmac.new(
-                AQUALINK_API_SECRET_KEY.encode(), b"id,1000000000", hashlib.sha1
+            == hmac.new(
+                AQUALINK_API_SIGNING_KEY.encode(),
+                b"id,1000000000",
+                hashlib.sha1,
             ).hexdigest()
         )
         # Bearer token must use the refreshed IdToken, not the original.
@@ -395,8 +409,10 @@ class TestAqualinkClient(TestBase):
         assert params["timestamp"] == "1234567890"
         assert (
             params["signature"]
-            == _hmac.new(
-                AQUALINK_API_SECRET_KEY.encode(), b"id,1234567890", hashlib.sha1
+            == hmac.new(
+                AQUALINK_API_SIGNING_KEY.encode(),
+                b"id,1234567890",
+                hashlib.sha1,
             ).hexdigest()
         )
         assert headers["Authorization"] == "Bearer userPoolOAuth:IdToken"

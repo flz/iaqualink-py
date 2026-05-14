@@ -92,9 +92,9 @@ Shared HMAC-SHA1 helpers used by `AqualinkClient` and system implementations.
 Joins `parts` with `,` and returns a lowercase hex HMAC-SHA1 digest:
 
 ```python
-sign(["user_id", "timestamp"], api_secret_key)          # device list (v2)
-sign(["serial", "user_id"], api_secret_key)             # device shadow
-sign(["serial", "user_id", "timestamp"], api_secret_key) # commands/writes
+sign(["user_id", "timestamp"], api_signing_key)           # device list (v2) — implemented
+sign(["serial", "user_id"], api_signing_key)              # device shadow — future
+sign(["serial", "user_id", "timestamp"], api_signing_key) # commands/writes — future
 ```
 
 Raises `ValueError` if `parts` is empty.
