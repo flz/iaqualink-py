@@ -363,7 +363,7 @@ class TestBaseNumber(TestBaseDevice):
         assert len(respx_mock.calls) == 0
 
 
-class TestBasePump(TestBaseBinarySensor):
+class TestBasePump(TestBaseDevice):
     def test_inheritance(self) -> None:
         assert isinstance(self.sut, AqualinkPump)
 
@@ -433,7 +433,8 @@ class TestBasePump(TestBaseBinarySensor):
             assert isinstance(self.sut.supported_presets, list)
             assert len(self.sut.supported_presets) > 0
         else:
-            assert self.sut.supported_presets == []
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                _ = self.sut.supported_presets
 
     def test_property_current_preset(self) -> None:
         if self.sut.supports_presets:
@@ -441,7 +442,8 @@ class TestBasePump(TestBaseBinarySensor):
                 self.sut.current_preset, str
             )
         else:
-            assert self.sut.current_preset is None
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                _ = self.sut.current_preset
 
     def test_property_supports_set_speed_percentage(self) -> None:
         assert isinstance(self.sut.supports_set_speed_percentage, bool)

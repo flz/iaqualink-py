@@ -186,7 +186,7 @@ class AqualinkNumber(AqualinkDevice):
         raise NotImplementedError
 
 
-class AqualinkPump(AqualinkBinarySensor):
+class AqualinkPump(AqualinkDevice):
     @property
     def supports_turn_on(self) -> bool:
         return False
@@ -213,13 +213,13 @@ class AqualinkPump(AqualinkBinarySensor):
     def supported_presets(self) -> list[str]:
         if self.supports_presets:
             raise NotImplementedError
-        return []
+        raise AqualinkOperationNotSupportedException
 
     @property
     def current_preset(self) -> str | None:
         if self.supports_presets:
             raise NotImplementedError
-        return None
+        raise AqualinkOperationNotSupportedException
 
     @property
     def supports_set_speed_percentage(self) -> bool:

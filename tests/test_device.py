@@ -296,11 +296,3 @@ class TestAqualinkPump(TestBasePump, TestAqualinkDevice):
         system = MagicMock()
         data: dict[str, str] = {}
         self.sut = AqualinkPump(system, data)
-
-    def test_property_is_on_true(self) -> None:
-        with pytest.raises(NotImplementedError):
-            super().test_property_is_on_true()
-
-    def test_property_is_on_false(self) -> None:
-        with pytest.raises(NotImplementedError):
-            super().test_property_is_on_false()
