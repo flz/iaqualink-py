@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 import pytest
 
 from iaqualink.device import (
+    AqualinkPump,
     AqualinkBinarySensor,
     AqualinkDevice,
     AqualinkLight,
@@ -15,6 +16,7 @@ from iaqualink.device import (
 )
 
 from .base_test_device import (
+    TestBasePump,
     TestBaseBinarySensor,
     TestBaseDevice,
     TestBaseLight,
@@ -287,3 +289,34 @@ class TestAqualinkNumber(TestBaseNumber, TestAqualinkDevice):
     async def test_set_value_above_max(self) -> None:
         with pytest.raises(NotImplementedError):
             await super().test_set_value_above_max()
+
+
+class TestAqualinkPump(TestBasePump, TestAqualinkDevice):
+    def setUp(self) -> None:
+        system = MagicMock()
+        data: dict[str, str] = {}
+        self.sut = AqualinkPump(system, data)
+
+    def test_property_is_on_true(self) -> None:
+        with pytest.raises(NotImplementedError):
+            super().test_property_is_on_true()
+
+    def test_property_is_on_false(self) -> None:
+        with pytest.raises(NotImplementedError):
+            super().test_property_is_on_false()
+
+    async def test_turn_on(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_on()
+
+    async def test_turn_on_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_on_noop()
+
+    async def test_turn_off(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_off()
+
+    async def test_turn_off_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_off_noop()

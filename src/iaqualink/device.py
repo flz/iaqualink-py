@@ -184,3 +184,53 @@ class AqualinkNumber(AqualinkDevice):
 
     async def _set_value(self, value: float) -> None:
         raise NotImplementedError
+
+
+class AqualinkPump(AqualinkSwitch, AqualinkDevice):
+    @property
+    def supports_turn_on(self) -> bool:
+        return True
+
+    @property
+    def supports_turn_off(self) -> bool:
+        return True
+
+    async def turn_on(self) -> None:
+        if self.supports_turn_on:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    async def turn_off(self) -> None:
+        if self.supports_turn_off:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    @property
+    def supports_presets(self) -> bool:
+        return False
+
+    @property
+    def supported_presets(self) -> list[str]:
+        if self.supports_presets:
+            raise NotImplementedError
+        return []
+
+    @property
+    def current_preset(self) -> str | None:
+        if self.supports_presets:
+            raise NotImplementedError
+        return None
+
+    @property
+    def supports_set_speed(self) -> bool:
+        return False
+
+    async def set_speed(self, _: int) -> None:
+        if self.supports_set_speed:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    async def set_preset(self, _: str) -> None:
+        if self.supports_presets:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
