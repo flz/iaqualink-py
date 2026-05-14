@@ -176,7 +176,10 @@ class AqualinkNumber(AqualinkDevice):
 
     async def set_value(self, value: float) -> None:
         if not self.min_value <= value <= self.max_value:
-            raise AqualinkInvalidParameterException(value)
+            msg = (
+                f"{value} is out of range ({self.min_value}-{self.max_value})."
+            )
+            raise AqualinkInvalidParameterException(msg)
         await self._set_value(value)
 
     async def _set_value(self, value: float) -> None:
