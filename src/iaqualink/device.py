@@ -226,16 +226,6 @@ class AqualinkPump(AqualinkSwitch, AqualinkDevice):
         return None
 
     @property
-    def supports_set_speed(self) -> bool:
-        return False
-
-    async def set_speed(self, _: int) -> None:
-        """Set absolute speed (e.g. RPM). Valid range is device-specific."""
-        if self.supports_set_speed:
-            raise NotImplementedError
-        raise AqualinkOperationNotSupportedException
-
-    @property
     def supports_set_speed_percentage(self) -> bool:
         return False
 

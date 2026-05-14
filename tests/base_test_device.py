@@ -443,22 +443,6 @@ class TestBasePump(TestBaseSwitch):
         else:
             assert self.sut.current_preset is None
 
-    def test_property_supports_set_speed(self) -> None:
-        assert isinstance(self.sut.supports_set_speed, bool)
-
-    @respx.mock
-    async def test_set_speed_50(
-        self, respx_mock: respx.router.MockRouter
-    ) -> None:
-        if not self.sut.supports_set_speed:
-            with pytest.raises(AqualinkOperationNotSupportedException):
-                await self.sut.set_speed(50)
-            return
-        respx_mock.route(dotstar).mock(resp_200)
-        await self.sut.set_speed(50)
-        assert len(respx_mock.calls) > 0
-        self.respx_calls = copy.copy(respx_mock.calls)
-
     def test_property_supports_set_speed_percentage(self) -> None:
         assert isinstance(self.sut.supports_set_speed_percentage, bool)
 
