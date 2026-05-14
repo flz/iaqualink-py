@@ -12,8 +12,10 @@ from iaqualink.exception import (
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
     IaquaAuxSwitch,
+    IaquaBinaryState,
     IaquaDimmableLight,
     IaquaLightSwitch,
+    IaquaOneTouchSwitch,
     IaquaThermostat,
     _HOME_DEVICE_MAP,
     light_subtype_to_class,
@@ -30,13 +32,17 @@ if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.typing import Payload
 
-IAQUA_SESSION_URL = "https://r-api.iaqualink.net/v2/mobile/session.json"
+# v2 session endpoint (p-api); used for all get_*/set_* commands.
+# r-api hosts v1 / swc endpoints — kept here for future reference.
+IAQUA_SESSION_URL = "https://p-api.iaqualink.net/v2/mobile/session.json"
+IAQUA_SESSION_V1_URL = "https://r-api.iaqualink.net/v1/mobile/session.json"
 
 IAQUA_COMMAND_GET_DEVICES = "get_devices"
 IAQUA_COMMAND_GET_HOME = "get_home"
 IAQUA_COMMAND_GET_ONETOUCH = "get_onetouch"
 
 IAQUA_COMMAND_SET_AUX = "set_aux"
+IAQUA_COMMAND_SET_ONETOUCH = "set_onetouch"
 IAQUA_COMMAND_SET_LIGHT = "set_light"
 IAQUA_COMMAND_SET_POOL_HEATER = "set_pool_heater"
 IAQUA_COMMAND_SET_POOL_PUMP = "set_pool_pump"
@@ -56,6 +62,9 @@ class IaquaSystem(AqualinkSystem):
 
         self.system_type: IaquaSystemType | None = None
         self.temp_unit: IaquaTemperatureUnit | None = None
+        # Re-evaluated from the home response on every update() call.
+        # None = home response not yet parsed; True/False = last home response value.
+        self._onetouch_supported: bool | None = None
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -97,10 +106,16 @@ class IaquaSystem(AqualinkSystem):
         return await self._send_with_reauth_retry(do_request)
 
     async def _send_home_screen_request(self) -> httpx.Response:
-        return await self._send_session_request(IAQUA_COMMAND_GET_HOME)
+        return await self._send_session_request(
+            IAQUA_COMMAND_GET_HOME,
+            {"attached_test": "true", "country": self.aqualink.country},
+        )
 
     async def _send_devices_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_DEVICES)
+
+    async def _send_onetouch_screen_request(self) -> httpx.Response:
+        return await self._send_session_request(IAQUA_COMMAND_GET_ONETOUCH)
 
     async def update(self) -> None:
         try:
@@ -113,9 +128,29 @@ class IaquaSystem(AqualinkSystem):
             self.status = SystemStatus.ERROR
             raise
 
+        # Parse the home response first so the onetouch flag is available
+        # before deciding whether to issue the onetouch request.
         try:
             self._parse_home_response(r1)
+        except AqualinkSystemOfflineException:
+            self.status = SystemStatus.OFFLINE
+            raise
+
+        r3 = None
+        if self._onetouch_supported:
+            try:
+                r3 = await self._send_onetouch_screen_request()
+            except AqualinkServiceThrottledException:
+                self.status = SystemStatus.UNKNOWN
+                raise
+            except AqualinkServiceException:
+                self.status = SystemStatus.ERROR
+                raise
+
+        try:
             self._parse_devices_response(r2)
+            if r3 is not None:
+                self._parse_onetouch_response(r3)
         except AqualinkSystemOfflineException:
             self.status = SystemStatus.OFFLINE
             raise
@@ -143,6 +178,8 @@ class IaquaSystem(AqualinkSystem):
         if home["system_type"] == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
             return
+
+        self._onetouch_supported = data.get("onetouch") == "true"
 
         try:
             self.system_type = IaquaSystemType(home["system_type"])
@@ -233,10 +270,48 @@ class IaquaSystem(AqualinkSystem):
         self._parse_home_response(r)
 
     async def set_aux(self, aux: str) -> None:
-        aux = IAQUA_COMMAND_SET_AUX + "_" + aux.replace("aux_", "")
+        aux = IAQUA_COMMAND_SET_AUX + "_" + aux.removeprefix("aux_")
         r = await self._send_session_request(aux)
         self._parse_devices_response(r)
 
     async def set_light(self, data: Payload) -> None:
         r = await self._send_session_request(IAQUA_COMMAND_SET_LIGHT, data)
         self._parse_devices_response(r)
+
+    def _parse_onetouch_response(self, response: httpx.Response) -> None:
+        data = response.json()
+
+        LOGGER.debug("OneTouch response: %s", data)
+
+        onetouch: dict = {}
+        for x in data["onetouch_screen"]:
+            onetouch.update(x)
+
+        if onetouch.get("status") in (
+            IaquaSystemStatus.OFFLINE,
+            IaquaSystemStatus.SERVICE,
+        ):
+            LOGGER.warning(
+                "Status for system %s is %s.", self.serial, onetouch["status"]
+            )
+            raise AqualinkSystemOfflineException
+
+        for name, val in onetouch.items():
+            if not isinstance(val, list) or not name.startswith("onetouch_"):
+                continue
+            attrs = {"name": name}
+            for y in val:
+                attrs.update(y)
+            if attrs.get("status") == IaquaBinaryState.OFF:
+                self.devices.pop(name, None)
+                continue
+            if name in self.devices:
+                for dk, dv in attrs.items():
+                    self.devices[name].data[dk] = dv
+            else:
+                self.devices[name] = IaquaOneTouchSwitch(self, attrs)
+
+    async def set_onetouch(self, name: str) -> None:
+        cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.removeprefix("onetouch_")
+        r = await self._send_session_request(cmd)
+        self._parse_onetouch_response(r)

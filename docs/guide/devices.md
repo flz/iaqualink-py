@@ -79,6 +79,26 @@ await aux_1.turn_on()
 await aux_1.turn_off()
 ```
 
+### OneTouch Scenes
+
+Saved scenes that activate a preset combination of device states. Only present on systems that advertise OneTouch support in the home response.
+
+```python
+# List available scenes
+onetouch_scenes = {
+    name: device
+    for name, device in devices.items()
+    if name.startswith("onetouch_")
+}
+
+# Activate a scene (toggle semantics: fires command regardless of guard)
+morning = devices.get("onetouch_1")
+if morning:
+    print(f"{morning.label}: {'active' if morning.is_on else 'inactive'}")
+    await morning.turn_on()   # activates if inactive
+    await morning.turn_off()  # deactivates if active
+```
+
 ### Lights
 
 Special switches with toggle support:
@@ -245,7 +265,7 @@ except AqualinkServiceException as e:
 iAqua systems have these specific characteristics:
 - Devices use numeric IDs
 - Commands sent via session requests
-- Two-step state refresh
+- Two-step state refresh (home + devices); three-step when OneTouch is advertised
 
 ### eXO Devices
 

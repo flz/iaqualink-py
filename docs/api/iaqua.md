@@ -27,10 +27,11 @@ All session requests use:
 
 ### Device Refresh
 
-iAqua systems use a two-step refresh process:
+iAqua systems use a two- or three-step refresh process:
 
-1. **Home data** - Basic system information
+1. **Home data** - Basic system information and OneTouch support flag
 2. **Device data** - Detailed device states
+3. **OneTouch data** - OneTouch scene states (only when `"onetouch": "true"` in home response)
 
 ```python
 # Implemented internally by IaquaSystem.update()
@@ -87,6 +88,12 @@ Temperature ranges:
 ### Auxiliary Devices
 
 - `aux_1` through `aux_7` - Configurable auxiliary switches
+
+### OneTouch Scenes
+
+- `onetouch_1` through `onetouch_N` - Saved scenes (only present when system advertises `"onetouch": "true"` in the home response)
+
+OneTouch scenes have toggle semantics: sending the command flips the scene state. `turn_on()` activates an inactive scene; `turn_off()` deactivates an active one.
 
 ### Chemistry Sensors
 

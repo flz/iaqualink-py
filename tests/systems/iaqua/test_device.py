@@ -21,6 +21,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaHeater,
     IaquaHeaterState,
     IaquaLightSwitch,
+    IaquaOneTouchSwitch,
     IaquaPresenceSensor,
     IaquaPresenceState,
     IaquaSensor,
@@ -198,6 +199,44 @@ class TestIaquaHeater(TestIaquaBinarySensor, TestBaseSwitch):
 
     def test_property_state_enum(self) -> None:
         assert self.sut.state_enum is IaquaHeaterState
+
+
+class TestIaquaOneTouchSwitch(TestIaquaSwitch, TestBaseSwitch):
+    def setUp(self) -> None:
+        super().setUp()
+
+        data = {
+            "name": "onetouch_1",
+            "state": "0",
+            "label": "Morning Scene",
+            "status": "1",
+        }
+        self.sut = IaquaOneTouchSwitch(self.system, data)
+        self.sut_class = IaquaOneTouchSwitch
+
+    async def test_turn_on(self) -> None:
+        self.sut.data["state"] = "0"
+        with patch.object(self.sut.system, "_parse_onetouch_response"):
+            await super().test_turn_on()
+
+    async def test_turn_on_noop(self) -> None:
+        self.sut.data["state"] = "1"
+        with patch.object(self.sut.system, "_parse_onetouch_response"):
+            await super().test_turn_on_noop()
+
+    async def test_turn_off(self) -> None:
+        self.sut.data["state"] = "1"
+        with patch.object(self.sut.system, "_parse_onetouch_response"):
+            await super().test_turn_off()
+
+    async def test_turn_off_noop(self) -> None:
+        self.sut.data["state"] = "0"
+        with patch.object(self.sut.system, "_parse_onetouch_response"):
+            await super().test_turn_off_noop()
+
+    def test_property_label(self) -> None:
+        super().test_property_label()
+        assert self.sut.label == "Morning Scene"
 
 
 class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):

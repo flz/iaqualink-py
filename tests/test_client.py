@@ -153,7 +153,7 @@ class TestAqualinkClient(TestBase):
         assert self.client.logged is False
         assert self.client.auth_state is None
 
-    async def test_context_manager_skips_login_when_auth_restored(self) -> None:
+    async def test_context_manager_refreshes_when_auth_restored(self) -> None:
         self.client.auth_state = AqualinkAuthState(
             username="restored-user",
             client_id="restored-session-id",
@@ -163,11 +163,18 @@ class TestAqualinkClient(TestBase):
             refresh_token="restored-refresh-token",
         )
 
-        with patch.object(self.client, "login") as mock_login:
+        with (
+            patch.object(self.client, "login") as mock_login,
+            patch.object(
+                self.client, "_refresh_auth", return_value=None
+            ) as mock_refresh,
+        ):
+            mock_refresh.return_value = async_noop
             async with self.client:
                 pass
 
         mock_login.assert_not_called()
+        mock_refresh.assert_awaited_once()
 
     @patch("iaqualink.client.AqualinkClient.login", async_noop)
     async def test_context_manager_with_client(self) -> None:
@@ -188,6 +195,27 @@ class TestAqualinkClient(TestBase):
         await self.client.login()
 
         assert self.client.logged is True
+
+    @patch("httpx.AsyncClient.request")
+    async def test_login_sets_country_lowercased(self, mock_request) -> None:
+        data = {**LOGIN_DATA, "country": "FR"}
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json = MagicMock(return_value=data)
+
+        await self.client.login()
+
+        assert self.client.country == "fr"
+
+    @patch("httpx.AsyncClient.request")
+    async def test_login_defaults_country_to_us_when_absent(
+        self, mock_request
+    ) -> None:
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+
+        await self.client.login()
+
+        assert self.client.country == "us"
 
     @patch("httpx.AsyncClient.request")
     async def test_send_request_uses_default_timeout(
@@ -363,6 +391,22 @@ class TestAqualinkClient(TestBase):
 
         with pytest.raises(AqualinkServiceThrottledException):
             await self.client.send_request("https://example.com")
+
+    @patch("httpx.AsyncClient.request")
+    async def test_transport_error_raises_service_exception(
+        self, mock_request
+    ) -> None:
+        for exc in (
+            httpx.ReadTimeout("timed out"),
+            httpx.ConnectTimeout("timed out"),
+            httpx.WriteTimeout("timed out"),
+            httpx.PoolTimeout("timed out"),
+            httpx.ConnectError("connection refused"),
+            OSError("network unreachable"),
+        ):
+            mock_request.side_effect = exc
+            with pytest.raises(AqualinkServiceException):
+                await self.client.send_request("https://example.com")
 
     @patch("httpx.AsyncClient.request")
     async def test_500_not_retried(self, mock_request) -> None:
