@@ -4,7 +4,10 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from iaqualink.exception import AqualinkOperationNotSupportedException
+from iaqualink.exception import (
+    AqualinkInvalidParameterException,
+    AqualinkOperationNotSupportedException,
+)
 
 if TYPE_CHECKING:
     from iaqualink.typing import DeviceData
@@ -183,11 +186,7 @@ class AqualinkNumber(AqualinkDevice):
         raise NotImplementedError
 
 
-class AqualinkPump(AqualinkSwitch, AqualinkDevice):
-    # Pumps default to non-switchable; subclasses opt in by returning True.
-    # Unlike AqualinkSwitch (raises NotImplementedError unconditionally),
-    # AqualinkPump gates turn_on/turn_off so callers can check capability
-    # before attempting control.
+class AqualinkPump(AqualinkBinarySensor):
     @property
     def supports_turn_on(self) -> bool:
         return False
@@ -229,10 +228,14 @@ class AqualinkPump(AqualinkSwitch, AqualinkDevice):
     async def set_speed_percentage(self, percentage: int) -> None:
         """Set speed as a percentage (0-100)."""
         if self.supports_set_speed_percentage:
+            if not 0 <= percentage <= 100:
+                raise AqualinkInvalidParameterException(percentage)
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
-    async def set_preset(self, _: str) -> None:
+    async def set_preset(self, preset: str) -> None:
         if self.supports_presets:
+            if preset not in self.supported_presets:
+                raise AqualinkInvalidParameterException(preset)
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException

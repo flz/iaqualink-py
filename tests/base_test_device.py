@@ -363,7 +363,7 @@ class TestBaseNumber(TestBaseDevice):
         assert len(respx_mock.calls) == 0
 
 
-class TestBasePump(TestBaseSwitch):
+class TestBasePump(TestBaseBinarySensor):
     def test_inheritance(self) -> None:
         assert isinstance(self.sut, AqualinkPump)
 
