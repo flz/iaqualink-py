@@ -8,6 +8,7 @@ from iaqualink.device import (
     AqualinkBinarySensor,
     AqualinkDevice,
     AqualinkLight,
+    AqualinkNumber,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkThermostat,
@@ -17,6 +18,7 @@ from .base_test_device import (
     TestBaseBinarySensor,
     TestBaseDevice,
     TestBaseLight,
+    TestBaseNumber,
     TestBaseSensor,
     TestBaseSwitch,
     TestBaseThermostat,
@@ -246,3 +248,42 @@ class TestAqualinkThermostat(TestBaseThermostat, TestAqualinkDevice):
     async def test_set_temperature_invalid_204c(self) -> None:
         with pytest.raises(NotImplementedError):
             await super().test_set_temperature_invalid_204c()
+
+
+class TestAqualinkNumber(TestBaseNumber, TestAqualinkDevice):
+    def setUp(self) -> None:
+        system = MagicMock()
+        data: dict[str, str] = {}
+        self.sut = AqualinkNumber(system, data)
+
+    def test_property_current_value(self) -> None:
+        with pytest.raises(NotImplementedError):
+            super().test_property_current_value()
+
+    def test_property_min_value(self) -> None:
+        with pytest.raises(NotImplementedError):
+            super().test_property_min_value()
+
+    def test_property_max_value(self) -> None:
+        with pytest.raises(NotImplementedError):
+            super().test_property_max_value()
+
+    def test_property_min_le_max(self) -> None:
+        with pytest.raises(NotImplementedError):
+            super().test_property_min_le_max()
+
+    async def test_set_value_at_min(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_set_value_at_min()
+
+    async def test_set_value_at_max(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_set_value_at_max()
+
+    async def test_set_value_below_min(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_set_value_below_min()
+
+    async def test_set_value_above_max(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_set_value_above_max()

@@ -4,7 +4,10 @@ import logging
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
-from iaqualink.exception import AqualinkOperationNotSupportedException
+from iaqualink.exception import (
+    AqualinkInvalidParameterException,
+    AqualinkOperationNotSupportedException,
+)
 
 if TYPE_CHECKING:
     from iaqualink.typing import DeviceData
@@ -147,4 +150,31 @@ class AqualinkThermostat(AqualinkSwitch, AqualinkDevice):
         raise NotImplementedError
 
     async def set_temperature(self, _: int) -> None:
+        raise NotImplementedError
+
+
+class AqualinkNumber(AqualinkDevice):
+    @property
+    def current_value(self) -> float | None:
+        raise NotImplementedError
+
+    @property
+    def min_value(self) -> float:
+        raise NotImplementedError
+
+    @property
+    def max_value(self) -> float:
+        raise NotImplementedError
+
+    @property
+    def step(self) -> float:
+        return 1.0
+
+    @property
+    def unit(self) -> str | None:
+        return None
+
+    async def set_value(self, value: float) -> None:
+        if not self.min_value <= value <= self.max_value:
+            raise AqualinkInvalidParameterException(value)
         raise NotImplementedError

@@ -10,6 +10,7 @@ import respx.router
 from iaqualink.device import (
     AqualinkBinarySensor,
     AqualinkLight,
+    AqualinkNumber,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkThermostat,
@@ -297,3 +298,65 @@ class TestBaseThermostat(TestBaseSwitch):
             with pytest.raises(AqualinkInvalidParameterException):
                 await self.sut.set_temperature(204)
             assert len(respx_mock.calls) == 0
+
+
+class TestBaseNumber(TestBaseDevice):
+    def test_inheritance(self) -> None:
+        assert isinstance(self.sut, AqualinkNumber)
+
+    def test_property_current_value(self) -> None:
+        assert self.sut.current_value is None or isinstance(
+            self.sut.current_value, float
+        )
+
+    def test_property_min_value(self) -> None:
+        assert isinstance(self.sut.min_value, float)
+
+    def test_property_max_value(self) -> None:
+        assert isinstance(self.sut.max_value, float)
+
+    def test_property_min_le_max(self) -> None:
+        assert self.sut.min_value <= self.sut.max_value
+
+    def test_property_step(self) -> None:
+        assert isinstance(self.sut.step, float)
+        assert self.sut.step > 0
+
+    def test_property_unit(self) -> None:
+        assert self.sut.unit is None or isinstance(self.sut.unit, str)
+
+    @respx.mock
+    async def test_set_value_at_min(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.set_value(self.sut.min_value)
+        assert len(respx_mock.calls) > 0
+        self.respx_calls = copy.copy(respx_mock.calls)
+
+    @respx.mock
+    async def test_set_value_at_max(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.set_value(self.sut.max_value)
+        assert len(respx_mock.calls) > 0
+        self.respx_calls = copy.copy(respx_mock.calls)
+
+    @respx.mock
+    async def test_set_value_below_min(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_value(self.sut.min_value - 1.0)
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_set_value_above_max(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_value(self.sut.max_value + 1.0)
+        assert len(respx_mock.calls) == 0
