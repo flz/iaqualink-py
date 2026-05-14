@@ -304,19 +304,3 @@ class TestAqualinkPump(TestBasePump, TestAqualinkDevice):
     def test_property_is_on_false(self) -> None:
         with pytest.raises(NotImplementedError):
             super().test_property_is_on_false()
-
-    async def test_turn_on(self) -> None:
-        with pytest.raises(NotImplementedError):
-            await super().test_turn_on()
-
-    async def test_turn_on_noop(self) -> None:
-        with pytest.raises(NotImplementedError):
-            await super().test_turn_on_noop()
-
-    async def test_turn_off(self) -> None:
-        with pytest.raises(NotImplementedError):
-            await super().test_turn_off()
-
-    async def test_turn_off_noop(self) -> None:
-        with pytest.raises(NotImplementedError):
-            await super().test_turn_off_noop()

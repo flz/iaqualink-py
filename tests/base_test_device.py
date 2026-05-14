@@ -486,6 +486,19 @@ class TestBasePump(TestBaseSwitch):
         self.respx_calls = copy.copy(respx_mock.calls)
 
     @respx.mock
+    async def test_set_speed_percentage_invalid_negative(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_set_speed_percentage:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_speed_percentage(-1)
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_speed_percentage(-1)
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
     async def test_set_speed_percentage_invalid_150(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
