@@ -5,22 +5,22 @@ from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 import pytest
 
 from iaqualink.device import (
-    AqualinkPump,
     AqualinkBinarySensor,
     AqualinkDevice,
     AqualinkLight,
     AqualinkNumber,
+    AqualinkPump,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkThermostat,
 )
 
 from .base_test_device import (
-    TestBasePump,
     TestBaseBinarySensor,
     TestBaseDevice,
     TestBaseLight,
     TestBaseNumber,
+    TestBasePump,
     TestBaseSensor,
     TestBaseSwitch,
     TestBaseThermostat,

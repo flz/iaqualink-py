@@ -187,6 +187,10 @@ class AqualinkNumber(AqualinkDevice):
 
 
 class AqualinkPump(AqualinkSwitch, AqualinkDevice):
+    # Some pump models are always-on; supports_turn_off=False signals this.
+    # Unlike AqualinkSwitch (which raises NotImplementedError unconditionally),
+    # AqualinkPump gates turn_on/turn_off behind capability flags so subclasses
+    # can advertise non-switchable pumps without overriding both methods.
     @property
     def supports_turn_on(self) -> bool:
         return True
@@ -226,7 +230,20 @@ class AqualinkPump(AqualinkSwitch, AqualinkDevice):
         return False
 
     async def set_speed(self, _: int) -> None:
+        """Set absolute speed (e.g. RPM). Valid range is device-specific."""
         if self.supports_set_speed:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    @property
+    def supports_set_speed_percentage(self) -> bool:
+        return False
+
+    async def set_speed_percentage(self, percentage: int) -> None:
+        """Set speed as a percentage (0-100)."""
+        if self.supports_set_speed_percentage:
+            if not 0 <= percentage <= 100:
+                raise AqualinkInvalidParameterException(percentage)
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
