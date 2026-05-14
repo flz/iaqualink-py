@@ -195,6 +195,12 @@ class AqualinkPump(AqualinkDevice):
     def supports_turn_off(self) -> bool:
         return False
 
+    @property
+    def is_on(self) -> bool:
+        if self.supports_turn_on or self.supports_turn_off:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
     async def turn_on(self) -> None:
         if self.supports_turn_on:
             raise NotImplementedError

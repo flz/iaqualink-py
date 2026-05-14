@@ -373,6 +373,13 @@ class TestBasePump(TestBaseDevice):
     def test_property_supports_turn_off(self) -> None:
         assert isinstance(self.sut.supports_turn_off, bool)
 
+    def test_property_is_on(self) -> None:
+        if not (self.sut.supports_turn_on or self.sut.supports_turn_off):
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                _ = self.sut.is_on
+        else:
+            assert isinstance(self.sut.is_on, bool)
+
     @respx.mock
     async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
         if not self.sut.supports_turn_on:
