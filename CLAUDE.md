@@ -106,7 +106,11 @@ The library follows a plugin-style architecture with base classes and system-spe
      - **ExoDevice** ([systems/exo/device.py](src/iaqualink/systems/exo/device.py))
    - Device types include: sensors, pumps, heaters, lights, thermostats, aux toggles
 
-4. **CLI package** ([src/iaqualink/cli](src/iaqualink/cli)) - User-facing Typer command line client
+4. **Request signing** ([util.py](src/iaqualink/util.py)) - HMAC-SHA1 utility
+   - `sign(parts, secret)` joins `parts` with `,` and returns lowercase hex HMAC-SHA1
+   - Used by `AqualinkClient` for system discovery; designed to cover all three signature variants (device list, shadow, commands)
+
+5. **CLI package** ([src/iaqualink/cli](src/iaqualink/cli)) - User-facing Typer command line client
    - Entry point is the packaged `iaqualink` script
    - Centralizes config loading from CLI options, environment variables, and `typer.get_app_dir("iaqualink") / "config.yaml"`
    - Persists session state in a JSON cookie jar at `typer.get_app_dir("iaqualink") / "session.json"` by default
@@ -124,9 +128,14 @@ The library follows a plugin-style architecture with base classes and system-spe
 
 ### API Differences
 
+**System Discovery (all system types):**
+- Uses `https://r-api.iaqualink.net/v2/devices.json`
+- HMAC-SHA1 signature over `"{user_id},{timestamp}"` with `AQUALINK_API_SECRET_KEY`
+- Auth via `Authorization: Bearer {IdToken}` header and `api_key` header
+
 **iAqua Systems:**
 - Authentication returns `session_id` and `authentication_token`
-- Uses query parameters for authentication
+- Device commands use session tokens as query parameters
 - Two API calls for updates: "get_home" and "get_devices"
 - Commands sent as session requests with specific command names
 

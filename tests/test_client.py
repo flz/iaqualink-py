@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac as _hmac
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -12,6 +14,9 @@ from iaqualink.client import (
     AqualinkClient,
 )
 from iaqualink.const import (
+    AQUALINK_API_KEY,
+    AQUALINK_API_SECRET_KEY,
+    AQUALINK_DEVICES_URL,
     DEFAULT_REQUEST_TIMEOUT,
 )
 from iaqualink.exception import (
@@ -332,10 +337,12 @@ class TestAqualinkClient(TestBase):
         systems = await self.client.get_systems()
         assert len(systems) == 1
 
+    @patch("iaqualink.client.time")
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_retries_after_refresh(
-        self, mock_request
+        self, mock_request, mock_time
     ) -> None:
+        mock_time.time.return_value = 1_000_000_000
         mock_request.side_effect = [
             _make_resp(200, LOGIN_DATA_WITH_REFRESH),
             _make_resp(401),
@@ -347,9 +354,53 @@ class TestAqualinkClient(TestBase):
         systems = await self.client.get_systems()
 
         assert systems == {}
-        retry_url = mock_request.call_args_list[3][0][1]
-        assert "authentication_token=new-token" in retry_url
-        assert "user_id=id" in retry_url
+        retry_call = mock_request.call_args_list[3]
+        assert retry_call[0][1] == AQUALINK_DEVICES_URL
+        params = retry_call.kwargs["params"]
+        assert params["user_id"] == "id"
+        assert params["timestamp"] == "1000000000"
+        assert (
+            params["signature"]
+            == _hmac.new(
+                AQUALINK_API_SECRET_KEY.encode(), b"id,1000000000", hashlib.sha1
+            ).hexdigest()
+        )
+        # Bearer token must use the refreshed IdToken, not the original.
+        new_id_token = REFRESH_RESPONSE_DATA["userPoolOAuth"]["IdToken"]
+        assert (
+            retry_call.kwargs["headers"]["Authorization"]
+            == f"Bearer {new_id_token}"
+        )
+
+    @patch("iaqualink.client.time")
+    @patch("httpx.AsyncClient.request")
+    async def test_systems_request_v2_params_and_headers(
+        self, mock_request, mock_time
+    ) -> None:
+        mock_time.time.return_value = 1_234_567_890
+        mock_request.side_effect = [
+            _make_resp(200, LOGIN_DATA_WITH_REFRESH),
+            _make_resp(200, []),
+        ]
+
+        await self.client.login()
+        await self.client.get_systems()
+
+        systems_call = mock_request.call_args_list[1]
+        params = systems_call.kwargs["params"]
+        headers = systems_call.kwargs["headers"]
+
+        assert systems_call[0][1] == AQUALINK_DEVICES_URL
+        assert params["user_id"] == "id"
+        assert params["timestamp"] == "1234567890"
+        assert (
+            params["signature"]
+            == _hmac.new(
+                AQUALINK_API_SECRET_KEY.encode(), b"id,1234567890", hashlib.sha1
+            ).hexdigest()
+        )
+        assert headers["Authorization"] == "Bearer userPoolOAuth:IdToken"
+        assert headers["api_key"] == AQUALINK_API_KEY
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_repeated_401_refreshes_only_once(
