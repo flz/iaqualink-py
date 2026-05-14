@@ -177,4 +177,7 @@ class AqualinkNumber(AqualinkDevice):
     async def set_value(self, value: float) -> None:
         if not self.min_value <= value <= self.max_value:
             raise AqualinkInvalidParameterException(value)
+        await self._set_value(value)
+
+    async def _set_value(self, value: float) -> None:
         raise NotImplementedError
