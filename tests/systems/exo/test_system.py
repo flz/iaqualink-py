@@ -248,6 +248,48 @@ class TestExoSystem(TestBaseSystem):
         assert "version" not in self.sut.devices
         assert "boost_time" not in self.sut.devices
 
+    def _make_shadow_response(self, aws_status: str | None) -> MagicMock:
+        import copy as _copy
+
+        data = _copy.deepcopy(SAMPLE_DATA)
+        if aws_status is None:
+            del data["state"]["reported"]["aws"]
+        else:
+            data["state"]["reported"]["aws"]["status"] = aws_status
+        response = MagicMock()
+        response.json.return_value = data
+        return response
+
+    def test_parse_shadow_absent_aws_status(self) -> None:
+        response = self._make_shadow_response(None)
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.ONLINE
+
+    def test_parse_shadow_empty_aws_status(self) -> None:
+        response = self._make_shadow_response("")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.IN_PROGRESS
+
+    def test_parse_shadow_disconnected(self) -> None:
+        response = self._make_shadow_response("disconnected")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.DISCONNECTED
+
+    def test_parse_shadow_service(self) -> None:
+        response = self._make_shadow_response("service")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.SERVICE
+
+    def test_parse_shadow_firmware_update(self) -> None:
+        response = self._make_shadow_response("firmware_update")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.FIRMWARE_UPDATE
+
+    def test_parse_shadow_unknown_string(self) -> None:
+        response = self._make_shadow_response("something_unknown")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request(self, mock_request) -> None:
         mock_request.return_value.status_code = 200

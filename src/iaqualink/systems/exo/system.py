@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
-    AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import ExoDevice
@@ -78,10 +77,7 @@ class ExoSystem(AqualinkSystem):
             self.status = SystemStatus.DISCONNECTED
             raise
 
-        try:
-            self._parse_shadow_response(r)
-        except AqualinkSystemOfflineException:
-            raise
+        self._parse_shadow_response(r)
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()

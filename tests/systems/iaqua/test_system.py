@@ -46,8 +46,13 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut_class = IaquaSystem
 
     async def test_update_success(self) -> None:
+        def _set_online(_response):
+            self.sut.status = SystemStatus.ONLINE
+
         with (
-            patch.object(self.sut, "_parse_home_response"),
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=_set_online
+            ),
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
@@ -237,6 +242,22 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut._parse_home_response(response)
         assert self.sut.temp_unit is None
 
+    async def test_parse_home_offline(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Offline"},
+                {"response": ""},
+                {"system_type": ""},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.OFFLINE
+
     async def test_parse_home_offline_when_service(self) -> None:
         message = {
             "message": "",
@@ -252,6 +273,82 @@ class TestIaquaSystem(TestBaseSystem):
         with pytest.raises(AqualinkSystemOfflineException):
             self.sut._parse_home_response(response)
         assert self.sut.status is SystemStatus.SERVICE
+
+    async def test_parse_home_unknown_status(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Unknown"},
+                {"response": ""},
+                {"system_type": ""},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
+    async def test_parse_home_empty_status(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": ""},
+                {"response": ""},
+                {"system_type": ""},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.IN_PROGRESS
+
+    async def test_parse_home_missing_status(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [{"response": ""}, {"system_type": ""}],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
+    async def test_parse_home_unrecognised_status(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Updating"},
+                {"response": ""},
+                {"system_type": ""},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        with pytest.raises(AqualinkSystemOfflineException):
+            self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
+    async def test_parse_home_online(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "1"},
+                {"temp_scale": "F"},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.ONLINE
 
     async def test_parse_devices_offline_when_service(self) -> None:
         message = {"message": "", "devices_screen": [{"status": "Service"}]}

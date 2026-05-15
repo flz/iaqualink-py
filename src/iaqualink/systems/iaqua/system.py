@@ -129,13 +129,8 @@ class IaquaSystem(AqualinkSystem):
             self.status = SystemStatus.DISCONNECTED
             raise
 
-        # Parse the home response first so the onetouch flag is available
-        # before deciding whether to issue the onetouch request.
-        # Only the home response determines system status.
-        try:
-            self._parse_home_response(r1)
-        except AqualinkSystemOfflineException:
-            raise
+        # Only the home response determines system status; sets it before returning.
+        self._parse_home_response(r1)
 
         r3 = None
         if self._onetouch_supported:
@@ -148,14 +143,9 @@ class IaquaSystem(AqualinkSystem):
                 self.status = SystemStatus.DISCONNECTED
                 raise
 
-        try:
-            self._parse_devices_response(r2)
-            if r3 is not None:
-                self._parse_onetouch_response(r3)
-        except AqualinkSystemOfflineException:
-            raise
-
-        self.status = SystemStatus.ONLINE
+        self._parse_devices_response(r2)
+        if r3 is not None:
+            self._parse_onetouch_response(r3)
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -166,10 +156,11 @@ class IaquaSystem(AqualinkSystem):
         for x in data["home_screen"]:
             home.update(x)
 
-        # Any status that is not ONLINE raises AqualinkSystemOfflineException to
-        # preserve backwards-compatible behaviour: callers that catch that exception
-        # to detect non-ready systems continue to work regardless of the specific
-        # reason (offline, service mode, unknown, or still loading).
+        # Any non-ONLINE status raises AqualinkSystemOfflineException so callers
+        # that catch that exception to detect non-ready systems continue to work
+        # regardless of the specific reason (offline, service mode, unknown, or
+        # still loading). This is broader than the original OFFLINE/SERVICE-only
+        # coverage.
         raw_status = home.get("status")
         if raw_status == IaquaSystemStatus.OFFLINE:
             LOGGER.warning(
@@ -193,6 +184,14 @@ class IaquaSystem(AqualinkSystem):
             LOGGER.debug("Empty status for system %s.", self.serial)
             self.status = SystemStatus.IN_PROGRESS
             raise AqualinkSystemOfflineException
+        elif raw_status != IaquaSystemStatus.ONLINE:
+            LOGGER.warning(
+                "Unknown status %r for system %s.", raw_status, self.serial
+            )
+            self.status = SystemStatus.UNKNOWN
+            raise AqualinkSystemOfflineException
+
+        self.status = SystemStatus.ONLINE
 
         if home["system_type"] == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
