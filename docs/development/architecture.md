@@ -237,20 +237,15 @@ contract below.
 |-------|-----------|
 | Called | `IN_PROGRESS` |
 | `AqualinkServiceThrottledException` raised by `_refresh()` | `UNKNOWN` |
-| `AqualinkServiceException` raised (excluding offline) | `DISCONNECTED` |
-| `AqualinkSystemOfflineException` raised by `_refresh()` | *(unchanged — set by `_refresh()` before raising)* |
-| `_refresh()` returns normally | *(unchanged — set by `_refresh()`)* |
+| `AqualinkServiceException` raised | `DISCONNECTED` |
+| `_refresh()` returns normally | *(set by `_refresh()` before returning)* |
 
 ### `_refresh()` contract
 
 **On normal return** — set `self.status` to a resolved value before returning.
-`refresh()` asserts `status != IN_PROGRESS` afterward; an unset status is a
-programming error and raises `AssertionError`.
-
-**Before raising `AqualinkSystemOfflineException`** — set `self.status` to the
-value that explains why (`OFFLINE`, `SERVICE`, `UNKNOWN`, `IN_PROGRESS` for
-an empty/loading state). `refresh()` re-raises the exception without touching
-status.
+If `_refresh()` returns without changing status, `refresh()` logs a warning
+(resilience over hard failure; the warning is always visible regardless of
+optimisation level).
 
 **`AqualinkServiceThrottledException` / `AqualinkServiceException`** — do
 *not* catch these inside `_refresh()`. Let them propagate to `refresh()`,
@@ -258,16 +253,20 @@ which maps them to `UNKNOWN` / `DISCONNECTED`.
 
 ### Concrete implementations
 
+Both iAqua and eXO follow the same pattern: set `self.status` and return.
+Neither raises `AqualinkSystemOfflineException`; callers check `system.status`
+to determine whether the system is ready.
+
 **iAqua** (`_parse_home_response` drives status):
 
-| `home_screen.status` | Status set | Exception raised |
-|---|---|---|
-| `"Online"` | `ONLINE` | — |
-| `"Offline"` | `OFFLINE` | `AqualinkSystemOfflineException` |
-| `"Service"` | `SERVICE` | `AqualinkSystemOfflineException` |
-| `"Unknown"` / absent | `UNKNOWN` | `AqualinkSystemOfflineException` |
-| `""` | `IN_PROGRESS` | `AqualinkSystemOfflineException` |
-| unrecognised string | `UNKNOWN` + warning | `AqualinkSystemOfflineException` |
+| `home_screen.status` | Status set |
+|---|---|
+| `"Online"` | `ONLINE` |
+| `"Offline"` | `OFFLINE` |
+| `"Service"` | `SERVICE` |
+| `"Unknown"` / absent | `UNKNOWN` |
+| `""` | `IN_PROGRESS` |
+| unrecognised string | `UNKNOWN` + warning |
 
 **eXO** (`_parse_shadow_response` drives status via `state.reported.aws.status`):
 
@@ -275,7 +274,7 @@ which maps them to `UNKNOWN` / `DISCONNECTED`.
 |---|---|
 | `"connected"` | `CONNECTED` |
 | `"online"` | `ONLINE` |
-| absent key | `ONLINE` |
+| absent key | `UNKNOWN` |
 | `""` | `IN_PROGRESS` |
 | other known values | mapped directly |
 | unrecognised string | `UNKNOWN` + warning |

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, ClassVar
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
-    AqualinkSystemOfflineException,
 )
 from iaqualink.reauth import send_with_reauth_retry
 
@@ -112,9 +111,6 @@ class AqualinkSystem:
         except AqualinkServiceThrottledException:
             self.status = SystemStatus.UNKNOWN
             raise
-        except AqualinkSystemOfflineException:
-            # Status already set by _refresh() before raising; preserve it.
-            raise
         except AqualinkServiceException:
             self.status = SystemStatus.DISCONNECTED
             raise
@@ -134,11 +130,6 @@ class AqualinkSystem:
         Set `self.status` to a resolved value (anything except `IN_PROGRESS`)
         before returning. `refresh()` logs a warning if status is still
         `IN_PROGRESS` after `_refresh()` returns.
-
-        **`AqualinkSystemOfflineException`:**
-        Set `self.status` to the appropriate value (`OFFLINE`, `SERVICE`,
-        `UNKNOWN`, or `IN_PROGRESS`) *before* raising. `refresh()` re-raises
-        the exception without touching status.
 
         **`AqualinkServiceThrottledException` / `AqualinkServiceException`:**
         Do not catch these. `refresh()` intercepts them and sets `UNKNOWN` or

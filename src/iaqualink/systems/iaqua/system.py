@@ -4,7 +4,6 @@ import logging
 from typing import TYPE_CHECKING
 
 from iaqualink.const import AQUALINK_API_KEY
-from iaqualink.exception import AqualinkSystemOfflineException
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
     IaquaAuxSwitch,
@@ -137,40 +136,35 @@ class IaquaSystem(AqualinkSystem):
         for x in data["home_screen"]:
             home.update(x)
 
-        # Any non-ONLINE status raises AqualinkSystemOfflineException so callers
-        # that catch that exception to detect non-ready systems continue to work
-        # regardless of the specific reason (offline, service mode, unknown, or
-        # still loading). This is broader than the original OFFLINE/SERVICE-only
-        # coverage.
         raw_status = home.get("status")
         if raw_status == IaquaSystemStatus.OFFLINE:
             LOGGER.warning(
                 "Status for system %s is %s.", self.serial, raw_status
             )
             self.status = SystemStatus.OFFLINE
-            raise AqualinkSystemOfflineException
+            return
         elif raw_status == IaquaSystemStatus.SERVICE:
             LOGGER.warning(
                 "Status for system %s is %s.", self.serial, raw_status
             )
             self.status = SystemStatus.SERVICE
-            raise AqualinkSystemOfflineException
+            return
         elif raw_status in (IaquaSystemStatus.UNKNOWN, None):
             LOGGER.warning(
                 "Status for system %s is %s.", self.serial, raw_status
             )
             self.status = SystemStatus.UNKNOWN
-            raise AqualinkSystemOfflineException
+            return
         elif raw_status == "":
             LOGGER.debug("Empty status for system %s.", self.serial)
             self.status = SystemStatus.IN_PROGRESS
-            raise AqualinkSystemOfflineException
+            return
         elif raw_status != IaquaSystemStatus.ONLINE:
             LOGGER.warning(
                 "Unknown status %r for system %s.", raw_status, self.serial
             )
             self.status = SystemStatus.UNKNOWN
-            raise AqualinkSystemOfflineException
+            return
 
         self.status = SystemStatus.ONLINE
 

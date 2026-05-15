@@ -4,13 +4,14 @@ import urllib.parse
 from unittest.mock import MagicMock, patch
 
 import pytest
+import respx
+import respx.router
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
-    AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaAuxSwitch, IaquaOneTouchSwitch
@@ -21,6 +22,7 @@ from iaqualink.systems.iaqua.system import (
     IaquaSystem,
 )
 
+from ...base import dotstar, resp_200
 from ...base_test_system import TestBaseSystem
 
 
@@ -58,20 +60,22 @@ class TestIaquaSystem(TestBaseSystem):
         ):
             await super().test_refresh_success()
 
-    async def test_refresh_offline(self) -> None:
-        def _set_offline_raise(_response):
+    @respx.mock
+    async def test_refresh_offline(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        def _set_offline(_response):
             self.sut.status = SystemStatus.OFFLINE
-            raise AqualinkSystemOfflineException
 
+        respx_mock.route(dotstar).mock(resp_200)
         with (
             patch.object(
-                self.sut, "_parse_home_response", side_effect=_set_offline_raise
+                self.sut, "_parse_home_response", side_effect=_set_offline
             ),
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            with pytest.raises(AqualinkSystemOfflineException):
-                await super().test_refresh_success()
+            await self.sut.refresh()
         assert self.sut.status is SystemStatus.OFFLINE
 
     async def test_refresh_throttled(self) -> None:
@@ -264,8 +268,7 @@ class TestIaquaSystem(TestBaseSystem):
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_home_response(response)
+        self.sut._parse_home_response(response)
         assert self.sut.status is SystemStatus.OFFLINE
 
     async def test_parse_home_offline_when_service(self) -> None:
@@ -280,8 +283,7 @@ class TestIaquaSystem(TestBaseSystem):
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_home_response(response)
+        self.sut._parse_home_response(response)
         assert self.sut.status is SystemStatus.SERVICE
 
     async def test_parse_home_unknown_status(self) -> None:
@@ -296,8 +298,7 @@ class TestIaquaSystem(TestBaseSystem):
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_home_response(response)
+        self.sut._parse_home_response(response)
         assert self.sut.status is SystemStatus.UNKNOWN
 
     async def test_parse_home_empty_status(self) -> None:
@@ -312,8 +313,7 @@ class TestIaquaSystem(TestBaseSystem):
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_home_response(response)
+        self.sut._parse_home_response(response)
         assert self.sut.status is SystemStatus.IN_PROGRESS
 
     async def test_parse_home_missing_status(self) -> None:
@@ -324,8 +324,7 @@ class TestIaquaSystem(TestBaseSystem):
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_home_response(response)
+        self.sut._parse_home_response(response)
         assert self.sut.status is SystemStatus.UNKNOWN
 
     async def test_parse_home_unrecognised_status(self) -> None:
@@ -340,8 +339,7 @@ class TestIaquaSystem(TestBaseSystem):
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_home_response(response)
+        self.sut._parse_home_response(response)
         assert self.sut.status is SystemStatus.UNKNOWN
 
     async def test_parse_home_online(self) -> None:
