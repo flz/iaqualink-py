@@ -23,7 +23,7 @@ from iaqualink.device import (
     AqualinkSwitch,
     AqualinkThermostat,
 )
-from iaqualink.system import SystemStatus, SystemStatusColor, UnsupportedSystem
+from iaqualink.system import SystemStatus, UnsupportedSystem
 
 cli_module = importlib.import_module("iaqualink.cli.app")
 
@@ -41,10 +41,6 @@ class FakeSystem:
     @property
     def status(self) -> SystemStatus:
         return SystemStatus.UNKNOWN
-
-    @property
-    def status_color(self) -> SystemStatusColor:
-        return SystemStatusColor.RED
 
     @property
     def status_translated(self) -> str:

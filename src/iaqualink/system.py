@@ -29,25 +29,6 @@ class SystemStatus(enum.Enum):
     IN_PROGRESS = enum.auto()
 
 
-class SystemStatusColor(enum.Enum):
-    GREEN = "green"
-    RED = "red"
-    YELLOW = "yellow"
-    IN_PROGRESS = None  # spinner / no color
-
-
-_STATUS_COLOR_MAP: dict[SystemStatus, SystemStatusColor] = {
-    SystemStatus.CONNECTED: SystemStatusColor.GREEN,
-    SystemStatus.ONLINE: SystemStatusColor.GREEN,
-    SystemStatus.DISCONNECTED: SystemStatusColor.RED,
-    SystemStatus.OFFLINE: SystemStatusColor.RED,
-    SystemStatus.UNKNOWN: SystemStatusColor.RED,
-    SystemStatus.SERVICE: SystemStatusColor.YELLOW,
-    SystemStatus.FIRMWARE_UPDATE: SystemStatusColor.YELLOW,
-    SystemStatus.IN_PROGRESS: SystemStatusColor.IN_PROGRESS,
-}
-
-
 class AqualinkSystem:
     subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
 
@@ -110,10 +91,6 @@ class AqualinkSystem:
     @property
     def status(self) -> SystemStatus:
         raise NotImplementedError
-
-    @property
-    def status_color(self) -> SystemStatusColor:
-        return _STATUS_COLOR_MAP[self.status]
 
     @property
     def status_translated(self) -> str:

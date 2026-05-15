@@ -36,12 +36,10 @@ system.data              # Raw system data from API
 
 # System status
 system.status            # SystemStatus enum value
-system.status_color      # SystemStatusColor: GREEN, RED, YELLOW, or IN_PROGRESS
 system.status_translated # Human-readable string, e.g. "Online", "In Progress"
 ```
 
-See the per-system guides for the full status value mapping:
-[iAqua](iaqua.md#system-status) · [eXO](exo.md#system-status)
+See the per-system guides for the full status value mapping: [iAqua](iaqua.md#system-status) · [eXO](exo.md#system-status)
 
 ## Updating System State
 
