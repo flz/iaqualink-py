@@ -68,6 +68,14 @@ def _make_resp(status: int, data: dict | None = None) -> MagicMock:
     return r
 
 
+def _expected_sig(user_id: str, timestamp: str) -> str:
+    return hmac.new(
+        AQUALINK_API_SIGNING_KEY.encode(),
+        f"{user_id},{timestamp}".encode(),
+        hashlib.sha1,
+    ).hexdigest()
+
+
 class TestAqualinkClient(TestBase):
     def setUp(self) -> None:
         super().setUp()
@@ -282,7 +290,7 @@ class TestAqualinkClient(TestBase):
         assert self.client.logged is False
 
     @patch("httpx.AsyncClient.request")
-    async def test_login_fails_when_id_token_missing(
+    async def test_login_fails_when_id_token_empty(
         self, mock_request
     ) -> None:
         data = {**LOGIN_DATA, "userPoolOAuth": {"IdToken": ""}}
@@ -371,14 +379,7 @@ class TestAqualinkClient(TestBase):
         params = retry_call.kwargs["params"]
         assert params["user_id"] == "id"
         assert params["timestamp"] == "1000000000"
-        assert (
-            params["signature"]
-            == hmac.new(
-                AQUALINK_API_SIGNING_KEY.encode(),
-                b"id,1000000000",
-                hashlib.sha1,
-            ).hexdigest()
-        )
+        assert params["signature"] == _expected_sig("id", "1000000000")
         # Bearer token must use the refreshed IdToken, not the original.
         new_id_token = REFRESH_RESPONSE_DATA["userPoolOAuth"]["IdToken"]
         assert (
@@ -407,14 +408,7 @@ class TestAqualinkClient(TestBase):
         assert systems_call[0][1] == AQUALINK_DEVICES_URL
         assert params["user_id"] == "id"
         assert params["timestamp"] == "1234567890"
-        assert (
-            params["signature"]
-            == hmac.new(
-                AQUALINK_API_SIGNING_KEY.encode(),
-                b"id,1234567890",
-                hashlib.sha1,
-            ).hexdigest()
-        )
+        assert params["signature"] == _expected_sig("id", "1234567890")
         assert headers["Authorization"] == "Bearer userPoolOAuth:IdToken"
         assert headers["api_key"] == AQUALINK_API_KEY
 
