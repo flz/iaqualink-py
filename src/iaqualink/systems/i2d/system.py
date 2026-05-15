@@ -7,21 +7,16 @@ from typing import Any
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
-    AqualinkInvalidParameterException,
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.i2d.device import (
-    I2dBinaryState,
     I2dNumber,
     I2dSensor,
     I2dSwitch,
     I2dPump,
-    I2dOpMode,
-    SETTABLE_OPMODES,
-    _SETTABLE_OPMODE_SET,
 )
 
 import httpx
@@ -35,6 +30,10 @@ _RPM_HARDWARE_MIN_SVRS = 1050
 
 LOGGER = logging.getLogger("iaqualink")
 
+# Values captured from a real iQPump device. Some period/timer fields (e.g.
+# customspeedtimer=60, quickcleanperiod=8) fall outside the step-aligned ranges
+# enforced on write — that is expected; read values reflect device state and are
+# not required to satisfy write constraints.
 _MOCK_ALLDATA = {
     "alldata": {
         "motordata": {
@@ -167,12 +166,14 @@ _NUMBER_SPECS: list[
         25,
         "RPM",
     ),
-    # Temperature
+    # Temperature — API value is always °C (min=3, max=7, step=1).
+    # The app displays in °F (min=37, max=45, step=2) and converts before writing.
+    # If Fahrenheit support is added later, apply round(f_to_c(value)) before set_value.
     (
         "freezeprotectsetpointc",
         "Freeze Protect Setpoint",
-        0,
-        15,
+        3,
+        7,
         None,
         None,
         1,
@@ -325,35 +326,3 @@ class I2dSystem(AqualinkSystem):
                 self.devices[key] = I2dSensor(
                     self, shared_data, key=key, label=label, unit=unit
                 )
-
-    # --- Control methods ---
-
-    async def set_opmode(self, mode: I2dOpMode) -> None:
-        if mode not in _SETTABLE_OPMODE_SET:
-            valid = ", ".join(m.name for m in SETTABLE_OPMODES)
-            raise AqualinkInvalidParameterException(
-                f"{mode!r} is not user-settable. Valid: {valid}"
-            )
-        r = await self.send_control_command(
-            "/opmode/write", f"value={mode.value}"
-        )
-        r.raise_for_status()
-
-    async def set_custom_speed(self, rpm: int) -> None:
-        r = await self.send_control_command(
-            "/customspeedrpm/write", f"value={rpm}"
-        )
-        r.raise_for_status()
-
-    async def set_freeze_protect(self, enable: bool) -> None:
-        state = I2dBinaryState.ON if enable else I2dBinaryState.OFF
-        r = await self.send_control_command(
-            "/freezeprotectenable/write", f"value={state}"
-        )
-        r.raise_for_status()
-
-    async def set_freeze_protect_rpm(self, rpm: int) -> None:
-        r = await self.send_control_command(
-            "/freezeprotectrpm/write", f"value={rpm}"
-        )
-        r.raise_for_status()

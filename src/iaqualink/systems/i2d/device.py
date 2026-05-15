@@ -99,7 +99,6 @@ SETTABLE_OPMODES: tuple[I2dOpMode, ...] = (
     I2dOpMode.CUSTOM,
     I2dOpMode.STOP,
 )
-_SETTABLE_OPMODE_SET: frozenset[I2dOpMode] = frozenset(SETTABLE_OPMODES)
 
 
 class I2dPump(I2dDevice, AqualinkPump):
@@ -154,11 +153,17 @@ class I2dPump(I2dDevice, AqualinkPump):
 
     async def turn_on(self) -> None:
         if not self.is_on:
-            await self.system.set_opmode(I2dOpMode.CUSTOM)
+            r = await self.system.send_control_command(
+                "/opmode/write", f"value={I2dOpMode.CUSTOM}"
+            )
+            r.raise_for_status()
 
     async def turn_off(self) -> None:
         if self.is_on:
-            await self.system.set_opmode(I2dOpMode.STOP)
+            r = await self.system.send_control_command(
+                "/opmode/write", f"value={I2dOpMode.STOP}"
+            )
+            r.raise_for_status()
 
     # --- Speed percentage ---
 
@@ -176,7 +181,10 @@ class I2dPump(I2dDevice, AqualinkPump):
         raw = rpm_min + (rpm_max - rpm_min) * percentage / 100
         rounded = round(raw / _RPM_STEP) * _RPM_STEP
         rpm = max(rpm_min, min(rpm_max, rounded))
-        await self.system.set_custom_speed(rpm)
+        r = await self.system.send_control_command(
+            "/customspeedrpm/write", f"value={rpm}"
+        )
+        r.raise_for_status()
 
     # --- Presets (user-settable opmodes) ---
 
@@ -197,7 +205,10 @@ class I2dPump(I2dDevice, AqualinkPump):
             raise AqualinkInvalidParameterException(
                 f"{preset!r} is not a valid preset. Valid: {self.supported_presets}"
             )
-        await self.system.set_opmode(I2dOpMode[preset])
+        r = await self.system.send_control_command(
+            "/opmode/write", f"value={I2dOpMode[preset]}"
+        )
+        r.raise_for_status()
 
 
 class I2dNumber(I2dDevice, AqualinkNumber):
@@ -268,13 +279,6 @@ class I2dNumber(I2dDevice, AqualinkNumber):
     @property
     def unit(self) -> str | None:
         return self._unit
-
-    async def set_value(self, value: float) -> None:
-        if self._step != 1.0 and int(value) % int(self._step) != 0:
-            raise AqualinkInvalidParameterException(
-                f"{int(value)} is not a multiple of {int(self._step)}."
-            )
-        await super().set_value(value)
 
     async def _set_value(self, value: float) -> None:
         r = await self.system.send_control_command(

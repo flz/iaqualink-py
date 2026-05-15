@@ -197,10 +197,10 @@ class TestI2dNumber(unittest.IsolatedAsyncioTestCase):
         with pytest.raises(AqualinkInvalidParameterException):
             await num.set_value(1201.0)
 
-    async def test_set_value_step_1_skips_step_check(self):
+    async def test_set_value_step_1_any_integer_ok(self):
         num = _make_number({"quickcleanrpm": "3000"}, step=1.0)
         num.system.send_control_command = async_returns(MagicMock())
-        await num.set_value(3000.0)  # any integer fine with step=1
+        await num.set_value(3001.0)  # any integer is a multiple of 1
         num.system.send_control_command.assert_awaited_once()
 
     async def test_set_value_multiple_of_step_ok(self):
@@ -302,33 +302,33 @@ class TestI2dPump(unittest.IsolatedAsyncioTestCase):
         system.serial = "ABC123"
         return I2dPump(system, {"name": "ABC123", **data})
 
-    async def test_turn_on_when_off_calls_set_opmode_custom(self):
+    async def test_turn_on_when_off_sends_custom_opmode(self):
         pump = self._make_pump({"runstate": "off", "opmode": "2"})
-        pump.system.set_opmode = async_returns(None)
+        pump.system.send_control_command = async_returns(MagicMock())
         await pump.turn_on()
-        from iaqualink.systems.i2d.device import I2dOpMode
-
-        pump.system.set_opmode.assert_awaited_once_with(I2dOpMode.CUSTOM)
+        pump.system.send_control_command.assert_awaited_once_with(
+            "/opmode/write", "value=1"
+        )
 
     async def test_turn_on_when_already_on_does_nothing(self):
         pump = self._make_pump({"runstate": "on", "opmode": "1"})
-        pump.system.set_opmode = async_returns(None)
+        pump.system.send_control_command = async_returns(MagicMock())
         await pump.turn_on()
-        pump.system.set_opmode.assert_not_awaited()
+        pump.system.send_control_command.assert_not_awaited()
 
-    async def test_turn_off_when_on_calls_set_opmode_stop(self):
+    async def test_turn_off_when_on_sends_stop_opmode(self):
         pump = self._make_pump({"runstate": "on", "opmode": "1"})
-        pump.system.set_opmode = async_returns(None)
+        pump.system.send_control_command = async_returns(MagicMock())
         await pump.turn_off()
-        from iaqualink.systems.i2d.device import I2dOpMode
-
-        pump.system.set_opmode.assert_awaited_once_with(I2dOpMode.STOP)
+        pump.system.send_control_command.assert_awaited_once_with(
+            "/opmode/write", "value=2"
+        )
 
     async def test_turn_off_when_already_off_does_nothing(self):
         pump = self._make_pump({"runstate": "off", "opmode": "2"})
-        pump.system.set_opmode = async_returns(None)
+        pump.system.send_control_command = async_returns(MagicMock())
         await pump.turn_off()
-        pump.system.set_opmode.assert_not_awaited()
+        pump.system.send_control_command.assert_not_awaited()
 
     def test_current_preset_for_internal_mode_readable(self):
         from iaqualink.systems.i2d.device import I2dOpMode
@@ -346,23 +346,28 @@ class TestI2dPump(unittest.IsolatedAsyncioTestCase):
         pump = self._make_pump(
             {"globalrpmmin": "1050", "globalrpmmax": "3450", "productid": "0F"}
         )
-        pump.system.set_custom_speed = async_returns(None)
+        pump.system.send_control_command = async_returns(MagicMock())
         await pump.set_speed_percentage(0)
-        pump.system.set_custom_speed.assert_awaited_once_with(1050)
+        pump.system.send_control_command.assert_awaited_once_with(
+            "/customspeedrpm/write", "value=1050"
+        )
 
     async def test_set_speed_percentage_rounding(self):
         # 600 + (3450-600)*33/100 = 600 + 940.5 = 1540.5 → round to nearest 25 = 1550
         pump = self._make_pump({"globalrpmmin": "600", "globalrpmmax": "3450"})
-        pump.system.set_custom_speed = async_returns(None)
+        pump.system.send_control_command = async_returns(MagicMock())
         await pump.set_speed_percentage(33)
-        pump.system.set_custom_speed.assert_awaited_once_with(1550)
+        pump.system.send_control_command.assert_awaited_once_with(
+            "/customspeedrpm/write", "value=1550"
+        )
 
     async def test_set_speed_percentage_clamps_to_max(self):
-        # Edge: rounding could push above rpm_max — clamp.
         pump = self._make_pump({"globalrpmmin": "600", "globalrpmmax": "3450"})
-        pump.system.set_custom_speed = async_returns(None)
+        pump.system.send_control_command = async_returns(MagicMock())
         await pump.set_speed_percentage(100)
-        pump.system.set_custom_speed.assert_awaited_once_with(3450)
+        pump.system.send_control_command.assert_awaited_once_with(
+            "/customspeedrpm/write", "value=3450"
+        )
 
 
 class TestI2dBinaryState(unittest.TestCase):

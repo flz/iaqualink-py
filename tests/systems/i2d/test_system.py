@@ -25,6 +25,9 @@ from iaqualink.systems.i2d.system import I2dSystem
 
 from ...common import async_noop, async_raises, async_returns
 
+# Values captured from a real iQPump device. Some period/timer fields fall
+# outside the step-aligned write ranges — read values are not required to
+# satisfy write constraints.
 SAMPLE_DATA = {
     "alldata": {
         "motordata": {
@@ -272,21 +275,6 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         assert I2dOpMode.TIMED_RUN == "4"
         assert I2dOpMode.TIMEOUT == "5"
         assert I2dOpMode.SERVICE_OFF == "7"
-
-    async def test_set_opmode_valid_enum(self):
-        aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
-        await system.set_opmode(I2dOpMode.STOP)
-        system.send_control_command.assert_awaited_once_with(
-            "/opmode/write", "value=2"
-        )
-
-    async def test_set_opmode_invalid_raises(self):
-        aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        with pytest.raises(AqualinkInvalidParameterException):
-            await system.set_opmode(I2dOpMode.QUICK_CLEAN)
 
     def test_pump_supports_presets(self):
         aqualink = MagicMock()

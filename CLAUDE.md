@@ -181,8 +181,7 @@ The library follows a plugin-style architecture with base classes and system-spe
 - A single parse creates one device per logical entity, all sharing the same data dict so any `update()` refreshes all values atomically
 - Device breakdown per system:
   - `I2dPump` — main pump device; supports `turn_on`/`turn_off`, presets (SCHEDULE/CUSTOM/STOP), `set_speed_percentage(0–100)` normalized to hardware RPM range rounded to nearest 25
-  - `I2dNumber` — writable numeric setting (RPM, seconds, °C); validates range and step
-  - `I2dRpmBoundNumber` — `globalrpmmin`/`globalrpmmax` with hardware-specific bounds (non-SVRS: 600–3450, SVRS productid 0F/18: 1050–3450), step=25, enforces `min < max` cross-constraint
+  - `I2dNumber` — writable numeric setting (RPM, seconds, °C); validates range and step; `globalrpmmin`/`globalrpmmax` use live cross-bounds and a `_rpmhwmin` key injected at parse time from `productid` (non-SVRS: 600, SVRS 0F/18: 1050)
   - `I2dSwitch` — binary on/off setting (`I2dBinaryState.ON/OFF`)
   - `I2dSensor` — read-only telemetry (speed/RPM, power/W, temperature/°F, horsepower/HP)
 - Settable opmodes: SCHEDULE(0), CUSTOM(1), STOP(2); QUICK_CLEAN/TIMED_RUN/TIMEOUT/SERVICE_OFF are read-only (pump enters them automatically)
