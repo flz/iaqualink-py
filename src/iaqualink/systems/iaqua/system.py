@@ -4,11 +4,6 @@ import logging
 from typing import TYPE_CHECKING
 
 from iaqualink.const import AQUALINK_API_KEY
-from iaqualink.exception import (
-    AqualinkServiceException,
-    AqualinkServiceThrottledException,
-    AqualinkSystemOfflineException,
-)
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
     IaquaAuxSwitch,
@@ -52,6 +47,14 @@ IAQUA_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 IAQUA_COMMAND_SET_TEMPS = "set_temps"
 
 LOGGER = logging.getLogger("iaqualink")
+
+
+_IAQUA_STATUS_MAP: dict[str, SystemStatus] = {
+    IaquaSystemStatus.ONLINE: SystemStatus.ONLINE,
+    IaquaSystemStatus.OFFLINE: SystemStatus.OFFLINE,
+    IaquaSystemStatus.SERVICE: SystemStatus.SERVICE,
+    IaquaSystemStatus.UNKNOWN: SystemStatus.UNKNOWN,
+}
 
 
 class IaquaSystem(AqualinkSystem):
@@ -117,45 +120,20 @@ class IaquaSystem(AqualinkSystem):
     async def _send_onetouch_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_ONETOUCH)
 
-    async def update(self) -> None:
-        try:
-            r1 = await self._send_home_screen_request()
-            r2 = await self._send_devices_screen_request()
-        except AqualinkServiceThrottledException:
-            self.status = SystemStatus.UNKNOWN
-            raise
-        except AqualinkServiceException:
-            self.status = SystemStatus.ERROR
-            raise
+    async def _refresh(self) -> None:
+        # Only the home response determines system status; fetch and parse it
+        # first so we can skip subsequent requests when the system is not ONLINE.
+        r1 = await self._send_home_screen_request()
+        self._parse_home_response(r1)
+        if self.status is not SystemStatus.ONLINE:
+            return
 
-        # Parse the home response first so the onetouch flag is available
-        # before deciding whether to issue the onetouch request.
-        try:
-            self._parse_home_response(r1)
-        except AqualinkSystemOfflineException:
-            self.status = SystemStatus.OFFLINE
-            raise
+        r2 = await self._send_devices_screen_request()
+        self._parse_devices_response(r2)
 
-        r3 = None
         if self._onetouch_supported:
-            try:
-                r3 = await self._send_onetouch_screen_request()
-            except AqualinkServiceThrottledException:
-                self.status = SystemStatus.UNKNOWN
-                raise
-            except AqualinkServiceException:
-                self.status = SystemStatus.ERROR
-                raise
-
-        try:
-            self._parse_devices_response(r2)
-            if r3 is not None:
-                self._parse_onetouch_response(r3)
-        except AqualinkSystemOfflineException:
-            self.status = SystemStatus.OFFLINE
-            raise
-
-        self.status = SystemStatus.ONLINE
+            r3 = await self._send_onetouch_screen_request()
+            self._parse_onetouch_response(r3)
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -166,14 +144,15 @@ class IaquaSystem(AqualinkSystem):
         for x in data["home_screen"]:
             home.update(x)
 
-        if home["status"] in (
-            IaquaSystemStatus.OFFLINE,
-            IaquaSystemStatus.SERVICE,
-        ):
+        raw_status = home.get("status")
+        self.status = _IAQUA_STATUS_MAP.get(
+            raw_status or "", SystemStatus.UNKNOWN
+        )
+        if self.status is not SystemStatus.ONLINE:
             LOGGER.warning(
-                "Status for system %s is %s.", self.serial, home["status"]
+                "Status for system %s is %s.", self.serial, raw_status
             )
-            raise AqualinkSystemOfflineException
+            return
 
         if home["system_type"] == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")
@@ -216,9 +195,13 @@ class IaquaSystem(AqualinkSystem):
         LOGGER.debug("Devices response: %s", data)
 
         status = data["devices_screen"][0]["status"]
-        if status in (IaquaSystemStatus.OFFLINE, IaquaSystemStatus.SERVICE):
-            LOGGER.warning("Status for system %s is %s.", self.serial, status)
-            raise AqualinkSystemOfflineException
+        if status in (IaquaSystemStatus.OFFLINE, IaquaSystemStatus.SERVICE, ""):
+            LOGGER.warning(
+                "Skipping device update for system %s: devices_screen status is %s.",
+                self.serial,
+                status,
+            )
+            return
 
         for x in data["devices_screen"][3:]:
             for attr in next(iter(x.values())):
@@ -287,14 +270,18 @@ class IaquaSystem(AqualinkSystem):
         for x in data["onetouch_screen"]:
             onetouch.update(x)
 
-        if onetouch.get("status") in (
+        raw_ot_status = onetouch.get("status")
+        if raw_ot_status in (
             IaquaSystemStatus.OFFLINE,
             IaquaSystemStatus.SERVICE,
+            "",
         ):
             LOGGER.warning(
-                "Status for system %s is %s.", self.serial, onetouch["status"]
+                "Skipping onetouch update for system %s: onetouch_screen status is %s.",
+                self.serial,
+                raw_ot_status,
             )
-            raise AqualinkSystemOfflineException
+            return
 
         for name, val in onetouch.items():
             if not isinstance(val, list) or not name.startswith("onetouch_"):

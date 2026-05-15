@@ -3,13 +3,18 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from iaqualink.exception import (
-    AqualinkServiceException,
-    AqualinkServiceThrottledException,
-    AqualinkSystemOfflineException,
-)
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import ExoDevice
+
+_EXO_STATUS_MAP: dict[str, SystemStatus] = {
+    "connected": SystemStatus.CONNECTED,
+    "online": SystemStatus.ONLINE,
+    "offline": SystemStatus.OFFLINE,
+    "disconnected": SystemStatus.DISCONNECTED,
+    "unknown": SystemStatus.UNKNOWN,
+    "service": SystemStatus.SERVICE,
+    "firmware_update": SystemStatus.FIRMWARE_UPDATE,
+}
 
 if TYPE_CHECKING:
     import httpx
@@ -56,34 +61,42 @@ class ExoSystem(AqualinkSystem):
             method="post", json={"state": {"desired": state}}
         )
 
-    async def update(self) -> None:
-        try:
-            r = await self.send_reported_state_request()
-        except AqualinkServiceThrottledException:
-            self.status = SystemStatus.UNKNOWN
-            raise
-        except AqualinkServiceException:
-            self.status = SystemStatus.ERROR
-            raise
-
-        try:
-            self._parse_shadow_response(r)
-        except AqualinkSystemOfflineException:
-            self.status = SystemStatus.OFFLINE
-            raise
-
-        self.status = SystemStatus.ONLINE
+    async def _refresh(self) -> None:
+        r = await self.send_reported_state_request()
+        self._parse_shadow_response(r)
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()
 
         LOGGER.debug("Shadow response: %s", data)
 
+        raw_aws_status = (
+            data.get("state", {})
+            .get("reported", {})
+            .get("aws", {})
+            .get("status")
+        )
+        if raw_aws_status in (None, ""):
+            self.status = SystemStatus.UNKNOWN
+        else:
+            mapped = _EXO_STATUS_MAP.get(raw_aws_status)
+            if mapped is None:
+                LOGGER.warning(
+                    "Unknown aws.status %r for system %s; treating as Unknown.",
+                    raw_aws_status,
+                    self.serial,
+                )
+                self.status = SystemStatus.UNKNOWN
+            else:
+                self.status = mapped
+
         devices = {}
+
+        reported = data.get("state", {}).get("reported", {})
 
         # Process the chlorinator attributes[equipmen]
         # Make the data a bit flatter.
-        root = data["state"]["reported"]["equipment"]["swc_0"]
+        root = reported.get("equipment", {}).get("swc_0", {})
         for name, state in root.items():
             attrs = {"name": name}
             if isinstance(state, dict):
@@ -100,17 +113,15 @@ class ExoSystem(AqualinkSystem):
         devices.pop("version", None)
 
         # Process the heating control attributes
-        if "heating" in data["state"]["reported"]:
+        if "heating" in reported:
             name = "heating"
             attrs = {"name": name}
-            attrs.update(data["state"]["reported"]["heating"])
+            attrs.update(reported["heating"])
             devices.update({name: attrs})
             # extract heater state into seperate device to maintain homeassistant API
             name = "heater"
             attrs = {"name": name}
-            attrs.update(
-                {"state": data["state"]["reported"]["heating"]["state"]}
-            )
+            attrs.update({"state": reported["heating"]["state"]})
             devices.update({name: attrs})
 
         LOGGER.debug("devices: %s", devices)

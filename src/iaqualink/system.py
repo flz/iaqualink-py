@@ -5,6 +5,10 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, ClassVar
 
+from iaqualink.exception import (
+    AqualinkServiceException,
+    AqualinkServiceThrottledException,
+)
 from iaqualink.reauth import send_with_reauth_retry
 
 if TYPE_CHECKING:
@@ -18,11 +22,15 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger("iaqualink")
 
 
-class SystemStatus(enum.StrEnum):
-    UNKNOWN = "unknown"
-    OFFLINE = "offline"
-    ONLINE = "online"
-    ERROR = "error"
+class SystemStatus(enum.Enum):
+    CONNECTED = enum.auto()
+    ONLINE = enum.auto()
+    DISCONNECTED = enum.auto()
+    OFFLINE = enum.auto()
+    UNKNOWN = enum.auto()
+    SERVICE = enum.auto()
+    FIRMWARE_UPDATE = enum.auto()
+    IN_PROGRESS = enum.auto()
 
 
 class AqualinkSystem:
@@ -32,7 +40,7 @@ class AqualinkSystem:
         self.aqualink = aqualink
         self.data = data
         self.devices: dict[str, AqualinkDevice] = {}
-        self.status: SystemStatus = SystemStatus.UNKNOWN
+        self._status: SystemStatus = SystemStatus.IN_PROGRESS
 
     @classmethod
     def __init_subclass__(cls) -> None:
@@ -72,7 +80,7 @@ class AqualinkSystem:
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
         if not self.devices:
-            await self.update()
+            await self.refresh()
         return self.devices
 
     async def _send_with_reauth_retry(
@@ -84,17 +92,65 @@ class AqualinkSystem:
             self.aqualink._refresh_auth,
         )
 
-    async def update(self) -> None:
+    @property
+    def status(self) -> SystemStatus:
+        return self._status
+
+    @status.setter
+    def status(self, value: SystemStatus) -> None:
+        self._status = value
+
+    @property
+    def status_translated(self) -> str:
+        return self.status.name.replace("_", " ").title()
+
+    async def refresh(self) -> None:
+        self.status = SystemStatus.IN_PROGRESS
+        try:
+            await self._refresh()
+        except AqualinkServiceThrottledException:
+            self.status = SystemStatus.UNKNOWN
+            raise
+        except AqualinkServiceException:
+            self.status = SystemStatus.DISCONNECTED
+            raise
+        if self.status is SystemStatus.IN_PROGRESS:
+            LOGGER.warning(
+                "%s._refresh() returned without updating status",
+                type(self).__name__,
+            )
+
+    async def _refresh(self) -> None:
+        """Fetch and parse the latest state from the API.
+
+        Called by `refresh()`, which owns the status lifecycle. Implementors
+        must follow this contract:
+
+        **Status on normal return:**
+        Set `self.status` to a resolved value (anything except `IN_PROGRESS`)
+        before returning. `refresh()` logs a warning if status is still
+        `IN_PROGRESS` after `_refresh()` returns.
+
+        **`AqualinkServiceThrottledException` / `AqualinkServiceException`:**
+        Do not catch these. `refresh()` intercepts them and sets `UNKNOWN` or
+        `DISCONNECTED` respectively before re-raising.
+
+        **All other exceptions** propagate unchanged.
+        """
         raise NotImplementedError
 
 
 class UnsupportedSystem(AqualinkSystem):
+    def __init__(self, aqualink: AqualinkClient, data: Payload) -> None:
+        super().__init__(aqualink, data)
+        self.status = SystemStatus.UNKNOWN
+
     @property
     def supported(self) -> bool:
         return False
 
-    async def update(self) -> None:
-        LOGGER.debug("Skipping update for unsupported system %r", self.serial)
+    async def refresh(self) -> None:
+        LOGGER.debug("Skipping refresh for unsupported system %r", self.serial)
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
         LOGGER.debug(

@@ -30,7 +30,6 @@ from iaqualink.exception import (
     AqualinkOperationNotSupportedException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
-    AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.version import __version__
@@ -183,8 +182,6 @@ def _run_async(coro: Any) -> Any:
         _exit_with_error("Authentication failed.")
     except AqualinkServiceThrottledException as exc:
         _exit_with_error(str(exc))
-    except AqualinkSystemOfflineException as exc:
-        _exit_with_error(str(exc))
     except AqualinkInvalidParameterException as exc:
         _exit_with_error(str(exc))
     except AqualinkOperationNotSupportedException:
@@ -259,21 +256,28 @@ _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
 ]
 
 
-_STATUS_STYLE: dict[SystemStatus, str] = {
+_STATUS_DOT = "●"
+
+_STATUS_DOT_STYLE: dict[SystemStatus, str] = {
+    SystemStatus.CONNECTED: "bold green",
     SystemStatus.ONLINE: "bold green",
+    SystemStatus.DISCONNECTED: "bold red",
     SystemStatus.OFFLINE: "bold red",
-    SystemStatus.ERROR: "bold red",
-    SystemStatus.UNKNOWN: "dim",
+    SystemStatus.UNKNOWN: "bold red",
+    SystemStatus.SERVICE: "bold yellow",
+    SystemStatus.FIRMWARE_UPDATE: "bold yellow",
+    SystemStatus.IN_PROGRESS: "dim",
 }
 
 
 def _format_system_line(system: AqualinkSystem) -> Text:
     t = Text()
+    dot_style = _STATUS_DOT_STYLE[system.status]
+    t.append(f"{_STATUS_DOT} ", style=dot_style)
     t.append(system.name, style="bold")
     t.append(f" ({system.serial})", style="dim")
     t.append(f" [{system.data.get('device_type', 'unknown')}]", style="cyan")
-    style = _STATUS_STYLE.get(system.status, "")
-    t.append(f" {system.status}", style=style)
+    t.append(f" {system.status_translated}", style=dot_style)
     if not system.supported:
         t.append(" (unsupported)", style="bold red")
     return t

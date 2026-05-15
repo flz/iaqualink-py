@@ -32,12 +32,19 @@ app = cli_module.app
 
 class FakeSystem:
     supported = True
-    status = SystemStatus.UNKNOWN
 
     def __init__(self, serial: str, name: str) -> None:
         self.serial = serial
         self.name = name
         self.data = {"device_type": "iaqua"}
+
+    @property
+    def status(self) -> SystemStatus:
+        return SystemStatus.UNKNOWN
+
+    @property
+    def status_translated(self) -> str:
+        return "Unknown"
 
     async def get_devices(self) -> dict[str, object]:
         return {}

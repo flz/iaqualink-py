@@ -45,9 +45,9 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
         system = AqualinkSystem(aqualink, data)
         system.devices = None
 
-        with patch.object(system, "update") as mock_update:
+        with patch.object(system, "refresh") as mock_refresh:
             await system.get_devices()
-            mock_update.assert_called_once()
+            mock_refresh.assert_called_once()
 
     async def test_get_devices(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
@@ -55,17 +55,17 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
         system = AqualinkSystem(aqualink, data)
         system.devices = {"foo": "bar"}
 
-        with patch.object(system, "update") as mock_update:
+        with patch.object(system, "refresh") as mock_refresh:
             await system.get_devices()
-            mock_update.assert_not_called()
+            mock_refresh.assert_not_called()
 
-    async def test_update_not_implemented(self) -> None:
+    async def test_refresh_not_implemented(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
         aqualink = AqualinkClient("user", "pass")
         system = AqualinkSystem(aqualink, data)
 
         with pytest.raises(NotImplementedError):
-            await system.update()
+            await system.refresh()
 
 
 class TestUnsupportedSystem(unittest.IsolatedAsyncioTestCase):
@@ -89,8 +89,8 @@ class TestUnsupportedSystem(unittest.IsolatedAsyncioTestCase):
     def test_supported_false(self) -> None:
         assert self.system.supported is False
 
-    async def test_update_is_noop(self) -> None:
-        await self.system.update()
+    async def test_refresh_is_noop(self) -> None:
+        await self.system.refresh()
 
     async def test_get_devices_returns_empty(self) -> None:
         devices = await self.system.get_devices()

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import copy
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
+import respx.router
 
 from iaqualink.exception import (
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
-    AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import (
@@ -17,6 +19,9 @@ from iaqualink.systems.exo.device import (
 )
 from iaqualink.systems.exo.system import ExoSystem
 
+import respx
+
+from ...base import dotstar
 from ...base_test_system import TestBaseSystem
 
 SAMPLE_DATA = {
@@ -183,26 +188,30 @@ class TestExoSystem(TestBaseSystem):
         self.sut = AqualinkSystem.from_data(self.client, data=data)
         self.sut_class = ExoSystem
 
-    async def test_update_success(self) -> None:
-        with patch.object(self.sut, "_parse_shadow_response"):
-            await super().test_update_success()
+    @respx.mock
+    async def test_refresh_success(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(httpx.Response(200, json=SAMPLE_DATA))
+        await self.sut.refresh()
+        assert len(respx_mock.calls) > 0
+        assert self.sut.status is SystemStatus.CONNECTED
+        self.respx_calls = copy.copy(respx_mock.calls)
 
-    async def test_update_throttled(self) -> None:
+    async def test_refresh_throttled(self) -> None:
         with patch.object(self.sut, "send_reported_state_request") as mock_req:
             mock_req.side_effect = AqualinkServiceThrottledException
             with pytest.raises(AqualinkServiceThrottledException):
-                await self.sut.update()
+                await self.sut.refresh()
         assert self.sut.status is SystemStatus.UNKNOWN
 
-    async def test_update_offline(self) -> None:
-        with patch.object(self.sut, "_parse_shadow_response") as mock_parse:
-            mock_parse.side_effect = AqualinkSystemOfflineException
-            with pytest.raises(AqualinkSystemOfflineException):
-                await super().test_update_success()
-            assert self.sut.status is SystemStatus.OFFLINE
-
     async def test_get_devices_needs_update(self) -> None:
-        with patch.object(self.sut, "_parse_shadow_response"):
+        def _set_online(_response):
+            self.sut.status = SystemStatus.ONLINE
+
+        with patch.object(
+            self.sut, "_parse_shadow_response", side_effect=_set_online
+        ):
             await super().test_get_devices_needs_update()
 
     def test_parse_devices_good(self) -> None:
@@ -210,6 +219,7 @@ class TestExoSystem(TestBaseSystem):
         response.json.return_value = SAMPLE_DATA
         self.sut._parse_shadow_response(response)
 
+        assert self.sut.status is SystemStatus.CONNECTED
         assert len(self.sut.devices) > 0
         # Chemistry sensors
         assert "sns_1" in self.sut.devices
@@ -235,6 +245,48 @@ class TestExoSystem(TestBaseSystem):
         assert "vr" not in self.sut.devices
         assert "version" not in self.sut.devices
         assert "boost_time" not in self.sut.devices
+
+    def _make_shadow_response(self, aws_status: str | None) -> MagicMock:
+        import copy as _copy
+
+        data = _copy.deepcopy(SAMPLE_DATA)
+        if aws_status is None:
+            del data["state"]["reported"]["aws"]
+        else:
+            data["state"]["reported"]["aws"]["status"] = aws_status
+        response = MagicMock()
+        response.json.return_value = data
+        return response
+
+    def test_parse_shadow_absent_aws_status(self) -> None:
+        response = self._make_shadow_response(None)
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
+    def test_parse_shadow_empty_aws_status(self) -> None:
+        response = self._make_shadow_response("")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
+    def test_parse_shadow_disconnected(self) -> None:
+        response = self._make_shadow_response("disconnected")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.DISCONNECTED
+
+    def test_parse_shadow_service(self) -> None:
+        response = self._make_shadow_response("service")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.SERVICE
+
+    def test_parse_shadow_firmware_update(self) -> None:
+        response = self._make_shadow_response("firmware_update")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.FIRMWARE_UPDATE
+
+    def test_parse_shadow_unknown_string(self) -> None:
+        response = self._make_shadow_response("something_unknown")
+        self.sut._parse_shadow_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
 
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request(self, mock_request) -> None:

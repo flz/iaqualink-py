@@ -4,13 +4,14 @@ import urllib.parse
 from unittest.mock import MagicMock, patch
 
 import pytest
+import respx
+import respx.router
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
-    AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaAuxSwitch, IaquaOneTouchSwitch
@@ -21,6 +22,7 @@ from iaqualink.systems.iaqua.system import (
     IaquaSystem,
 )
 
+from ...base import dotstar, resp_200
 from ...base_test_system import TestBaseSystem
 
 
@@ -45,35 +47,49 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut = AqualinkSystem.from_data(self.client, data=data)
         self.sut_class = IaquaSystem
 
-    async def test_update_success(self) -> None:
+    def _set_online(self, _response: object) -> None:
+        self.sut.status = SystemStatus.ONLINE
+
+    async def test_refresh_success(self) -> None:
         with (
-            patch.object(self.sut, "_parse_home_response"),
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=self._set_online
+            ),
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            await super().test_update_success()
+            await super().test_refresh_success()
 
-    async def test_update_offline(self) -> None:
+    @respx.mock
+    async def test_refresh_offline(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        def _set_offline(_response):
+            self.sut.status = SystemStatus.OFFLINE
+
+        respx_mock.route(dotstar).mock(resp_200)
         with (
-            patch.object(self.sut, "_parse_home_response") as mock_parse,
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=_set_offline
+            ),
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            mock_parse.side_effect = AqualinkSystemOfflineException
-            with pytest.raises(AqualinkSystemOfflineException):
-                await super().test_update_success()
-            assert self.sut.status is SystemStatus.OFFLINE
+            await self.sut.refresh()
+        assert self.sut.status is SystemStatus.OFFLINE
 
-    async def test_update_throttled(self) -> None:
+    async def test_refresh_throttled(self) -> None:
         with patch.object(self.sut, "_send_home_screen_request") as mock_req:
             mock_req.side_effect = AqualinkServiceThrottledException
             with pytest.raises(AqualinkServiceThrottledException):
-                await self.sut.update()
+                await self.sut.refresh()
         assert self.sut.status is SystemStatus.UNKNOWN
 
     async def test_get_devices_needs_update(self) -> None:
         with (
-            patch.object(self.sut, "_parse_home_response"),
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=self._set_online
+            ),
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
@@ -87,8 +103,7 @@ class TestIaquaSystem(TestBaseSystem):
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_devices_response(response)
+        self.sut._parse_devices_response(response)
         assert self.sut.devices == {}
 
     async def test_parse_devices_good(self) -> None:
@@ -238,6 +253,21 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut._parse_home_response(response)
         assert self.sut.temp_unit is None
 
+    async def test_parse_home_offline(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Offline"},
+                {"response": ""},
+                {"system_type": ""},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.OFFLINE
+
     async def test_parse_home_offline_when_service(self) -> None:
         message = {
             "message": "",
@@ -250,16 +280,88 @@ class TestIaquaSystem(TestBaseSystem):
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_home_response(response)
+        self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.SERVICE
 
-    async def test_parse_devices_offline_when_service(self) -> None:
+    async def test_parse_home_unknown_status(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Unknown"},
+                {"response": ""},
+                {"system_type": ""},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
+    async def test_parse_home_empty_status(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": ""},
+                {"response": ""},
+                {"system_type": ""},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
+    async def test_parse_home_missing_status(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [{"response": ""}, {"system_type": ""}],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
+    async def test_parse_home_unrecognised_status(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Updating"},
+                {"response": ""},
+                {"system_type": ""},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.UNKNOWN
+
+    async def test_parse_home_online(self) -> None:
+        message = {
+            "message": "",
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "1"},
+                {"temp_scale": "F"},
+            ],
+        }
+        response = MagicMock()
+        response.json.return_value = message
+
+        self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.ONLINE
+
+    async def test_parse_devices_skipped_when_service(self) -> None:
         message = {"message": "", "devices_screen": [{"status": "Service"}]}
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_devices_response(response)
+        self.sut._parse_devices_response(response)
+        assert self.sut.devices == {}
 
     async def test_parse_home_skipped_on_empty_system_type(self) -> None:
         existing = MagicMock()
@@ -338,22 +440,21 @@ class TestIaquaSystem(TestBaseSystem):
         with pytest.raises(AqualinkServiceUnauthorizedException):
             await self.sut._send_devices_screen_request()
 
-    async def test_parse_onetouch_offline(self) -> None:
+    async def test_parse_onetouch_skipped_when_offline(self) -> None:
         message = {"message": "", "onetouch_screen": [{"status": "Offline"}]}
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_onetouch_response(response)
+        self.sut._parse_onetouch_response(response)
         assert self.sut.devices == {}
 
-    async def test_parse_onetouch_offline_when_service(self) -> None:
+    async def test_parse_onetouch_skipped_when_service(self) -> None:
         message = {"message": "", "onetouch_screen": [{"status": "Service"}]}
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_onetouch_response(response)
+        self.sut._parse_onetouch_response(response)
+        assert self.sut.devices == {}
 
     async def test_parse_onetouch_good(self) -> None:
         message = {
@@ -460,9 +561,10 @@ class TestIaquaSystem(TestBaseSystem):
             assert f"{IAQUA_COMMAND_SET_ONETOUCH}_1" in called_url
             mock_parse.assert_called_once_with(mock_request.return_value)
 
-    async def test_update_onetouch_failure_raises(self) -> None:
-        """A failing onetouch request raises and sets status to ERROR."""
+    async def test_refresh_onetouch_failure_raises(self) -> None:
+        """A failing onetouch request raises and sets status to DISCONNECTED."""
         self.sut._onetouch_supported = True
+
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
@@ -471,18 +573,21 @@ class TestIaquaSystem(TestBaseSystem):
                 "_send_onetouch_screen_request",
                 side_effect=AqualinkServiceException,
             ),
-            patch.object(self.sut, "_parse_home_response"),
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=self._set_online
+            ),
             patch.object(self.sut, "_parse_devices_response"),
         ):
             with pytest.raises(AqualinkServiceException):
-                await self.sut.update()
+                await self.sut.refresh()
 
-        assert self.sut.status is SystemStatus.ERROR
+        assert self.sut.status is SystemStatus.DISCONNECTED
         assert self.sut._onetouch_supported is True
 
-    async def test_update_onetouch_throttle_raises(self) -> None:
+    async def test_refresh_onetouch_throttle_raises(self) -> None:
         """A 429 on onetouch propagates and does not disable onetouch."""
         self.sut._onetouch_supported = True
+
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
@@ -491,31 +596,38 @@ class TestIaquaSystem(TestBaseSystem):
                 "_send_onetouch_screen_request",
                 side_effect=AqualinkServiceThrottledException,
             ),
-            patch.object(self.sut, "_parse_home_response"),
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=self._set_online
+            ),
             patch.object(self.sut, "_parse_devices_response"),
         ):
             with pytest.raises(AqualinkServiceThrottledException):
-                await self.sut.update()
+                await self.sut.refresh()
 
         assert self.sut.status is SystemStatus.UNKNOWN
         assert self.sut._onetouch_supported is True
 
-    async def test_update_onetouch_not_requested_when_unsupported(self) -> None:
+    async def test_refresh_onetouch_not_requested_when_unsupported(
+        self,
+    ) -> None:
         """When home response reports no onetouch, the request is never issued."""
+
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
             patch.object(
                 self.sut, "_send_onetouch_screen_request"
             ) as onetouch_req,
-            patch.object(self.sut, "_parse_home_response"),
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=self._set_online
+            ),
             patch.object(self.sut, "_parse_devices_response"),
         ):
             # _onetouch_supported starts None (falsy) — request must be skipped.
-            await self.sut.update()
+            await self.sut.refresh()
             assert onetouch_req.call_count == 0
 
-    async def test_update_onetouch_enabled_by_home_flag(self) -> None:
+    async def test_refresh_onetouch_enabled_by_home_flag(self) -> None:
         """onetouch='true' in home response enables onetouch polling."""
         message = {
             "onetouch": "true",
@@ -542,12 +654,12 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            await self.sut.update()
+            await self.sut.refresh()
             assert onetouch_req.call_count == 1
 
         assert self.sut._onetouch_supported is True
 
-    async def test_update_onetouch_disabled_by_home_flag(self) -> None:
+    async def test_refresh_onetouch_disabled_by_home_flag(self) -> None:
         """Absent or false onetouch flag in home response skips the request."""
         message = {
             "home_screen": [
@@ -573,7 +685,7 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            await self.sut.update()
+            await self.sut.refresh()
             assert onetouch_req.call_count == 0
 
         assert self.sut._onetouch_supported is False

@@ -104,7 +104,7 @@ async def system_status_report():
             print(f"Status: {system.status}")
             print(f"{'='*60}")
 
-            if system.status is not SystemStatus.ONLINE:
+            if system.status not in (SystemStatus.ONLINE, SystemStatus.CONNECTED):
                 print("System is offline")
                 continue
 
@@ -210,7 +210,7 @@ async def manage_multiple_systems():
         for serial, system in systems.items():
             print(f"\nSystem: {system.name}")
 
-            if system.status is not SystemStatus.ONLINE:
+            if system.status not in (SystemStatus.ONLINE, SystemStatus.CONNECTED):
                 print("  Status: OFFLINE")
                 continue
 
@@ -240,8 +240,8 @@ from iaqualink import (
     AqualinkClient,
     AqualinkServiceUnauthorizedException,
     AqualinkServiceException,
-    AqualinkSystemOfflineException,
 )
+from iaqualink.system import SystemStatus
 
 async def robust_control():
     try:
@@ -250,16 +250,16 @@ async def robust_control():
                 systems = await client.get_systems()
                 system = list(systems.values())[0]
 
-                try:
+                await system.refresh()
+                if system.status not in (SystemStatus.ONLINE, SystemStatus.CONNECTED):
+                    print(f"System not ready: {system.status_translated}")
+                else:
                     devices = await system.get_devices()
                     pool_pump = devices.get('pool_pump')
 
                     if pool_pump:
                         await pool_pump.turn_on()
                         print("Pool pump turned on successfully")
-
-                except AqualinkSystemOfflineException:
-                    print("System is offline")
 
             except AqualinkServiceException as e:
                 print(f"Service error: {e}")
