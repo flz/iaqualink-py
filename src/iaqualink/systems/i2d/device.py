@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from enum import IntEnum, StrEnum, unique
+from enum import StrEnum, unique
 from typing import TYPE_CHECKING
 
 from iaqualink.device import (
@@ -23,6 +23,12 @@ LOGGER = logging.getLogger("iaqualink")
 class I2dBinaryState(StrEnum):
     OFF = "0"
     ON = "1"
+
+
+@unique
+class I2dRunState(StrEnum):
+    ON = "on"
+    OFF = "off"
 
 
 _SVRS_PRODUCT_IDS: frozenset[str] = frozenset({"0F", "18"})
@@ -79,14 +85,14 @@ class I2dSensor(I2dDevice, AqualinkSensor):
 
 
 @unique
-class I2dOpMode(IntEnum):
-    SCHEDULE = 0
-    CUSTOM = 1
-    STOP = 2
-    QUICK_CLEAN = 3
-    TIMED_RUN = 4
-    TIMEOUT = 5
-    SERVICE_OFF = 7
+class I2dOpMode(StrEnum):
+    SCHEDULE = "0"
+    CUSTOM = "1"
+    STOP = "2"
+    QUICK_CLEAN = "3"
+    TIMED_RUN = "4"
+    TIMEOUT = "5"
+    SERVICE_OFF = "7"  # value 6 undefined in hardware protocol
 
 
 # Modes the user can request; others are entered automatically by the pump.
@@ -113,7 +119,7 @@ class I2dPump(I2dDevice, AqualinkPump):
 
     @property
     def state(self) -> str:
-        return self.data.get("runstate", "off")
+        return self.data.get("runstate", I2dRunState.OFF)
 
     @property
     def supports_turn_on(self) -> bool:
@@ -125,17 +131,15 @@ class I2dPump(I2dDevice, AqualinkPump):
 
     @property
     def is_on(self) -> bool:
-        return self.state == "on"
+        return self.data.get("runstate") == I2dRunState.ON
 
     # --- Configuration ---
 
     @property
     def opmode(self) -> I2dOpMode | None:
         val = self.data.get("opmode")
-        if val is None:
-            return None
         try:
-            return I2dOpMode(int(val))
+            return I2dOpMode(val) if val is not None else None
         except ValueError:
             return None
 

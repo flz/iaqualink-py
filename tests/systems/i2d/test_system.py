@@ -263,13 +263,13 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             await system.send_control_command("/alldata/read")
 
     def test_opmode_enum_values(self):
-        assert I2dOpMode.SCHEDULE == 0
-        assert I2dOpMode.CUSTOM == 1
-        assert I2dOpMode.STOP == 2
-        assert I2dOpMode.QUICK_CLEAN == 3
-        assert I2dOpMode.TIMED_RUN == 4
-        assert I2dOpMode.TIMEOUT == 5
-        assert I2dOpMode.SERVICE_OFF == 7
+        assert I2dOpMode.SCHEDULE == "0"
+        assert I2dOpMode.CUSTOM == "1"
+        assert I2dOpMode.STOP == "2"
+        assert I2dOpMode.QUICK_CLEAN == "3"
+        assert I2dOpMode.TIMED_RUN == "4"
+        assert I2dOpMode.TIMEOUT == "5"
+        assert I2dOpMode.SERVICE_OFF == "7"
 
     async def test_set_opmode_valid_enum(self):
         aqualink = MagicMock()
@@ -280,22 +280,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             "/opmode/write", "value=2"
         )
 
-    async def test_set_opmode_valid_int(self):
-        aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
-        await system.set_opmode(2)
-        system.send_control_command.assert_awaited_once_with(
-            "/opmode/write", "value=2"
-        )
-
     async def test_set_opmode_invalid_raises(self):
-        aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        with pytest.raises(AqualinkInvalidParameterException):
-            await system.set_opmode(99)
-
-    async def test_set_opmode_internal_mode_raises(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
         with pytest.raises(AqualinkInvalidParameterException):

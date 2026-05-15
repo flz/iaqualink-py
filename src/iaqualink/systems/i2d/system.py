@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
@@ -21,13 +21,11 @@ from iaqualink.systems.i2d.device import (
     I2dPump,
     I2dOpMode,
     I2dRpmBoundNumber,
+    SETTABLE_OPMODES,
     _SETTABLE_OPMODE_SET,
 )
 
 import httpx
-
-if TYPE_CHECKING:
-    pass
 
 
 I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
@@ -203,7 +201,7 @@ class I2dSystem(AqualinkSystem):
         attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
         return f"{self.__class__.__name__}({' '.join(attrs)})"
 
-    async def _send_command(
+    async def send_control_command(
         self, command: str, params: str = "", **kwargs: Any
     ) -> httpx.Response:
         if os.environ.get("IAQUALINK_I2D_MOCK"):
@@ -211,29 +209,26 @@ class I2dSystem(AqualinkSystem):
             return httpx.Response(
                 200, content=json.dumps(_MOCK_ALLDATA).encode()
             )
-        url = f"{I2D_CONTROL_URL}/{self.serial}/control.json"
-        headers = {
-            "Authorization": self.aqualink.id_token,
-            "api_key": AQUALINK_API_KEY,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-        body = {
-            "user_id": self.aqualink.user_id,
-            "command": command,
-            "params": params,
-        }
-        LOGGER.debug(
-            "i2d request: POST %s headers=%s body=%s", url, headers, body
-        )
-        return await self.aqualink.send_request(
-            url, method="post", headers=headers, json=body, **kwargs
-        )
 
-    async def send_control_command(
-        self, command: str, params: str = "", **kwargs: Any
-    ) -> httpx.Response:
-        return await self._send_command(command, params=params, **kwargs)
+        async def do_request() -> httpx.Response:
+            url = f"{I2D_CONTROL_URL}/{self.serial}/control.json"
+            headers = {
+                "Authorization": self.aqualink.id_token,
+                "api_key": AQUALINK_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+            body = {
+                "user_id": self.aqualink.user_id,
+                "command": command,
+                "params": params,
+            }
+            LOGGER.debug("i2d request: POST %s body=%s", url, body)
+            return await self.aqualink.send_request(
+                url, method="post", headers=headers, json=body, **kwargs
+            )
+
+        return await self._send_with_reauth_retry(do_request)
 
     async def update(self) -> None:
         try:
@@ -323,20 +318,10 @@ class I2dSystem(AqualinkSystem):
     # --- Control methods ---
 
     async def set_opmode(self, mode: I2dOpMode) -> None:
-        if not isinstance(mode, I2dOpMode):
-            try:
-                mode = I2dOpMode(mode)
-            except ValueError:
-                valid = ", ".join(
-                    f"{m.value}={m.name}" for m in _SETTABLE_OPMODE_SET
-                )
-                raise AqualinkInvalidParameterException(
-                    f"{mode!r} is not a valid operation mode. Valid: {valid}"
-                )
         if mode not in _SETTABLE_OPMODE_SET:
-            valid = ", ".join(m.name for m in _SETTABLE_OPMODE_SET)
+            valid = ", ".join(m.name for m in SETTABLE_OPMODES)
             raise AqualinkInvalidParameterException(
-                f"{mode.name} is not user-settable. Valid: {valid}"
+                f"{mode!r} is not user-settable. Valid: {valid}"
             )
         r = await self.send_control_command(
             "/opmode/write", f"value={mode.value}"
