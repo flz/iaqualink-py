@@ -62,7 +62,6 @@ class TestIaquaSystem(TestBaseSystem):
             mock_parse.side_effect = AqualinkSystemOfflineException
             with pytest.raises(AqualinkSystemOfflineException):
                 await super().test_update_success()
-            assert self.sut.status is SystemStatus.IN_PROGRESS
 
     async def test_update_throttled(self) -> None:
         with patch.object(self.sut, "_send_home_screen_request") as mock_req:

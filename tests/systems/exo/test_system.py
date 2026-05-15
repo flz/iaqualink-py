@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import copy
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
+import respx.router
 
 from iaqualink.exception import (
     AqualinkServiceThrottledException,
@@ -17,6 +20,9 @@ from iaqualink.systems.exo.device import (
 )
 from iaqualink.systems.exo.system import ExoSystem
 
+import respx
+
+from ...base import dotstar
 from ...base_test_system import TestBaseSystem
 
 SAMPLE_DATA = {
@@ -183,9 +189,15 @@ class TestExoSystem(TestBaseSystem):
         self.sut = AqualinkSystem.from_data(self.client, data=data)
         self.sut_class = ExoSystem
 
-    async def test_update_success(self) -> None:
-        with patch.object(self.sut, "_parse_shadow_response"):
-            await super().test_update_success()
+    @respx.mock
+    async def test_update_success(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(httpx.Response(200, json=SAMPLE_DATA))
+        await self.sut.update()
+        assert len(respx_mock.calls) > 0
+        assert self.sut.status is SystemStatus.CONNECTED
+        self.respx_calls = copy.copy(respx_mock.calls)
 
     async def test_update_throttled(self) -> None:
         with patch.object(self.sut, "send_reported_state_request") as mock_req:
@@ -199,7 +211,6 @@ class TestExoSystem(TestBaseSystem):
             mock_parse.side_effect = AqualinkSystemOfflineException
             with pytest.raises(AqualinkSystemOfflineException):
                 await super().test_update_success()
-            assert self.sut.status is SystemStatus.OFFLINE
 
     async def test_get_devices_needs_update(self) -> None:
         with patch.object(self.sut, "_parse_shadow_response"):

@@ -170,6 +170,10 @@ class IaquaSystem(AqualinkSystem):
         for x in data["home_screen"]:
             home.update(x)
 
+        # Any status that is not ONLINE raises AqualinkSystemOfflineException to
+        # preserve backwards-compatible behaviour: callers that catch that exception
+        # to detect non-ready systems continue to work regardless of the specific
+        # reason (offline, service mode, unknown, or still loading).
         raw_status = home.get("status")
         if raw_status == IaquaSystemStatus.OFFLINE:
             LOGGER.warning(

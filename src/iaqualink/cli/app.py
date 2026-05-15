@@ -259,7 +259,7 @@ _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
 ]
 
 
-_STATUS_DOT_CHAR = "● "
+_STATUS_DOT = "●"
 
 _STATUS_DOT_STYLE: dict[SystemStatus, str] = {
     SystemStatus.CONNECTED: "bold green",
@@ -276,7 +276,7 @@ _STATUS_DOT_STYLE: dict[SystemStatus, str] = {
 def _format_system_line(system: AqualinkSystem) -> Text:
     t = Text()
     dot_style = _STATUS_DOT_STYLE.get(system.status, "dim")
-    t.append(_STATUS_DOT_CHAR, style=dot_style)
+    t.append(f"{_STATUS_DOT} ", style=dot_style)
     t.append(system.name, style="bold")
     t.append(f" ({system.serial})", style="dim")
     t.append(f" [{system.data.get('device_type', 'unknown')}]", style="cyan")
