@@ -357,12 +357,12 @@ class TestAqualinkClient(TestBase):
         systems = await self.client.get_systems()
         assert len(systems) == 1
 
-    @patch("iaqualink.client.time")
+    @patch("iaqualink.client.time.time")
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_retries_after_refresh(
         self, mock_request, mock_time
     ) -> None:
-        mock_time.time.return_value = 1_000_000_000
+        mock_time.return_value = 1_000_000_000
         mock_request.side_effect = [
             _make_resp(200, LOGIN_DATA_WITH_REFRESH),
             _make_resp(401),
@@ -387,12 +387,12 @@ class TestAqualinkClient(TestBase):
             == f"Bearer {new_id_token}"
         )
 
-    @patch("iaqualink.client.time")
+    @patch("iaqualink.client.time.time")
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_v2_params_and_headers(
         self, mock_request, mock_time
     ) -> None:
-        mock_time.time.return_value = 1_234_567_890
+        mock_time.return_value = 1_234_567_890
         mock_request.side_effect = [
             _make_resp(200, LOGIN_DATA_WITH_REFRESH),
             _make_resp(200, []),
