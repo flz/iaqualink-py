@@ -81,7 +81,7 @@ AqualinkDevice (base)
 - Command execution
 - Type-specific behavior
 
-### 4. Request Signing Utilities
+### 4. Utilities
 
 **Location:** `src/iaqualink/util.py`
 
