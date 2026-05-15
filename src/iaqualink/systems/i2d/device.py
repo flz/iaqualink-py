@@ -4,7 +4,7 @@ import logging
 from enum import IntEnum, unique
 from typing import TYPE_CHECKING
 
-from iaqualink.device import AqualinkSwitch
+from iaqualink.device import AqualinkPump
 from iaqualink.exception import AqualinkInvalidParameterException
 
 if TYPE_CHECKING:
@@ -25,7 +25,7 @@ class IQPumpOpMode(IntEnum):
     SERVICE_OFF = 7
 
 
-class IQPumpDevice(AqualinkSwitch):
+class IQPumpDevice(AqualinkPump):
     def __init__(self, system: I2DSystem, data: DeviceData) -> None:
         super().__init__(system, data)
         self.system: I2DSystem = system
@@ -41,6 +41,14 @@ class IQPumpDevice(AqualinkSwitch):
     @property
     def state(self) -> str:
         return self.data.get("runstate", "off")
+
+    @property
+    def supports_turn_on(self) -> bool:
+        return True
+
+    @property
+    def supports_turn_off(self) -> bool:
+        return True
 
     @property
     def is_on(self) -> bool:
@@ -124,7 +132,6 @@ class IQPumpDevice(AqualinkSwitch):
             await self.system.set_opmode(IQPumpOpMode.STOP)
 
     async def set_speed(self, rpm: int) -> None:
-        """Set custom speed RPM, validating against the pump's configured min/max."""
         low = self.rpm_min or 600
         high = self.rpm_max or 3450
         if rpm not in range(low, high + 1):
