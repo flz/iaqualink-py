@@ -123,6 +123,27 @@ class AqualinkSystem:
         )
 
     async def _refresh(self) -> None:
+        """Fetch and parse the latest state from the API.
+
+        Called by `refresh()`, which owns the status lifecycle. Implementors
+        must follow this contract:
+
+        **Status on normal return:**
+        Set `self.status` to a resolved value (anything except `IN_PROGRESS`)
+        before returning. `refresh()` asserts this post-condition; failing it
+        raises `AssertionError`.
+
+        **`AqualinkSystemOfflineException`:**
+        Set `self.status` to the appropriate value (`OFFLINE`, `SERVICE`,
+        `UNKNOWN`, or `IN_PROGRESS`) *before* raising. `refresh()` re-raises
+        the exception without touching status.
+
+        **`AqualinkServiceThrottledException` / `AqualinkServiceException`:**
+        Do not catch these. `refresh()` intercepts them and sets `UNKNOWN` or
+        `DISCONNECTED` respectively before re-raising.
+
+        **All other exceptions** propagate unchanged.
+        """
         raise NotImplementedError
 
 

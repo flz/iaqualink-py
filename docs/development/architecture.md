@@ -159,11 +159,16 @@ client.get_systems()
 ### Device Refresh Flow
 
 ```
-system.update()
-      → Fetch from API (system-specific)
-      → Parse response
-      → Update device states
+system.refresh()                        ← public API; template method
+      → status = IN_PROGRESS
+      → await system._refresh()         ← system-specific implementation
+          → fetch from API
+          → parse response (sets status)
+          → update device states
+      → assert status != IN_PROGRESS
 ```
+
+See [System Status Lifecycle](#system-status-lifecycle) for exception handling.
 
 ### Command Flow
 
@@ -220,6 +225,61 @@ tests/
 
 **Mocking:** Uses `respx` for HTTP mocking
 
+## System Status Lifecycle
+
+`AqualinkSystem.refresh()` is a template method that owns the full status
+lifecycle. Concrete systems implement `_refresh()` and must follow the
+contract below.
+
+### What `refresh()` does automatically
+
+| Event | Status set |
+|-------|-----------|
+| Called | `IN_PROGRESS` |
+| `AqualinkServiceThrottledException` raised by `_refresh()` | `UNKNOWN` |
+| `AqualinkServiceException` raised (excluding offline) | `DISCONNECTED` |
+| `AqualinkSystemOfflineException` raised by `_refresh()` | *(unchanged — set by `_refresh()` before raising)* |
+| `_refresh()` returns normally | *(unchanged — set by `_refresh()`)* |
+
+### `_refresh()` contract
+
+**On normal return** — set `self.status` to a resolved value before returning.
+`refresh()` asserts `status != IN_PROGRESS` afterward; an unset status is a
+programming error and raises `AssertionError`.
+
+**Before raising `AqualinkSystemOfflineException`** — set `self.status` to the
+value that explains why (`OFFLINE`, `SERVICE`, `UNKNOWN`, `IN_PROGRESS` for
+an empty/loading state). `refresh()` re-raises the exception without touching
+status.
+
+**`AqualinkServiceThrottledException` / `AqualinkServiceException`** — do
+*not* catch these inside `_refresh()`. Let them propagate to `refresh()`,
+which maps them to `UNKNOWN` / `DISCONNECTED`.
+
+### Concrete implementations
+
+**iAqua** (`_parse_home_response` drives status):
+
+| `home_screen.status` | Status set | Exception raised |
+|---|---|---|
+| `"Online"` | `ONLINE` | — |
+| `"Offline"` | `OFFLINE` | `AqualinkSystemOfflineException` |
+| `"Service"` | `SERVICE` | `AqualinkSystemOfflineException` |
+| `"Unknown"` / absent | `UNKNOWN` | `AqualinkSystemOfflineException` |
+| `""` | `IN_PROGRESS` | `AqualinkSystemOfflineException` |
+| unrecognised string | `UNKNOWN` + warning | `AqualinkSystemOfflineException` |
+
+**eXO** (`_parse_shadow_response` drives status via `state.reported.aws.status`):
+
+| `aws.status` | Status set |
+|---|---|
+| `"connected"` | `CONNECTED` |
+| `"online"` | `ONLINE` |
+| absent key | `ONLINE` |
+| `""` | `IN_PROGRESS` |
+| other known values | mapped directly |
+| unrecognised string | `UNKNOWN` + warning |
+
 ## Error Handling
 
 **Exception Hierarchy:**
@@ -250,21 +310,21 @@ touch src/iaqualink/systems/newsystem/device.py
 
 ```python
 # src/iaqualink/systems/newsystem/system.py
-from iaqualink.system import AqualinkSystem
+from iaqualink.system import AqualinkSystem, SystemStatus
 
 class NewSystem(AqualinkSystem):
     NAME = "newsystem"  # Must match device_type from API
 
-    async def _update_impl(self):
-        """Fetch and parse system state."""
-        # Implementation here
-        pass
+    async def _refresh(self) -> None:
+        r = await self._send_state_request()
+        self._parse_state_response(r)   # must set self.status before returning
 
-    async def _send_command(self, device, command):
-        """Send command to device."""
-        # Implementation here
-        pass
+    def _parse_state_response(self, response) -> None:
+        # ... parse logic ...
+        self.status = SystemStatus.ONLINE   # required before returning
 ```
+
+See [System Status Lifecycle](#system-status-lifecycle) for the full `_refresh()` contract.
 
 ### 3. Implement Device Classes
 
