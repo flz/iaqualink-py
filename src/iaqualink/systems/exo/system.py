@@ -76,10 +76,8 @@ class ExoSystem(AqualinkSystem):
             .get("aws", {})
             .get("status")
         )
-        if raw_aws_status is None:
+        if raw_aws_status in (None, ""):
             self.status = SystemStatus.UNKNOWN
-        elif raw_aws_status == "":
-            self.status = SystemStatus.IN_PROGRESS
         else:
             mapped = _EXO_STATUS_MAP.get(raw_aws_status)
             if mapped is None:

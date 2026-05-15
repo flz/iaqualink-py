@@ -266,7 +266,7 @@ class TestExoSystem(TestBaseSystem):
     def test_parse_shadow_empty_aws_status(self) -> None:
         response = self._make_shadow_response("")
         self.sut._parse_shadow_response(response)
-        assert self.sut.status is SystemStatus.IN_PROGRESS
+        assert self.sut.status is SystemStatus.UNKNOWN
 
     def test_parse_shadow_disconnected(self) -> None:
         response = self._make_shadow_response("disconnected")

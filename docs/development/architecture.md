@@ -265,7 +265,7 @@ to determine whether the system is ready.
 | `"Offline"` | `OFFLINE` |
 | `"Service"` | `SERVICE` |
 | `"Unknown"` / absent | `UNKNOWN` |
-| `""` | `IN_PROGRESS` |
+| `""` | `UNKNOWN` |
 | unrecognised string | `UNKNOWN` + warning |
 
 **eXO** (`_parse_shadow_response` drives status via `state.reported.aws.status`):
@@ -275,7 +275,7 @@ to determine whether the system is ready.
 | `"connected"` | `CONNECTED` |
 | `"online"` | `ONLINE` |
 | absent key | `UNKNOWN` |
-| `""` | `IN_PROGRESS` |
+| `""` | `UNKNOWN` |
 | other known values | mapped directly |
 | unrecognised string | `UNKNOWN` + warning |
 

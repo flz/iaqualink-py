@@ -149,15 +149,11 @@ class IaquaSystem(AqualinkSystem):
             )
             self.status = SystemStatus.SERVICE
             return
-        elif raw_status in (IaquaSystemStatus.UNKNOWN, None):
+        elif raw_status in (IaquaSystemStatus.UNKNOWN, None, ""):
             LOGGER.warning(
                 "Status for system %s is %s.", self.serial, raw_status
             )
             self.status = SystemStatus.UNKNOWN
-            return
-        elif raw_status == "":
-            LOGGER.debug("Empty status for system %s.", self.serial)
-            self.status = SystemStatus.IN_PROGRESS
             return
         elif raw_status != IaquaSystemStatus.ONLINE:
             LOGGER.warning(

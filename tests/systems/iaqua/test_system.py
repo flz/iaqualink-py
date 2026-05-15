@@ -314,7 +314,7 @@ class TestIaquaSystem(TestBaseSystem):
         response.json.return_value = message
 
         self.sut._parse_home_response(response)
-        assert self.sut.status is SystemStatus.IN_PROGRESS
+        assert self.sut.status is SystemStatus.UNKNOWN
 
     async def test_parse_home_missing_status(self) -> None:
         message = {
