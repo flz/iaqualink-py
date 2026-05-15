@@ -20,7 +20,6 @@ from iaqualink.systems.i2d.device import (
     I2dSwitch,
     I2dPump,
     I2dOpMode,
-    I2dRpmBoundNumber,
     SETTABLE_OPMODES,
     _SETTABLE_OPMODE_SET,
 )
@@ -29,6 +28,10 @@ import httpx
 
 
 I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
+
+_SVRS_PRODUCT_IDS: frozenset[str] = frozenset({"0F", "18"})
+_RPM_HARDWARE_MIN_DEFAULT = 600
+_RPM_HARDWARE_MIN_SVRS = 1050
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -92,6 +95,27 @@ _NUMBER_SPECS: list[
         str, str, float | None, float | None, str | None, str | None, float, str
     ]
 ] = [
+    # Hardware RPM limits — _rpmhwmin injected at parse time from productid
+    (
+        "globalrpmmin",
+        "Global RPM Min",
+        None,
+        None,
+        "_rpmhwmin",
+        "globalrpmmax",
+        25,
+        "RPM",
+    ),
+    (
+        "globalrpmmax",
+        "Global RPM Max",
+        None,
+        3450,
+        "globalrpmmin",
+        None,
+        25,
+        "RPM",
+    ),
     # RPM settings — bounds read live from globalrpmmin/globalrpmmax
     (
         "customspeedrpm",
@@ -170,14 +194,6 @@ _NUMBER_SPECS: list[
     ),
     ("countdownperiod", "Countdown Period", 3600, 86400, None, None, 3600, "s"),
     ("timeoutperiod", "Timeout Period", 3600, 86400, None, None, 3600, "s"),
-]
-
-# globalrpmmin/globalrpmmax use hardware-specific bounds, multiples of 25, and
-# enforce the invariant that min < max.
-# (key, label, cross_key, value_lt_cross)
-_RPM_BOUND_SPECS: list[tuple[str, str, str, bool]] = [
-    ("globalrpmmin", "Global RPM Min", "globalrpmmax", True),
-    ("globalrpmmax", "Global RPM Max", "globalrpmmin", False),
 ]
 
 _SWITCH_SPECS: list[tuple[str, str]] = [
@@ -267,6 +283,12 @@ class I2dSystem(AqualinkSystem):
         # Flatten motordata into the top-level dict for cleaner device access.
         motordata = alldata.get("motordata", {})
         device_data = {"name": self.serial, **alldata, **motordata}
+        # Inject hardware RPM floor so I2dNumber can use it as a live min_key.
+        device_data["_rpmhwmin"] = str(
+            _RPM_HARDWARE_MIN_SVRS
+            if device_data.get("productid") in _SVRS_PRODUCT_IDS
+            else _RPM_HARDWARE_MIN_DEFAULT
+        )
 
         if self.serial in self.devices:
             self.devices[self.serial].data.update(device_data)
@@ -290,17 +312,6 @@ class I2dSystem(AqualinkSystem):
                     max_key=mx_key,
                     step=step,
                     unit=unit,
-                )
-
-        for key, label, cross_key, value_lt_cross in _RPM_BOUND_SPECS:
-            if key not in self.devices:
-                self.devices[key] = I2dRpmBoundNumber(
-                    self,
-                    shared_data,
-                    key=key,
-                    label=label,
-                    cross_key=cross_key,
-                    value_lt_cross=value_lt_cross,
                 )
 
         for key, label in _SWITCH_SPECS:

@@ -169,20 +169,22 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         assert qc.max_value == 3450.0
         assert qc.unit == "RPM"
 
-        from iaqualink.systems.i2d.device import I2dRpmBoundNumber
-
         cs = system.devices["customspeedrpm"]
         assert isinstance(cs, I2dNumber)
         assert cs.current_value == 1500.0
 
         rpmmin = system.devices["globalrpmmin"]
-        assert isinstance(rpmmin, I2dRpmBoundNumber)
-        assert rpmmin.min_value == 600.0  # productid "1A" = non-SVRS
-        assert rpmmin.max_value == 3450.0
+        assert isinstance(rpmmin, I2dNumber)
+        assert (
+            rpmmin.min_value == 600.0
+        )  # productid "1A" = non-SVRS, _rpmhwmin=600
+        assert rpmmin.max_value == 3450.0  # live from globalrpmmax
         assert rpmmin.step == 25.0
 
         rpmmax = system.devices["globalrpmmax"]
-        assert isinstance(rpmmax, I2dRpmBoundNumber)
+        assert isinstance(rpmmax, I2dNumber)
+        assert rpmmax.min_value == 600.0  # live from globalrpmmin
+        assert rpmmax.max_value == 3450.0
 
         sp = system.devices["freezeprotectsetpointc"]
         assert isinstance(sp, I2dNumber)

@@ -11,7 +11,6 @@ from iaqualink.systems.i2d.device import (
     I2dNumber,
     I2dSensor,
     I2dSwitch,
-    I2dRpmBoundNumber,
 )
 
 from ...common import async_returns
@@ -293,119 +292,6 @@ class TestI2dSwitch(unittest.IsolatedAsyncioTestCase):
         sw.system.send_control_command.assert_awaited_once_with(
             "/freezeprotectenable/write", "value=0"
         )
-
-
-def _make_rpm_bound(
-    data: dict, key: str = "globalrpmmin", *, value_lt_cross: bool = True
-) -> I2dRpmBoundNumber:
-    system = MagicMock()
-    system.serial = "ABC123"
-    cross_key = "globalrpmmax" if value_lt_cross else "globalrpmmin"
-    return I2dRpmBoundNumber(
-        system,
-        data,
-        key=key,
-        label="Global RPM Min" if value_lt_cross else "Global RPM Max",
-        cross_key=cross_key,
-        value_lt_cross=value_lt_cross,
-    )
-
-
-class TestI2dRpmBoundNumber(unittest.IsolatedAsyncioTestCase):
-    def test_min_value_non_svrs(self):
-        num = _make_rpm_bound(
-            {"productid": "1A", "globalrpmmin": "600", "globalrpmmax": "3450"}
-        )
-        assert num.min_value == 600.0
-
-    def test_min_value_svrs_0f(self):
-        num = _make_rpm_bound(
-            {"productid": "0F", "globalrpmmin": "1050", "globalrpmmax": "3450"}
-        )
-        assert num.min_value == 1050.0
-
-    def test_min_value_svrs_18(self):
-        num = _make_rpm_bound(
-            {"productid": "18", "globalrpmmin": "1050", "globalrpmmax": "3450"}
-        )
-        assert num.min_value == 1050.0
-
-    def test_min_value_missing_productid(self):
-        num = _make_rpm_bound({"globalrpmmin": "600", "globalrpmmax": "3450"})
-        assert num.min_value == 600.0
-
-    def test_max_value_always_3450(self):
-        num = _make_rpm_bound(
-            {"productid": "0F", "globalrpmmin": "1050", "globalrpmmax": "3450"}
-        )
-        assert num.max_value == 3450.0
-
-    def test_step_is_25(self):
-        num = _make_rpm_bound({})
-        assert num.step == 25.0
-
-    def test_unit_is_rpm(self):
-        num = _make_rpm_bound({})
-        assert num.unit == "RPM"
-
-    async def test_set_value_not_multiple_of_25_raises(self):
-        num = _make_rpm_bound(
-            {"productid": "1A", "globalrpmmin": "600", "globalrpmmax": "3450"}
-        )
-        num.system.send_control_command = async_returns(MagicMock())
-        with pytest.raises(AqualinkInvalidParameterException):
-            await num.set_value(1201.0)
-
-    async def test_set_value_multiple_of_25_ok(self):
-        num = _make_rpm_bound(
-            {"productid": "1A", "globalrpmmin": "600", "globalrpmmax": "3450"}
-        )
-        num.system.send_control_command = async_returns(MagicMock())
-        await num.set_value(1200.0)
-        num.system.send_control_command.assert_awaited_once_with(
-            "/globalrpmmin/write", "value=1200"
-        )
-
-    async def test_globalrpmmin_gte_globalrpmmax_raises(self):
-        num = _make_rpm_bound(
-            {"productid": "1A", "globalrpmmin": "600", "globalrpmmax": "3450"}
-        )
-        num.system.send_control_command = async_returns(MagicMock())
-        with pytest.raises(AqualinkInvalidParameterException):
-            await num.set_value(3450.0)  # equal — not strictly less
-
-    async def test_globalrpmmax_lte_globalrpmmin_raises(self):
-        num = _make_rpm_bound(
-            {"productid": "1A", "globalrpmmin": "600", "globalrpmmax": "3450"},
-            key="globalrpmmax",
-            value_lt_cross=False,
-        )
-        num.system.send_control_command = async_returns(MagicMock())
-        with pytest.raises(AqualinkInvalidParameterException):
-            await num.set_value(600.0)  # equal — not strictly greater
-
-    async def test_below_hardware_min_raises(self):
-        num = _make_rpm_bound(
-            {"productid": "1A", "globalrpmmin": "600", "globalrpmmax": "3450"}
-        )
-        num.system.send_control_command = async_returns(MagicMock())
-        with pytest.raises(AqualinkInvalidParameterException):
-            await num.set_value(575.0)
-
-    async def test_svrs_below_1050_raises(self):
-        num = _make_rpm_bound(
-            {"productid": "0F", "globalrpmmin": "1050", "globalrpmmax": "3450"}
-        )
-        num.system.send_control_command = async_returns(MagicMock())
-        with pytest.raises(AqualinkInvalidParameterException):
-            await num.set_value(600.0)  # valid for non-SVRS, invalid for SVRS
-
-    async def test_cross_key_missing_skips_cross_check(self):
-        # If globalrpmmax not in data, cross-constraint skipped, value still validated.
-        num = _make_rpm_bound({"productid": "1A", "globalrpmmin": "600"})
-        num.system.send_control_command = async_returns(MagicMock())
-        await num.set_value(1200.0)
-        num.system.send_control_command.assert_awaited_once()
 
 
 class TestI2dPump(unittest.IsolatedAsyncioTestCase):

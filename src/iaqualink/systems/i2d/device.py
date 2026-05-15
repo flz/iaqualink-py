@@ -31,9 +31,7 @@ class I2dRunState(StrEnum):
     OFF = "off"
 
 
-_SVRS_PRODUCT_IDS: frozenset[str] = frozenset({"0F", "18"})
 _RPM_HARDWARE_MIN_DEFAULT = 600
-_RPM_HARDWARE_MIN_SVRS = 1050
 _RPM_HARDWARE_MAX = 3450
 _RPM_STEP = 25
 
@@ -283,59 +281,6 @@ class I2dNumber(I2dDevice, AqualinkNumber):
             f"/{self._key}/write", f"value={int(value)}"
         )
         r.raise_for_status()
-
-
-class I2dRpmBoundNumber(I2dNumber):
-    """globalrpmmin or globalrpmmax — hardware-specific bounds, multiples of 25, cross-constraint."""
-
-    def __init__(
-        self,
-        system: I2dSystem,
-        data: DeviceData,
-        key: str,
-        label: str,
-        *,
-        cross_key: str,
-        value_lt_cross: bool,
-    ) -> None:
-        super().__init__(
-            system,
-            data,
-            key=key,
-            label=label,
-            min_value=_RPM_HARDWARE_MIN_DEFAULT,
-            max_value=_RPM_HARDWARE_MAX,
-            step=_RPM_STEP,
-            unit="RPM",
-        )
-        self._cross_key = cross_key
-        self._value_lt_cross = value_lt_cross
-
-    @property
-    def min_value(self) -> float:
-        if self.data.get("productid") in _SVRS_PRODUCT_IDS:
-            return float(_RPM_HARDWARE_MIN_SVRS)
-        return float(_RPM_HARDWARE_MIN_DEFAULT)
-
-    @property
-    def max_value(self) -> float:
-        return float(_RPM_HARDWARE_MAX)
-
-    async def set_value(self, value: float) -> None:
-        cross_str = self.data.get(self._cross_key)
-        if cross_str is not None:
-            cross = float(cross_str)
-            if self._value_lt_cross and value >= cross:
-                raise AqualinkInvalidParameterException(
-                    f"{self._key} ({int(value)}) must be less than"
-                    f" {self._cross_key} ({int(cross)})."
-                )
-            if not self._value_lt_cross and value <= cross:
-                raise AqualinkInvalidParameterException(
-                    f"{self._key} ({int(value)}) must be greater than"
-                    f" {self._cross_key} ({int(cross)})."
-                )
-        await super().set_value(value)
 
 
 class I2dSwitch(I2dDevice, AqualinkSwitch):
