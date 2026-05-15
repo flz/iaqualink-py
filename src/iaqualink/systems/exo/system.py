@@ -67,19 +67,15 @@ class ExoSystem(AqualinkSystem):
             method="post", json={"state": {"desired": state}}
         )
 
-    @property
-    def status(self) -> SystemStatus:
-        return self._status
-
     async def update(self) -> None:
-        self._status = SystemStatus.IN_PROGRESS
+        self.status = SystemStatus.IN_PROGRESS
         try:
             r = await self.send_reported_state_request()
         except AqualinkServiceThrottledException:
-            self._status = SystemStatus.UNKNOWN
+            self.status = SystemStatus.UNKNOWN
             raise
         except AqualinkServiceException:
-            self._status = SystemStatus.DISCONNECTED
+            self.status = SystemStatus.DISCONNECTED
             raise
 
         try:
@@ -99,9 +95,9 @@ class ExoSystem(AqualinkSystem):
             .get("status")
         )
         if raw_aws_status is None:
-            self._status = SystemStatus.ONLINE
+            self.status = SystemStatus.ONLINE
         elif raw_aws_status == "":
-            self._status = SystemStatus.IN_PROGRESS
+            self.status = SystemStatus.IN_PROGRESS
         else:
             mapped = _EXO_STATUS_MAP.get(raw_aws_status)
             if mapped is None:
@@ -110,9 +106,9 @@ class ExoSystem(AqualinkSystem):
                     raw_aws_status,
                     self.serial,
                 )
-                self._status = SystemStatus.UNKNOWN
+                self.status = SystemStatus.UNKNOWN
             else:
-                self._status = mapped
+                self.status = mapped
 
         devices = {}
 

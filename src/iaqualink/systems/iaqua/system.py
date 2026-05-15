@@ -117,20 +117,16 @@ class IaquaSystem(AqualinkSystem):
     async def _send_onetouch_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_ONETOUCH)
 
-    @property
-    def status(self) -> SystemStatus:
-        return self._status
-
     async def update(self) -> None:
-        self._status = SystemStatus.IN_PROGRESS
+        self.status = SystemStatus.IN_PROGRESS
         try:
             r1 = await self._send_home_screen_request()
             r2 = await self._send_devices_screen_request()
         except AqualinkServiceThrottledException:
-            self._status = SystemStatus.UNKNOWN
+            self.status = SystemStatus.UNKNOWN
             raise
         except AqualinkServiceException:
-            self._status = SystemStatus.DISCONNECTED
+            self.status = SystemStatus.DISCONNECTED
             raise
 
         # Parse the home response first so the onetouch flag is available
@@ -146,10 +142,10 @@ class IaquaSystem(AqualinkSystem):
             try:
                 r3 = await self._send_onetouch_screen_request()
             except AqualinkServiceThrottledException:
-                self._status = SystemStatus.UNKNOWN
+                self.status = SystemStatus.UNKNOWN
                 raise
             except AqualinkServiceException:
-                self._status = SystemStatus.DISCONNECTED
+                self.status = SystemStatus.DISCONNECTED
                 raise
 
         try:
@@ -159,7 +155,7 @@ class IaquaSystem(AqualinkSystem):
         except AqualinkSystemOfflineException:
             raise
 
-        self._status = SystemStatus.ONLINE
+        self.status = SystemStatus.ONLINE
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -179,23 +175,23 @@ class IaquaSystem(AqualinkSystem):
             LOGGER.warning(
                 "Status for system %s is %s.", self.serial, raw_status
             )
-            self._status = SystemStatus.OFFLINE
+            self.status = SystemStatus.OFFLINE
             raise AqualinkSystemOfflineException
         elif raw_status == IaquaSystemStatus.SERVICE:
             LOGGER.warning(
                 "Status for system %s is %s.", self.serial, raw_status
             )
-            self._status = SystemStatus.SERVICE
+            self.status = SystemStatus.SERVICE
             raise AqualinkSystemOfflineException
         elif raw_status in (IaquaSystemStatus.UNKNOWN, None):
             LOGGER.warning(
                 "Status for system %s is %s.", self.serial, raw_status
             )
-            self._status = SystemStatus.UNKNOWN
+            self.status = SystemStatus.UNKNOWN
             raise AqualinkSystemOfflineException
         elif raw_status == "":
             LOGGER.debug("Empty status for system %s.", self.serial)
-            self._status = SystemStatus.IN_PROGRESS
+            self.status = SystemStatus.IN_PROGRESS
             raise AqualinkSystemOfflineException
 
         if home["system_type"] == "":

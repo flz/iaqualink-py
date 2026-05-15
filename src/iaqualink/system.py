@@ -90,7 +90,11 @@ class AqualinkSystem:
 
     @property
     def status(self) -> SystemStatus:
-        raise NotImplementedError
+        return self._status
+
+    @status.setter
+    def status(self, value: SystemStatus) -> None:
+        self._status = value
 
     @property
     def status_translated(self) -> str:
@@ -101,13 +105,13 @@ class AqualinkSystem:
 
 
 class UnsupportedSystem(AqualinkSystem):
+    def __init__(self, aqualink: AqualinkClient, data: Payload) -> None:
+        super().__init__(aqualink, data)
+        self.status = SystemStatus.UNKNOWN
+
     @property
     def supported(self) -> bool:
         return False
-
-    @property
-    def status(self) -> SystemStatus:
-        return SystemStatus.UNKNOWN
 
     async def update(self) -> None:
         LOGGER.debug("Skipping update for unsupported system %r", self.serial)
