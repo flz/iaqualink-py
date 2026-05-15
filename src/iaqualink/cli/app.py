@@ -30,7 +30,6 @@ from iaqualink.exception import (
     AqualinkOperationNotSupportedException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
-    AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.version import __version__
@@ -182,8 +181,6 @@ def _run_async(coro: Any) -> Any:
     except AqualinkServiceUnauthorizedException:
         _exit_with_error("Authentication failed.")
     except AqualinkServiceThrottledException as exc:
-        _exit_with_error(str(exc))
-    except AqualinkSystemOfflineException as exc:
         _exit_with_error(str(exc))
     except AqualinkInvalidParameterException as exc:
         _exit_with_error(str(exc))
