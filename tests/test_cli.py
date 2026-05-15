@@ -13,6 +13,7 @@ from typer.testing import CliRunner
 
 from iaqualink.client import AqualinkAuthState
 from iaqualink.device import (
+    AqualinkBinarySensor,
     AqualinkDevice,
     AqualinkLight,
     AqualinkNumber,
@@ -388,6 +389,22 @@ def test_group_devices_number_grouped_as_number() -> None:
     groups = cli_module._group_devices([("nb", number)])
     assert len(groups) == 1
     assert groups[0][1] == "Numbers"
+
+
+def test_group_devices_binary_sensor_covered_by_sensor_group() -> None:
+    # AqualinkBinarySensor extends AqualinkSensor; no separate _DEVICE_GROUPS
+    # entry is needed — it is matched by the AqualinkSensor entry.
+    binary = _make_device(AqualinkBinarySensor, "Freeze")
+    groups = cli_module._group_devices([("b", binary)])
+    assert len(groups) == 1
+    assert groups[0][1] == "Sensors"
+
+
+# AqualinkPump and AqualinkNumber extend AqualinkDevice directly and share no
+# IS-A relationship with AqualinkSensor or AqualinkSwitch, so there is no risk
+# of them being swallowed by another group. No "not swallowed" tests are needed
+# for those types (unlike AqualinkThermostat/AqualinkLight which extend
+# AqualinkSwitch and do require such guards).
 
 
 def test_group_devices_unknown_type_goes_to_other() -> None:

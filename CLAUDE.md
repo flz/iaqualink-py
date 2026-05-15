@@ -174,16 +174,16 @@ To add a new system type:
 
 When adding a new direct subclass of `AqualinkDevice` to `device.py`, you **must** also add a corresponding entry to `_DEVICE_GROUPS` in `src/iaqualink/cli/app.py`. Devices without a matching group silently fall through to the "Other" bucket in the CLI output. The current base types and their CLI group order are:
 
-| Class | CLI Group |
-|---|---|
-| `AqualinkThermostat` | Thermostats |
-| `AqualinkLight` | Lights |
-| `AqualinkSwitch` | Switches |
-| `AqualinkPump` | Pumps |
-| `AqualinkNumber` | Numbers |
-| `AqualinkSensor` | Sensors |
+| Class | CLI Group | Notes |
+|---|---|---|
+| `AqualinkThermostat` | Thermostats | |
+| `AqualinkLight` | Lights | |
+| `AqualinkSwitch` | Switches | |
+| `AqualinkPump` | Pumps | |
+| `AqualinkNumber` | Numbers | |
+| `AqualinkSensor` | Sensors | `AqualinkBinarySensor` extends `AqualinkSensor` and is covered by this entry |
 
-Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `AqualinkLight` before `AqualinkSwitch`).
+Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `AqualinkLight` before `AqualinkSwitch`). Only add a new row for direct subclasses of `AqualinkDevice`; intermediate classes like `AqualinkBinarySensor` are automatically covered by their parent's entry.
 
 ## Quality Gates
 
