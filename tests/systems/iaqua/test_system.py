@@ -47,13 +47,13 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut = AqualinkSystem.from_data(self.client, data=data)
         self.sut_class = IaquaSystem
 
-    async def test_refresh_success(self) -> None:
-        def _set_online(_response):
-            self.sut.status = SystemStatus.ONLINE
+    def _set_online(self, _response: object) -> None:
+        self.sut.status = SystemStatus.ONLINE
 
+    async def test_refresh_success(self) -> None:
         with (
             patch.object(
-                self.sut, "_parse_home_response", side_effect=_set_online
+                self.sut, "_parse_home_response", side_effect=self._set_online
             ),
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
@@ -86,12 +86,9 @@ class TestIaquaSystem(TestBaseSystem):
         assert self.sut.status is SystemStatus.UNKNOWN
 
     async def test_get_devices_needs_update(self) -> None:
-        def _set_online(_response):
-            self.sut.status = SystemStatus.ONLINE
-
         with (
             patch.object(
-                self.sut, "_parse_home_response", side_effect=_set_online
+                self.sut, "_parse_home_response", side_effect=self._set_online
             ),
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
@@ -568,9 +565,6 @@ class TestIaquaSystem(TestBaseSystem):
         """A failing onetouch request raises and sets status to DISCONNECTED."""
         self.sut._onetouch_supported = True
 
-        def _set_online(_response):
-            self.sut.status = SystemStatus.ONLINE
-
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
@@ -580,7 +574,7 @@ class TestIaquaSystem(TestBaseSystem):
                 side_effect=AqualinkServiceException,
             ),
             patch.object(
-                self.sut, "_parse_home_response", side_effect=_set_online
+                self.sut, "_parse_home_response", side_effect=self._set_online
             ),
             patch.object(self.sut, "_parse_devices_response"),
         ):
@@ -594,9 +588,6 @@ class TestIaquaSystem(TestBaseSystem):
         """A 429 on onetouch propagates and does not disable onetouch."""
         self.sut._onetouch_supported = True
 
-        def _set_online(_response):
-            self.sut.status = SystemStatus.ONLINE
-
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
@@ -606,7 +597,7 @@ class TestIaquaSystem(TestBaseSystem):
                 side_effect=AqualinkServiceThrottledException,
             ),
             patch.object(
-                self.sut, "_parse_home_response", side_effect=_set_online
+                self.sut, "_parse_home_response", side_effect=self._set_online
             ),
             patch.object(self.sut, "_parse_devices_response"),
         ):
@@ -621,9 +612,6 @@ class TestIaquaSystem(TestBaseSystem):
     ) -> None:
         """When home response reports no onetouch, the request is never issued."""
 
-        def _set_online(_response):
-            self.sut.status = SystemStatus.ONLINE
-
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
@@ -631,7 +619,7 @@ class TestIaquaSystem(TestBaseSystem):
                 self.sut, "_send_onetouch_screen_request"
             ) as onetouch_req,
             patch.object(
-                self.sut, "_parse_home_response", side_effect=_set_online
+                self.sut, "_parse_home_response", side_effect=self._set_online
             ),
             patch.object(self.sut, "_parse_devices_response"),
         ):

@@ -19,10 +19,6 @@ class AqualinkServiceUnauthorizedException(AqualinkServiceException):
     """Exception raised when service access is unauthorized."""
 
 
-class AqualinkSystemOfflineException(AqualinkServiceException):
-    """Exception raised when a system is offline."""
-
-
 class AqualinkServiceThrottledException(AqualinkServiceException):
     """Exception raised when the service returns 429 Too Many Requests."""
 
