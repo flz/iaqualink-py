@@ -43,7 +43,7 @@ iaqualink = "iaqualink.cli:main"
 
 [dependency-groups]
 dev = [
-    "pre-commit>=4.2.0",
+    "prek>=0.4.0",
     "mypy>=1.15.0",
     "ruff>=0.11.2",
     "types-PyYAML>=6.0.12.20250915",

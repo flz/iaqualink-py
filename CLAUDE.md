@@ -46,11 +46,11 @@ uv run pytest tests/test_client.py::TestClassName::test_method_name
 
 ### Linting and Type Checking
 ```bash
-# Run all pre-commit hooks (ruff, ruff-format, mypy)
-uv run pre-commit run --all-files
+# Run all prek hooks (ruff, ruff-format, mypy)
+uv run prek run --all-files
 
 # Run with diff on failure
-uv run pre-commit run --show-diff-on-failure --color=always --all-files
+uv run prek run --show-diff-on-failure --color=always --all-files
 
 # Ruff linting with auto-fix
 uv run ruff check --fix .
