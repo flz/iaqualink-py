@@ -15,6 +15,8 @@ from iaqualink.client import AqualinkAuthState
 from iaqualink.device import (
     AqualinkDevice,
     AqualinkLight,
+    AqualinkNumber,
+    AqualinkPump,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkThermostat,
@@ -342,7 +344,9 @@ def test_group_devices_all_types() -> None:
     devices = [
         ("t1", _make_device(AqualinkThermostat, "Heater")),
         ("l1", _make_device(AqualinkLight, "Light")),
-        ("s1", _make_device(AqualinkSwitch, "Pump")),
+        ("s1", _make_device(AqualinkSwitch, "Switch")),
+        ("p1", _make_device(AqualinkPump, "Pump")),
+        ("nb1", _make_device(AqualinkNumber, "RPM")),
         ("n1", _make_device(AqualinkSensor, "Temp")),
     ]
     groups = cli_module._group_devices(devices)
@@ -350,6 +354,8 @@ def test_group_devices_all_types() -> None:
         "Thermostats",
         "Lights",
         "Switches",
+        "Pumps",
+        "Numbers",
         "Sensors",
     ]
     for _, _, members in groups:
@@ -368,6 +374,20 @@ def test_group_devices_light_not_swallowed_by_switch() -> None:
     groups = cli_module._group_devices([("l", light)])
     assert len(groups) == 1
     assert groups[0][1] == "Lights"
+
+
+def test_group_devices_pump_grouped_as_pump() -> None:
+    pump = _make_device(AqualinkPump, "Filter Pump")
+    groups = cli_module._group_devices([("p", pump)])
+    assert len(groups) == 1
+    assert groups[0][1] == "Pumps"
+
+
+def test_group_devices_number_grouped_as_number() -> None:
+    number = _make_device(AqualinkNumber, "RPM")
+    groups = cli_module._group_devices([("nb", number)])
+    assert len(groups) == 1
+    assert groups[0][1] == "Numbers"
 
 
 def test_group_devices_unknown_type_goes_to_other() -> None:
