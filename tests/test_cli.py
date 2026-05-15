@@ -495,6 +495,40 @@ def test_list_devices_saves_jar_after_device_load(tmp_path: Path) -> None:
     assert data["client_id"] == "post-device-session"
 
 
+def test_list_devices_all_systems_when_no_selector(tmp_path: Path) -> None:
+    switch = _make_device(AqualinkSwitch, "Pump", "1")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink(
+                "SN001", "Backyard", {"pump": switch}
+            ),
+            "SN002": FakeSystemWithAqualink("SN002", "Spa", {"pump": switch}),
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "list-devices")
+    assert result.exit_code == 0
+    assert "Backyard" in result.stdout
+    assert "Spa" in result.stdout
+
+
+def test_list_devices_filters_to_single_system_when_selector_given(
+    tmp_path: Path,
+) -> None:
+    switch = _make_device(AqualinkSwitch, "Pump", "1")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink(
+                "SN001", "Backyard", {"pump": switch}
+            ),
+            "SN002": FakeSystemWithAqualink("SN002", "Spa", {"pump": switch}),
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "list-devices", "--system", "SN001")
+    assert result.exit_code == 0
+    assert "Backyard" in result.stdout
+    assert "Spa" not in result.stdout
+
+
 def test_status_saves_jar_after_device_load(tmp_path: Path) -> None:
     FakeClient.systems_factory = staticmethod(
         lambda: {"SN001": FakeSystemWithAqualink("SN001", "Pool")}

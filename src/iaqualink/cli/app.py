@@ -77,7 +77,7 @@ SystemOption = Annotated[
     str | None,
     typer.Option(
         "--system",
-        help="System serial number. Required when multiple systems exist.",
+        help="System serial number or name. Filters output to a single system.",
     ),
 ]
 DeviceArgument = Annotated[
@@ -481,12 +481,20 @@ async def _list_devices(
     cookie_jar: Path,
 ) -> Tree:
     systems = await _fetch_systems(credentials, cookie_jar)
-    system = _resolve_system(systems, system_selector)
-    devices = await _load_devices_for_system(system)
-    _save_session_jar(cookie_jar, system.aqualink.auth_state)
-    return _render_device_tree(
-        [(system.serial, system)], {system.serial: devices}
-    )
+    if system_selector is not None:
+        system = _resolve_system(systems, system_selector)
+        selected_systems = [(system.serial, system)]
+    else:
+        selected_systems = _sorted_systems(systems)
+
+    devices_by_system: dict[str, dict[str, AqualinkDevice]] = {}
+    for serial, system in selected_systems:
+        devices_by_system[serial] = await _load_devices_for_system(system)
+
+    if selected_systems:
+        _, any_system = selected_systems[0]
+        _save_session_jar(cookie_jar, any_system.aqualink.auth_state)
+    return _render_device_tree(selected_systems, devices_by_system)
 
 
 async def _status(
