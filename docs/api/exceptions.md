@@ -9,8 +9,7 @@ AqualinkException (base)
 ├── AqualinkInvalidParameterException
 ├── AqualinkServiceException
 │   ├── AqualinkServiceUnauthorizedException
-│   ├── AqualinkSystemOfflineException
-│   └── AqualinkSystemUnsupportedException (deprecated)
+│   └── AqualinkServiceThrottledException
 └── AqualinkOperationNotSupportedException
 ```
 
@@ -29,10 +28,6 @@ AqualinkException (base)
 ## AqualinkServiceUnauthorizedException
 
 ::: iaqualink.exception.AqualinkServiceUnauthorizedException
-
-## AqualinkSystemOfflineException
-
-::: iaqualink.exception.AqualinkSystemOfflineException
 
 ## AqualinkSystemUnsupportedException
 
@@ -63,30 +58,24 @@ except AqualinkException as e:
     print(f"Error: {e}")
 ```
 
-### Specific Exception Handling
+### System Status Check
+
+System availability is exposed through `system.status` rather than exceptions.
+Check it after `refresh()` before interacting with devices:
 
 ```python
-from iaqualink import (
-    AqualinkClient,
-    AqualinkServiceUnauthorizedException,
-    AqualinkServiceException,
-    AqualinkSystemOfflineException,
-)
+from iaqualink import AqualinkClient
+from iaqualink.system import SystemStatus
 
-try:
-    async with AqualinkClient(username, password) as client:
-        systems = await client.get_systems()
-        system = list(systems.values())[0]
+async with AqualinkClient(username, password) as client:
+    systems = await client.get_systems()
+    system = list(systems.values())[0]
 
-        try:
-            await system.update()
-        except AqualinkSystemOfflineException:
-            print("System is offline")
-
-except AqualinkServiceUnauthorizedException:
-    print("Authentication failed - check credentials")
-except AqualinkServiceException as e:
-    print(f"Service error: {e}")
+    await system.refresh()
+    if system.status in (SystemStatus.ONLINE, SystemStatus.CONNECTED):
+        devices = await system.get_devices()
+    else:
+        print(f"System not ready: {system.status_translated}")
 ```
 
 ### Retry Logic
@@ -95,10 +84,10 @@ except AqualinkServiceException as e:
 import asyncio
 from iaqualink import AqualinkServiceException
 
-async def update_with_retry(system, max_retries=3):
+async def refresh_with_retry(system, max_retries=3):
     for attempt in range(max_retries):
         try:
-            await system.update()
+            await system.refresh()
             return
         except AqualinkServiceException as e:
             if attempt < max_retries - 1:
@@ -112,20 +101,21 @@ async def update_with_retry(system, max_retries=3):
 ### Graceful Degradation
 
 ```python
-from iaqualink import AqualinkSystemOfflineException
+from iaqualink.system import SystemStatus
 
 async def get_system_status(system):
-    try:
-        await system.update()
+    await system.refresh()
+    if system.status in (SystemStatus.ONLINE, SystemStatus.CONNECTED):
         return {
             "online": True,
-            "devices": await system.get_devices()
+            "status": system.status_translated,
+            "devices": await system.get_devices(),
         }
-    except AqualinkSystemOfflineException:
-        return {
-            "online": False,
-            "devices": {}
-        }
+    return {
+        "online": False,
+        "status": system.status_translated,
+        "devices": {},
+    }
 ```
 
 ## Exception Properties
@@ -166,12 +156,6 @@ Exception arguments tuple.
 - Network connectivity issues
 - Rate limiting (HTTP 429 from the server)
 
-### AqualinkSystemOfflineException
-
-- System is not connected to internet
-- System is powered off
-- System is in maintenance mode
-
 ## Best Practices
 
 ### Always Use Context Managers
@@ -192,17 +176,21 @@ finally:
 ### Catch Specific Exceptions
 
 ```python
+from iaqualink import AqualinkServiceUnauthorizedException, AqualinkServiceException
+
 # Good - handle specific errors
 try:
-    await system.update()
-except AqualinkSystemOfflineException:
-    print("System offline")
+    async with AqualinkClient(username, password) as client:
+        systems = await client.get_systems()
+except AqualinkServiceUnauthorizedException:
+    print("Authentication failed")
 except AqualinkServiceException:
     print("Service error")
 
 # Avoid - too broad
 try:
-    await system.update()
+    async with AqualinkClient(username, password) as client:
+        systems = await client.get_systems()
 except Exception:
     print("Something went wrong")
 ```
@@ -215,9 +203,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 try:
-    await system.update()
+    await system.refresh()
 except AqualinkServiceException as e:
-    logger.error(f"Failed to update system: {e}", exc_info=True)
+    logger.error(f"Failed to refresh system: {e}", exc_info=True)
 ```
 
 ## See Also

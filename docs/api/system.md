@@ -87,8 +87,10 @@ Fetch the latest system state from the API.
 **Returns:** `None`
 
 **Raises:**
-- `AqualinkSystemOfflineException` - System is offline
 - `AqualinkServiceException` - Service error occurred
+
+**Note:** Offline/unavailable states are reflected in `system.status` after
+the call returns; no exception is raised for those cases.
 
 ### get_devices()
 

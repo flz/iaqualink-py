@@ -74,17 +74,24 @@ for name, device in devices.items():
     print(f"{name}: {device.label}")
 ```
 
-## System Offline Handling
+## Checking System Status
 
-Handle offline systems gracefully:
+After `refresh()`, inspect `system.status` to determine whether the system
+is ready before interacting with its devices:
 
 ```python
-from iaqualink import AqualinkSystemOfflineException
+from iaqualink.system import SystemStatus
 
-try:
-    await system.update()
-except AqualinkSystemOfflineException:
+await system.refresh()
+
+if system.status == SystemStatus.ONLINE:
+    devices = await system.get_devices()
+elif system.status == SystemStatus.OFFLINE:
     print(f"System {system.name} is offline")
+elif system.status == SystemStatus.SERVICE:
+    print(f"System {system.name} is in service mode")
+elif system.status == SystemStatus.DISCONNECTED:
+    print(f"System {system.name} could not be reached")
 ```
 
 ## System Type Detection
