@@ -32,7 +32,7 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
     AqualinkSystemOfflineException,
 )
-from iaqualink.system import AqualinkSystem, SystemStatus
+from iaqualink.system import AqualinkSystem, SystemStatusColor
 from iaqualink.version import __version__
 
 _console = Console()
@@ -259,21 +259,25 @@ _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
 ]
 
 
-_STATUS_STYLE: dict[SystemStatus, str] = {
-    SystemStatus.ONLINE: "bold green",
-    SystemStatus.OFFLINE: "bold red",
-    SystemStatus.ERROR: "bold red",
-    SystemStatus.UNKNOWN: "dim",
+_STATUS_DOT_CHAR = "● "
+
+_STATUS_COLOR_STYLE: dict[SystemStatusColor, str] = {
+    SystemStatusColor.GREEN: "bold green",
+    SystemStatusColor.RED: "bold red",
+    SystemStatusColor.YELLOW: "bold yellow",
+    SystemStatusColor.IN_PROGRESS: "dim",
 }
 
 
 def _format_system_line(system: AqualinkSystem) -> Text:
     t = Text()
+    color = system.status_color
+    dot_style = _STATUS_COLOR_STYLE[color]
+    t.append(_STATUS_DOT_CHAR, style=dot_style)
     t.append(system.name, style="bold")
     t.append(f" ({system.serial})", style="dim")
     t.append(f" [{system.data.get('device_type', 'unknown')}]", style="cyan")
-    style = _STATUS_STYLE.get(system.status, "")
-    t.append(f" {system.status}", style=style)
+    t.append(f" {system.status_translated}", style=dot_style)
     if not system.supported:
         t.append(" (unsupported)", style="bold red")
     return t

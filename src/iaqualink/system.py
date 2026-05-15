@@ -18,11 +18,34 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger("iaqualink")
 
 
-class SystemStatus(enum.StrEnum):
-    UNKNOWN = "unknown"
-    OFFLINE = "offline"
-    ONLINE = "online"
-    ERROR = "error"
+class SystemStatus(enum.Enum):
+    CONNECTED = enum.auto()
+    ONLINE = enum.auto()
+    DISCONNECTED = enum.auto()
+    OFFLINE = enum.auto()
+    UNKNOWN = enum.auto()
+    SERVICE = enum.auto()
+    FIRMWARE_UPDATE = enum.auto()
+    IN_PROGRESS = enum.auto()
+
+
+class SystemStatusColor(enum.Enum):
+    GREEN = "green"
+    RED = "red"
+    YELLOW = "yellow"
+    IN_PROGRESS = None  # spinner / no color
+
+
+_STATUS_COLOR_MAP: dict[SystemStatus, SystemStatusColor] = {
+    SystemStatus.CONNECTED: SystemStatusColor.GREEN,
+    SystemStatus.ONLINE: SystemStatusColor.GREEN,
+    SystemStatus.DISCONNECTED: SystemStatusColor.RED,
+    SystemStatus.OFFLINE: SystemStatusColor.RED,
+    SystemStatus.UNKNOWN: SystemStatusColor.RED,
+    SystemStatus.SERVICE: SystemStatusColor.YELLOW,
+    SystemStatus.FIRMWARE_UPDATE: SystemStatusColor.YELLOW,
+    SystemStatus.IN_PROGRESS: SystemStatusColor.IN_PROGRESS,
+}
 
 
 class AqualinkSystem:
@@ -32,7 +55,7 @@ class AqualinkSystem:
         self.aqualink = aqualink
         self.data = data
         self.devices: dict[str, AqualinkDevice] = {}
-        self.status: SystemStatus = SystemStatus.UNKNOWN
+        self._status: SystemStatus = SystemStatus.IN_PROGRESS
 
     @classmethod
     def __init_subclass__(cls) -> None:
@@ -84,6 +107,18 @@ class AqualinkSystem:
             self.aqualink._refresh_auth,
         )
 
+    @property
+    def status(self) -> SystemStatus:
+        raise NotImplementedError
+
+    @property
+    def status_color(self) -> SystemStatusColor:
+        return _STATUS_COLOR_MAP[self.status]
+
+    @property
+    def status_translated(self) -> str:
+        return self.status.name.replace("_", " ").title()
+
     async def update(self) -> None:
         raise NotImplementedError
 
@@ -92,6 +127,10 @@ class UnsupportedSystem(AqualinkSystem):
     @property
     def supported(self) -> bool:
         return False
+
+    @property
+    def status(self) -> SystemStatus:
+        return SystemStatus.UNKNOWN
 
     async def update(self) -> None:
         LOGGER.debug("Skipping update for unsupported system %r", self.serial)

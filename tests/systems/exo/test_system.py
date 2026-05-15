@@ -210,6 +210,7 @@ class TestExoSystem(TestBaseSystem):
         response.json.return_value = SAMPLE_DATA
         self.sut._parse_shadow_response(response)
 
+        assert self.sut.status is SystemStatus.CONNECTED
         assert len(self.sut.devices) > 0
         # Chemistry sensors
         assert "sns_1" in self.sut.devices

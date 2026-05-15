@@ -4,25 +4,10 @@ iaqualink-py supports multiple Jandy pool system types through a unified interfa
 
 ## System Types
 
-### iAqua Systems
+The library supports two system types. See the per-system guides for type-specific behaviour including status mapping:
 
-iAqua systems use the iaqualink.net API and are the original Jandy iAqualink systems.
-
-**Characteristics:**
-- API endpoint: iaqualink.net
-- Authentication via session tokens
-- Two-step device refresh (home + devices)
-- Commands sent as session requests
-
-### eXO Systems
-
-eXO systems are newer Zodiac systems using the zodiac-io.com API.
-
-**Characteristics:**
-- API endpoint: zodiac-io.com
-- JWT token authentication
-- AWS IoT-style shadow state
-- Desired/reported state pattern
+- [iAqua Systems](iaqua.md) — original Jandy iAqualink systems (`iaqualink.net` API)
+- [eXO Systems](exo.md) — Zodiac systems with AWS IoT shadow state (`zodiac-io.com` API)
 
 ## Discovering Systems
 
@@ -45,20 +30,18 @@ All systems have these common properties:
 
 ```python
 # System identification
-system.name          # User-friendly name
-system.serial        # Unique serial number
+system.name              # User-friendly name
+system.serial            # Unique serial number
+system.data              # Raw system data from API
 
 # System status
-system.status        # SystemStatus enum: ONLINE, OFFLINE, UNKNOWN, or ERROR
-system.data          # Raw system data from API
-
-# iAqua-specific (available after update())
-system.system_type   # IaquaSystemType: SPA_AND_POOL, POOL_ONLY, or DUAL
-system.temp_unit     # IaquaTemperatureUnit: FAHRENHEIT ("F") or CELSIUS ("C")
-
-# Last update time
-system.last_run_success  # Timestamp of last successful update
+system.status            # SystemStatus enum value
+system.status_color      # SystemStatusColor: GREEN, RED, YELLOW, or IN_PROGRESS
+system.status_translated # Human-readable string, e.g. "Online", "In Progress"
 ```
+
+See the per-system guides for the full status value mapping:
+[iAqua](iaqua.md#system-status) · [eXO](exo.md#system-status)
 
 ## Updating System State
 

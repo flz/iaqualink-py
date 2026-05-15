@@ -10,6 +10,18 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import ExoDevice
+from iaqualink.systems.exo.enums import ExoSystemStatus
+
+_EXO_STATUS_MAP: dict[ExoSystemStatus, SystemStatus] = {
+    ExoSystemStatus.CONNECTED: SystemStatus.CONNECTED,
+    ExoSystemStatus.ONLINE: SystemStatus.ONLINE,
+    ExoSystemStatus.OFFLINE: SystemStatus.OFFLINE,
+    ExoSystemStatus.DISCONNECTED: SystemStatus.DISCONNECTED,
+    ExoSystemStatus.UNKNOWN: SystemStatus.UNKNOWN,
+    ExoSystemStatus.SERVICE: SystemStatus.SERVICE,
+    ExoSystemStatus.FIRMWARE_UPDATE: SystemStatus.FIRMWARE_UPDATE,
+    ExoSystemStatus.IN_PROGRESS: SystemStatus.IN_PROGRESS,
+}
 
 if TYPE_CHECKING:
     import httpx
@@ -56,28 +68,54 @@ class ExoSystem(AqualinkSystem):
             method="post", json={"state": {"desired": state}}
         )
 
+    @property
+    def status(self) -> SystemStatus:
+        return self._status
+
     async def update(self) -> None:
+        self._status = SystemStatus.IN_PROGRESS
         try:
             r = await self.send_reported_state_request()
         except AqualinkServiceThrottledException:
-            self.status = SystemStatus.UNKNOWN
+            self._status = SystemStatus.UNKNOWN
             raise
         except AqualinkServiceException:
-            self.status = SystemStatus.ERROR
+            self._status = SystemStatus.DISCONNECTED
             raise
 
+        self._status = SystemStatus.ONLINE
         try:
             self._parse_shadow_response(r)
         except AqualinkSystemOfflineException:
-            self.status = SystemStatus.OFFLINE
+            self._status = SystemStatus.OFFLINE
             raise
-
-        self.status = SystemStatus.ONLINE
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()
 
         LOGGER.debug("Shadow response: %s", data)
+
+        raw_aws_status = (
+            data.get("state", {})
+            .get("reported", {})
+            .get("aws", {})
+            .get("status")
+        )
+        if raw_aws_status is not None:
+            if raw_aws_status == "":
+                self._status = SystemStatus.IN_PROGRESS
+            else:
+                try:
+                    self._status = _EXO_STATUS_MAP[
+                        ExoSystemStatus(raw_aws_status)
+                    ]
+                except ValueError:
+                    LOGGER.warning(
+                        "Unknown aws.status %r for system %s; treating as Unknown.",
+                        raw_aws_status,
+                        self.serial,
+                    )
+                    self._status = SystemStatus.UNKNOWN
 
         devices = {}
 

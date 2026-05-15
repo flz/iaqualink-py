@@ -15,6 +15,7 @@ class IaquaSystemStatus(StrEnum):
     ONLINE = "Online"
     OFFLINE = "Offline"
     SERVICE = "Service"
+    UNKNOWN = "Unknown"
 
 
 @unique

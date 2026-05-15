@@ -62,7 +62,7 @@ class TestIaquaSystem(TestBaseSystem):
             mock_parse.side_effect = AqualinkSystemOfflineException
             with pytest.raises(AqualinkSystemOfflineException):
                 await super().test_update_success()
-            assert self.sut.status is SystemStatus.OFFLINE
+            assert self.sut.status is SystemStatus.IN_PROGRESS
 
     async def test_update_throttled(self) -> None:
         with patch.object(self.sut, "_send_home_screen_request") as mock_req:
@@ -252,6 +252,7 @@ class TestIaquaSystem(TestBaseSystem):
 
         with pytest.raises(AqualinkSystemOfflineException):
             self.sut._parse_home_response(response)
+        assert self.sut.status is SystemStatus.SERVICE
 
     async def test_parse_devices_offline_when_service(self) -> None:
         message = {"message": "", "devices_screen": [{"status": "Service"}]}
@@ -477,7 +478,7 @@ class TestIaquaSystem(TestBaseSystem):
             with pytest.raises(AqualinkServiceException):
                 await self.sut.update()
 
-        assert self.sut.status is SystemStatus.ERROR
+        assert self.sut.status is SystemStatus.DISCONNECTED
         assert self.sut._onetouch_supported is True
 
     async def test_update_onetouch_throttle_raises(self) -> None:

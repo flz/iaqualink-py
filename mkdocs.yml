@@ -44,8 +44,12 @@ nav:
       - Quick Start: getting-started/quickstart.md
       - Authentication: getting-started/authentication.md
   - User Guide:
-      - Systems: guide/systems.md
-      - Devices: guide/devices.md
+      - Abstract Classes:
+          - Systems: guide/systems.md
+          - Devices: guide/devices.md
+      - System Implementations:
+          - iAqua: guide/iaqua.md
+          - eXO: guide/exo.md
       - Examples: guide/examples.md
   - API Reference:
       - Client: api/client.md

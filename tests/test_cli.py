@@ -23,7 +23,7 @@ from iaqualink.device import (
     AqualinkSwitch,
     AqualinkThermostat,
 )
-from iaqualink.system import SystemStatus, UnsupportedSystem
+from iaqualink.system import SystemStatus, SystemStatusColor, UnsupportedSystem
 
 cli_module = importlib.import_module("iaqualink.cli.app")
 
@@ -32,12 +32,23 @@ app = cli_module.app
 
 class FakeSystem:
     supported = True
-    status = SystemStatus.UNKNOWN
 
     def __init__(self, serial: str, name: str) -> None:
         self.serial = serial
         self.name = name
         self.data = {"device_type": "iaqua"}
+
+    @property
+    def status(self) -> SystemStatus:
+        return SystemStatus.UNKNOWN
+
+    @property
+    def status_color(self) -> SystemStatusColor:
+        return SystemStatusColor.RED
+
+    @property
+    def status_translated(self) -> str:
+        return "Unknown"
 
     async def get_devices(self) -> dict[str, object]:
         return {}

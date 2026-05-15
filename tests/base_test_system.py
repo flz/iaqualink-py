@@ -45,7 +45,7 @@ class TestBaseSystem(TestBase):
         respx_mock.route(dotstar).mock(resp_500)
         with pytest.raises(AqualinkServiceException):
             await self.sut.update()
-        assert self.sut.status is SystemStatus.ERROR
+        assert self.sut.status is SystemStatus.DISCONNECTED
         self.respx_calls = copy.copy(respx_mock.calls)
 
     @respx.mock
