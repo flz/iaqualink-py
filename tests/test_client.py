@@ -290,9 +290,7 @@ class TestAqualinkClient(TestBase):
         assert self.client.logged is False
 
     @patch("httpx.AsyncClient.request")
-    async def test_login_fails_when_id_token_empty(
-        self, mock_request
-    ) -> None:
+    async def test_login_fails_when_id_token_empty(self, mock_request) -> None:
         data = {**LOGIN_DATA, "userPoolOAuth": {"IdToken": ""}}
         mock_request.return_value = _make_resp(200, data)
 
