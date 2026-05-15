@@ -49,6 +49,14 @@ IAQUA_COMMAND_SET_TEMPS = "set_temps"
 LOGGER = logging.getLogger("iaqualink")
 
 
+_IAQUA_STATUS_MAP: dict[str, SystemStatus] = {
+    IaquaSystemStatus.ONLINE: SystemStatus.ONLINE,
+    IaquaSystemStatus.OFFLINE: SystemStatus.OFFLINE,
+    IaquaSystemStatus.SERVICE: SystemStatus.SERVICE,
+    IaquaSystemStatus.UNKNOWN: SystemStatus.UNKNOWN,
+}
+
+
 class IaquaSystem(AqualinkSystem):
     NAME = "iaqua"
 
@@ -137,32 +145,14 @@ class IaquaSystem(AqualinkSystem):
             home.update(x)
 
         raw_status = home.get("status")
-        if raw_status == IaquaSystemStatus.OFFLINE:
+        self.status = _IAQUA_STATUS_MAP.get(
+            raw_status or "", SystemStatus.UNKNOWN
+        )
+        if self.status is not SystemStatus.ONLINE:
             LOGGER.warning(
                 "Status for system %s is %s.", self.serial, raw_status
             )
-            self.status = SystemStatus.OFFLINE
             return
-        elif raw_status == IaquaSystemStatus.SERVICE:
-            LOGGER.warning(
-                "Status for system %s is %s.", self.serial, raw_status
-            )
-            self.status = SystemStatus.SERVICE
-            return
-        elif raw_status in (IaquaSystemStatus.UNKNOWN, None, ""):
-            LOGGER.warning(
-                "Status for system %s is %s.", self.serial, raw_status
-            )
-            self.status = SystemStatus.UNKNOWN
-            return
-        elif raw_status != IaquaSystemStatus.ONLINE:
-            LOGGER.warning(
-                "Unknown status %r for system %s.", raw_status, self.serial
-            )
-            self.status = SystemStatus.UNKNOWN
-            return
-
-        self.status = SystemStatus.ONLINE
 
         if home["system_type"] == "":
             LOGGER.debug("Skipping home screen update with empty system_type.")

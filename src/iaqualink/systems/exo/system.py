@@ -92,9 +92,11 @@ class ExoSystem(AqualinkSystem):
 
         devices = {}
 
+        reported = data.get("state", {}).get("reported", {})
+
         # Process the chlorinator attributes[equipmen]
         # Make the data a bit flatter.
-        root = data["state"]["reported"]["equipment"]["swc_0"]
+        root = reported.get("equipment", {}).get("swc_0", {})
         for name, state in root.items():
             attrs = {"name": name}
             if isinstance(state, dict):
@@ -111,17 +113,15 @@ class ExoSystem(AqualinkSystem):
         devices.pop("version", None)
 
         # Process the heating control attributes
-        if "heating" in data["state"]["reported"]:
+        if "heating" in reported:
             name = "heating"
             attrs = {"name": name}
-            attrs.update(data["state"]["reported"]["heating"])
+            attrs.update(reported["heating"])
             devices.update({name: attrs})
             # extract heater state into seperate device to maintain homeassistant API
             name = "heater"
             attrs = {"name": name}
-            attrs.update(
-                {"state": data["state"]["reported"]["heating"]["state"]}
-            )
+            attrs.update({"state": reported["heating"]["state"]})
             devices.update({name: attrs})
 
         LOGGER.debug("devices: %s", devices)

@@ -164,11 +164,12 @@ Tests use `unittest.IsolatedAsyncioTestCase` with a custom base class:
 To add a new system type:
 1. Create `systems/newsystem/` directory with `__init__.py`, `system.py`, `device.py`
 2. Implement `NewSystem(AqualinkSystem)` with `NAME` class attribute
-3. Implement device parsing in `_parse_*_response()` methods
-4. Create corresponding device classes extending base device types
-5. In `update()`, re-raise `AqualinkServiceThrottledException` before the broader `AqualinkServiceException` handler to prevent `online = None` on rate-limiting (see existing implementations in `iaqua/system.py` and `exo/system.py`)
-6. Register the new system module import in `src/iaqualink/client.py` so `AqualinkSystem.from_data()` can discover the subclass at runtime
-7. Add tests following existing patterns in `tests/systems/newsystem/`
+3. Implement `async def _refresh(self) -> None` — the extension point called by the base `refresh()` template method
+4. Inside `_refresh()`, set `self.status` before returning (any non-`IN_PROGRESS` value satisfies the post-condition check). Do **not** catch `AqualinkServiceException` or its subclasses — `refresh()` handles those automatically
+5. Implement device parsing in `_parse_*_response()` methods
+6. Create corresponding device classes extending base device types
+7. Register the new system module import in `src/iaqualink/client.py` so `AqualinkSystem.from_data()` can discover the subclass at runtime
+8. Add tests following existing patterns in `tests/systems/newsystem/`
 
 ## Adding New Base Device Types
 
