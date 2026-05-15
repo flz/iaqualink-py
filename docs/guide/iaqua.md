@@ -23,7 +23,7 @@ System status is determined **solely from the `get_home` response** (`home_scree
 | `"Offline"` | `OFFLINE` | Red |
 | `"Service"` | `SERVICE` | Yellow |
 | `"Unknown"` | `UNKNOWN` | Red |
-| `""` (empty) | `IN_PROGRESS` | Spinner |
+| `""` (empty) | `IN_PROGRESS` | Dim |
 | key absent | `UNKNOWN` | Red |
 
 ### Request-level status

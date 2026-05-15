@@ -27,8 +27,8 @@ Status is read from `state.reported.aws.status` in the shadow response and mappe
 | `"unknown"` | `UNKNOWN` | Red |
 | `"service"` | `SERVICE` | Yellow |
 | `"firmware_update"` | `FIRMWARE_UPDATE` | Yellow |
-| `"in_progress"` | `IN_PROGRESS` | Spinner |
-| `""` (empty) | `IN_PROGRESS` | Spinner |
+| `"in_progress"` | `IN_PROGRESS` | Dim |
+| `""` (empty) | `IN_PROGRESS` | Dim |
 | key absent | `ONLINE` (request succeeded) | Green |
 | unrecognised string | `UNKNOWN` | Red |
 

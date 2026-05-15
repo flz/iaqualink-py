@@ -275,7 +275,7 @@ _STATUS_DOT_STYLE: dict[SystemStatus, str] = {
 
 def _format_system_line(system: AqualinkSystem) -> Text:
     t = Text()
-    dot_style = _STATUS_DOT_STYLE.get(system.status, "dim")
+    dot_style = _STATUS_DOT_STYLE[system.status]
     t.append(f"{_STATUS_DOT} ", style=dot_style)
     t.append(system.name, style="bold")
     t.append(f" ({system.serial})", style="dim")

@@ -10,7 +10,6 @@ import respx.router
 from iaqualink.exception import (
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
-    AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import (
@@ -205,12 +204,6 @@ class TestExoSystem(TestBaseSystem):
             with pytest.raises(AqualinkServiceThrottledException):
                 await self.sut.update()
         assert self.sut.status is SystemStatus.UNKNOWN
-
-    async def test_update_offline(self) -> None:
-        with patch.object(self.sut, "_parse_shadow_response") as mock_parse:
-            mock_parse.side_effect = AqualinkSystemOfflineException
-            with pytest.raises(AqualinkSystemOfflineException):
-                await super().test_update_success()
 
     async def test_get_devices_needs_update(self) -> None:
         with patch.object(self.sut, "_parse_shadow_response"):

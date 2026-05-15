@@ -59,14 +59,20 @@ class TestIaquaSystem(TestBaseSystem):
             await super().test_update_success()
 
     async def test_update_offline(self) -> None:
+        def _set_offline_raise(_response):
+            self.sut.status = SystemStatus.OFFLINE
+            raise AqualinkSystemOfflineException
+
         with (
-            patch.object(self.sut, "_parse_home_response") as mock_parse,
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=_set_offline_raise
+            ),
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            mock_parse.side_effect = AqualinkSystemOfflineException
             with pytest.raises(AqualinkSystemOfflineException):
                 await super().test_update_success()
+        assert self.sut.status is SystemStatus.OFFLINE
 
     async def test_update_throttled(self) -> None:
         with patch.object(self.sut, "_send_home_screen_request") as mock_req:
