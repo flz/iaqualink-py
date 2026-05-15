@@ -32,6 +32,7 @@ if TYPE_CHECKING:
 
 for module_name in (
     "iaqualink.systems.exo.system",
+    "iaqualink.systems.i2d.system",
     "iaqualink.systems.iaqua.system",
 ):
     importlib.import_module(module_name)
@@ -207,8 +208,9 @@ class AqualinkClient:
             raise AqualinkServiceThrottledException("Rate limited")
 
         if r.status_code != httpx.codes.OK:
+            LOGGER.debug("<- body: %s", r.text)
             m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
-            raise AqualinkServiceException(m)
+            raise AqualinkServiceException(m, response=r)
 
         return r
 

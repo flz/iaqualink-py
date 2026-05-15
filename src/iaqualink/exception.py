@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import httpx
 
 
 class AqualinkException(Exception):  # noqa: N818
@@ -13,6 +16,12 @@ class AqualinkInvalidParameterException(AqualinkException):
 
 class AqualinkServiceException(AqualinkException):
     """Exception raised when an error is raised by the iaqualink service."""
+
+    def __init__(
+        self, *args: Any, response: httpx.Response | None = None
+    ) -> None:
+        super().__init__(*args)
+        self.response = response
 
 
 class AqualinkServiceUnauthorizedException(AqualinkServiceException):

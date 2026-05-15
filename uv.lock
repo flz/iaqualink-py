@@ -308,6 +308,7 @@ cli = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "iaqualink", extra = ["cli"] },
     { name = "mypy" },
     { name = "prek" },
     { name = "ruff" },
@@ -341,6 +342,7 @@ provides-extras = ["cli"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "iaqualink", extras = ["cli"], editable = "." },
     { name = "mypy", specifier = ">=1.15.0" },
     { name = "prek", specifier = ">=0.4.0" },
     { name = "ruff", specifier = ">=0.11.2" },
