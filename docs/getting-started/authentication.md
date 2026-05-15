@@ -40,7 +40,7 @@ The library automatically detects whether you have an iAqua or eXO system and us
 
 - Uses iaqualink.net API
 - Authentication returns `session_id` and `authentication_token`
-- Credentials passed as query parameters
+- Device commands use session tokens as query parameters
 
 ### eXO Systems
 

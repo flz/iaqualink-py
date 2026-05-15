@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import importlib
 import logging
+import time
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any, Self
 
@@ -10,6 +11,7 @@ import httpx
 
 from iaqualink.const import (
     AQUALINK_API_KEY,
+    AQUALINK_API_SIGNING_KEY,
     AQUALINK_DEVICES_URL,
     AQUALINK_LOGIN_URL,
     AQUALINK_REFRESH_URL,
@@ -22,6 +24,7 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.reauth import send_with_reauth_retry
+from iaqualink.util import sign
 from iaqualink.system import AqualinkSystem
 
 if TYPE_CHECKING:
@@ -292,6 +295,8 @@ class AqualinkClient:
         self.authentication_token = data["authentication_token"]
         self.user_id = str(data["id"])
         self.id_token = data["userPoolOAuth"]["IdToken"]
+        if not self.id_token:
+            raise AqualinkServiceException("Login response missing IdToken")
         self.refresh_token = data["userPoolOAuth"].get(
             "RefreshToken", refresh_token_fallback
         )
@@ -300,14 +305,22 @@ class AqualinkClient:
 
     async def _send_systems_request(self) -> httpx.Response:
         async def do_request() -> httpx.Response:
-            params = {
-                "api_key": AQUALINK_API_KEY,
-                "authentication_token": self.authentication_token,
-                "user_id": self.user_id,
-            }
-            params_str = "&".join(f"{k}={v}" for k, v in params.items())
-            url = f"{AQUALINK_DEVICES_URL}?{params_str}"
-            return await self.send_request(url)
+            timestamp = str(int(time.time()))
+            signature = sign(
+                [self.user_id, timestamp], AQUALINK_API_SIGNING_KEY
+            )
+            return await self.send_request(
+                AQUALINK_DEVICES_URL,
+                params={
+                    "user_id": self.user_id,
+                    "signature": signature,
+                    "timestamp": timestamp,
+                },
+                headers={
+                    "api_key": AQUALINK_API_KEY,
+                    "Authorization": f"Bearer {self.id_token}",
+                },
+            )
 
         return await send_with_reauth_retry(
             do_request,
@@ -323,6 +336,7 @@ class AqualinkClient:
             raise
 
         data = r.json()
+        LOGGER.debug("Systems response: %s", data)
 
         systems = [AqualinkSystem.from_data(self, x) for x in data]
         return {x.serial: x for x in systems}

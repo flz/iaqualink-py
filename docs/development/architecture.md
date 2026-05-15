@@ -81,6 +81,24 @@ AqualinkDevice (base)
 - Command execution
 - Type-specific behavior
 
+### 4. Utilities
+
+**Location:** `src/iaqualink/util.py`
+
+Shared HMAC-SHA1 helpers used by `AqualinkClient` and system implementations.
+
+**`sign(parts, secret)`**
+
+Joins `parts` with `,` and returns a lowercase hex HMAC-SHA1 digest:
+
+```python
+sign(["user_id", "timestamp"], api_signing_key)           # device list (v2) — implemented
+sign(["serial", "user_id"], api_signing_key)              # device shadow — future
+sign(["serial", "user_id", "timestamp"], api_signing_key) # commands/writes — future
+```
+
+Raises `ValueError` if `parts` is empty.
+
 ## System Implementations
 
 ### iAqua Systems
@@ -188,6 +206,7 @@ tests/
 ├── test_client.py             # Client tests
 ├── test_system.py             # System tests
 ├── test_device.py             # Device tests
+├── test_util.py               # Signing utility tests
 └── systems/
     ├── iaqua/
     │   ├── base_test_system.py   # Abstract iAqua tests
