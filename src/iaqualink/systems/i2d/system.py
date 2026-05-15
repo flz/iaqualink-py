@@ -13,7 +13,16 @@ from iaqualink.exception import (
     AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.i2d.device import IQPumpDevice, IQPumpOpMode
+from iaqualink.systems.i2d.device import (
+    I2dBinaryState,
+    I2dNumber,
+    I2dSensor,
+    I2dSwitch,
+    I2dPump,
+    I2dOpMode,
+    I2dRpmBoundNumber,
+    _SETTABLE_OPMODE_SET,
+)
 
 import httpx
 
@@ -77,8 +86,116 @@ _MOCK_ALLDATA = {
     "requestID": "mock",
 }
 
+# (key, label, min, max, min_key, max_key, step, unit)
+# Exactly one of (min_value, min_key) and one of (max_value, max_key) must be set.
+# step > 1 enforces must-be-multiple-of-step validation in I2dNumber.set_value.
+_NUMBER_SPECS: list[
+    tuple[
+        str, str, float | None, float | None, str | None, str | None, float, str
+    ]
+] = [
+    # RPM settings — bounds read live from globalrpmmin/globalrpmmax
+    (
+        "customspeedrpm",
+        "Custom Speed RPM",
+        None,
+        None,
+        "globalrpmmin",
+        "globalrpmmax",
+        25,
+        "RPM",
+    ),
+    (
+        "primingrpm",
+        "Priming RPM",
+        None,
+        None,
+        "globalrpmmin",
+        "globalrpmmax",
+        25,
+        "RPM",
+    ),
+    (
+        "quickcleanrpm",
+        "Quick Clean RPM",
+        None,
+        None,
+        "globalrpmmin",
+        "globalrpmmax",
+        25,
+        "RPM",
+    ),
+    (
+        "freezeprotectrpm",
+        "Freeze Protect RPM",
+        None,
+        None,
+        "globalrpmmin",
+        "globalrpmmax",
+        25,
+        "RPM",
+    ),
+    (
+        "countdownrpm",
+        "Countdown RPM",
+        None,
+        None,
+        "globalrpmmin",
+        "globalrpmmax",
+        25,
+        "RPM",
+    ),
+    # Temperature
+    (
+        "freezeprotectsetpointc",
+        "Freeze Protect Setpoint",
+        0,
+        15,
+        None,
+        None,
+        1,
+        "°C",
+    ),
+    # Period / timer settings (values in seconds, step-aligned)
+    ("customspeedtimer", "Custom Speed Timer", 300, 3600, None, None, 300, "s"),
+    ("primingperiod", "Priming Period", 0, 300, None, None, 60, "s"),
+    ("quickcleanperiod", "Quick Clean Period", 300, 3600, None, None, 300, "s"),
+    (
+        "freezeprotectperiod",
+        "Freeze Protect Period",
+        0,
+        28800,
+        None,
+        None,
+        1800,
+        "s",
+    ),
+    ("countdownperiod", "Countdown Period", 3600, 86400, None, None, 3600, "s"),
+    ("timeoutperiod", "Timeout Period", 3600, 86400, None, None, 3600, "s"),
+]
 
-class I2DSystem(AqualinkSystem):
+# globalrpmmin/globalrpmmax use hardware-specific bounds, multiples of 25, and
+# enforce the invariant that min < max.
+# (key, label, cross_key, value_lt_cross)
+_RPM_BOUND_SPECS: list[tuple[str, str, str, bool]] = [
+    ("globalrpmmin", "Global RPM Min", "globalrpmmax", True),
+    ("globalrpmmax", "Global RPM Max", "globalrpmmin", False),
+]
+
+_SWITCH_SPECS: list[tuple[str, str]] = [
+    ("freezeprotectenable", "Freeze Protection"),
+]
+
+# (key, label, unit) — read-only telemetry from motordata (flattened into alldata)
+_SENSOR_SPECS: list[tuple[str, str, str]] = [
+    ("speed", "Motor Speed", "RPM"),
+    ("power", "Motor Power", "W"),
+    ("temperature", "Motor Temperature", "°F"),
+    ("horsepower", "Horsepower", "HP"),
+]
+
+
+class I2dSystem(AqualinkSystem):
     NAME = "i2d"
 
     def __repr__(self) -> str:
@@ -159,20 +276,68 @@ class I2DSystem(AqualinkSystem):
         if self.serial in self.devices:
             self.devices[self.serial].data.update(device_data)
         else:
-            self.devices[self.serial] = IQPumpDevice(self, device_data)
+            self.devices[self.serial] = I2dPump(self, device_data)
+
+        # All number and switch sub-devices share the pump's data dict so they
+        # see live values after each update() without a separate parse step.
+        shared_data = self.devices[self.serial].data
+
+        for key, label, mn, mx, mn_key, mx_key, step, unit in _NUMBER_SPECS:
+            if key not in self.devices:
+                self.devices[key] = I2dNumber(
+                    self,
+                    shared_data,
+                    key=key,
+                    label=label,
+                    min_value=mn,
+                    max_value=mx,
+                    min_key=mn_key,
+                    max_key=mx_key,
+                    step=step,
+                    unit=unit,
+                )
+
+        for key, label, cross_key, value_lt_cross in _RPM_BOUND_SPECS:
+            if key not in self.devices:
+                self.devices[key] = I2dRpmBoundNumber(
+                    self,
+                    shared_data,
+                    key=key,
+                    label=label,
+                    cross_key=cross_key,
+                    value_lt_cross=value_lt_cross,
+                )
+
+        for key, label in _SWITCH_SPECS:
+            if key not in self.devices:
+                self.devices[key] = I2dSwitch(
+                    self, shared_data, key=key, label=label
+                )
+
+        for key, label, unit in _SENSOR_SPECS:
+            if key not in self.devices:
+                self.devices[key] = I2dSensor(
+                    self, shared_data, key=key, label=label, unit=unit
+                )
 
     # --- Control methods ---
 
-    async def set_opmode(self, mode: IQPumpOpMode) -> None:
-        """Set the pump operation mode."""
-        if not isinstance(mode, IQPumpOpMode):
+    async def set_opmode(self, mode: I2dOpMode) -> None:
+        if not isinstance(mode, I2dOpMode):
             try:
-                mode = IQPumpOpMode(mode)
+                mode = I2dOpMode(mode)
             except ValueError:
-                valid = ", ".join(f"{m.value}={m.name}" for m in IQPumpOpMode)
+                valid = ", ".join(
+                    f"{m.value}={m.name}" for m in _SETTABLE_OPMODE_SET
+                )
                 raise AqualinkInvalidParameterException(
                     f"{mode!r} is not a valid operation mode. Valid: {valid}"
                 )
+        if mode not in _SETTABLE_OPMODE_SET:
+            valid = ", ".join(m.name for m in _SETTABLE_OPMODE_SET)
+            raise AqualinkInvalidParameterException(
+                f"{mode.name} is not user-settable. Valid: {valid}"
+            )
         r = await self.send_control_command(
             "/opmode/write", f"value={mode.value}"
         )
@@ -185,8 +350,9 @@ class I2DSystem(AqualinkSystem):
         r.raise_for_status()
 
     async def set_freeze_protect(self, enable: bool) -> None:
+        state = I2dBinaryState.ON if enable else I2dBinaryState.OFF
         r = await self.send_control_command(
-            "/freezeprotectenable/write", f"value={int(enable)}"
+            "/freezeprotectenable/write", f"value={state}"
         )
         r.raise_for_status()
 

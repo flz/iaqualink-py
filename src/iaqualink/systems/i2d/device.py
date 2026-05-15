@@ -1,21 +1,85 @@
 from __future__ import annotations
 
 import logging
-from enum import IntEnum, unique
+from enum import IntEnum, StrEnum, unique
 from typing import TYPE_CHECKING
 
-from iaqualink.device import AqualinkPump
+from iaqualink.device import (
+    AqualinkNumber,
+    AqualinkPump,
+    AqualinkSensor,
+    AqualinkSwitch,
+)
 from iaqualink.exception import AqualinkInvalidParameterException
 
 if TYPE_CHECKING:
-    from iaqualink.systems.i2d.system import I2DSystem
+    from iaqualink.systems.i2d.system import I2dSystem
     from iaqualink.typing import DeviceData
 
 LOGGER = logging.getLogger("iaqualink")
 
 
 @unique
-class IQPumpOpMode(IntEnum):
+class I2dBinaryState(StrEnum):
+    OFF = "0"
+    ON = "1"
+
+
+_SVRS_PRODUCT_IDS: frozenset[str] = frozenset({"0F", "18"})
+_RPM_HARDWARE_MIN_DEFAULT = 600
+_RPM_HARDWARE_MIN_SVRS = 1050
+_RPM_HARDWARE_MAX = 3450
+_RPM_STEP = 25
+
+
+class I2dDevice:
+    """Shared properties for all iQPump sub-devices."""
+
+    @property
+    def manufacturer(self) -> str:
+        return "Zodiac"
+
+    @property
+    def model(self) -> str:
+        return "iQPump"
+
+
+class I2dSensor(I2dDevice, AqualinkSensor):
+    """Read-only telemetry value from an iQPump device."""
+
+    def __init__(
+        self,
+        system: I2dSystem,
+        data: DeviceData,
+        key: str,
+        label: str,
+        unit: str | None = None,
+    ) -> None:
+        super().__init__(system, data)
+        self.system: I2dSystem = system
+        self._key = key
+        self._label = label
+        self._unit = unit
+
+    @property
+    def name(self) -> str:
+        return self._key
+
+    @property
+    def label(self) -> str:
+        return self._label
+
+    @property
+    def state(self) -> str:
+        return str(self.data.get(self._key, ""))
+
+    @property
+    def unit(self) -> str | None:
+        return self._unit
+
+
+@unique
+class I2dOpMode(IntEnum):
     SCHEDULE = 0
     CUSTOM = 1
     STOP = 2
@@ -25,10 +89,19 @@ class IQPumpOpMode(IntEnum):
     SERVICE_OFF = 7
 
 
-class IQPumpDevice(AqualinkPump):
-    def __init__(self, system: I2DSystem, data: DeviceData) -> None:
+# Modes the user can request; others are entered automatically by the pump.
+SETTABLE_OPMODES: tuple[I2dOpMode, ...] = (
+    I2dOpMode.SCHEDULE,
+    I2dOpMode.CUSTOM,
+    I2dOpMode.STOP,
+)
+_SETTABLE_OPMODE_SET: frozenset[I2dOpMode] = frozenset(SETTABLE_OPMODES)
+
+
+class I2dPump(I2dDevice, AqualinkPump):
+    def __init__(self, system: I2dSystem, data: DeviceData) -> None:
         super().__init__(system, data)
-        self.system: I2DSystem = system
+        self.system: I2dSystem = system
 
     @property
     def name(self) -> str:
@@ -54,45 +127,15 @@ class IQPumpDevice(AqualinkPump):
     def is_on(self) -> bool:
         return self.state == "on"
 
-    @property
-    def manufacturer(self) -> str:
-        return "Zodiac"
-
-    @property
-    def model(self) -> str:
-        return "iQPump"
-
-    # --- Motor telemetry (from motordata, flattened at parse time) ---
-
-    @property
-    def motor_speed(self) -> int | None:
-        val = self.data.get("speed")
-        return int(val) if val is not None else None
-
-    @property
-    def motor_power(self) -> int | None:
-        val = self.data.get("power")
-        return int(val) if val is not None else None
-
-    @property
-    def motor_temperature(self) -> int | None:
-        val = self.data.get("temperature")
-        return int(val) if val is not None else None
-
-    @property
-    def horsepower(self) -> float | None:
-        val = self.data.get("horsepower")
-        return float(val) if val is not None else None
-
     # --- Configuration ---
 
     @property
-    def opmode(self) -> IQPumpOpMode | None:
+    def opmode(self) -> I2dOpMode | None:
         val = self.data.get("opmode")
         if val is None:
             return None
         try:
-            return IQPumpOpMode(int(val))
+            return I2dOpMode(int(val))
         except ValueError:
             return None
 
@@ -111,30 +154,232 @@ class IQPumpDevice(AqualinkPump):
         val = self.data.get("customspeedrpm")
         return int(val) if val is not None else None
 
-    # --- Freeze protection ---
-
-    @property
-    def freeze_protect_enabled(self) -> bool:
-        return self.data.get("freezeprotectenable") == "1"
-
-    @property
-    def freeze_protect_active(self) -> bool:
-        return self.data.get("freezeprotectstatus") == "1"
-
     # --- Control ---
 
     async def turn_on(self) -> None:
         if not self.is_on:
-            await self.system.set_opmode(IQPumpOpMode.CUSTOM)
+            await self.system.set_opmode(I2dOpMode.CUSTOM)
 
     async def turn_off(self) -> None:
         if self.is_on:
-            await self.system.set_opmode(IQPumpOpMode.STOP)
+            await self.system.set_opmode(I2dOpMode.STOP)
 
-    async def set_speed(self, rpm: int) -> None:
-        low = self.rpm_min or 600
-        high = self.rpm_max or 3450
-        if rpm not in range(low, high + 1):
-            msg = f"{rpm} RPM is out of range ({low}-{high} RPM)."
-            raise AqualinkInvalidParameterException(msg)
+    # --- Speed percentage ---
+
+    @property
+    def supports_set_speed_percentage(self) -> bool:
+        return True
+
+    async def set_speed_percentage(self, percentage: int) -> None:
+        if not 0 <= percentage <= 100:
+            raise AqualinkInvalidParameterException(
+                f"Percentage {percentage} out of range (0-100)."
+            )
+        rpm_min = self.rpm_min or _RPM_HARDWARE_MIN_DEFAULT
+        rpm_max = self.rpm_max or _RPM_HARDWARE_MAX
+        raw = rpm_min + (rpm_max - rpm_min) * percentage / 100
+        rounded = round(raw / _RPM_STEP) * _RPM_STEP
+        rpm = max(rpm_min, min(rpm_max, rounded))
         await self.system.set_custom_speed(rpm)
+
+    # --- Presets (user-settable opmodes) ---
+
+    @property
+    def supports_presets(self) -> bool:
+        return True
+
+    @property
+    def supported_presets(self) -> list[str]:
+        return [m.name for m in SETTABLE_OPMODES]
+
+    @property
+    def current_preset(self) -> str | None:
+        mode = self.opmode
+        return mode.name if mode is not None else None
+
+    async def set_preset(self, preset: str) -> None:
+        if preset not in self.supported_presets:
+            raise AqualinkInvalidParameterException(
+                f"{preset!r} is not a valid preset. Valid: {self.supported_presets}"
+            )
+        await self.system.set_opmode(I2dOpMode[preset])
+
+
+class I2dNumber(I2dDevice, AqualinkNumber):
+    """Writable numeric setting on an iQPump, read via /alldata/read."""
+
+    def __init__(
+        self,
+        system: I2dSystem,
+        data: DeviceData,
+        key: str,
+        label: str,
+        min_value: float | None = None,
+        max_value: float | None = None,
+        min_key: str | None = None,
+        max_key: str | None = None,
+        step: float = 1.0,
+        unit: str | None = None,
+    ) -> None:
+        if min_key is None and min_value is None:
+            raise ValueError(f"Either min_value or min_key required for {key}")
+        if max_key is None and max_value is None:
+            raise ValueError(f"Either max_value or max_key required for {key}")
+        super().__init__(system, data)
+        self.system: I2dSystem = system
+        self._key = key
+        self._label = label
+        self._min_value = min_value
+        self._max_value = max_value
+        self._min_key = min_key
+        self._max_key = max_key
+        self._step = step
+        self._unit = unit
+
+    @property
+    def name(self) -> str:
+        return self._key
+
+    @property
+    def label(self) -> str:
+        return self._label
+
+    @property
+    def state(self) -> str:
+        val = self.current_value
+        return "" if val is None else str(int(val))
+
+    @property
+    def current_value(self) -> float | None:
+        val = self.data.get(self._key)
+        return float(val) if val is not None else None
+
+    @property
+    def min_value(self) -> float:
+        if self._min_key is not None:
+            return float(self.data[self._min_key])
+        return self._min_value  # type: ignore[return-value]
+
+    @property
+    def max_value(self) -> float:
+        if self._max_key is not None:
+            return float(self.data[self._max_key])
+        return self._max_value  # type: ignore[return-value]
+
+    @property
+    def step(self) -> float:
+        return self._step
+
+    @property
+    def unit(self) -> str | None:
+        return self._unit
+
+    async def set_value(self, value: float) -> None:
+        if self._step != 1.0 and int(value) % int(self._step) != 0:
+            raise AqualinkInvalidParameterException(
+                f"{int(value)} is not a multiple of {int(self._step)}."
+            )
+        await super().set_value(value)
+
+    async def _set_value(self, value: float) -> None:
+        r = await self.system.send_control_command(
+            f"/{self._key}/write", f"value={int(value)}"
+        )
+        r.raise_for_status()
+
+
+class I2dRpmBoundNumber(I2dNumber):
+    """globalrpmmin or globalrpmmax — hardware-specific bounds, multiples of 25, cross-constraint."""
+
+    def __init__(
+        self,
+        system: I2dSystem,
+        data: DeviceData,
+        key: str,
+        label: str,
+        *,
+        cross_key: str,
+        value_lt_cross: bool,
+    ) -> None:
+        super().__init__(
+            system,
+            data,
+            key=key,
+            label=label,
+            min_value=_RPM_HARDWARE_MIN_DEFAULT,
+            max_value=_RPM_HARDWARE_MAX,
+            step=_RPM_STEP,
+            unit="RPM",
+        )
+        self._cross_key = cross_key
+        self._value_lt_cross = value_lt_cross
+
+    @property
+    def min_value(self) -> float:
+        if self.data.get("productid") in _SVRS_PRODUCT_IDS:
+            return float(_RPM_HARDWARE_MIN_SVRS)
+        return float(_RPM_HARDWARE_MIN_DEFAULT)
+
+    @property
+    def max_value(self) -> float:
+        return float(_RPM_HARDWARE_MAX)
+
+    async def set_value(self, value: float) -> None:
+        cross_str = self.data.get(self._cross_key)
+        if cross_str is not None:
+            cross = float(cross_str)
+            if self._value_lt_cross and value >= cross:
+                raise AqualinkInvalidParameterException(
+                    f"{self._key} ({int(value)}) must be less than"
+                    f" {self._cross_key} ({int(cross)})."
+                )
+            if not self._value_lt_cross and value <= cross:
+                raise AqualinkInvalidParameterException(
+                    f"{self._key} ({int(value)}) must be greater than"
+                    f" {self._cross_key} ({int(cross)})."
+                )
+        await super().set_value(value)
+
+
+class I2dSwitch(I2dDevice, AqualinkSwitch):
+    """Writable on/off setting on an iQPump, read via /alldata/read."""
+
+    def __init__(
+        self,
+        system: I2dSystem,
+        data: DeviceData,
+        key: str,
+        label: str,
+    ) -> None:
+        super().__init__(system, data)
+        self.system: I2dSystem = system
+        self._key = key
+        self._label = label
+
+    @property
+    def name(self) -> str:
+        return self._key
+
+    @property
+    def label(self) -> str:
+        return self._label
+
+    @property
+    def state(self) -> str:
+        return "on" if self.is_on else "off"
+
+    @property
+    def is_on(self) -> bool:
+        return self.data.get(self._key) == I2dBinaryState.ON
+
+    async def turn_on(self) -> None:
+        r = await self.system.send_control_command(
+            f"/{self._key}/write", f"value={I2dBinaryState.ON}"
+        )
+        r.raise_for_status()
+
+    async def turn_off(self) -> None:
+        r = await self.system.send_control_command(
+            f"/{self._key}/write", f"value={I2dBinaryState.OFF}"
+        )
+        r.raise_for_status()
