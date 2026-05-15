@@ -45,7 +45,7 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut = AqualinkSystem.from_data(self.client, data=data)
         self.sut_class = IaquaSystem
 
-    async def test_update_success(self) -> None:
+    async def test_refresh_success(self) -> None:
         def _set_online(_response):
             self.sut.status = SystemStatus.ONLINE
 
@@ -56,9 +56,9 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            await super().test_update_success()
+            await super().test_refresh_success()
 
-    async def test_update_offline(self) -> None:
+    async def test_refresh_offline(self) -> None:
         def _set_offline_raise(_response):
             self.sut.status = SystemStatus.OFFLINE
             raise AqualinkSystemOfflineException
@@ -71,19 +71,24 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
             with pytest.raises(AqualinkSystemOfflineException):
-                await super().test_update_success()
+                await super().test_refresh_success()
         assert self.sut.status is SystemStatus.OFFLINE
 
-    async def test_update_throttled(self) -> None:
+    async def test_refresh_throttled(self) -> None:
         with patch.object(self.sut, "_send_home_screen_request") as mock_req:
             mock_req.side_effect = AqualinkServiceThrottledException
             with pytest.raises(AqualinkServiceThrottledException):
-                await self.sut.update()
+                await self.sut.refresh()
         assert self.sut.status is SystemStatus.UNKNOWN
 
     async def test_get_devices_needs_update(self) -> None:
+        def _set_online(_response):
+            self.sut.status = SystemStatus.ONLINE
+
         with (
-            patch.object(self.sut, "_parse_home_response"),
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=_set_online
+            ),
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
@@ -563,7 +568,7 @@ class TestIaquaSystem(TestBaseSystem):
             assert f"{IAQUA_COMMAND_SET_ONETOUCH}_1" in called_url
             mock_parse.assert_called_once_with(mock_request.return_value)
 
-    async def test_update_onetouch_failure_raises(self) -> None:
+    async def test_refresh_onetouch_failure_raises(self) -> None:
         """A failing onetouch request raises and sets status to ERROR."""
         self.sut._onetouch_supported = True
         with (
@@ -578,12 +583,12 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_devices_response"),
         ):
             with pytest.raises(AqualinkServiceException):
-                await self.sut.update()
+                await self.sut.refresh()
 
         assert self.sut.status is SystemStatus.DISCONNECTED
         assert self.sut._onetouch_supported is True
 
-    async def test_update_onetouch_throttle_raises(self) -> None:
+    async def test_refresh_onetouch_throttle_raises(self) -> None:
         """A 429 on onetouch propagates and does not disable onetouch."""
         self.sut._onetouch_supported = True
         with (
@@ -598,27 +603,35 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_devices_response"),
         ):
             with pytest.raises(AqualinkServiceThrottledException):
-                await self.sut.update()
+                await self.sut.refresh()
 
         assert self.sut.status is SystemStatus.UNKNOWN
         assert self.sut._onetouch_supported is True
 
-    async def test_update_onetouch_not_requested_when_unsupported(self) -> None:
+    async def test_refresh_onetouch_not_requested_when_unsupported(
+        self,
+    ) -> None:
         """When home response reports no onetouch, the request is never issued."""
+
+        def _set_online(_response):
+            self.sut.status = SystemStatus.ONLINE
+
         with (
             patch.object(self.sut, "_send_home_screen_request"),
             patch.object(self.sut, "_send_devices_screen_request"),
             patch.object(
                 self.sut, "_send_onetouch_screen_request"
             ) as onetouch_req,
-            patch.object(self.sut, "_parse_home_response"),
+            patch.object(
+                self.sut, "_parse_home_response", side_effect=_set_online
+            ),
             patch.object(self.sut, "_parse_devices_response"),
         ):
             # _onetouch_supported starts None (falsy) — request must be skipped.
-            await self.sut.update()
+            await self.sut.refresh()
             assert onetouch_req.call_count == 0
 
-    async def test_update_onetouch_enabled_by_home_flag(self) -> None:
+    async def test_refresh_onetouch_enabled_by_home_flag(self) -> None:
         """onetouch='true' in home response enables onetouch polling."""
         message = {
             "onetouch": "true",
@@ -645,12 +658,12 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            await self.sut.update()
+            await self.sut.refresh()
             assert onetouch_req.call_count == 1
 
         assert self.sut._onetouch_supported is True
 
-    async def test_update_onetouch_disabled_by_home_flag(self) -> None:
+    async def test_refresh_onetouch_disabled_by_home_flag(self) -> None:
         """Absent or false onetouch flag in home response skips the request."""
         message = {
             "home_screen": [
@@ -676,7 +689,7 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            await self.sut.update()
+            await self.sut.refresh()
             assert onetouch_req.call_count == 0
 
         assert self.sut._onetouch_supported is False

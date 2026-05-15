@@ -4,11 +4,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from iaqualink.const import AQUALINK_API_KEY
-from iaqualink.exception import (
-    AqualinkServiceException,
-    AqualinkServiceThrottledException,
-    AqualinkSystemOfflineException,
-)
+from iaqualink.exception import AqualinkSystemOfflineException
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
     IaquaAuxSwitch,
@@ -117,31 +113,16 @@ class IaquaSystem(AqualinkSystem):
     async def _send_onetouch_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_ONETOUCH)
 
-    async def update(self) -> None:
-        self.status = SystemStatus.IN_PROGRESS
-        try:
-            r1 = await self._send_home_screen_request()
-            r2 = await self._send_devices_screen_request()
-        except AqualinkServiceThrottledException:
-            self.status = SystemStatus.UNKNOWN
-            raise
-        except AqualinkServiceException:
-            self.status = SystemStatus.DISCONNECTED
-            raise
+    async def _refresh(self) -> None:
+        r1 = await self._send_home_screen_request()
+        r2 = await self._send_devices_screen_request()
 
         # Only the home response determines system status; sets it before returning.
         self._parse_home_response(r1)
 
         r3 = None
         if self._onetouch_supported:
-            try:
-                r3 = await self._send_onetouch_screen_request()
-            except AqualinkServiceThrottledException:
-                self.status = SystemStatus.UNKNOWN
-                raise
-            except AqualinkServiceException:
-                self.status = SystemStatus.DISCONNECTED
-                raise
+            r3 = await self._send_onetouch_screen_request()
 
         self._parse_devices_response(r2)
         if r3 is not None:

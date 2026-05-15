@@ -28,34 +28,34 @@ class TestBaseSystem(TestBase):
             assert isinstance(self.sut, sut_class)
 
     @respx.mock
-    async def test_update_success(
+    async def test_refresh_success(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
         respx_mock.route(dotstar).mock(resp_200)
-        await self.sut.update()
+        await self.sut.refresh()
         assert len(respx_mock.calls) > 0
         assert self.sut.status is SystemStatus.ONLINE
         self.respx_calls = copy.copy(respx_mock.calls)
 
     @respx.mock
-    async def test_update_service_exception(
+    async def test_refresh_service_exception(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
         resp_500 = httpx.Response(status_code=500)
         respx_mock.route(dotstar).mock(resp_500)
         with pytest.raises(AqualinkServiceException):
-            await self.sut.update()
+            await self.sut.refresh()
         assert self.sut.status is SystemStatus.DISCONNECTED
         self.respx_calls = copy.copy(respx_mock.calls)
 
     @respx.mock
-    async def test_update_request_unauthorized(
+    async def test_refresh_request_unauthorized(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
         resp_401 = httpx.Response(status_code=401)
         respx_mock.route(dotstar).mock(resp_401)
         with pytest.raises(AqualinkServiceUnauthorizedException):
-            await self.sut.update()
+            await self.sut.refresh()
         assert len(respx_mock.calls) > 0
         self.respx_calls = copy.copy(respx_mock.calls)
 

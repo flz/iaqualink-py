@@ -189,24 +189,29 @@ class TestExoSystem(TestBaseSystem):
         self.sut_class = ExoSystem
 
     @respx.mock
-    async def test_update_success(
+    async def test_refresh_success(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
         respx_mock.route(dotstar).mock(httpx.Response(200, json=SAMPLE_DATA))
-        await self.sut.update()
+        await self.sut.refresh()
         assert len(respx_mock.calls) > 0
         assert self.sut.status is SystemStatus.CONNECTED
         self.respx_calls = copy.copy(respx_mock.calls)
 
-    async def test_update_throttled(self) -> None:
+    async def test_refresh_throttled(self) -> None:
         with patch.object(self.sut, "send_reported_state_request") as mock_req:
             mock_req.side_effect = AqualinkServiceThrottledException
             with pytest.raises(AqualinkServiceThrottledException):
-                await self.sut.update()
+                await self.sut.refresh()
         assert self.sut.status is SystemStatus.UNKNOWN
 
     async def test_get_devices_needs_update(self) -> None:
-        with patch.object(self.sut, "_parse_shadow_response"):
+        def _set_online(_response):
+            self.sut.status = SystemStatus.ONLINE
+
+        with patch.object(
+            self.sut, "_parse_shadow_response", side_effect=_set_online
+        ):
             await super().test_get_devices_needs_update()
 
     def test_parse_devices_good(self) -> None:

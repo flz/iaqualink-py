@@ -5,6 +5,11 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, ClassVar
 
+from iaqualink.exception import (
+    AqualinkServiceException,
+    AqualinkServiceThrottledException,
+    AqualinkSystemOfflineException,
+)
 from iaqualink.reauth import send_with_reauth_retry
 
 if TYPE_CHECKING:
@@ -76,7 +81,7 @@ class AqualinkSystem:
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
         if not self.devices:
-            await self.update()
+            await self.refresh()
         return self.devices
 
     async def _send_with_reauth_retry(
@@ -100,7 +105,24 @@ class AqualinkSystem:
     def status_translated(self) -> str:
         return self.status.name.replace("_", " ").title()
 
-    async def update(self) -> None:
+    async def refresh(self) -> None:
+        self.status = SystemStatus.IN_PROGRESS
+        try:
+            await self._refresh()
+        except AqualinkServiceThrottledException:
+            self.status = SystemStatus.UNKNOWN
+            raise
+        except AqualinkSystemOfflineException:
+            # Status already set by _refresh() before raising; preserve it.
+            raise
+        except AqualinkServiceException:
+            self.status = SystemStatus.DISCONNECTED
+            raise
+        assert self.status is not SystemStatus.IN_PROGRESS, (
+            f"{type(self).__name__}._refresh() returned without updating status"
+        )
+
+    async def _refresh(self) -> None:
         raise NotImplementedError
 
 
@@ -113,8 +135,8 @@ class UnsupportedSystem(AqualinkSystem):
     def supported(self) -> bool:
         return False
 
-    async def update(self) -> None:
-        LOGGER.debug("Skipping update for unsupported system %r", self.serial)
+    async def refresh(self) -> None:
+        LOGGER.debug("Skipping refresh for unsupported system %r", self.serial)
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
         LOGGER.debug(

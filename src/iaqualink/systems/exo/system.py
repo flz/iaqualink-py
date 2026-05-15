@@ -3,10 +3,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from iaqualink.exception import (
-    AqualinkServiceException,
-    AqualinkServiceThrottledException,
-)
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import ExoDevice
 
@@ -66,17 +62,8 @@ class ExoSystem(AqualinkSystem):
             method="post", json={"state": {"desired": state}}
         )
 
-    async def update(self) -> None:
-        self.status = SystemStatus.IN_PROGRESS
-        try:
-            r = await self.send_reported_state_request()
-        except AqualinkServiceThrottledException:
-            self.status = SystemStatus.UNKNOWN
-            raise
-        except AqualinkServiceException:
-            self.status = SystemStatus.DISCONNECTED
-            raise
-
+    async def _refresh(self) -> None:
+        r = await self.send_reported_state_request()
         self._parse_shadow_response(r)
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
