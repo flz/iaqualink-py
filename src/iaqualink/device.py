@@ -217,6 +217,7 @@ class AqualinkPump(AqualinkDevice):
 
     @property
     def supported_presets(self) -> list[str]:
+        # subclasses must override this when supports_presets returns True
         if self.supports_presets:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
@@ -232,7 +233,6 @@ class AqualinkPump(AqualinkDevice):
         return False
 
     async def set_speed_percentage(self, percentage: int) -> None:
-        """Set speed as a percentage (0-100)."""
         if self.supports_set_speed_percentage:
             if not 0 <= percentage <= 100:
                 raise AqualinkInvalidParameterException(percentage)
