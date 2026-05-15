@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
-from typing import Any
+from typing import Any, NamedTuple
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
@@ -17,6 +17,9 @@ from iaqualink.systems.i2d.device import (
     I2dSensor,
     I2dSwitch,
     I2dPump,
+    _RPM_HARDWARE_MIN_DEFAULT,
+    _RPM_HARDWARE_MIN_SVRS,
+    _RPM_HARDWARE_MAX,
 )
 
 import httpx
@@ -25,8 +28,6 @@ import httpx
 I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
 
 _SVRS_PRODUCT_IDS: frozenset[str] = frozenset({"0F", "18"})
-_RPM_HARDWARE_MIN_DEFAULT = 600
-_RPM_HARDWARE_MIN_SVRS = 1050
 
 LOGGER = logging.getLogger("iaqualink")
 
@@ -86,115 +87,40 @@ _MOCK_ALLDATA = {
     "requestID": "mock",
 }
 
-# (key, label, min, max, min_key, max_key, step, unit)
+class NumberSpec(NamedTuple):
+    key: str
+    label: str
+    min_value: float | None = None
+    max_value: float | None = None
+    min_key: str | None = None
+    max_key: str | None = None
+    step: float = 1.0
+    unit: str = ""
+
+
 # Exactly one of (min_value, min_key) and one of (max_value, max_key) must be set.
-# step > 1 enforces must-be-multiple-of-step validation in I2dNumber.set_value.
-_NUMBER_SPECS: list[
-    tuple[
-        str, str, float | None, float | None, str | None, str | None, float, str
-    ]
-] = [
+# step enforces must-be-multiple-of-step validation via AqualinkNumber.set_value.
+_NUMBER_SPECS: list[NumberSpec] = [
     # Hardware RPM limits — _rpmhwmin injected at parse time from productid
-    (
-        "globalrpmmin",
-        "Global RPM Min",
-        None,
-        None,
-        "_rpmhwmin",
-        "globalrpmmax",
-        25,
-        "RPM",
-    ),
-    (
-        "globalrpmmax",
-        "Global RPM Max",
-        None,
-        3450,
-        "globalrpmmin",
-        None,
-        25,
-        "RPM",
-    ),
+    NumberSpec("globalrpmmin", "Global RPM Min",    min_key="_rpmhwmin",    max_key="globalrpmmax", step=25, unit="RPM"),
+    NumberSpec("globalrpmmax", "Global RPM Max",    min_key="globalrpmmin", max_value=_RPM_HARDWARE_MAX, step=25, unit="RPM"),
     # RPM settings — bounds read live from globalrpmmin/globalrpmmax
-    (
-        "customspeedrpm",
-        "Custom Speed RPM",
-        None,
-        None,
-        "globalrpmmin",
-        "globalrpmmax",
-        25,
-        "RPM",
-    ),
-    (
-        "primingrpm",
-        "Priming RPM",
-        None,
-        None,
-        "globalrpmmin",
-        "globalrpmmax",
-        25,
-        "RPM",
-    ),
-    (
-        "quickcleanrpm",
-        "Quick Clean RPM",
-        None,
-        None,
-        "globalrpmmin",
-        "globalrpmmax",
-        25,
-        "RPM",
-    ),
-    (
-        "freezeprotectrpm",
-        "Freeze Protect RPM",
-        None,
-        None,
-        "globalrpmmin",
-        "globalrpmmax",
-        25,
-        "RPM",
-    ),
-    (
-        "countdownrpm",
-        "Countdown RPM",
-        None,
-        None,
-        "globalrpmmin",
-        "globalrpmmax",
-        25,
-        "RPM",
-    ),
+    NumberSpec("customspeedrpm",   "Custom Speed RPM",   min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
+    NumberSpec("primingrpm",       "Priming RPM",        min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
+    NumberSpec("quickcleanrpm",    "Quick Clean RPM",    min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
+    NumberSpec("freezeprotectrpm", "Freeze Protect RPM", min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
+    NumberSpec("countdownrpm",     "Countdown RPM",      min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
     # Temperature — API value is always °C (min=3, max=7, step=1).
     # The app displays in °F (min=37, max=45, step=2) and converts before writing.
     # If Fahrenheit support is added later, apply round(f_to_c(value)) before set_value.
-    (
-        "freezeprotectsetpointc",
-        "Freeze Protect Setpoint",
-        3,
-        7,
-        None,
-        None,
-        1,
-        "°C",
-    ),
+    NumberSpec("freezeprotectsetpointc", "Freeze Protect Setpoint", min_value=3, max_value=7, unit="°C"),
     # Period / timer settings (values in seconds, step-aligned)
-    ("customspeedtimer", "Custom Speed Timer", 300, 3600, None, None, 300, "s"),
-    ("primingperiod", "Priming Period", 0, 300, None, None, 60, "s"),
-    ("quickcleanperiod", "Quick Clean Period", 300, 3600, None, None, 300, "s"),
-    (
-        "freezeprotectperiod",
-        "Freeze Protect Period",
-        0,
-        28800,
-        None,
-        None,
-        1800,
-        "s",
-    ),
-    ("countdownperiod", "Countdown Period", 3600, 86400, None, None, 3600, "s"),
-    ("timeoutperiod", "Timeout Period", 3600, 86400, None, None, 3600, "s"),
+    NumberSpec("customspeedtimer",    "Custom Speed Timer",   min_value=300,  max_value=3600,  step=300,  unit="s"),
+    NumberSpec("primingperiod",       "Priming Period",       min_value=0,    max_value=300,   step=60,   unit="s"),
+    NumberSpec("quickcleanperiod",    "Quick Clean Period",   min_value=300,  max_value=3600,  step=300,  unit="s"),
+    NumberSpec("freezeprotectperiod", "Freeze Protect Period",min_value=0,    max_value=28800, step=1800, unit="s"),
+    NumberSpec("countdownperiod",     "Countdown Period",     min_value=3600, max_value=86400, step=3600, unit="s"),
+    NumberSpec("timeoutperiod",       "Timeout Period",       min_value=3600, max_value=86400, step=3600, unit="s"),
 ]
 
 _SWITCH_SPECS: list[tuple[str, str]] = [
@@ -300,19 +226,19 @@ class I2dSystem(AqualinkSystem):
         # see live values after each update() without a separate parse step.
         shared_data = self.devices[self.serial].data
 
-        for key, label, mn, mx, mn_key, mx_key, step, unit in _NUMBER_SPECS:
-            if key not in self.devices:
-                self.devices[key] = I2dNumber(
+        for spec in _NUMBER_SPECS:
+            if spec.key not in self.devices:
+                self.devices[spec.key] = I2dNumber(
                     self,
                     shared_data,
-                    key=key,
-                    label=label,
-                    min_value=mn,
-                    max_value=mx,
-                    min_key=mn_key,
-                    max_key=mx_key,
-                    step=step,
-                    unit=unit,
+                    key=spec.key,
+                    label=spec.label,
+                    min_value=spec.min_value,
+                    max_value=spec.max_value,
+                    min_key=spec.min_key,
+                    max_key=spec.max_key,
+                    step=spec.step,
+                    unit=spec.unit,
                 )
 
         for key, label in _SWITCH_SPECS:
