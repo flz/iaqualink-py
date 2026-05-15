@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import json
 import stat
+from enum import Enum, StrEnum
 from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -228,8 +229,10 @@ def _make_device(
     cls: type,
     label: str = "Dev",
     state: str | None = "1",
+    state_enum: type[Enum] | None = None,
 ) -> AqualinkDevice:
     """Minimal concrete device of a given base class (bypasses __init__)."""
+    _state_enum = state_enum
 
     class _Impl(cls):  # type: ignore[valid-type]
         @property
@@ -239,6 +242,10 @@ def _make_device(
         @property
         def state(self) -> str | None:
             return state
+
+        @property
+        def state_enum(self) -> type[Enum] | None:
+            return _state_enum
 
         @property
         def name(self) -> str:
@@ -466,6 +473,39 @@ def test_format_device_line_empty_state() -> None:
     text = cli_module._format_device_line("pump", device)
     assert "Pool Pump" in text.plain
     assert ": " not in text.plain
+
+
+def test_format_device_line_uses_translated_state() -> None:
+    class _FakeState(StrEnum):
+        OFF = "0"
+        ON = "1"
+
+    device = _make_device(
+        AqualinkSwitch, "Pool Pump", "1", state_enum=_FakeState
+    )
+    text = cli_module._format_device_line("pump", device)
+    assert "1" in text.plain
+    assert "(ON)" in text.plain
+
+
+def test_format_device_line_no_translation_omits_parentheses() -> None:
+    device = _make_device(AqualinkSwitch, "Pool Pump", "1")
+    text = cli_module._format_device_line("pump", device)
+    assert "1" in text.plain
+    assert "(" not in text.plain
+
+
+def test_format_device_line_unknown_enum_value_omits_parentheses() -> None:
+    class _FakeState(StrEnum):
+        OFF = "0"
+        ON = "1"
+
+    device = _make_device(
+        AqualinkSwitch, "Pool Pump", "99", state_enum=_FakeState
+    )
+    text = cli_module._format_device_line("pump", device)
+    assert "99" in text.plain
+    assert "(" not in text.plain
 
 
 # ---------------------------------------------------------------------------
