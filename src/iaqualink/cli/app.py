@@ -282,7 +282,9 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
     t.append(device.label, style="bold")
     t.append(f" [{device_name}]", style="dim")
     t.append(": ")
-    t.append(str(device.state), style="yellow")
+    t.append(device.state, style="yellow")
+    if (translated := device.state_translated) is not None:
+        t.append(f" ({translated})", style="yellow")
     return t
 
 
