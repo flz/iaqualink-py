@@ -32,7 +32,7 @@ class AqualinkOperationNotSupportedException(AqualinkException):
 
 
 class AqualinkStateUnavailableException(AqualinkException):
-    """Exception raised when accessing state that requires update() to be called first."""
+    """Exception raised when accessing state that requires refresh() to be called first."""
 
 
 class _AqualinkSystemUnsupportedDeprecated(AqualinkServiceException):

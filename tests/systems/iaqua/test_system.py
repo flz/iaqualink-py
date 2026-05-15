@@ -102,8 +102,7 @@ class TestIaquaSystem(TestBaseSystem):
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_devices_response(response)
+        self.sut._parse_devices_response(response)
         assert self.sut.devices == {}
 
     async def test_parse_devices_good(self) -> None:
@@ -361,13 +360,13 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut._parse_home_response(response)
         assert self.sut.status is SystemStatus.ONLINE
 
-    async def test_parse_devices_offline_when_service(self) -> None:
+    async def test_parse_devices_skipped_when_service(self) -> None:
         message = {"message": "", "devices_screen": [{"status": "Service"}]}
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_devices_response(response)
+        self.sut._parse_devices_response(response)
+        assert self.sut.devices == {}
 
     async def test_parse_home_skipped_on_empty_system_type(self) -> None:
         existing = MagicMock()
@@ -446,22 +445,21 @@ class TestIaquaSystem(TestBaseSystem):
         with pytest.raises(AqualinkServiceUnauthorizedException):
             await self.sut._send_devices_screen_request()
 
-    async def test_parse_onetouch_offline(self) -> None:
+    async def test_parse_onetouch_skipped_when_offline(self) -> None:
         message = {"message": "", "onetouch_screen": [{"status": "Offline"}]}
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_onetouch_response(response)
+        self.sut._parse_onetouch_response(response)
         assert self.sut.devices == {}
 
-    async def test_parse_onetouch_offline_when_service(self) -> None:
+    async def test_parse_onetouch_skipped_when_service(self) -> None:
         message = {"message": "", "onetouch_screen": [{"status": "Service"}]}
         response = MagicMock()
         response.json.return_value = message
 
-        with pytest.raises(AqualinkSystemOfflineException):
-            self.sut._parse_onetouch_response(response)
+        self.sut._parse_onetouch_response(response)
+        assert self.sut.devices == {}
 
     async def test_parse_onetouch_good(self) -> None:
         message = {
