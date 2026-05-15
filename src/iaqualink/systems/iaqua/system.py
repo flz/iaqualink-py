@@ -206,7 +206,11 @@ class IaquaSystem(AqualinkSystem):
 
         status = data["devices_screen"][0]["status"]
         if status in (IaquaSystemStatus.OFFLINE, IaquaSystemStatus.SERVICE, ""):
-            LOGGER.warning("Status for system %s is %s.", self.serial, status)
+            LOGGER.warning(
+                "Skipping device update for system %s: devices_screen status is %s.",
+                self.serial,
+                status,
+            )
             return
 
         for x in data["devices_screen"][3:]:
@@ -283,7 +287,9 @@ class IaquaSystem(AqualinkSystem):
             "",
         ):
             LOGGER.warning(
-                "Status for system %s is %s.", self.serial, raw_ot_status
+                "Skipping onetouch update for system %s: onetouch_screen status is %s.",
+                self.serial,
+                raw_ot_status,
             )
             return
 
