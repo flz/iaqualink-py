@@ -170,6 +170,21 @@ To add a new system type:
 6. Register the new system module import in `src/iaqualink/client.py` so `AqualinkSystem.from_data()` can discover the subclass at runtime
 7. Add tests following existing patterns in `tests/systems/newsystem/`
 
+## Adding New Base Device Types
+
+When adding a new direct subclass of `AqualinkDevice` to `device.py`, you **must** also add a corresponding entry to `_DEVICE_GROUPS` in `src/iaqualink/cli/app.py`. Devices without a matching group silently fall through to the "Other" bucket in the CLI output. The current base types and their CLI group order are:
+
+| Class | CLI Group | Notes |
+|---|---|---|
+| `AqualinkThermostat` | Thermostats | |
+| `AqualinkLight` | Lights | |
+| `AqualinkSwitch` | Switches | |
+| `AqualinkPump` | Pumps | |
+| `AqualinkNumber` | Numbers | |
+| `AqualinkSensor` | Sensors | `AqualinkBinarySensor` extends `AqualinkSensor` and is covered by this entry |
+
+Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `AqualinkLight` before `AqualinkSwitch`). Only add a new row for direct subclasses of `AqualinkDevice`; intermediate classes like `AqualinkBinarySensor` are automatically covered by their parent's entry.
+
 ## Quality Gates
 
 Before finalizing any change, validate it against the API spec files in `spec/` if they exist and are relevant to the change:

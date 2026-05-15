@@ -18,6 +18,8 @@ from iaqualink.client import AqualinkAuthState, AqualinkClient
 from iaqualink.device import (
     AqualinkDevice,
     AqualinkLight,
+    AqualinkNumber,
+    AqualinkPump,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkThermostat,
@@ -244,10 +246,15 @@ def _sorted_devices(
 
 
 # Subclasses must appear before their superclass (Light/Thermostat extend Switch).
+# IMPORTANT: Every concrete AqualinkDevice subclass in device.py must have a
+# matching entry here so devices never silently fall through to "Other".
+# When adding a new base device type, add its entry to this list.
 _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
     (AqualinkThermostat, "🌡️", "Thermostats"),
     (AqualinkLight, "💡", "Lights"),
     (AqualinkSwitch, "⚡", "Switches"),
+    (AqualinkPump, "⚙️", "Pumps"),
+    (AqualinkNumber, "🔢", "Numbers"),
     (AqualinkSensor, "📊", "Sensors"),
 ]
 
