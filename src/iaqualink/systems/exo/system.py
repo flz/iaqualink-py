@@ -78,7 +78,7 @@ class ExoSystem(AqualinkSystem):
             .get("status")
         )
         if raw_aws_status is None:
-            self.status = SystemStatus.ONLINE
+            self.status = SystemStatus.UNKNOWN
         elif raw_aws_status == "":
             self.status = SystemStatus.IN_PROGRESS
         else:

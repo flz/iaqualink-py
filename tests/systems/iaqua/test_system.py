@@ -567,7 +567,7 @@ class TestIaquaSystem(TestBaseSystem):
             mock_parse.assert_called_once_with(mock_request.return_value)
 
     async def test_refresh_onetouch_failure_raises(self) -> None:
-        """A failing onetouch request raises and sets status to ERROR."""
+        """A failing onetouch request raises and sets status to DISCONNECTED."""
         self.sut._onetouch_supported = True
         with (
             patch.object(self.sut, "_send_home_screen_request"),

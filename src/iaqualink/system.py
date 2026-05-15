@@ -118,9 +118,11 @@ class AqualinkSystem:
         except AqualinkServiceException:
             self.status = SystemStatus.DISCONNECTED
             raise
-        assert self.status is not SystemStatus.IN_PROGRESS, (
-            f"{type(self).__name__}._refresh() returned without updating status"
-        )
+        if self.status is SystemStatus.IN_PROGRESS:
+            LOGGER.warning(
+                "%s._refresh() returned without updating status",
+                type(self).__name__,
+            )
 
     async def _refresh(self) -> None:
         """Fetch and parse the latest state from the API.
@@ -130,8 +132,8 @@ class AqualinkSystem:
 
         **Status on normal return:**
         Set `self.status` to a resolved value (anything except `IN_PROGRESS`)
-        before returning. `refresh()` asserts this post-condition; failing it
-        raises `AssertionError`.
+        before returning. `refresh()` logs a warning if status is still
+        `IN_PROGRESS` after `_refresh()` returns.
 
         **`AqualinkSystemOfflineException`:**
         Set `self.status` to the appropriate value (`OFFLINE`, `SERVICE`,

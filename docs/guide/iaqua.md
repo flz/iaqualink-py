@@ -35,13 +35,13 @@ System status is determined **solely from the `get_home` response** (`home_scree
 
 ### Status lifecycle
 
-`update()` resets status to `IN_PROGRESS` before issuing any requests, matching the pull-to-refresh behaviour in the original Jandy app.
+`refresh()` resets status to `IN_PROGRESS` before issuing any requests, matching the pull-to-refresh behaviour in the original Jandy app.
 
 ```python
 # Status before first update
 assert system.status == SystemStatus.IN_PROGRESS
 
-await system.update()
+await system.refresh()
 
 # Status reflects home_screen.status
 assert system.status == SystemStatus.ONLINE
@@ -49,7 +49,7 @@ assert system.status == SystemStatus.ONLINE
 
 ## System-Specific Properties
 
-These properties are available after a successful `update()` call:
+These properties are available after a successful `refresh()` call:
 
 ```python
 system.system_type   # IaquaSystemType: SPA_AND_POOL, POOL_ONLY, or DUAL

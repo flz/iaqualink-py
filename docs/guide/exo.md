@@ -29,7 +29,7 @@ Status is read from `state.reported.aws.status` in the shadow response and mappe
 | `"firmware_update"` | `FIRMWARE_UPDATE` | Yellow |
 | `"in_progress"` | `IN_PROGRESS` | Dim |
 | `""` (empty) | `IN_PROGRESS` | Dim |
-| key absent | `ONLINE` (request succeeded) | Green |
+| key absent | `UNKNOWN` | Red |
 | unrecognised string | `UNKNOWN` | Red |
 
 ### Request-level status
@@ -41,13 +41,13 @@ Status is read from `state.reported.aws.status` in the shadow response and mappe
 
 ### Status lifecycle
 
-`update()` resets status to `IN_PROGRESS` before issuing the shadow request, matching the pull-to-refresh behaviour in the original Zodiac app.
+`refresh()` resets status to `IN_PROGRESS` before issuing the shadow request, matching the pull-to-refresh behaviour in the original Zodiac app.
 
 ```python
 # Status before first update
 assert system.status == SystemStatus.IN_PROGRESS
 
-await system.update()
+await system.refresh()
 
 # Status reflects aws.status from shadow response
 assert system.status == SystemStatus.CONNECTED
