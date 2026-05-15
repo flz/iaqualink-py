@@ -40,7 +40,7 @@ class AqualinkSystem:
         self.aqualink = aqualink
         self.data = data
         self.devices: dict[str, AqualinkDevice] = {}
-        self._status: SystemStatus = SystemStatus.IN_PROGRESS
+        self._status: SystemStatus | None = None
 
     @classmethod
     def __init_subclass__(cls) -> None:
@@ -94,7 +94,11 @@ class AqualinkSystem:
 
     @property
     def status(self) -> SystemStatus:
-        return self._status
+        return (
+            self._status
+            if self._status is not None
+            else SystemStatus.IN_PROGRESS
+        )
 
     @status.setter
     def status(self, value: SystemStatus) -> None:
@@ -105,7 +109,7 @@ class AqualinkSystem:
         return self.status.name.replace("_", " ").title()
 
     async def refresh(self) -> None:
-        self.status = SystemStatus.IN_PROGRESS
+        self._status = None  # sentinel: not yet set by _refresh()
         try:
             await self._refresh()
         except AqualinkServiceThrottledException:
@@ -114,7 +118,7 @@ class AqualinkSystem:
         except AqualinkServiceException:
             self.status = SystemStatus.DISCONNECTED
             raise
-        if self.status is SystemStatus.IN_PROGRESS:
+        if self._status is None:
             LOGGER.warning(
                 "%s._refresh() returned without updating status",
                 type(self).__name__,
@@ -127,9 +131,11 @@ class AqualinkSystem:
         must follow this contract:
 
         **Status on normal return:**
-        Set `self.status` to a resolved value (anything except `IN_PROGRESS`)
-        before returning. `refresh()` logs a warning if status is still
-        `IN_PROGRESS` after `_refresh()` returns.
+        Set `self.status` before returning. `refresh()` uses an internal
+        `None` sentinel to detect whether the setter was called; it logs a
+        warning if `_refresh()` returns without ever writing `self.status`.
+        Setting `self.status = SystemStatus.IN_PROGRESS` is valid and will
+        not trigger the warning.
 
         **`AqualinkServiceThrottledException` / `AqualinkServiceException`:**
         Do not catch these. `refresh()` intercepts them and sets `UNKNOWN` or

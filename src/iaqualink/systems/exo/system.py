@@ -14,7 +14,6 @@ _EXO_STATUS_MAP: dict[str, SystemStatus] = {
     "unknown": SystemStatus.UNKNOWN,
     "service": SystemStatus.SERVICE,
     "firmware_update": SystemStatus.FIRMWARE_UPDATE,
-    "in_progress": SystemStatus.IN_PROGRESS,
 }
 
 if TYPE_CHECKING:
