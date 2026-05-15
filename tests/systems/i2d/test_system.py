@@ -155,8 +155,8 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         assert isinstance(device, I2dPump)
 
         assert device.is_on is True
-        assert device.state == "on"
-        assert device.opmode == I2dOpMode.SCHEDULE
+        assert device.state == "0"
+        assert device.state_translated == "SCHEDULE"
         assert device.rpm_min == 600
         assert device.rpm_max == 3450
         assert device.custom_speed_rpm == 1500

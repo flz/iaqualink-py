@@ -119,7 +119,9 @@ class I2dPump(I2dDevice, AqualinkPump):
 
     @property
     def state(self) -> str:
-        return self.data.get("runstate", I2dRunState.OFF)
+        return self.data.get("opmode", "")
+
+    state_enum = I2dOpMode
 
     @property
     def supports_turn_on(self) -> bool:
@@ -134,14 +136,6 @@ class I2dPump(I2dDevice, AqualinkPump):
         return self.data.get("runstate") == I2dRunState.ON
 
     # --- Configuration ---
-
-    @property
-    def opmode(self) -> I2dOpMode | None:
-        val = self.data.get("opmode")
-        try:
-            return I2dOpMode(val) if val is not None else None
-        except ValueError:
-            return None
 
     @property
     def rpm_min(self) -> int | None:
@@ -198,8 +192,7 @@ class I2dPump(I2dDevice, AqualinkPump):
 
     @property
     def current_preset(self) -> str | None:
-        mode = self.opmode
-        return mode.name if mode is not None else None
+        return self.state_translated
 
     async def set_preset(self, preset: str) -> None:
         if preset not in self.supported_presets:
