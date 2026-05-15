@@ -184,3 +184,64 @@ class AqualinkNumber(AqualinkDevice):
 
     async def _set_value(self, value: float) -> None:
         raise NotImplementedError
+
+
+class AqualinkPump(AqualinkDevice):
+    @property
+    def supports_turn_on(self) -> bool:
+        return False
+
+    @property
+    def supports_turn_off(self) -> bool:
+        return False
+
+    @property
+    def is_on(self) -> bool:
+        if self.supports_turn_on or self.supports_turn_off:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    async def turn_on(self) -> None:
+        if self.supports_turn_on:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    async def turn_off(self) -> None:
+        if self.supports_turn_off:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    @property
+    def supports_presets(self) -> bool:
+        return False
+
+    @property
+    def supported_presets(self) -> list[str]:
+        # subclasses must override this when supports_presets returns True
+        if self.supports_presets:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    @property
+    def current_preset(self) -> str | None:
+        if self.supports_presets:
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    @property
+    def supports_set_speed_percentage(self) -> bool:
+        return False
+
+    async def set_speed_percentage(self, percentage: int) -> None:
+        if self.supports_set_speed_percentage:
+            if not 0 <= percentage <= 100:
+                raise AqualinkInvalidParameterException(percentage)
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException
+
+    async def set_preset(self, preset: str) -> None:
+        if self.supports_presets:
+            if preset not in self.supported_presets:
+                raise AqualinkInvalidParameterException(preset)
+            raise NotImplementedError
+        raise AqualinkOperationNotSupportedException

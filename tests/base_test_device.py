@@ -11,6 +11,7 @@ from iaqualink.device import (
     AqualinkBinarySensor,
     AqualinkLight,
     AqualinkNumber,
+    AqualinkPump,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkThermostat,
@@ -359,4 +360,189 @@ class TestBaseNumber(TestBaseDevice):
         respx_mock.route(dotstar).mock(resp_200)
         with pytest.raises(AqualinkInvalidParameterException):
             await self.sut.set_value(self.sut.max_value + 1.0)
+        assert len(respx_mock.calls) == 0
+
+
+class TestBasePump(TestBaseDevice):
+    def test_inheritance(self) -> None:
+        assert isinstance(self.sut, AqualinkPump)
+
+    def test_property_supports_turn_on(self) -> None:
+        assert isinstance(self.sut.supports_turn_on, bool)
+
+    def test_property_supports_turn_off(self) -> None:
+        assert isinstance(self.sut.supports_turn_off, bool)
+
+    def test_property_is_on(self) -> None:
+        if not (self.sut.supports_turn_on or self.sut.supports_turn_off):
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                _ = self.sut.is_on
+        else:
+            assert isinstance(self.sut.is_on, bool)
+
+    @respx.mock
+    async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
+        if not self.sut.supports_turn_on:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.turn_on()
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.turn_on()
+        assert len(respx_mock.calls) > 0
+        self.respx_calls = copy.copy(respx_mock.calls)
+
+    @respx.mock
+    async def test_turn_on_noop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_turn_on:
+            pytest.skip("Device doesn't support turn_on")
+        with patch.object(
+            type(self.sut),
+            "is_on",
+            new_callable=PropertyMock(return_value=True),
+        ):
+            respx_mock.route(dotstar).mock(resp_200)
+            await self.sut.turn_on()
+            assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
+        if not self.sut.supports_turn_off:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.turn_off()
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.turn_off()
+        assert len(respx_mock.calls) > 0
+        self.respx_calls = copy.copy(respx_mock.calls)
+
+    @respx.mock
+    async def test_turn_off_noop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_turn_off:
+            pytest.skip("Device doesn't support turn_off")
+        with patch.object(
+            type(self.sut),
+            "is_on",
+            new_callable=PropertyMock(return_value=False),
+        ):
+            respx_mock.route(dotstar).mock(resp_200)
+            await self.sut.turn_off()
+            assert len(respx_mock.calls) == 0
+
+    def test_property_supports_presets(self) -> None:
+        assert isinstance(self.sut.supports_presets, bool)
+
+    def test_property_supported_presets(self) -> None:
+        if self.sut.supports_presets:
+            assert isinstance(self.sut.supported_presets, list)
+            assert len(self.sut.supported_presets) > 0
+        else:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                _ = self.sut.supported_presets
+
+    def test_property_current_preset(self) -> None:
+        if self.sut.supports_presets:
+            assert self.sut.current_preset is None or isinstance(
+                self.sut.current_preset, str
+            )
+        else:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                _ = self.sut.current_preset
+
+    def test_property_supports_set_speed_percentage(self) -> None:
+        assert isinstance(self.sut.supports_set_speed_percentage, bool)
+
+    @respx.mock
+    async def test_set_speed_percentage_0(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_set_speed_percentage:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_speed_percentage(0)
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.set_speed_percentage(0)
+        assert len(respx_mock.calls) > 0
+        self.respx_calls = copy.copy(respx_mock.calls)
+
+    @respx.mock
+    async def test_set_speed_percentage_50(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_set_speed_percentage:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_speed_percentage(50)
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.set_speed_percentage(50)
+        assert len(respx_mock.calls) > 0
+        self.respx_calls = copy.copy(respx_mock.calls)
+
+    @respx.mock
+    async def test_set_speed_percentage_100(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_set_speed_percentage:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_speed_percentage(100)
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.set_speed_percentage(100)
+        assert len(respx_mock.calls) > 0
+        self.respx_calls = copy.copy(respx_mock.calls)
+
+    @respx.mock
+    async def test_set_speed_percentage_invalid_negative(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_set_speed_percentage:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_speed_percentage(-1)
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_speed_percentage(-1)
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_set_speed_percentage_invalid_150(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_set_speed_percentage:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_speed_percentage(150)
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_speed_percentage(150)
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_set_preset(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_presets:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_preset("any")
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        preset = self.sut.supported_presets[0]
+        await self.sut.set_preset(preset)
+        assert len(respx_mock.calls) > 0
+        self.respx_calls = copy.copy(respx_mock.calls)
+
+    @respx.mock
+    async def test_set_preset_invalid(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_presets:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_preset("nonexistent")
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_preset("nonexistent_preset")
         assert len(respx_mock.calls) == 0

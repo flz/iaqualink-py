@@ -9,6 +9,7 @@ from iaqualink.device import (
     AqualinkDevice,
     AqualinkLight,
     AqualinkNumber,
+    AqualinkPump,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkThermostat,
@@ -19,6 +20,7 @@ from .base_test_device import (
     TestBaseDevice,
     TestBaseLight,
     TestBaseNumber,
+    TestBasePump,
     TestBaseSensor,
     TestBaseSwitch,
     TestBaseThermostat,
@@ -287,3 +289,10 @@ class TestAqualinkNumber(TestBaseNumber, TestAqualinkDevice):
     async def test_set_value_above_max(self) -> None:
         with pytest.raises(NotImplementedError):
             await super().test_set_value_above_max()
+
+
+class TestAqualinkPump(TestBasePump, TestAqualinkDevice):
+    def setUp(self) -> None:
+        system = MagicMock()
+        data: dict[str, str] = {}
+        self.sut = AqualinkPump(system, data)
