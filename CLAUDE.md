@@ -100,7 +100,6 @@ bash scripts/setup-worktree.sh
 The script (idempotent):
 - Installs pre-commit hooks for both `pre-commit` and `pre-push` stages
 - Checks that `uv` and `claude` are on `PATH`
-- Checks that `uv` and `claude` are on `PATH`
 - Prints a checklist of what is wired
 
 ## Architecture
