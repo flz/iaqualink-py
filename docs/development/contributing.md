@@ -152,6 +152,82 @@ def example_function(param: str) -> int:
     return len(param)
 ```
 
+### Logging
+
+#### Logger names
+
+Each module uses a named child logger under the `iaqualink` root so callers can filter
+output per subsystem. The root logger (`iaqualink`) is configured by the CLI's
+`--debug` flag; all children inherit it automatically.
+
+| Module | Logger name |
+|--------|-------------|
+| `client.py` | `iaqualink.client` |
+| `system.py` | `iaqualink.system` |
+| `device.py` | `iaqualink.device` |
+| `systems/iaqua/system.py`, `systems/iaqua/device.py` | `iaqualink.systems.iaqua` |
+| `systems/exo/system.py`, `systems/exo/device.py` | `iaqualink.systems.exo` |
+| `systems/i2d/system.py`, `systems/i2d/device.py` | `iaqualink.systems.i2d` |
+| `cli/app.py` | `iaqualink.cli` |
+
+When adding a new system, use `logging.getLogger("iaqualink.systems.<name>")` in both
+`system.py` and `device.py`.
+
+#### Sensitive data
+
+**Never** log the following values directly:
+
+- Credentials: `password`, `_password`
+- Auth tokens: `authentication_token`, `id_token`, `refresh_token`, `client_id`
+- Request secrets: HMAC `signature`, `sessionID`
+
+When logging request parameters, use the helpers in `client.py`:
+
+```python
+LOGGER.debug("-> %s %s %s", method, _redact_url(url), _redact_kwargs(kwargs))
+```
+
+`AqualinkAuthState.__repr__` already masks token fields — logging an auth state object is safe.
+
+Auth **response** bodies (login, refresh) contain raw tokens — never log them on success.
+
+#### Response body visibility
+
+Parse methods log the full raw response body at `DEBUG` **before** any parsing logic, so even a
+mid-parse crash shows exactly what the API returned:
+
+```python
+def _parse_foo_response(self, response: httpx.Response) -> None:
+    data = response.json()
+    LOGGER.debug("Foo body: %s", data)      # must be first — visible even if parse raises
+    ...
+    LOGGER.debug("Foo parsed: serial=%s status=%s", self.serial, self.status.name)
+```
+
+Device-state response bodies (home, devices, shadow, alldata) contain no auth tokens and are
+safe to log in full. The body line provides API visibility for issue reports; the structured
+summary at the end provides grep-friendly output.
+
+#### Log levels
+
+| Level | Use for |
+|-------|---------|
+| `INFO` | Auth lifecycle events: login, token refresh, reauth fallback |
+| `DEBUG` | Normal flow: request/response details, parse results, device counts |
+| `WARNING` | Unexpected but handled: unknown enum value, offline device, skipped update |
+| `ERROR` / exception | Not used — raise exceptions instead |
+
+Auth lifecycle events that warrant `INFO`:
+
+```python
+LOGGER.info("Authenticated: user=%s", self.username)
+LOGGER.info("Auth token refreshed: user=%s", self.username)
+LOGGER.info("Refresh token expired, re-authenticating: user=%s", self.username)
+```
+
+System status changes stay at `DEBUG` (noisy on frequent polling); unexpected status values
+stay at `WARNING`.
+
 ## Testing
 
 ### Test Structure

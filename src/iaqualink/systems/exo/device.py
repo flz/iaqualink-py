@@ -21,7 +21,7 @@ if TYPE_CHECKING:
 EXO_TEMP_CELSIUS_LOW = 1
 EXO_TEMP_CELSIUS_HIGH = 40
 
-LOGGER = logging.getLogger("iaqualink")
+LOGGER = logging.getLogger("iaqualink.systems.exo")
 
 
 @unique

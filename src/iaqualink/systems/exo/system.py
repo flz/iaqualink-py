@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
 EXO_DEVICES_URL = "https://prod.zodiac-io.com/devices/v1"
 
-LOGGER = logging.getLogger("iaqualink")
+LOGGER = logging.getLogger("iaqualink.systems.exo")
 
 
 class ExoSystem(AqualinkSystem):
@@ -67,8 +67,7 @@ class ExoSystem(AqualinkSystem):
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()
-
-        LOGGER.debug("Shadow response: %s", data)
+        LOGGER.debug("Shadow body: %s", data)
 
         raw_aws_status = (
             data.get("state", {})
@@ -89,6 +88,9 @@ class ExoSystem(AqualinkSystem):
                 self.status = SystemStatus.UNKNOWN
             else:
                 self.status = mapped
+        LOGGER.debug(
+            "Shadow parsed: serial=%s status=%s", self.serial, self.status.name
+        )
 
         devices = {}
 
@@ -124,7 +126,9 @@ class ExoSystem(AqualinkSystem):
             attrs.update({"state": reported["heating"]["state"]})
             devices.update({name: attrs})
 
-        LOGGER.debug("devices: %s", devices)
+        LOGGER.debug(
+            "EXO devices parsed: serial=%s count=%d", self.serial, len(devices)
+        )
 
         for k, v in devices.items():
             if k in self.devices:

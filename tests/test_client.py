@@ -12,6 +12,8 @@ import respx
 from iaqualink.client import (
     AqualinkAuthState,
     AqualinkClient,
+    _redact_kwargs,
+    _redact_url,
 )
 from iaqualink.const import (
     AQUALINK_API_KEY,
@@ -616,3 +618,110 @@ class TestAqualinkClient(TestBase):
         await self.client._send_systems_request()
 
         assert self.client.refresh_token == original_refresh_token
+
+
+class TestRedactUrl(TestBase):
+    def test_redacts_password_in_query(self) -> None:
+        url = "https://example.com/login?email=user&password=s3cr3t"
+        assert (
+            _redact_url(url)
+            == "https://example.com/login?email=user&password=***"
+        )
+
+    def test_redacts_signature_in_query(self) -> None:
+        url = "https://r-api.iaqualink.net/v2/devices.json?user_id=1&signature=abc123&timestamp=1"
+        assert "signature=***" in _redact_url(url)
+        assert "user_id=1" in _redact_url(url)
+
+    def test_redacts_sessionID_in_query(self) -> None:
+        url = "https://p-api.iaqualink.net/v2/mobile/session.json?sessionID=tok&command=get_home"
+        result = _redact_url(url)
+        assert "sessionID=***" in result
+        assert "command=get_home" in result
+
+    def test_redacts_authentication_token_in_query(self) -> None:
+        url = "https://example.com/api?authentication_token=secret&other=ok"
+        result = _redact_url(url)
+        assert "authentication_token=***" in result
+        assert "other=ok" in result
+
+    def test_no_change_when_no_sensitive_params(self) -> None:
+        url = "https://example.com/api?user_id=42&timestamp=1234"
+        assert _redact_url(url) == url
+
+    def test_redacts_api_key_in_query(self) -> None:
+        url = "https://example.com/api?api_key=deadbeef&user_id=1"
+        result = _redact_url(url)
+        assert "api_key=***" in result
+        assert "user_id=1" in result
+
+
+class TestRedactKwargs(TestBase):
+    def test_redacts_password_in_json(self) -> None:
+        kwargs = {"json": {"email": "user@example.com", "password": "s3cr3t"}}
+        result = _redact_kwargs(kwargs)
+        assert result["json"]["password"] == "***"
+        assert result["json"]["email"] == "user@example.com"
+
+    def test_redacts_refresh_token_in_json(self) -> None:
+        kwargs = {"json": {"email": "u", "refresh_token": "tok"}}
+        result = _redact_kwargs(kwargs)
+        assert result["json"]["refresh_token"] == "***"
+
+    def test_redacts_authentication_token_in_json(self) -> None:
+        kwargs = {"json": {"authentication_token": "tok", "user_id": "1"}}
+        result = _redact_kwargs(kwargs)
+        assert result["json"]["authentication_token"] == "***"
+        assert result["json"]["user_id"] == "1"
+
+    def test_redacts_api_key_in_json(self) -> None:
+        kwargs = {"json": {"api_key": "deadbeef", "command": "/opmode/write"}}
+        result = _redact_kwargs(kwargs)
+        assert result["json"]["api_key"] == "***"
+        assert result["json"]["command"] == "/opmode/write"
+
+    def test_redacts_sessionID_in_params(self) -> None:
+        kwargs = {"params": {"sessionID": "tok", "command": "get_home"}}
+        result = _redact_kwargs(kwargs)
+        assert result["params"]["sessionID"] == "***"
+        assert result["params"]["command"] == "get_home"
+
+    def test_does_not_mutate_original(self) -> None:
+        original_json = {"password": "secret", "email": "u"}
+        kwargs = {"json": original_json}
+        _redact_kwargs(kwargs)
+        assert original_json["password"] == "secret"
+
+    def test_passthrough_when_no_sensitive_keys(self) -> None:
+        kwargs = {
+            "json": {"command": "get_home", "serial": "ABC"},
+            "timeout": 10,
+        }
+        result = _redact_kwargs(kwargs)
+        assert result["json"] == {"command": "get_home", "serial": "ABC"}
+        assert result["timeout"] == 10
+
+    def test_ignores_non_dict_json(self) -> None:
+        kwargs = {"json": "not-a-dict"}
+        result = _redact_kwargs(kwargs)
+        assert result["json"] == "not-a-dict"
+
+
+class TestAqualinkAuthStateRepr(TestBase):
+    def test_repr_masks_tokens(self) -> None:
+        state = AqualinkAuthState(
+            username="user@example.com",
+            client_id="session-id",
+            authentication_token="auth-tok",
+            user_id="42",
+            id_token="jwt",
+            refresh_token="refresh-tok",
+        )
+        r = repr(state)
+        assert "user@example.com" in r
+        assert "42" in r
+        assert "session-id" not in r
+        assert "auth-tok" not in r
+        assert "jwt" not in r
+        assert "refresh-tok" not in r
+        assert "***" in r

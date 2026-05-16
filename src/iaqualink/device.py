@@ -12,7 +12,7 @@ from iaqualink.exception import (
 if TYPE_CHECKING:
     from iaqualink.typing import DeviceData
 
-LOGGER = logging.getLogger("iaqualink")
+LOGGER = logging.getLogger("iaqualink.device")
 
 
 class AqualinkDevice:

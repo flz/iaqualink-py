@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import urllib.parse
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -557,8 +556,8 @@ class TestIaquaSystem(TestBaseSystem):
         with patch.object(self.sut, "_parse_onetouch_response") as mock_parse:
             await self.sut.set_onetouch("onetouch_1")
 
-            called_url = mock_request.call_args[0][1]
-            assert f"{IAQUA_COMMAND_SET_ONETOUCH}_1" in called_url
+            called_params = mock_request.call_args[1]["params"]
+            assert called_params["command"] == f"{IAQUA_COMMAND_SET_ONETOUCH}_1"
             mock_parse.assert_called_once_with(mock_request.return_value)
 
     async def test_refresh_onetouch_failure_raises(self) -> None:
@@ -710,14 +709,12 @@ class TestIaquaSystem(TestBaseSystem):
         ) as mock_refresh:
             await self.sut._send_home_screen_request()
 
-        retry_url = mock_request.call_args_list[1][0][1]
-        retry_headers = mock_request.call_args_list[1][1]["headers"]
-        retry_params = urllib.parse.parse_qs(
-            urllib.parse.urlparse(retry_url).query
-        )
+        retry_kwargs = mock_request.call_args_list[1][1]
+        retry_headers = retry_kwargs["headers"]
+        retry_params = retry_kwargs["params"]
 
         mock_refresh.assert_awaited_once()
-        assert retry_params["sessionID"] == ["new-session-id"]
+        assert retry_params["sessionID"] == "new-session-id"
         assert retry_headers["Authorization"] == "Bearer new-id-token"
 
     @patch("httpx.AsyncClient.request")

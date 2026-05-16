@@ -24,7 +24,7 @@ I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
 
 _SVRS_PRODUCT_IDS: frozenset[str] = frozenset({"0F", "18"})
 
-LOGGER = logging.getLogger("iaqualink")
+LOGGER = logging.getLogger("iaqualink.systems.i2d")
 
 
 class NumberSpec(NamedTuple):
@@ -297,7 +297,7 @@ class I2dSystem(AqualinkSystem):
 
     def _parse_alldata_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("Alldata response: %s", data)
+        LOGGER.debug("Alldata body: %s", data)
 
         # API returns HTTP 200 even when device is unreachable; body carries status=500.
         if data.get("status") == "500":
@@ -382,3 +382,10 @@ class I2dSystem(AqualinkSystem):
                 self.devices[key] = I2dBinarySensor(
                     self, shared_data, key=key, label=label
                 )
+
+        LOGGER.debug(
+            "Alldata parsed: serial=%s status=%s devices=%d",
+            self.serial,
+            self.status.name,
+            len(self.devices),
+        )
