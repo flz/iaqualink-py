@@ -153,11 +153,11 @@ class I2dPump(I2dDevice, AqualinkPump):
 
     @property
     def name(self) -> str:
-        return self.data["name"]  # serial number
+        return "iqpump"
 
     @property
     def label(self) -> str:
-        return self.system.name  # human-readable name from device list
+        return "IQPump"
 
     @property
     def state(self) -> str:

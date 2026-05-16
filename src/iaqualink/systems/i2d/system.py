@@ -36,6 +36,7 @@ class NumberSpec(NamedTuple):
     max_key: str | None = None
     step: float = 1.0
     unit: str = ""
+    optional: bool = False
 
 
 class SensorSpec(NamedTuple):
@@ -110,6 +111,7 @@ _NUMBER_SPECS: list[NumberSpec] = [
     # relay K1/K2 outputs. Bounded by globalrpmmin/globalrpmmax (UI seekbar
     # behavior). Relay hardware floor differs from pump SVRS floor (500 vs
     # 1050) but that distinction is subsumed by globalrpmmin at write time.
+    # Not present on all hardware variants; skipped at parse time when absent.
     NumberSpec(
         "relayK1Rpm",
         "Auxiliary Relay K1 RPM",
@@ -117,6 +119,7 @@ _NUMBER_SPECS: list[NumberSpec] = [
         max_key="globalrpmmax",
         step=25,
         unit="RPM",
+        optional=True,
     ),
     NumberSpec(
         "relayK2Rpm",
@@ -125,6 +128,7 @@ _NUMBER_SPECS: list[NumberSpec] = [
         max_key="globalrpmmax",
         step=25,
         unit="RPM",
+        optional=True,
     ),
     # Temperature — API value is always °C (min=3, max=7, step=1).
     # The app displays in °F (min=37, max=45, step=2) and converts before writing.
@@ -207,6 +211,10 @@ _SENSOR_SPECS: list[SensorSpec] = [
     # WiFi status — path traverses the wifistatus sub-object at read time
     SensorSpec("wifistate", "WiFi State", path=("wifistatus", "state")),
     SensorSpec("wifissid", "WiFi SSID", path=("wifistatus", "ssid")),
+    # Firmware metadata
+    SensorSpec("fwversion", "Firmware Version"),
+    SensorSpec("updateprogress", "Update Progress"),
+    SensorSpec("updateflag", "Update Flag"),
 ]
 
 # (key, label) — read-only binary sensors
@@ -336,6 +344,8 @@ class I2dSystem(AqualinkSystem):
         shared_data = self.devices[self.serial].data
 
         for spec in _NUMBER_SPECS:
+            if spec.optional and spec.key not in shared_data:
+                continue
             if spec.key not in self.devices:
                 self.devices[spec.key] = I2dNumber(
                     self,

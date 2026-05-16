@@ -198,8 +198,8 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         response.json.return_value = SAMPLE_DATA
         system._parse_alldata_response(response)
 
-        # 1 pump + 16 numbers + 1 switch + 11 sensors + 1 binary sensor
-        assert len(system.devices) == 30
+        # 1 pump + 16 numbers + 1 switch + 14 sensors + 1 binary sensor
+        assert len(system.devices) == 33
         assert "ABC123" in system.devices
         device = system.devices["ABC123"]
         assert isinstance(device, I2dPump)
@@ -307,6 +307,30 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         assert isinstance(wssid, I2dSensor)
         assert wssid.state == "MyNetwork"
         assert wssid.label == "WiFi SSID"
+
+        fwv = system.devices["fwversion"]
+        assert isinstance(fwv, I2dSensor)
+        assert fwv.state == "1.5.2"
+
+        uprog = system.devices["updateprogress"]
+        assert isinstance(uprog, I2dSensor)
+        assert uprog.state == "0"
+
+        uflag = system.devices["updateflag"]
+        assert isinstance(uflag, I2dSensor)
+        assert uflag.state == "0"
+
+    def test_parse_alldata_response_relay_absent(self):
+        aqualink = MagicMock()
+        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        alldata = {k: v for k, v in SAMPLE_DATA["alldata"].items()}
+        alldata.pop("relayK1Rpm", None)
+        alldata.pop("relayK2Rpm", None)
+        response = MagicMock()
+        response.json.return_value = {"alldata": alldata}
+        system._parse_alldata_response(response)
+        assert "relayK1Rpm" not in system.devices
+        assert "relayK2Rpm" not in system.devices
 
     def test_parse_alldata_response_updates_existing_device(self):
         aqualink = MagicMock()
