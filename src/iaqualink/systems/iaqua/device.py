@@ -27,7 +27,7 @@ IAQUA_TEMP_CELSIUS_HIGH = 40
 IAQUA_TEMP_FAHRENHEIT_LOW = 34
 IAQUA_TEMP_FAHRENHEIT_HIGH = 104
 
-LOGGER = logging.getLogger("iaqualink")
+LOGGER = logging.getLogger("iaqualink.systems.iaqua")
 
 
 @unique

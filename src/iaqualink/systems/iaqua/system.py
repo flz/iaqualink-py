@@ -46,7 +46,7 @@ IAQUA_COMMAND_SET_SPA_HEATER = "set_spa_heater"
 IAQUA_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 IAQUA_COMMAND_SET_TEMPS = "set_temps"
 
-LOGGER = logging.getLogger("iaqualink")
+LOGGER = logging.getLogger("iaqualink.systems.iaqua")
 
 
 _IAQUA_STATUS_MAP: dict[str, SystemStatus] = {
@@ -95,14 +95,13 @@ class IaquaSystem(AqualinkSystem):
                 **params,
                 "sessionID": self.aqualink.client_id,
             }
-            params_str = "&".join(f"{k}={v}" for k, v in request_params.items())
-            url = f"{IAQUA_SESSION_URL}?{params_str}"
             headers = {
                 "Authorization": f"Bearer {self.aqualink.id_token}",
                 "api_key": AQUALINK_API_KEY,
             }
             return await self.aqualink.send_request(
-                url,
+                IAQUA_SESSION_URL,
+                params=request_params,
                 headers=headers,
             )
 
@@ -137,8 +136,7 @@ class IaquaSystem(AqualinkSystem):
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
-
-        LOGGER.debug("Home response: %s", data)
+        LOGGER.debug("Home body: %s", data)
 
         home: dict = {}
         for x in data["home_screen"]:
@@ -147,6 +145,9 @@ class IaquaSystem(AqualinkSystem):
         raw_status = home.get("status")
         self.status = _IAQUA_STATUS_MAP.get(
             raw_status or "", SystemStatus.UNKNOWN
+        )
+        LOGGER.debug(
+            "Home parsed: serial=%s status=%s", self.serial, self.status.name
         )
         if self.status is not SystemStatus.ONLINE:
             LOGGER.warning(
@@ -191,8 +192,7 @@ class IaquaSystem(AqualinkSystem):
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
-
-        LOGGER.debug("Devices response: %s", data)
+        LOGGER.debug("Devices body: %s", data)
 
         status = data["devices_screen"][0]["status"]
         if status in (IaquaSystemStatus.OFFLINE, IaquaSystemStatus.SERVICE, ""):
@@ -233,6 +233,10 @@ class IaquaSystem(AqualinkSystem):
                     device_class = IaquaAuxSwitch
                 self.devices[aux] = device_class(self, attrs)
 
+        LOGGER.debug(
+            "Devices parsed: serial=%s count=%d", self.serial, len(self.devices)
+        )
+
     async def set_switch(self, command: str) -> None:
         r = await self._send_session_request(command)
         self._parse_home_response(r)
@@ -263,8 +267,7 @@ class IaquaSystem(AqualinkSystem):
 
     def _parse_onetouch_response(self, response: httpx.Response) -> None:
         data = response.json()
-
-        LOGGER.debug("OneTouch response: %s", data)
+        LOGGER.debug("OneTouch body: %s", data)
 
         onetouch: dict = {}
         for x in data["onetouch_screen"]:
@@ -283,6 +286,7 @@ class IaquaSystem(AqualinkSystem):
             )
             return
 
+        onetouch_count = 0
         for name, val in onetouch.items():
             if not isinstance(val, list) or not name.startswith("onetouch_"):
                 continue
@@ -292,11 +296,18 @@ class IaquaSystem(AqualinkSystem):
             if attrs.get("status") == IaquaBinaryState.OFF:
                 self.devices.pop(name, None)
                 continue
+            onetouch_count += 1
             if name in self.devices:
                 for dk, dv in attrs.items():
                     self.devices[name].data[dk] = dv
             else:
                 self.devices[name] = IaquaOneTouchSwitch(self, attrs)
+
+        LOGGER.debug(
+            "OneTouch parsed: serial=%s count=%d",
+            self.serial,
+            onetouch_count,
+        )
 
     async def set_onetouch(self, name: str) -> None:
         cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.removeprefix("onetouch_")

@@ -254,6 +254,17 @@ Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `Aquali
 
 **Divergences from reference behavior** are documented in the "Deltas vs current implementation" section of each architecture doc. Before adding new divergences, confirm they are intentional and add them to the appropriate doc.
 
+## Logging Guidelines
+
+See [`docs/development/contributing.md` — Logging section](docs/development/contributing.md#logging) for the full reference.
+
+Quick rules:
+- New module logger: `logging.getLogger("iaqualink.systems.<name>")` for system modules; `"iaqualink.<module>"` otherwise.
+- Request logging: always wrap with `_redact_url(url)` and `_redact_kwargs(kwargs)` from `client.py`.
+- Parse methods: `LOGGER.debug("<Name> body: %s", data)` must be the first line after `data = response.json()`.
+- **Never** log auth response bodies (login/refresh) — they contain raw tokens.
+- Auth events (`login`, token refresh, reauth fallback) log at INFO; everything else at DEBUG or WARNING.
+
 ## Review Checklist
 
 Before declaring any diff done, self-apply `.claude/review-criteria.md`. That file contains the full rubric used by the GitHub PR reviewer. Running it locally closes the gap between local iteration and PR feedback.

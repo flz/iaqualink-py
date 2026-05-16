@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from iaqualink.systems.i2d.system import I2dSystem
     from iaqualink.typing import DeviceData
 
-LOGGER = logging.getLogger("iaqualink")
+LOGGER = logging.getLogger("iaqualink.systems.i2d")
 
 
 @unique

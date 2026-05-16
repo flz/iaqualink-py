@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from iaqualink.typing import Payload
 
 
-LOGGER = logging.getLogger("iaqualink")
+LOGGER = logging.getLogger("iaqualink.system")
 
 
 class SystemStatus(enum.Enum):
