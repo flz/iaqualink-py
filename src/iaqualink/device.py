@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC, abstractmethod
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -15,7 +16,9 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger("iaqualink.device")
 
 
-class AqualinkDevice:
+class AqualinkDevice(ABC):
+    """Abstract base class for all Aqualink devices."""
+
     def __init__(
         self,
         system: Any,  # Should be AqualinkSystem but causes mypy errors.
@@ -41,23 +44,33 @@ class AqualinkDevice:
         return False
 
     @property
+    @abstractmethod
     def label(self) -> str:
+        """Human-readable label for the device."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def state(self) -> str:
+        """Current state of the device."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def name(self) -> str:
+        """Internal name of the device."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def manufacturer(self) -> str:
+        """Manufacturer of the device."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def model(self) -> str:
+        """Model of the device."""
         raise NotImplementedError
 
     @property
@@ -83,19 +96,35 @@ class AqualinkBinarySensor(AqualinkSensor):
     """These are non-actionable sensors, essentially read-only on/off."""
 
     @property
+    @abstractmethod
     def is_on(self) -> bool:
+        """Whether the sensor is in an 'on' state."""
         raise NotImplementedError
 
 
-class AqualinkSwitch(AqualinkBinarySensor, AqualinkDevice):
+class AqualinkSwitch(AqualinkBinarySensor):
+    """A device that can be turned on and off."""
+
     async def turn_on(self) -> None:
-        raise NotImplementedError
+        if not self.is_on:
+            await self._turn_on()
 
     async def turn_off(self) -> None:
+        if self.is_on:
+            await self._turn_off()
+
+    @abstractmethod
+    async def _turn_on(self) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    async def _turn_off(self) -> None:
         raise NotImplementedError
 
 
-class AqualinkLight(AqualinkSwitch, AqualinkDevice):
+class AqualinkLight(AqualinkSwitch):
+    """A light device with optional brightness and effect controls."""
+
     @property
     def brightness(self) -> int | None:
         return None
@@ -128,41 +157,66 @@ class AqualinkLight(AqualinkSwitch, AqualinkDevice):
         raise AqualinkOperationNotSupportedException
 
 
-class AqualinkThermostat(AqualinkSwitch, AqualinkDevice):
+class AqualinkThermostat(AqualinkSwitch):
+    """A thermostat device that controls temperature."""
+
     @property
+    @abstractmethod
     def unit(self) -> str:
+        """Temperature unit (F or C)."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def current_temperature(self) -> str:
+        """Current temperature reading."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def target_temperature(self) -> str:
+        """Target temperature setting."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def max_temperature(self) -> int:
+        """Maximum allowed temperature."""
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def min_temperature(self) -> int:
+        """Minimum allowed temperature."""
         raise NotImplementedError
 
-    async def set_temperature(self, _: int) -> None:
+    async def set_temperature(self, temperature: int) -> None:
+        unit = self.unit
+        low = self.min_temperature
+        high = self.max_temperature
+        if temperature not in range(low, high + 1):
+            msg = f"{temperature}{unit} isn't a valid temperature ({low}-{high}{unit})."
+            raise AqualinkInvalidParameterException(msg)
+        await self._apply_temperature(temperature)
+
+    @abstractmethod
+    async def _apply_temperature(self, temperature: int) -> None:
         raise NotImplementedError
 
 
 class AqualinkNumber(AqualinkDevice):
     @property
+    @abstractmethod
     def current_value(self) -> float | None:
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def min_value(self) -> float:
         raise NotImplementedError
 
     @property
+    @abstractmethod
     def max_value(self) -> float:
         raise NotImplementedError
 
@@ -185,6 +239,7 @@ class AqualinkNumber(AqualinkDevice):
             )
         await self._set_value(value)
 
+    @abstractmethod
     async def _set_value(self, value: float) -> None:
         raise NotImplementedError
 

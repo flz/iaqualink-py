@@ -270,10 +270,10 @@ def _make_device(
         def is_on(self) -> bool:
             return bool(state)
 
-        async def turn_on(self) -> None:
+        async def _turn_on(self) -> None:
             pass
 
-        async def turn_off(self) -> None:
+        async def _turn_off(self) -> None:
             pass
 
         @property
@@ -296,7 +296,7 @@ def _make_device(
         def min_temperature(self) -> int:
             return 40
 
-        async def set_temperature(self, _: int) -> None:
+        async def _apply_temperature(self, _: int) -> None:
             pass
 
         @property
@@ -304,6 +304,21 @@ def _make_device(
             return None
 
         async def set_brightness(self, _: int) -> None:
+            pass
+
+        @property
+        def current_value(self) -> float | None:
+            return None
+
+        @property
+        def min_value(self) -> float:
+            return 0.0
+
+        @property
+        def max_value(self) -> float:
+            return 100.0
+
+        async def _set_value(self, value: float) -> None:
             pass
 
     return object.__new__(_Impl)

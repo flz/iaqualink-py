@@ -364,12 +364,20 @@ class I2dSwitch(I2dDevice, AqualinkSwitch):
         return self.data.get(self._key) == I2dBinaryState.ON
 
     async def turn_on(self) -> None:
+        # No is_on guard — always writes; the hardware setting is idempotent.
+        await self._turn_on()
+
+    async def turn_off(self) -> None:
+        # No is_on guard — always writes; the hardware setting is idempotent.
+        await self._turn_off()
+
+    async def _turn_on(self) -> None:
         r = await self.system.send_control_command(
             f"/{self._key}/write", f"value={I2dBinaryState.ON}"
         )
         self.system._apply_write_response(r)
 
-    async def turn_off(self) -> None:
+    async def _turn_off(self) -> None:
         r = await self.system.send_control_command(
             f"/{self._key}/write", f"value={I2dBinaryState.OFF}"
         )
