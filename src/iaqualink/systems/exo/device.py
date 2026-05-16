@@ -10,7 +10,6 @@ from iaqualink.device import (
     AqualinkSwitch,
     AqualinkThermostat,
 )
-from iaqualink.exception import AqualinkInvalidParameterException
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
@@ -128,13 +127,11 @@ class ExoSwitch(ExoDevice, AqualinkSwitch):
     def _command(self) -> Callable[[str, int], Coroutine[Any, Any, None]]:
         raise NotImplementedError
 
-    async def turn_on(self) -> None:
-        if not self.is_on:
-            await self._command(self.name, 1)
+    async def _turn_on(self) -> None:
+        await self._command(self.name, 1)
 
-    async def turn_off(self) -> None:
-        if self.is_on:
-            await self._command(self.name, 0)
+    async def _turn_off(self) -> None:
+        await self._command(self.name, 0)
 
 
 class ExoAuxSwitch(ExoSwitch):
@@ -192,26 +189,15 @@ class ExoThermostat(ExoSwitch, AqualinkThermostat):
     def max_temperature(self) -> int:
         return int(self.data["sp_max"])
 
-    async def set_temperature(self, temperature: int) -> None:
-        unit = self.unit
-        low = self.min_temperature
-        high = self.max_temperature
-
-        if temperature not in range(low, high + 1):
-            msg = f"{temperature}{unit} isn't a valid temperature"
-            msg += f" ({low}-{high}{unit})."
-            raise AqualinkInvalidParameterException(msg)
-
+    async def _apply_temperature(self, temperature: int) -> None:
         await self.system.set_heating("sp", temperature)
 
     @property
     def is_on(self) -> bool:
         return self.data["enabled"] == ExoState.ON
 
-    async def turn_on(self) -> None:
-        if self.is_on is False:
-            await self.system.set_heating("enabled", 1)
+    async def _turn_on(self) -> None:
+        await self.system.set_heating("enabled", 1)
 
-    async def turn_off(self) -> None:
-        if self.is_on is True:
-            await self.system.set_heating("enabled", 0)
+    async def _turn_off(self) -> None:
+        await self.system.set_heating("enabled", 0)

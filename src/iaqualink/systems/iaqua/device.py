@@ -112,13 +112,11 @@ class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
     async def _toggle(self) -> None:
         await self.system.set_switch(f"set_{self.name}")
 
-    async def turn_on(self) -> None:
-        if not self.is_on:
-            await self._toggle()
+    async def _turn_on(self) -> None:
+        await self._toggle()
 
-    async def turn_off(self) -> None:
-        if self.is_on:
-            await self._toggle()
+    async def _turn_off(self) -> None:
+        await self._toggle()
 
 
 class IaquaOneTouchSwitch(IaquaSwitch):
@@ -156,13 +154,11 @@ class IaquaLightSwitch(IaquaAuxSwitch, AqualinkLight):
 
 
 class IaquaDimmableLight(IaquaAuxSwitch, AqualinkLight):
-    async def turn_on(self) -> None:
-        if not self.is_on:
-            await self.set_brightness(100)
+    async def _turn_on(self) -> None:
+        await self.set_brightness(100)
 
-    async def turn_off(self) -> None:
-        if self.is_on:
-            await self.set_brightness(0)
+    async def _turn_off(self) -> None:
+        await self.set_brightness(0)
 
     @property
     def brightness(self) -> int | None:
@@ -180,13 +176,11 @@ class IaquaDimmableLight(IaquaAuxSwitch, AqualinkLight):
 
 
 class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
-    async def turn_on(self) -> None:
-        if not self.is_on:
-            await self.set_effect_by_id(1)
+    async def _turn_on(self) -> None:
+        await self.set_effect_by_id(1)
 
-    async def turn_off(self) -> None:
-        if self.is_on:
-            await self.set_effect_by_id(0)
+    async def _turn_off(self) -> None:
+        await self.set_effect_by_id(0)
 
     @property
     def effect(self) -> str | None:
@@ -450,16 +444,7 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
             return IAQUA_TEMP_FAHRENHEIT_HIGH
         return IAQUA_TEMP_CELSIUS_HIGH
 
-    async def set_temperature(self, temperature: int) -> None:
-        unit = self.unit
-        low = self.min_temperature
-        high = self.max_temperature
-
-        if temperature not in range(low, high + 1):
-            msg = f"{temperature}{unit} isn't a valid temperature"
-            msg += f" ({low}-{high}{unit})."
-            raise AqualinkInvalidParameterException(msg)
-
+    async def _apply_temperature(self, temperature: int) -> None:
         data = {self._temperature: str(temperature)}
         await self.system.set_temps(data)
 
@@ -471,13 +456,11 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
     def is_on(self) -> bool:
         return self._heater.is_on
 
-    async def turn_on(self) -> None:
-        if self._heater.is_on is False:
-            await self._heater.turn_on()
+    async def _turn_on(self) -> None:
+        await self._heater.turn_on()
 
-    async def turn_off(self) -> None:
-        if self._heater.is_on is True:
-            await self._heater.turn_off()
+    async def _turn_off(self) -> None:
+        await self._heater.turn_off()
 
 
 _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {

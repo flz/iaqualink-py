@@ -105,14 +105,20 @@ class AqualinkBinarySensor(AqualinkSensor):
 class AqualinkSwitch(AqualinkBinarySensor):
     """A device that can be turned on and off."""
 
-    @abstractmethod
     async def turn_on(self) -> None:
-        """Turn the device on."""
+        if not self.is_on:
+            await self._turn_on()
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self._turn_off()
+
+    @abstractmethod
+    async def _turn_on(self) -> None:
         raise NotImplementedError
 
     @abstractmethod
-    async def turn_off(self) -> None:
-        """Turn the device off."""
+    async def _turn_off(self) -> None:
         raise NotImplementedError
 
 
@@ -184,9 +190,17 @@ class AqualinkThermostat(AqualinkSwitch):
         """Minimum allowed temperature."""
         raise NotImplementedError
 
-    @abstractmethod
     async def set_temperature(self, temperature: int) -> None:
-        """Set the target temperature."""
+        unit = self.unit
+        low = self.min_temperature
+        high = self.max_temperature
+        if temperature not in range(low, high + 1):
+            msg = f"{temperature}{unit} isn't a valid temperature ({low}-{high}{unit})."
+            raise AqualinkInvalidParameterException(msg)
+        await self._apply_temperature(temperature)
+
+    @abstractmethod
+    async def _apply_temperature(self, temperature: int) -> None:
         raise NotImplementedError
 
 

@@ -270,10 +270,10 @@ def _make_device(
         def is_on(self) -> bool:
             return bool(state)
 
-        async def turn_on(self) -> None:
+        async def _turn_on(self) -> None:
             pass
 
-        async def turn_off(self) -> None:
+        async def _turn_off(self) -> None:
             pass
 
         @property
@@ -296,7 +296,7 @@ def _make_device(
         def min_temperature(self) -> int:
             return 40
 
-        async def set_temperature(self, _: int) -> None:
+        async def _apply_temperature(self, _: int) -> None:
             pass
 
         @property
