@@ -28,3 +28,26 @@ repos:
     rev: 0.6.5
     hooks:
       - id: uv-lock
+
+  - repo: local
+    hooks:
+      - id: check-identifiers
+        name: check for decompiler artifact identifiers
+        entry: scripts/precommit.sh
+        language: script
+        stages: [pre-commit]
+        types: [text]
+        exclude: |
+          (?x)^(
+            CLAUDE\.md|
+            \.claude/review-criteria\.md|
+            scripts/precommit\.sh
+          )$
+
+      - id: claude-review
+        name: claude AI review
+        entry: scripts/claude-review-hook.sh
+        language: script
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
