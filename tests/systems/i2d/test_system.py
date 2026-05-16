@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from iaqualink.client import AqualinkClient
+from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
     AqualinkInvalidParameterException,
     AqualinkServiceException,
@@ -14,6 +15,7 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.i2d.device import (
+    I2dBinarySensor,
     I2dNumber,
     I2dSensor,
     I2dSwitch,
@@ -22,6 +24,7 @@ from iaqualink.systems.i2d.device import (
 )
 from iaqualink.systems.i2d.system import I2dSystem
 
+from ...base_test_system import TestBaseSystem
 from ...common import async_raises, async_returns
 
 # Values captured from a real iQPump device. Some period/timer fields fall
@@ -66,11 +69,13 @@ SAMPLE_DATA = {
         "timeouttimer": "0",
         "primingrpm": "3450",
         "primingperiod": "3",
+        "primingtimer": "0",
         "freezeprotectenable": "1",
         "freezeprotectrpm": "1000",
         "freezeprotectperiod": "30",
         "freezeprotectsetpointc": "4",
         "freezeprotectstatus": "0",
+        "currentspan": "-1",
         "demandvisible": "0",
         "faultvisible": "0",
         "relayK1Rpm": "1500",
@@ -85,6 +90,38 @@ OFFLINE_DATA = {
 }
 
 _SYSTEM_DATA = {"id": 1, "serial_number": "ABC123", "device_type": "i2d"}
+
+
+_CONTRACT_DATA = {
+    "id": 1,
+    "serial_number": "ABC123",
+    "name": "Pool Pump",
+    "device_type": "i2d",
+}
+
+
+class TestI2dSystemContract(TestBaseSystem):
+    """Verifies I2dSystem satisfies the AqualinkSystem API contract."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.sut = I2dSystem.from_data(self.client, _CONTRACT_DATA)
+        self.sut_class = I2dSystem
+
+    def _set_online(self, _response: object) -> None:
+        self.sut.status = SystemStatus.ONLINE
+
+    async def test_refresh_success(self) -> None:
+        with patch.object(
+            self.sut, "_parse_alldata_response", side_effect=self._set_online
+        ):
+            await super().test_refresh_success()
+
+    async def test_get_devices_needs_update(self) -> None:
+        with patch.object(
+            self.sut, "_parse_alldata_response", side_effect=self._set_online
+        ):
+            await super().test_get_devices_needs_update()
 
 
 class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
@@ -148,8 +185,8 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         response.json.return_value = SAMPLE_DATA
         system._parse_alldata_response(response)
 
-        # 1 pump + 14 numbers + 1 switch + 4 sensors
-        assert len(system.devices) == 20
+        # 1 pump + 16 numbers + 1 switch + 11 sensors + 1 binary sensor
+        assert len(system.devices) == 30
         assert "ABC123" in system.devices
         device = system.devices["ABC123"]
         assert isinstance(device, I2dPump)
@@ -204,6 +241,59 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         assert isinstance(hp, I2dSensor)
         assert hp.state == "1.65"
         assert hp.unit == "HP"
+
+        pt = system.devices["primingtimer"]
+        assert isinstance(pt, I2dSensor)
+        assert pt.state == "0"
+        assert pt.unit == "s"
+
+        qct = system.devices["quickcleantimer"]
+        assert isinstance(qct, I2dSensor)
+        assert qct.state == "0"
+        assert qct.unit == "s"
+
+        cdt = system.devices["countdowntimer"]
+        assert isinstance(cdt, I2dSensor)
+        assert cdt.state == "0"
+        assert cdt.unit == "s"
+
+        tot = system.devices["timeouttimer"]
+        assert isinstance(tot, I2dSensor)
+        assert tot.state == "0"
+        assert tot.unit == "s"
+
+        cs = system.devices["currentspan"]
+        assert isinstance(cs, I2dSensor)
+        assert cs.state == "-1"
+        assert cs.unit is None
+
+        fps = system.devices["freezeprotectstatus"]
+        assert isinstance(fps, I2dBinarySensor)
+        assert fps.is_on is False
+        assert fps.state == "off"
+
+        k1 = system.devices["relayK1Rpm"]
+        assert isinstance(k1, I2dNumber)
+        assert k1.current_value == 1500.0
+        assert k1.min_value == 600.0
+        assert k1.max_value == 3450.0
+        assert k1.step == 25.0
+        assert k1.unit == "RPM"
+
+        k2 = system.devices["relayK2Rpm"]
+        assert isinstance(k2, I2dNumber)
+        assert k2.current_value == 1200.0
+
+        ws = system.devices["wifistate"]
+        assert isinstance(ws, I2dSensor)
+        assert ws.state == "connected"
+        assert ws.label == "WiFi State"
+        assert ws.unit is None
+
+        wssid = system.devices["wifissid"]
+        assert isinstance(wssid, I2dSensor)
+        assert wssid.state == "MyNetwork"
+        assert wssid.label == "WiFi SSID"
 
     def test_parse_alldata_response_updates_existing_device(self):
         aqualink = MagicMock()
@@ -305,6 +395,8 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
     @patch("httpx.AsyncClient.request")
     async def test_send_control_command(self, mock_request):
         aqualink = AqualinkClient("user", "pass")
+        aqualink.authentication_token = "tok123"
+        aqualink.user_id = "42"
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
 
         mock_request.return_value.status_code = 200
@@ -313,6 +405,12 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         assert mock_request.called
         call_kwargs = mock_request.call_args
         assert call_kwargs[0][0] == "post"
+        body = call_kwargs[1]["json"]
+        assert body["api_key"] == AQUALINK_API_KEY
+        assert body["authentication_token"] == "tok123"
+        assert body["user_id"] == "42"
+        assert body["command"] == "/opmode/write"
+        assert body["params"] == "value=1"
 
     @patch("httpx.AsyncClient.request")
     async def test_send_control_command_unauthorized(self, mock_request):
@@ -323,6 +421,76 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
             await system.send_control_command("/alldata/read")
+
+    def _make_system_with_devices(self):
+        aqualink = MagicMock()
+        data = {
+            "id": 1,
+            "serial_number": "ABC123",
+            "name": "Pool Pump",
+            "device_type": "i2d",
+        }
+        system = I2dSystem.from_data(aqualink, data)
+        response = MagicMock()
+        response.json.return_value = SAMPLE_DATA
+        system._parse_alldata_response(response)
+        return system
+
+    def _write_response(self, key: str, value: str) -> MagicMock:
+        r = MagicMock()
+        r.json.return_value = {
+            key: {"operation": "write", "value": value},
+            "requestID": "x",
+        }
+        return r
+
+    def test_apply_write_response_updates_shared_data(self):
+        system = self._make_system_with_devices()
+        r = self._write_response("opmode", "1")
+        system._apply_write_response(r)
+        assert system.devices["ABC123"].data["opmode"] == "1"
+
+    def test_apply_write_response_skips_requestid(self):
+        system = self._make_system_with_devices()
+        r = MagicMock()
+        r.json.return_value = {
+            "requestID": "abc",
+            "opmode": {"operation": "write", "value": "2"},
+        }
+        system._apply_write_response(r)
+        assert system.devices["ABC123"].data["opmode"] == "2"
+        assert (
+            "requestID" not in system.devices["ABC123"].data
+            or system.devices["ABC123"].data.get("requestID") != "abc"
+        )
+
+    def test_apply_write_response_ignores_non_write_operation(self):
+        system = self._make_system_with_devices()
+        original = system.devices["ABC123"].data["opmode"]
+        r = MagicMock()
+        r.json.return_value = {"opmode": {"operation": "read", "value": "5"}}
+        system._apply_write_response(r)
+        assert system.devices["ABC123"].data["opmode"] == original
+
+    def test_apply_write_response_ignores_missing_value(self):
+        system = self._make_system_with_devices()
+        original = system.devices["ABC123"].data["opmode"]
+        r = MagicMock()
+        r.json.return_value = {"opmode": {"operation": "write"}}
+        system._apply_write_response(r)
+        assert system.devices["ABC123"].data["opmode"] == original
+
+    def test_apply_write_response_noop_before_devices_populated(self):
+        aqualink = MagicMock()
+        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        r = self._write_response("opmode", "1")
+        system._apply_write_response(r)  # no error; serial not in devices yet
+
+    def test_apply_write_response_noop_on_invalid_json(self):
+        system = self._make_system_with_devices()
+        r = MagicMock()
+        r.json.side_effect = ValueError("not json")
+        system._apply_write_response(r)  # no error
 
     def test_opmode_enum_values(self):
         assert I2dOpMode.SCHEDULE == "0"

@@ -183,7 +183,8 @@ The library follows a plugin-style architecture with base classes and system-spe
   - `I2dPump` — main pump device; supports `turn_on`/`turn_off`, presets (SCHEDULE/CUSTOM/STOP), `set_speed_percentage(0–100)` normalized to hardware RPM range rounded to nearest 25
   - `I2dNumber` — writable numeric setting (RPM, seconds, °C); validates range and step; `globalrpmmin`/`globalrpmmax` use live cross-bounds and a `_rpmhwmin` key injected at parse time from `productid` (non-SVRS: 600, SVRS 0F/18: 1050)
   - `I2dSwitch` — binary on/off setting (`I2dBinaryState.ON/OFF`)
-  - `I2dSensor` — read-only telemetry (speed/RPM, power/W, temperature/°F, horsepower/HP)
+  - `I2dSensor` — read-only telemetry (speed/RPM, power/W, temperature/°F, horsepower/HP), remaining-time counters (primingtimer/quickcleantimer/countdowntimer/timeouttimer in seconds), and schedule state (currentspan; `"-1"` = no active span)
+  - `I2dBinarySensor` — read-only binary sensor (freezeprotectstatus: `"0"`=inactive, `"1"`=active)
 - Settable opmodes: SCHEDULE(0), CUSTOM(1), STOP(2); QUICK_CLEAN/TIMED_RUN/TIMEOUT/SERVICE_OFF are read-only (pump enters them automatically)
 - RPM numbers (except globalrpmmin/max) use `globalrpmmin`/`globalrpmmax` as live bounds from the shared data dict
 - Period/timer numbers are in **seconds** with explicit step values (e.g. quickcleanperiod: 300–3600 step 300)

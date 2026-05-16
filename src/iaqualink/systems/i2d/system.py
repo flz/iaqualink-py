@@ -8,6 +8,7 @@ from typing import Any, NamedTuple
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.i2d.device import (
+    I2dBinarySensor,
     I2dNumber,
     I2dSensor,
     I2dSwitch,
@@ -69,11 +70,13 @@ _MOCK_ALLDATA = {
         "timeouttimer": "0",
         "primingrpm": "3450",
         "primingperiod": "3",
+        "primingtimer": "0",
         "freezeprotectenable": "1",
         "freezeprotectrpm": "1000",
         "freezeprotectperiod": "30",
         "freezeprotectsetpointc": "4",
         "freezeprotectstatus": "0",
+        "currentspan": "-1",
         "demandvisible": "0",
         "faultvisible": "0",
         "relayK1Rpm": "1500",
@@ -92,6 +95,13 @@ class NumberSpec(NamedTuple):
     max_key: str | None = None
     step: float = 1.0
     unit: str = ""
+
+
+class SensorSpec(NamedTuple):
+    key: str
+    label: str
+    unit: str | None = None
+    path: tuple[str, ...] | None = None
 
 
 # Exactly one of (min_value, min_key) and one of (max_value, max_key) must be set.
@@ -150,6 +160,26 @@ _NUMBER_SPECS: list[NumberSpec] = [
     NumberSpec(
         "countdownrpm",
         "Countdown RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    # Auxiliary relay RPM setpoints — drive external single-speed pumps via
+    # relay K1/K2 outputs. Bounded by globalrpmmin/globalrpmmax (UI seekbar
+    # behavior). Relay hardware floor differs from pump SVRS floor (500 vs
+    # 1050) but that distinction is subsumed by globalrpmmin at write time.
+    NumberSpec(
+        "relayK1Rpm",
+        "Auxiliary Relay K1 RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "relayK2Rpm",
+        "Auxiliary Relay K2 RPM",
         min_key="globalrpmmin",
         max_key="globalrpmmax",
         step=25,
@@ -220,12 +250,27 @@ _SWITCH_SPECS: list[tuple[str, str]] = [
     ("freezeprotectenable", "Freeze Protection"),
 ]
 
-# (key, label, unit) — read-only telemetry from motordata (flattened into alldata)
-_SENSOR_SPECS: list[tuple[str, str, str]] = [
-    ("speed", "Motor Speed", "RPM"),
-    ("power", "Motor Power", "W"),
-    ("temperature", "Motor Temperature", "°F"),
-    ("horsepower", "Horsepower", "HP"),
+# read-only telemetry (motordata flattened, plus alldata timers and nested fields)
+_SENSOR_SPECS: list[SensorSpec] = [
+    SensorSpec("speed", "Motor Speed", "RPM"),
+    SensorSpec("power", "Motor Power", "W"),
+    SensorSpec("temperature", "Motor Temperature", "°F"),
+    SensorSpec("horsepower", "Horsepower", "HP"),
+    # Remaining-time counters — read-only, decrement while mode is active
+    SensorSpec("primingtimer", "Priming Timer", "s"),
+    SensorSpec("quickcleantimer", "Quick Clean Timer", "s"),
+    SensorSpec("countdowntimer", "Countdown Timer", "s"),
+    SensorSpec("timeouttimer", "Timeout Timer", "s"),
+    # Schedule state — "-1" = no active span, otherwise the span index
+    SensorSpec("currentspan", "Current Schedule Span"),
+    # WiFi status — path traverses the wifistatus sub-object at read time
+    SensorSpec("wifistate", "WiFi State", path=("wifistatus", "state")),
+    SensorSpec("wifissid", "WiFi SSID", path=("wifistatus", "ssid")),
+]
+
+# (key, label) — read-only binary sensors
+_BINARY_SENSOR_SPECS: list[tuple[str, str]] = [
+    ("freezeprotectstatus", "Freeze Protect Status"),
 ]
 
 
@@ -255,16 +300,40 @@ class I2dSystem(AqualinkSystem):
                 "Accept": "application/json",
             }
             body = {
+                "api_key": AQUALINK_API_KEY,
+                "authentication_token": self.aqualink.authentication_token,
                 "user_id": self.aqualink.user_id,
                 "command": command,
                 "params": params,
             }
-            LOGGER.debug("i2d request: POST %s body=%s", url, body)
+            LOGGER.debug(
+                "i2d request: POST %s command=%s params=%s",
+                url,
+                command,
+                params,
+            )
             return await self.aqualink.send_request(
                 url, method="post", headers=headers, json=body, **kwargs
             )
 
         return await self._send_with_reauth_retry(do_request)
+
+    def _apply_write_response(self, response: httpx.Response) -> None:
+        """Update shared device state from a write command response."""
+        if self.serial not in self.devices:
+            return
+        try:
+            data = response.json()
+        except Exception:
+            return
+        shared_data = self.devices[self.serial].data
+        for key, val in data.items():
+            if key == "requestID":
+                continue
+            if isinstance(val, dict) and val.get("operation") == "write":
+                confirmed = val.get("value")
+                if confirmed is not None:
+                    shared_data[key] = confirmed
 
     async def _refresh(self) -> None:
         r = await self.send_control_command("/alldata/read")
@@ -339,8 +408,19 @@ class I2dSystem(AqualinkSystem):
                     self, shared_data, key=key, label=label
                 )
 
-        for key, label, unit in _SENSOR_SPECS:
+        for sspec in _SENSOR_SPECS:
+            if sspec.key not in self.devices:
+                self.devices[sspec.key] = I2dSensor(
+                    self,
+                    shared_data,
+                    key=sspec.key,
+                    label=sspec.label,
+                    unit=sspec.unit,
+                    path=sspec.path,
+                )
+
+        for key, label in _BINARY_SENSOR_SPECS:
             if key not in self.devices:
-                self.devices[key] = I2dSensor(
-                    self, shared_data, key=key, label=label, unit=unit
+                self.devices[key] = I2dBinarySensor(
+                    self, shared_data, key=key, label=label
                 )

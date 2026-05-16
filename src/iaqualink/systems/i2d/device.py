@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 from enum import StrEnum, unique
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from iaqualink.device import (
+    AqualinkBinarySensor,
     AqualinkNumber,
     AqualinkPump,
     AqualinkSensor,
@@ -49,8 +50,8 @@ class I2dDevice:
         return "iQPump"
 
 
-class I2dSensor(I2dDevice, AqualinkSensor):
-    """Read-only telemetry value from an iQPump device."""
+class I2dBinarySensor(I2dDevice, AqualinkBinarySensor):
+    """Read-only binary sensor from an iQPump device."""
 
     def __init__(
         self,
@@ -58,13 +59,11 @@ class I2dSensor(I2dDevice, AqualinkSensor):
         data: DeviceData,
         key: str,
         label: str,
-        unit: str | None = None,
     ) -> None:
         super().__init__(system, data)
         self.system: I2dSystem = system
         self._key = key
         self._label = label
-        self._unit = unit
 
     @property
     def name(self) -> str:
@@ -76,6 +75,51 @@ class I2dSensor(I2dDevice, AqualinkSensor):
 
     @property
     def state(self) -> str:
+        return "on" if self.is_on else "off"
+
+    @property
+    def is_on(self) -> bool:
+        return self.data.get(self._key) == I2dBinaryState.ON
+
+
+class I2dSensor(I2dDevice, AqualinkSensor):
+    """Read-only telemetry value from an iQPump device."""
+
+    def __init__(
+        self,
+        system: I2dSystem,
+        data: DeviceData,
+        key: str,
+        label: str,
+        unit: str | None = None,
+        path: tuple[str, ...] | None = None,
+    ) -> None:
+        super().__init__(system, data)
+        self.system: I2dSystem = system
+        self._key = key
+        self._label = label
+        self._unit = unit
+        self._path = path
+
+    @property
+    def name(self) -> str:
+        return self._key
+
+    @property
+    def label(self) -> str:
+        return self._label
+
+    @property
+    def state(self) -> str:
+        if self._path:
+            val: Any = self.data
+            for k in self._path:
+                if not isinstance(val, dict):
+                    return ""
+                val = val.get(k)
+                if val is None:
+                    return ""
+            return str(val)
         return str(self.data.get(self._key, ""))
 
     @property
@@ -157,14 +201,14 @@ class I2dPump(I2dDevice, AqualinkPump):
             r = await self.system.send_control_command(
                 "/opmode/write", f"value={I2dOpMode.CUSTOM}"
             )
-            r.raise_for_status()
+            self.system._apply_write_response(r)
 
     async def turn_off(self) -> None:
         if self.is_on:
             r = await self.system.send_control_command(
                 "/opmode/write", f"value={I2dOpMode.STOP}"
             )
-            r.raise_for_status()
+            self.system._apply_write_response(r)
 
     # --- Speed percentage ---
 
@@ -185,7 +229,7 @@ class I2dPump(I2dDevice, AqualinkPump):
         r = await self.system.send_control_command(
             "/customspeedrpm/write", f"value={rpm}"
         )
-        r.raise_for_status()
+        self.system._apply_write_response(r)
 
     # --- Presets (user-settable opmodes) ---
 
@@ -209,7 +253,7 @@ class I2dPump(I2dDevice, AqualinkPump):
         r = await self.system.send_control_command(
             "/opmode/write", f"value={I2dOpMode[preset]}"
         )
-        r.raise_for_status()
+        self.system._apply_write_response(r)
 
 
 class I2dNumber(I2dDevice, AqualinkNumber):
@@ -285,7 +329,7 @@ class I2dNumber(I2dDevice, AqualinkNumber):
         r = await self.system.send_control_command(
             f"/{self._key}/write", f"value={int(value)}"
         )
-        r.raise_for_status()
+        self.system._apply_write_response(r)
 
 
 class I2dSwitch(I2dDevice, AqualinkSwitch):
@@ -323,10 +367,10 @@ class I2dSwitch(I2dDevice, AqualinkSwitch):
         r = await self.system.send_control_command(
             f"/{self._key}/write", f"value={I2dBinaryState.ON}"
         )
-        r.raise_for_status()
+        self.system._apply_write_response(r)
 
     async def turn_off(self) -> None:
         r = await self.system.send_control_command(
             f"/{self._key}/write", f"value={I2dBinaryState.OFF}"
         )
-        r.raise_for_status()
+        self.system._apply_write_response(r)
