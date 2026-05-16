@@ -4,6 +4,7 @@ import logging
 from typing import Any, NamedTuple
 
 from iaqualink.const import AQUALINK_API_KEY
+from iaqualink.exception import AqualinkServiceException, _AqualinkOfflineSignal
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.i2d.device import (
     I2dBinarySensor,
@@ -250,7 +251,20 @@ class I2dSystem(AqualinkSystem):
                 url, method="post", headers=headers, json=body, **kwargs
             )
 
-        return await self._send_with_reauth_retry(do_request)
+        try:
+            return await self._send_with_reauth_retry(do_request)
+        except AqualinkServiceException as exc:
+            if exc.response is not None and exc.response.status_code == 500:
+                try:
+                    body = exc.response.json()
+                    msg = body.get("error", {}).get("message", "")
+                    if "offline" in msg.lower():
+                        raise _AqualinkOfflineSignal(
+                            msg, response=exc.response
+                        ) from exc
+                except (ValueError, KeyError):
+                    pass
+            raise
 
     def _apply_write_response(self, response: httpx.Response) -> None:
         """Update shared device state from a write command response."""
@@ -281,7 +295,7 @@ class I2dSystem(AqualinkSystem):
         if data.get("status") == "500":
             msg = data.get("error", {}).get("message", "Device offline.")
             LOGGER.warning("System %s error: %s", self.serial, msg)
-            self.status = SystemStatus.DISCONNECTED
+            self.status = SystemStatus.OFFLINE
             return
 
         alldata: dict[str, Any] = data["alldata"]

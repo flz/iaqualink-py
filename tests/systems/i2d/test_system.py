@@ -158,7 +158,20 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         response.json.return_value = OFFLINE_DATA
         system.send_control_command = async_returns(response)
         await system.refresh()
-        assert system.status is SystemStatus.DISCONNECTED
+        assert system.status is SystemStatus.OFFLINE
+
+    @patch("httpx.AsyncClient.request")
+    async def test_refresh_device_offline_http500(self, mock_request):
+        from iaqualink.client import AqualinkClient
+
+        aqualink = AqualinkClient("user", "pass")
+        aqualink.authentication_token = "tok"
+        aqualink.user_id = "42"
+        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        mock_request.return_value.status_code = 500
+        mock_request.return_value.json = MagicMock(return_value=OFFLINE_DATA)
+        await system.refresh()  # must not raise
+        assert system.status is SystemStatus.OFFLINE
 
     async def test_refresh_throttled(self):
         aqualink = MagicMock()
@@ -330,7 +343,23 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         response = MagicMock()
         response.json.return_value = OFFLINE_DATA
         system._parse_alldata_response(response)
-        assert system.status is SystemStatus.DISCONNECTED
+        assert system.status is SystemStatus.OFFLINE
+
+    @patch("httpx.AsyncClient.request")
+    async def test_send_control_command_converts_http500_offline(
+        self, mock_request
+    ):
+        from iaqualink.client import AqualinkClient
+        from iaqualink.exception import _AqualinkOfflineSignal
+
+        aqualink = AqualinkClient("user", "pass")
+        aqualink.authentication_token = "tok"
+        aqualink.user_id = "42"
+        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        mock_request.return_value.status_code = 500
+        mock_request.return_value.json = MagicMock(return_value=OFFLINE_DATA)
+        with pytest.raises(_AqualinkOfflineSignal):
+            await system.send_control_command("/alldata/read")
 
     def test_parse_alldata_response_service_opmode(self):
         aqualink = MagicMock()

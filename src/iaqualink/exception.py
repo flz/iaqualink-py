@@ -32,6 +32,14 @@ class AqualinkServiceThrottledException(AqualinkServiceException):
     """Exception raised when the service returns 429 Too Many Requests."""
 
 
+class _AqualinkOfflineSignal(AqualinkServiceException):
+    """Internal signal: raised by _refresh() to indicate device-offline.
+
+    Caught by AqualinkSystem.refresh(); never propagates to callers.
+    Do not catch or raise this outside of the iaqualink package internals.
+    """
+
+
 class AqualinkOperationNotSupportedException(AqualinkException):
     """Exception raised when trying to issue an unsupported operation."""
 
