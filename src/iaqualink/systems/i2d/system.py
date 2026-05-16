@@ -1,0 +1,384 @@
+from __future__ import annotations
+
+import logging
+from typing import Any, NamedTuple
+
+from iaqualink.const import AQUALINK_API_KEY
+from iaqualink.exception import AqualinkServiceException, _AqualinkOfflineSignal
+from iaqualink.system import AqualinkSystem, SystemStatus
+from iaqualink.systems.i2d.device import (
+    I2dBinarySensor,
+    I2dNumber,
+    I2dSensor,
+    I2dSwitch,
+    I2dPump,
+    _RPM_HARDWARE_MIN_DEFAULT,
+    _RPM_HARDWARE_MIN_SVRS,
+    _RPM_HARDWARE_MAX,
+)
+
+import httpx
+
+
+I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
+
+_SVRS_PRODUCT_IDS: frozenset[str] = frozenset({"0F", "18"})
+
+LOGGER = logging.getLogger("iaqualink")
+
+
+class NumberSpec(NamedTuple):
+    key: str
+    label: str
+    min_value: float | None = None
+    max_value: float | None = None
+    min_key: str | None = None
+    max_key: str | None = None
+    step: float = 1.0
+    unit: str = ""
+    optional: bool = False
+
+
+class SensorSpec(NamedTuple):
+    key: str
+    label: str
+    unit: str | None = None
+    path: tuple[str, ...] | None = None
+
+
+# Exactly one of (min_value, min_key) and one of (max_value, max_key) must be set.
+# step enforces must-be-multiple-of-step validation via AqualinkNumber.set_value.
+_NUMBER_SPECS: list[NumberSpec] = [
+    # Hardware RPM limits — _rpmhwmin injected at parse time from productid
+    NumberSpec(
+        "globalrpmmin",
+        "Global RPM Min",
+        min_key="_rpmhwmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "globalrpmmax",
+        "Global RPM Max",
+        min_key="globalrpmmin",
+        max_value=_RPM_HARDWARE_MAX,
+        step=25,
+        unit="RPM",
+    ),
+    # RPM settings — bounds read live from globalrpmmin/globalrpmmax
+    NumberSpec(
+        "customspeedrpm",
+        "Custom Speed RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "primingrpm",
+        "Priming RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "quickcleanrpm",
+        "Quick Clean RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "freezeprotectrpm",
+        "Freeze Protect RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "countdownrpm",
+        "Countdown RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    # Auxiliary relay RPM setpoints — drive external single-speed pumps via
+    # relay K1/K2 outputs. Bounded by globalrpmmin/globalrpmmax (UI seekbar
+    # behavior). Relay hardware floor differs from pump SVRS floor (500 vs
+    # 1050) but that distinction is subsumed by globalrpmmin at write time.
+    # Not present on all hardware variants; skipped at parse time when absent.
+    NumberSpec(
+        "relayK1Rpm",
+        "Auxiliary Relay K1 RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+        optional=True,
+    ),
+    NumberSpec(
+        "relayK2Rpm",
+        "Auxiliary Relay K2 RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+        optional=True,
+    ),
+    # Temperature — API value is always °C (min=3, max=7, step=1).
+    # The app displays in °F (min=37, max=45, step=2) and converts before writing.
+    # If Fahrenheit support is added later, apply round(f_to_c(value)) before set_value.
+    NumberSpec(
+        "freezeprotectsetpointc",
+        "Freeze Protect Setpoint",
+        min_value=3,
+        max_value=7,
+        unit="°C",
+    ),
+    # Period / timer settings (values in seconds, step-aligned)
+    NumberSpec(
+        "customspeedtimer",
+        "Custom Speed Timer",
+        min_value=300,
+        max_value=3600,
+        step=300,
+        unit="s",
+    ),
+    NumberSpec(
+        "primingperiod",
+        "Priming Period",
+        min_value=0,
+        max_value=300,
+        step=60,
+        unit="s",
+    ),
+    NumberSpec(
+        "quickcleanperiod",
+        "Quick Clean Period",
+        min_value=300,
+        max_value=3600,
+        step=300,
+        unit="s",
+    ),
+    NumberSpec(
+        "freezeprotectperiod",
+        "Freeze Protect Period",
+        min_value=0,
+        max_value=28800,
+        step=1800,
+        unit="s",
+    ),
+    NumberSpec(
+        "countdownperiod",
+        "Countdown Period",
+        min_value=3600,
+        max_value=86400,
+        step=3600,
+        unit="s",
+    ),
+    NumberSpec(
+        "timeoutperiod",
+        "Timeout Period",
+        min_value=3600,
+        max_value=86400,
+        step=3600,
+        unit="s",
+    ),
+]
+
+_SWITCH_SPECS: list[tuple[str, str]] = [
+    ("freezeprotectenable", "Freeze Protection"),
+]
+
+# read-only telemetry (motordata flattened, plus alldata timers and nested fields)
+_SENSOR_SPECS: list[SensorSpec] = [
+    SensorSpec("speed", "Motor Speed", "RPM"),
+    SensorSpec("power", "Motor Power", "W"),
+    SensorSpec("temperature", "Motor Temperature", "°F"),
+    SensorSpec("horsepower", "Horsepower", "HP"),
+    # Remaining-time counters — read-only, decrement while mode is active
+    SensorSpec("primingtimer", "Priming Timer", "s"),
+    SensorSpec("quickcleantimer", "Quick Clean Timer", "s"),
+    SensorSpec("countdowntimer", "Countdown Timer", "s"),
+    SensorSpec("timeouttimer", "Timeout Timer", "s"),
+    # Schedule state — "-1" = no active span, otherwise the span index
+    SensorSpec("currentspan", "Current Schedule Span"),
+    # WiFi status — path traverses the wifistatus sub-object at read time
+    SensorSpec("wifistate", "WiFi State", path=("wifistatus", "state")),
+    SensorSpec("wifissid", "WiFi SSID", path=("wifistatus", "ssid")),
+    # Firmware metadata
+    SensorSpec("fwversion", "Firmware Version"),
+    SensorSpec("updateprogress", "Update Progress"),
+    SensorSpec("updateflag", "Update Flag"),
+]
+
+# (key, label) — read-only binary sensors
+_BINARY_SENSOR_SPECS: list[tuple[str, str]] = [
+    ("freezeprotectstatus", "Freeze Protect Status"),
+]
+
+
+class I2dSystem(AqualinkSystem):
+    NAME = "i2d"
+
+    def __repr__(self) -> str:
+        attrs = ["name", "serial", "data"]
+        attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
+        return f"{self.__class__.__name__}({' '.join(attrs)})"
+
+    async def send_control_command(
+        self, command: str, params: str = "", **kwargs: Any
+    ) -> httpx.Response:
+        async def do_request() -> httpx.Response:
+            url = f"{I2D_CONTROL_URL}/{self.serial}/control.json"
+            headers = {
+                "Authorization": self.aqualink.id_token,
+                "api_key": AQUALINK_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            }
+            body = {
+                "api_key": AQUALINK_API_KEY,
+                "authentication_token": self.aqualink.authentication_token,
+                "user_id": self.aqualink.user_id,
+                "command": command,
+                "params": params,
+            }
+            LOGGER.debug(
+                "i2d request: POST %s command=%s params=%s",
+                url,
+                command,
+                params,
+            )
+            return await self.aqualink.send_request(
+                url, method="post", headers=headers, json=body, **kwargs
+            )
+
+        try:
+            return await self._send_with_reauth_retry(do_request)
+        except AqualinkServiceException as exc:
+            if exc.response is not None and exc.response.status_code == 500:
+                try:
+                    body = exc.response.json()
+                    msg = body.get("error", {}).get("message", "")
+                    if "offline" in msg.lower():
+                        raise _AqualinkOfflineSignal(
+                            msg, response=exc.response
+                        ) from exc
+                except (ValueError, KeyError):
+                    pass
+            raise
+
+    def _apply_write_response(self, response: httpx.Response) -> None:
+        """Update shared device state from a write command response."""
+        if self.serial not in self.devices:
+            return
+        try:
+            data = response.json()
+        except Exception:
+            return
+        shared_data = self.devices[self.serial].data
+        for key, val in data.items():
+            if key == "requestID":
+                continue
+            if isinstance(val, dict) and val.get("operation") == "write":
+                confirmed = val.get("value")
+                if confirmed is not None:
+                    shared_data[key] = confirmed
+
+    async def _refresh(self) -> None:
+        r = await self.send_control_command("/alldata/read")
+        self._parse_alldata_response(r)
+
+    def _parse_alldata_response(self, response: httpx.Response) -> None:
+        data = response.json()
+        LOGGER.debug("Alldata response: %s", data)
+
+        # API returns HTTP 200 even when device is unreachable; body carries status=500.
+        if data.get("status") == "500":
+            msg = data.get("error", {}).get("message", "Device offline.")
+            LOGGER.warning("System %s error: %s", self.serial, msg)
+            self.status = SystemStatus.OFFLINE
+            return
+
+        alldata: dict[str, Any] = data["alldata"]
+
+        opmode = alldata.get("opmode")
+        if opmode is not None:
+            self.status = (
+                SystemStatus.CONNECTED
+                if int(opmode) <= 3
+                else SystemStatus.SERVICE
+            )
+        else:
+            updateprogress = alldata.get("updateprogress")
+            if updateprogress is not None and updateprogress not in (
+                "0",
+                "0/0",
+            ):
+                self.status = SystemStatus.FIRMWARE_UPDATE
+            else:
+                self.status = SystemStatus.UNKNOWN
+        # Flatten motordata into the top-level dict for cleaner device access.
+        motordata = alldata.get("motordata", {})
+        device_data = {"name": self.serial, **alldata, **motordata}
+        # Inject hardware RPM floor so I2dNumber can use it as a live min_key.
+        device_data["_rpmhwmin"] = str(
+            _RPM_HARDWARE_MIN_SVRS
+            if device_data.get("productid") in _SVRS_PRODUCT_IDS
+            else _RPM_HARDWARE_MIN_DEFAULT
+        )
+
+        if self.serial in self.devices:
+            self.devices[self.serial].data.update(device_data)
+        else:
+            self.devices[self.serial] = I2dPump(self, device_data)
+
+        # All number and switch sub-devices share the pump's data dict so they
+        # see live values after each update() without a separate parse step.
+        shared_data = self.devices[self.serial].data
+
+        for spec in _NUMBER_SPECS:
+            if spec.optional and spec.key not in shared_data:
+                continue
+            if spec.key not in self.devices:
+                self.devices[spec.key] = I2dNumber(
+                    self,
+                    shared_data,
+                    key=spec.key,
+                    label=spec.label,
+                    min_value=spec.min_value,
+                    max_value=spec.max_value,
+                    min_key=spec.min_key,
+                    max_key=spec.max_key,
+                    step=spec.step,
+                    unit=spec.unit,
+                )
+
+        for key, label in _SWITCH_SPECS:
+            if key not in self.devices:
+                self.devices[key] = I2dSwitch(
+                    self, shared_data, key=key, label=label
+                )
+
+        for sspec in _SENSOR_SPECS:
+            if sspec.key not in self.devices:
+                self.devices[sspec.key] = I2dSensor(
+                    self,
+                    shared_data,
+                    key=sspec.key,
+                    label=sspec.label,
+                    unit=sspec.unit,
+                    path=sspec.path,
+                )
+
+        for key, label in _BINARY_SENSOR_SPECS:
+            if key not in self.devices:
+                self.devices[key] = I2dBinarySensor(
+                    self, shared_data, key=key, label=label
+                )

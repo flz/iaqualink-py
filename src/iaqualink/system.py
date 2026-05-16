@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, ClassVar
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
+    _AqualinkOfflineSignal,
 )
 from iaqualink.reauth import send_with_reauth_retry
 
@@ -111,6 +112,9 @@ class AqualinkSystem:
         except AqualinkServiceThrottledException:
             self.status = SystemStatus.UNKNOWN
             raise
+        except _AqualinkOfflineSignal:
+            self.status = SystemStatus.OFFLINE
+            return
         except AqualinkServiceException:
             self.status = SystemStatus.DISCONNECTED
             raise

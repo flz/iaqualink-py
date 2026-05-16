@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import httpx
 
 
 class AqualinkException(Exception):  # noqa: N818
@@ -14,6 +17,12 @@ class AqualinkInvalidParameterException(AqualinkException):
 class AqualinkServiceException(AqualinkException):
     """Exception raised when an error is raised by the iaqualink service."""
 
+    def __init__(
+        self, *args: Any, response: httpx.Response | None = None
+    ) -> None:
+        super().__init__(*args)
+        self.response = response
+
 
 class AqualinkServiceUnauthorizedException(AqualinkServiceException):
     """Exception raised when service access is unauthorized."""
@@ -21,6 +30,14 @@ class AqualinkServiceUnauthorizedException(AqualinkServiceException):
 
 class AqualinkServiceThrottledException(AqualinkServiceException):
     """Exception raised when the service returns 429 Too Many Requests."""
+
+
+class _AqualinkOfflineSignal(AqualinkServiceException):
+    """Internal signal: raised by _refresh() to indicate device-offline.
+
+    Caught by AqualinkSystem.refresh(); never propagates to callers.
+    Do not catch or raise this outside of the iaqualink package internals.
+    """
 
 
 class AqualinkOperationNotSupportedException(AqualinkException):

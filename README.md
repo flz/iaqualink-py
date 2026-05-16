@@ -16,6 +16,7 @@
 - 🏗️ **Multi-System Support**
   - **iAqua** systems (iaqualink.net API)
   - **eXO** systems (zodiac-io.com API)
+  - **i2d** systems — iQPump variable-speed pumps (r-api.iaqualink.net API)
 - 🌡️ **Comprehensive Device Support**
   - Temperature sensors (pool, spa, air)
   - Thermostats with adjustable set points
@@ -198,7 +199,7 @@ async with AqualinkClient('user@example.com', 'password') as client:
 The library uses a plugin-style architecture with base classes and system-specific implementations:
 
 - **AqualinkClient** - Authentication and system discovery
-- **AqualinkSystem** - Base class with iAqua and eXO implementations
+- **AqualinkSystem** - Base class with iAqua, eXO, and i2d implementations
 - **AqualinkDevice** - Device hierarchy with type-specific subclasses
 
 See [CLAUDE.md](CLAUDE.md) for detailed architecture documentation.

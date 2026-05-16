@@ -4,10 +4,11 @@ iaqualink-py supports multiple Jandy pool system types through a unified interfa
 
 ## System Types
 
-The library supports two system types. See the per-system guides for type-specific behaviour including status mapping:
+The library supports three system types. See the per-system guides for type-specific behaviour including status mapping:
 
 - [iAqua Systems](iaqua.md) — original Jandy iAqualink systems (`iaqualink.net` API)
 - [eXO Systems](exo.md) — Zodiac systems with AWS IoT shadow state (`zodiac-io.com` API)
+- [i2d Systems](i2d.md) — iQPump variable-speed pumps (`r-api.iaqualink.net` API)
 
 ## Discovering Systems
 

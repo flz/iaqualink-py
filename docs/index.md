@@ -15,6 +15,7 @@
 - **Multi-System Support**
     - **iAqua** systems (iaqualink.net API)
     - **eXO** systems (zodiac-io.com API)
+    - **i2d** systems — iQPump variable-speed pumps (r-api.iaqualink.net API)
 - **Comprehensive Device Support**
     - Temperature sensors (pool, spa, air)
     - Thermostats with adjustable set points

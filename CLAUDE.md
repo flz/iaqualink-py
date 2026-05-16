@@ -26,16 +26,17 @@ For conversational replies, not generated docs/comments, respond like smart cave
 
 ## Project Overview
 
-This is an asynchronous Python library for interacting with Jandy iAqualink pool control systems. The library supports two system types:
+This is an asynchronous Python library for interacting with Jandy iAqualink pool control systems. The library supports three system types:
 - **iAqua** systems - Uses the iaqualink.net API
-- **eXO** systems - Uses the zodiac-io.com API (added in recent version)
+- **eXO** systems - Uses the zodiac-io.com API
+- **i2d** systems - iQPump variable-speed pumps, uses the r-api.iaqualink.net control API
 
 ## Development Commands
 
 ### Setup
 ```bash
 # Install dependencies with uv
-uv sync --all-extras --dev
+uv sync --all-extras --all-groups
 ```
 
 ### Testing
@@ -129,6 +130,7 @@ The library follows a plugin-style architecture with base classes and system-spe
    - System-specific implementations:
      - **IaquaDevice** ([systems/iaqua/device.py](src/iaqualink/systems/iaqua/device.py))
      - **ExoDevice** ([systems/exo/device.py](src/iaqualink/systems/exo/device.py))
+     - **I2dDevice** mixin + concrete classes ([systems/i2d/device.py](src/iaqualink/systems/i2d/device.py))
    - Device types include: sensors, pumps, heaters, lights, thermostats, aux toggles
 
 4. **Request signing** ([util.py](src/iaqualink/util.py)) - HMAC-SHA1 utility
@@ -171,14 +173,31 @@ The library follows a plugin-style architecture with base classes and system-spe
 - State updates via desired/reported state pattern
 - Token refresh handled automatically on 401 responses
 
+**i2d Systems (iQPump):**
+- `device_type = "i2d"` in the device list response
+- All commands POST to `https://r-api.iaqualink.net/v2/devices/{serial}/control.json`
+- Single `/alldata/read` command fetches full state; `motordata` sub-object is flattened into the top-level data dict at parse time
+- Write commands use `/{key}/write` with `params="value={val}"`
+- A single parse creates one device per logical entity, all sharing the same data dict so any `update()` refreshes all values atomically
+- Device breakdown per system:
+  - `I2dPump` — main pump device; supports `turn_on`/`turn_off`, presets (SCHEDULE/CUSTOM/STOP), `set_speed_percentage(0–100)` normalized to hardware RPM range rounded to nearest 25
+  - `I2dNumber` — writable numeric setting (RPM, seconds, °C); validates range and step; `globalrpmmin`/`globalrpmmax` use live cross-bounds and a `_rpmhwmin` key injected at parse time from `productid` (non-SVRS: 600, SVRS 0F/18: 1050)
+  - `I2dSwitch` — binary on/off setting (`I2dBinaryState.ON/OFF`)
+  - `I2dSensor` — read-only telemetry (speed/RPM, power/W, temperature/°F, horsepower/HP), remaining-time counters (primingtimer/quickcleantimer/countdowntimer/timeouttimer in seconds), and schedule state (currentspan; `"-1"` = no active span)
+  - `I2dBinarySensor` — read-only binary sensor (freezeprotectstatus: `"0"`=inactive, `"1"`=active)
+- Settable opmodes: SCHEDULE(0), CUSTOM(1), STOP(2); QUICK_CLEAN/TIMED_RUN/TIMEOUT/SERVICE_OFF are read-only (pump enters them automatically)
+- RPM numbers (except globalrpmmin/max) use `globalrpmmin`/`globalrpmmax` as live bounds from the shared data dict
+- Period/timer numbers are in **seconds** with explicit step values (e.g. quickcleanperiod: 300–3600 step 300)
+
 ### Test Structure
 
 Tests use `unittest.IsolatedAsyncioTestCase` with a custom base class:
 - **TestBase** ([tests/base.py](tests/base.py)) — base test class with `AqualinkClient` and `respx` mock transport pre-wired
 - Uses `respx` for HTTP mocking — no live network calls; no real credentials needed
-- System-specific tests under `tests/systems/iaqua/` and `tests/systems/exo/`
+- System-specific tests under `tests/systems/iaqua/`, `tests/systems/exo/`, and `tests/systems/i2d/`
 - Abstract base tests in `base_test_system.py` and `base_test_device.py` — new system types must subclass these
 - Mock HTTP response fixtures (JSON dicts / response bodies) live alongside the test file that uses them in the same `tests/systems/<system>/` directory
+- i2d tests split into `test_system.py` (system/parsing/commands) and `test_device.py` (device class unit tests)
 - Run all tests: `uv run pytest`
 - Run one file: `uv run pytest tests/systems/iaqua/test_system.py`
 - Run one case: `uv run pytest tests/systems/iaqua/test_system.py::TestIaquaSystem::test_update`
@@ -199,6 +218,14 @@ To add a new system type:
 6. Create corresponding device classes extending base device types
 7. Register the new system module import in `src/iaqualink/client.py` so `AqualinkSystem.from_data()` can discover the subclass at runtime
 8. Add tests following existing patterns in `tests/systems/newsystem/`
+9. Update documentation — all of the following must be updated in the same PR:
+   - `README.md` — add system to Multi-System Support feature list
+   - `docs/index.md` — add system to Features list
+   - `docs/guide/systems.md` — add system entry to System Types list
+   - `mkdocs.yml` — add nav entries under Getting Started, User Guide, and API Reference
+   - `docs/getting-started/newsystem.md` — create getting-started guide (API overview, status table, device inventory)
+   - `docs/guide/newsystem.md` — create user guide (usage examples, status lifecycle, device types)
+   - `docs/api/newsystem.md` — create API reference page (`:::` autodoc directives for system + device classes)
 
 ## Adding New Base Device Types
 
