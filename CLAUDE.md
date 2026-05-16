@@ -36,7 +36,7 @@ This is an asynchronous Python library for interacting with Jandy iAqualink pool
 ### Setup
 ```bash
 # Install dependencies with uv
-uv sync --all-extras --dev
+uv sync --all-extras --all-groups
 ```
 
 ### Testing
