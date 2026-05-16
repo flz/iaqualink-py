@@ -286,6 +286,7 @@ class IaquaSystem(AqualinkSystem):
             )
             return
 
+        onetouch_count = 0
         for name, val in onetouch.items():
             if not isinstance(val, list) or not name.startswith("onetouch_"):
                 continue
@@ -295,6 +296,7 @@ class IaquaSystem(AqualinkSystem):
             if attrs.get("status") == IaquaBinaryState.OFF:
                 self.devices.pop(name, None)
                 continue
+            onetouch_count += 1
             if name in self.devices:
                 for dk, dv in attrs.items():
                     self.devices[name].data[dk] = dv
@@ -304,7 +306,7 @@ class IaquaSystem(AqualinkSystem):
         LOGGER.debug(
             "OneTouch parsed: serial=%s count=%d",
             self.serial,
-            sum(1 for k in self.devices if k.startswith("onetouch_")),
+            onetouch_count,
         )
 
     async def set_onetouch(self, name: str) -> None:

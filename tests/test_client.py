@@ -701,6 +701,12 @@ class TestRedactKwargs(TestBase):
         assert result["json"] == {"command": "get_home", "serial": "ABC"}
         assert result["timeout"] == 10
 
+    def test_redacts_sensitive_keys_in_data(self) -> None:
+        kwargs = {"data": {"password": "secret", "user_id": "1"}}
+        result = _redact_kwargs(kwargs)
+        assert result["data"]["password"] == "***"
+        assert result["data"]["user_id"] == "1"
+
     def test_ignores_non_dict_json(self) -> None:
         kwargs = {"json": "not-a-dict"}
         result = _redact_kwargs(kwargs)

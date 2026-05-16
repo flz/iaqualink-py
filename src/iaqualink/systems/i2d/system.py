@@ -249,12 +249,6 @@ class I2dSystem(AqualinkSystem):
                 "command": command,
                 "params": params,
             }
-            LOGGER.debug(
-                "i2d request: POST %s command=%s params=%s",
-                url,
-                command,
-                params,
-            )
             return await self.aqualink.send_request(
                 url, method="post", headers=headers, json=body, **kwargs
             )

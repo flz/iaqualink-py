@@ -5,7 +5,7 @@ import importlib
 import logging
 import re
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, fields as dataclass_fields
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
@@ -49,6 +49,8 @@ _REDACT_KEYS = frozenset(
     {
         "api_key",
         "authentication_token",
+        "client_id",
+        "id_token",
         "password",
         "refresh_token",
         "sessionID",
@@ -66,7 +68,7 @@ def _redact_url(url: str) -> str:
 
 def _redact_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
     out = dict(kwargs)
-    for key in ("json", "params"):
+    for key in ("json", "params", "data"):
         if key in out and isinstance(out[key], dict):
             out[key] = {
                 k: "***" if k in _REDACT_KEYS else v
@@ -109,11 +111,13 @@ class AqualinkAuthState:
         return cls(**values)
 
     def __repr__(self) -> str:
-        return (
-            f"AqualinkAuthState(username={self.username!r}, "
-            f"client_id=***, authentication_token=***, "
-            f"user_id={self.user_id!r}, id_token=***, refresh_token=***)"
+        parts = ", ".join(
+            f"{f.name}=***"
+            if f.name in _REDACT_KEYS
+            else f"{f.name}={getattr(self, f.name)!r}"
+            for f in dataclass_fields(self)
         )
+        return f"AqualinkAuthState({parts})"
 
 
 class AqualinkClient:
