@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Confidentiality
 
-Repo-tracked files must never contain identifiers derived from decompiled source.
+Repo-tracked files must contain only wire-observable identifiers: hostnames, URLs, HTTP header names, JSON field names, numeric constants, protocol constants visible on the wire.
 
 **ALLOWED:** hostnames, URLs, HTTP header names, JSON wire field names, numeric constants, protocol constants observable at the wire level.
 
-**NOT ALLOWED:** decompiled file paths, package names (`com.zodiac.*`, `com.amazonaws.*`), class names, method names, variable names lifted from decompiled APK source.
+**NOT ALLOWED:** Java/Kotlin file paths, package names (`com.zodiac.*`, `com.amazonaws.*`), class names, method names, variable names from any external reference source.
 
-The private tooling that researches protocol behavior and produces architecture docs lives outside this repo. Repo-side workflows must not reference `/tank/data/Code/iaqualink-decomp` or any path inside it.
+The private tooling that researches protocol behavior and produces architecture docs lives outside this repo.
 
 ---
 
@@ -100,7 +100,7 @@ bash scripts/setup-worktree.sh
 The script (idempotent):
 - Installs pre-commit hooks for both `pre-commit` and `pre-push` stages
 - Checks that `uv` and `claude` are on `PATH`
-- Warns (non-fatal) if the decompiled source directory is absent — most worktrees do not need it
+- Checks that `uv` and `claude` are on `PATH`
 - Prints a checklist of what is wired
 
 ## Architecture

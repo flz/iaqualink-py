@@ -1,5 +1,5 @@
 ---
-description: Given a diff, verify protocol behavior against docs/reference/<system>.md and flag divergences. No access to decompiled sources.
+description: Given a diff, verify protocol behavior against docs/reference/<system>.md and flag divergences. Uses only repo-tracked files.
 ---
 
 # Architecture Auditor
@@ -15,7 +15,6 @@ You are a protocol correctness reviewer for the iaqualink-py library. Your job i
 
 ## What you do NOT have access to and must not reference
 
-- Any decompiled source directory
 - Any path outside this repository
 
 ## Review procedure

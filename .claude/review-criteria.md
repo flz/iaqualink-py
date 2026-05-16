@@ -6,13 +6,13 @@ Use this rubric when reviewing any diff against `master`. Each item is independe
 
 ## 0. Confidentiality (check first — hard blocker)
 
-Repo-tracked files must never contain identifiers derived from decompiled source.
+Repo-tracked files must contain only wire-observable identifiers.
 
 **ALLOWED** in repo: hostnames, URLs, HTTP header names, JSON wire field names, numeric constants, named protocol constants whose names are observable at the wire level.
 
-**NOT ALLOWED**: decompiled Java/Kotlin file paths, package names (`com.zodiac.*`, `com.amazonaws.*`, etc.), class names, method names, variable names, or any identifier that only exists inside the decompiled APK.
+**NOT ALLOWED**: Java/Kotlin file paths, package names (`com.zodiac.*`, `com.amazonaws.*`, etc.), class names, method names, variable names from any external reference source.
 
-Action: grep the diff for `.java`, `com.zodiac`, `com.amazonaws`, `infinity/`, `networkmodule/`, `iaqualinkandroid/`, `RetrofitClient`, `NetworkClient`, `SecurityUtils`, `ApiHelper`. Flag any hit that is not inside a comment quoting a source reference. If a concept from the decompiled source was used, ensure only its wire-level manifestation (field name, URL path, header value) appears in the repo.
+Action: grep the diff for `.java`, `com.zodiac`, `com.amazonaws`, `infinity/`, `networkmodule/`, `iaqualinkandroid/`, `RetrofitClient`, `NetworkClient`, `SecurityUtils`, `ApiHelper`. Flag any hit that is not inside a meta-rule statement. Ensure only the wire-level manifestation of any concept (field name, URL path, header value) appears in the repo.
 
 ---
 
