@@ -6,11 +6,6 @@ import os
 from typing import Any, NamedTuple
 
 from iaqualink.const import AQUALINK_API_KEY
-from iaqualink.exception import (
-    AqualinkServiceException,
-    AqualinkServiceThrottledException,
-    AqualinkSystemOfflineException,
-)
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.i2d.device import (
     I2dNumber,
@@ -87,6 +82,7 @@ _MOCK_ALLDATA = {
     "requestID": "mock",
 }
 
+
 class NumberSpec(NamedTuple):
     key: str
     label: str
@@ -102,25 +98,122 @@ class NumberSpec(NamedTuple):
 # step enforces must-be-multiple-of-step validation via AqualinkNumber.set_value.
 _NUMBER_SPECS: list[NumberSpec] = [
     # Hardware RPM limits — _rpmhwmin injected at parse time from productid
-    NumberSpec("globalrpmmin", "Global RPM Min",    min_key="_rpmhwmin",    max_key="globalrpmmax", step=25, unit="RPM"),
-    NumberSpec("globalrpmmax", "Global RPM Max",    min_key="globalrpmmin", max_value=_RPM_HARDWARE_MAX, step=25, unit="RPM"),
+    NumberSpec(
+        "globalrpmmin",
+        "Global RPM Min",
+        min_key="_rpmhwmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "globalrpmmax",
+        "Global RPM Max",
+        min_key="globalrpmmin",
+        max_value=_RPM_HARDWARE_MAX,
+        step=25,
+        unit="RPM",
+    ),
     # RPM settings — bounds read live from globalrpmmin/globalrpmmax
-    NumberSpec("customspeedrpm",   "Custom Speed RPM",   min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
-    NumberSpec("primingrpm",       "Priming RPM",        min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
-    NumberSpec("quickcleanrpm",    "Quick Clean RPM",    min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
-    NumberSpec("freezeprotectrpm", "Freeze Protect RPM", min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
-    NumberSpec("countdownrpm",     "Countdown RPM",      min_key="globalrpmmin", max_key="globalrpmmax", step=25, unit="RPM"),
+    NumberSpec(
+        "customspeedrpm",
+        "Custom Speed RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "primingrpm",
+        "Priming RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "quickcleanrpm",
+        "Quick Clean RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "freezeprotectrpm",
+        "Freeze Protect RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
+    NumberSpec(
+        "countdownrpm",
+        "Countdown RPM",
+        min_key="globalrpmmin",
+        max_key="globalrpmmax",
+        step=25,
+        unit="RPM",
+    ),
     # Temperature — API value is always °C (min=3, max=7, step=1).
     # The app displays in °F (min=37, max=45, step=2) and converts before writing.
     # If Fahrenheit support is added later, apply round(f_to_c(value)) before set_value.
-    NumberSpec("freezeprotectsetpointc", "Freeze Protect Setpoint", min_value=3, max_value=7, unit="°C"),
+    NumberSpec(
+        "freezeprotectsetpointc",
+        "Freeze Protect Setpoint",
+        min_value=3,
+        max_value=7,
+        unit="°C",
+    ),
     # Period / timer settings (values in seconds, step-aligned)
-    NumberSpec("customspeedtimer",    "Custom Speed Timer",   min_value=300,  max_value=3600,  step=300,  unit="s"),
-    NumberSpec("primingperiod",       "Priming Period",       min_value=0,    max_value=300,   step=60,   unit="s"),
-    NumberSpec("quickcleanperiod",    "Quick Clean Period",   min_value=300,  max_value=3600,  step=300,  unit="s"),
-    NumberSpec("freezeprotectperiod", "Freeze Protect Period",min_value=0,    max_value=28800, step=1800, unit="s"),
-    NumberSpec("countdownperiod",     "Countdown Period",     min_value=3600, max_value=86400, step=3600, unit="s"),
-    NumberSpec("timeoutperiod",       "Timeout Period",       min_value=3600, max_value=86400, step=3600, unit="s"),
+    NumberSpec(
+        "customspeedtimer",
+        "Custom Speed Timer",
+        min_value=300,
+        max_value=3600,
+        step=300,
+        unit="s",
+    ),
+    NumberSpec(
+        "primingperiod",
+        "Priming Period",
+        min_value=0,
+        max_value=300,
+        step=60,
+        unit="s",
+    ),
+    NumberSpec(
+        "quickcleanperiod",
+        "Quick Clean Period",
+        min_value=300,
+        max_value=3600,
+        step=300,
+        unit="s",
+    ),
+    NumberSpec(
+        "freezeprotectperiod",
+        "Freeze Protect Period",
+        min_value=0,
+        max_value=28800,
+        step=1800,
+        unit="s",
+    ),
+    NumberSpec(
+        "countdownperiod",
+        "Countdown Period",
+        min_value=3600,
+        max_value=86400,
+        step=3600,
+        unit="s",
+    ),
+    NumberSpec(
+        "timeoutperiod",
+        "Timeout Period",
+        min_value=3600,
+        max_value=86400,
+        step=3600,
+        unit="s",
+    ),
 ]
 
 _SWITCH_SPECS: list[tuple[str, str]] = [
@@ -173,40 +266,39 @@ class I2dSystem(AqualinkSystem):
 
         return await self._send_with_reauth_retry(do_request)
 
-    async def update(self) -> None:
-        try:
-            r = await self.send_control_command("/alldata/read")
-        except AqualinkServiceThrottledException:
-            raise
-        except AqualinkServiceException as e:
-            if e.response is not None:
-                try:
-                    self._parse_alldata_response(e.response)
-                except AqualinkSystemOfflineException:
-                    self.status = SystemStatus.OFFLINE
-                    raise
-            self.status = SystemStatus.UNKNOWN
-            raise
-
-        try:
-            self._parse_alldata_response(r)
-        except AqualinkSystemOfflineException:
-            self.status = SystemStatus.OFFLINE
-            raise
-
-        self.status = SystemStatus.ONLINE
+    async def _refresh(self) -> None:
+        r = await self.send_control_command("/alldata/read")
+        self._parse_alldata_response(r)
 
     def _parse_alldata_response(self, response: httpx.Response) -> None:
         data = response.json()
         LOGGER.debug("Alldata response: %s", data)
 
-        # API returns HTTP 200 even for offline devices; detect via body status.
+        # API returns HTTP 200 even when device is unreachable; body carries status=500.
         if data.get("status") == "500":
             msg = data.get("error", {}).get("message", "Device offline.")
             LOGGER.warning("System %s error: %s", self.serial, msg)
-            raise AqualinkSystemOfflineException(msg)
+            self.status = SystemStatus.DISCONNECTED
+            return
 
         alldata: dict[str, Any] = data["alldata"]
+
+        opmode = alldata.get("opmode")
+        if opmode is not None:
+            self.status = (
+                SystemStatus.CONNECTED
+                if int(opmode) <= 3
+                else SystemStatus.SERVICE
+            )
+        else:
+            updateprogress = alldata.get("updateprogress")
+            if updateprogress is not None and updateprogress not in (
+                "0",
+                "0/0",
+            ):
+                self.status = SystemStatus.FIRMWARE_UPDATE
+            else:
+                self.status = SystemStatus.UNKNOWN
         # Flatten motordata into the top-level dict for cleaner device access.
         motordata = alldata.get("motordata", {})
         device_data = {"name": self.serial, **alldata, **motordata}

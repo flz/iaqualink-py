@@ -11,7 +11,6 @@ from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
-    AqualinkSystemOfflineException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.i2d.device import (
@@ -23,7 +22,7 @@ from iaqualink.systems.i2d.device import (
 )
 from iaqualink.systems.i2d.system import I2dSystem
 
-from ...common import async_noop, async_raises, async_returns
+from ...common import async_raises, async_returns
 
 # Values captured from a real iQPump device. Some period/timer fields fall
 # outside the step-aligned write ranges — read values are not required to
@@ -98,43 +97,41 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         assert r is not None
         assert isinstance(r, I2dSystem)
 
-    async def test_update_success(self):
+    async def test_refresh_connected(self):
         aqualink = MagicMock()
         system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_noop
-        system._parse_alldata_response = MagicMock()
-        await system.update()
-        assert system.status is SystemStatus.ONLINE
+        response = MagicMock()
+        response.json.return_value = SAMPLE_DATA
+        system.send_control_command = async_returns(response)
+        await system.refresh()
+        assert system.status is SystemStatus.CONNECTED
 
-    async def test_update_service_exception(self):
+    async def test_refresh_service_exception(self):
         aqualink = MagicMock()
         system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
         system.send_control_command = async_raises(AqualinkServiceException)
         with pytest.raises(AqualinkServiceException):
-            await system.update()
-        assert system.status is SystemStatus.UNKNOWN
+            await system.refresh()
+        assert system.status is SystemStatus.DISCONNECTED
 
-    async def test_update_offline(self):
+    async def test_refresh_offline_body(self):
         aqualink = MagicMock()
         system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_noop
-        system._parse_alldata_response = MagicMock(
-            side_effect=AqualinkSystemOfflineException
-        )
-        with pytest.raises(AqualinkSystemOfflineException):
-            await system.update()
-        assert system.status is SystemStatus.OFFLINE
+        response = MagicMock()
+        response.json.return_value = OFFLINE_DATA
+        system.send_control_command = async_returns(response)
+        await system.refresh()
+        assert system.status is SystemStatus.DISCONNECTED
 
-    async def test_update_throttled(self):
+    async def test_refresh_throttled(self):
         aqualink = MagicMock()
         system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
         system.send_control_command = async_raises(
             AqualinkServiceThrottledException
         )
-        initial_status = system.status
         with pytest.raises(AqualinkServiceThrottledException):
-            await system.update()
-        assert system.status is initial_status
+            await system.refresh()
+        assert system.status is SystemStatus.UNKNOWN
 
     def test_parse_alldata_response(self):
         aqualink = MagicMock()
@@ -242,8 +239,68 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
 
         response = MagicMock()
         response.json.return_value = OFFLINE_DATA
-        with pytest.raises(AqualinkSystemOfflineException):
-            system._parse_alldata_response(response)
+        system._parse_alldata_response(response)
+        assert system.status is SystemStatus.DISCONNECTED
+
+    def test_parse_alldata_response_service_opmode(self):
+        aqualink = MagicMock()
+        data = {
+            "id": 1,
+            "serial_number": "ABC123",
+            "name": "Pool Pump",
+            "device_type": "i2d",
+        }
+        system = I2dSystem.from_data(aqualink, data)
+        service_data = {
+            "alldata": {**SAMPLE_DATA["alldata"], "opmode": "5"},
+            "requestID": "x",
+        }
+        response = MagicMock()
+        response.json.return_value = service_data
+        system._parse_alldata_response(response)
+        assert system.status is SystemStatus.SERVICE
+
+    def test_parse_alldata_response_firmware_update(self):
+        aqualink = MagicMock()
+        data = {
+            "id": 1,
+            "serial_number": "ABC123",
+            "name": "Pool Pump",
+            "device_type": "i2d",
+        }
+        system = I2dSystem.from_data(aqualink, data)
+        alldata_no_opmode = {
+            k: v for k, v in SAMPLE_DATA["alldata"].items() if k != "opmode"
+        }
+        fw_data = {
+            "alldata": {**alldata_no_opmode, "updateprogress": "50/100"},
+            "requestID": "x",
+        }
+        response = MagicMock()
+        response.json.return_value = fw_data
+        system._parse_alldata_response(response)
+        assert system.status is SystemStatus.FIRMWARE_UPDATE
+
+    def test_parse_alldata_response_unknown_no_opmode_no_progress(self):
+        aqualink = MagicMock()
+        data = {
+            "id": 1,
+            "serial_number": "ABC123",
+            "name": "Pool Pump",
+            "device_type": "i2d",
+        }
+        system = I2dSystem.from_data(aqualink, data)
+        alldata_no_opmode = {
+            k: v for k, v in SAMPLE_DATA["alldata"].items() if k != "opmode"
+        }
+        unknown_data = {
+            "alldata": {**alldata_no_opmode, "updateprogress": "0/0"},
+            "requestID": "x",
+        }
+        response = MagicMock()
+        response.json.return_value = unknown_data
+        system._parse_alldata_response(response)
+        assert system.status is SystemStatus.UNKNOWN
 
     @patch("httpx.AsyncClient.request")
     async def test_send_control_command(self, mock_request):
