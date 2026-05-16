@@ -10,7 +10,7 @@ from iaqualink.system import AqualinkSystem, UnsupportedSystem
 
 pytestmark = pytest.mark.skip(reason="AqualinkSystem is not implemented")
 
-pytestmark = pytest.mark.skip(reason="AqualinkSystem is not implemented")
+pytestmark = pytest.mark.skip(reason="abstract class, cannot instantiate")
 
 
 class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):

@@ -26,7 +26,7 @@ from .base_test_device import (
     TestBaseThermostat,
 )
 
-pytestmark = pytest.mark.skip(reason="AqualinkDevice is not implemented")
+pytestmark = pytest.mark.skip(reason="abstract class, cannot instantiate")
 
 
 class TestAqualinkDevice(TestBaseDevice):
