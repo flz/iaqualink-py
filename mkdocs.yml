@@ -41,29 +41,30 @@ nav:
   - Home: index.md
   - Getting Started:
       - Installation: getting-started/installation.md
-      - Quick Start: getting-started/quickstart.md
-      - Authentication: getting-started/authentication.md
-      - iQPump (i2d): getting-started/i2d.md
-  - User Guide:
-      - Abstract Classes:
-          - Systems: guide/systems.md
-          - Devices: guide/devices.md
-      - System Implementations:
-          - iAqua: guide/iaqua.md
-          - eXO: guide/exo.md
-          - i2d (iQPump): guide/i2d.md
-      - Examples: guide/examples.md
+      - Home Assistant: getting-started/home-assistant.md
+      - Programmatic Use: getting-started/quickstart.md
   - API Reference:
       - Client: api/client.md
       - System: api/system.md
       - Device: api/device.md
-      - iAqua Systems: api/iaqua.md
-      - eXO Systems: api/exo.md
-      - i2d Systems: api/i2d.md
+      - iAqua: api/iaqua.md
+      - eXO: api/exo.md
+      - i2d (iQPump): api/i2d.md
       - Exceptions: api/exceptions.md
-  - Development:
-      - Contributing: development/contributing.md
-      - Architecture: development/architecture.md
+  - Protocol Reference:
+      - Auth & Discovery: reference/client.md
+      - iAqua: reference/iaqua.md
+      - eXO: reference/exo.md
+      - i2d (iQPump): reference/i2d.md
+  - Implementation Notes:
+      - iAqua: implementation/iaqua.md
+      - eXO: implementation/exo.md
+      - i2d (iQPump): implementation/i2d.md
+  - Contributing:
+      - Development Setup: contributing/setup.md
+      - Architecture: contributing/architecture.md
+      - New System Type: contributing/new-system-type.md
+      - New Device Type: contributing/new-device-type.md
 
 plugins:
   - search

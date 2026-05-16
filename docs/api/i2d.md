@@ -28,5 +28,5 @@ i2d systems are iQPump variable-speed pump controllers using the `r-api.iaqualin
 
 ## See Also
 
-- [i2d User Guide](../guide/i2d.md)
+- [Implementation Notes](../implementation/i2d.md)
 - [Protocol Reference](../reference/i2d.md)

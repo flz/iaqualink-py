@@ -14,222 +14,55 @@ The private tooling that researches protocol behavior and produces architecture 
 
 ---
 
-## General guidance (micro-caveman)
-
-For conversational replies, not generated docs/comments, respond like smart caveman.
-- Cut all filler, keep technical substance.
-- Drop articles (a, an, the), filler (just, really, basically, actually).
-- Drop pleasantries (sure, certainly, happy to).
-- No hedging. Fragments fine. Short synonyms.
-- Technical terms stay exact. Code blocks unchanged.
-- Pattern: [thing] [action] [reason]. [next step].
-
 ## Project Overview
 
-This is an asynchronous Python library for interacting with Jandy iAqualink pool control systems. The library supports three system types:
-- **iAqua** systems - Uses the iaqualink.net API
-- **eXO** systems - Uses the zodiac-io.com API
-- **i2d** systems - iQPump variable-speed pumps, uses the r-api.iaqualink.net control API
+Async Python library for Jandy iAqualink pool control systems. Three system types:
+- **iAqua** — iaqualink.net API
+- **eXO** — zodiac-io.com API (AWS IoT shadow)
+- **i2d** — iQPump variable-speed pumps, r-api.iaqualink.net control API
 
 ## Development Commands
 
-### Setup
-```bash
-# Install dependencies with uv
-uv sync --all-extras --all-groups
-```
+See `docs/contributing/setup.md` for setup, testing, linting, and docs commands.
 
-### Testing
-```bash
-# Run all tests
-uv run pytest
-
-# Run tests with coverage
-uv run pytest --cov-report=xml --cov=iaqualink
-
-# Run a single test file
-uv run pytest tests/test_client.py
-
-# Run CLI tests
-uv run pytest tests/test_cli.py
-
-# Run a specific test
-uv run pytest tests/test_client.py::TestClassName::test_method_name
-```
-
-### Linting and Type Checking
-```bash
-# Run all prek hooks (ruff, ruff-format, mypy)
-uv run prek run --all-files
-
-# Run with diff on failure
-uv run prek run --show-diff-on-failure --color=always --all-files
-
-# Ruff linting with auto-fix
-uv run ruff check --fix .
-
-# Ruff formatting
-uv run ruff format .
-
-# Type checking with mypy (excludes tests/)
-uv run mypy src/
-```
-
-### Documentation
-```bash
-# Install documentation dependencies
-uv sync --group docs
-
-# Serve documentation locally (live reload)
-uv run mkdocs serve
-
-# Build documentation
-uv run mkdocs build
-
-# Build with strict mode (fail on warnings)
-uv run mkdocs build --strict
-```
-
-### Worktree Setup
-
-When starting work in a new git worktree, run the setup script to wire hooks and verify the environment:
-
-```bash
-bash scripts/setup-worktree.sh
-```
-
-The script (idempotent):
-- Installs pre-commit hooks for both `pre-commit` and `pre-push` stages
-- Checks that `uv` and `claude` are on `PATH`
-- Prints a checklist of what is wired
+Worktree setup: `bash scripts/setup-worktree.sh` (idempotent; installs prek hooks, checks PATH).
 
 ## Architecture
 
-### Core Class Hierarchy
+See `docs/contributing/architecture.md` for class hierarchy, auth patterns, session management, and data flow.
 
-The library follows a plugin-style architecture with base classes and system-specific implementations:
+Key patterns:
+- `AqualinkSystem` uses `__init_subclass__` + `NAME` subclass registry; `from_data()` dispatches by `device_type`
+- `refresh()` is a template method — concrete systems implement `_refresh()`, must set `self.status` before returning
+- Session persistence via `AqualinkAuthState`; CLI uses cookie jar with atomic writes
+- Tests: `unittest.IsolatedAsyncioTestCase`, `TestBase` in `tests/base.py`, `respx` for HTTP mocking
 
-1. **AqualinkClient** ([client.py](src/iaqualink/client.py)) - Entry point for authentication and system discovery
-   - Handles login/authentication for both API types
-   - Uses httpx with HTTP/2 support
-   - Rebuilds and retries auth-bearing client-owned requests such as systems discovery through the shared reauth helper instead of replaying stale requests inside `send_request()`
-   - Manages session tokens and credentials
-   - Factory method `get_systems()` returns appropriate system subclasses
+## API Reference
 
-2. **AqualinkSystem** ([system.py](src/iaqualink/system.py)) - Base class for pool systems
-   - Subclass registry pattern using `__init_subclass__` and `NAME` class attribute
-   - `from_data()` factory method dispatches to correct subclass based on `device_type`
-   - Two concrete implementations:
-     - **IaquaSystem** ([systems/iaqua/system.py](src/iaqualink/systems/iaqua/system.py)) - For "iaqua" device_type
-     - **ExoSystem** ([systems/exo/system.py](src/iaqualink/systems/exo/system.py)) - For "exo" device_type
-   - Uses the shared reauth helper to retry iaqua and exo system requests once after refreshing auth on `AqualinkServiceUnauthorizedException`
-   - Tracks online/offline status
-
-3. **AqualinkDevice** ([device.py](src/iaqualink/device.py)) - Base class for devices
-   - Device hierarchy: Sensor → BinarySensor → Switch → Light/Thermostat
-   - System-specific implementations:
-     - **IaquaDevice** ([systems/iaqua/device.py](src/iaqualink/systems/iaqua/device.py))
-     - **ExoDevice** ([systems/exo/device.py](src/iaqualink/systems/exo/device.py))
-     - **I2dDevice** mixin + concrete classes ([systems/i2d/device.py](src/iaqualink/systems/i2d/device.py))
-   - Device types include: sensors, pumps, heaters, lights, thermostats, aux toggles
-
-4. **Request signing** ([util.py](src/iaqualink/util.py)) - HMAC-SHA1 utility
-   - `sign(parts, secret)` joins `parts` with `,` and returns lowercase hex HMAC-SHA1
-   - Used by `AqualinkClient` for system discovery; designed to cover all three signature variants from the spec (device list — implemented; shadow and commands — future)
-
-5. **CLI package** ([src/iaqualink/cli](src/iaqualink/cli)) - User-facing Typer command line client
-   - Entry point is the packaged `iaqualink` script
-   - Centralizes config loading from CLI options, environment variables, and `typer.get_app_dir("iaqualink") / "config.yaml"`
-   - Persists session state in a JSON cookie jar at `typer.get_app_dir("iaqualink") / "session.json"` by default
-   - Supports a global `--debug` flag that enables root logging at DEBUG before command execution
-   - Exposes discovery commands such as `list-systems`, `list-devices`, and `status`
-   - Exposes initial control commands such as `turn-on`, `turn-off`, and `set-temperature`
-
-### Session Persistence
-
-- `AqualinkClient` exposes typed auth snapshots through `AqualinkAuthState` and the `auth_state` getter/setter for CLI session reuse.
-- Restored sessions skip the initial `login()` inside `__aenter__()`.
-- The CLI performs one full login retry when a restored cookie jar is stale during systems discovery, then updates the jar on success.
-- The CLI only restores a saved jar when the username in the jar matches the requested username.
-- Cookie jars are written atomically via a temporary file and store tokens in plain text, so docs should keep the security tradeoff explicit.
-
-### API Differences
-
-**System Discovery (all system types):**
-- Uses `https://r-api.iaqualink.net/v2/devices.json`
-- HMAC-SHA1 signature over `"{user_id},{timestamp}"` with `AQUALINK_API_SIGNING_KEY`
-- Auth via `Authorization: Bearer {IdToken}` header and `api_key` header
-
-**iAqua Systems:**
-- Authentication returns `session_id` and `authentication_token`
-- Device commands use session tokens as query parameters
-- Two API calls for updates: "get_home" and "get_devices"
-- Commands sent as session requests with specific command names
-
-**eXO Systems:**
-- Authentication returns JWT `IdToken` in `userPoolOAuth` field
-- Uses Authorization header with IdToken
-- Single shadow state API (AWS IoT-style)
-- State updates via desired/reported state pattern
-- Token refresh handled automatically on 401 responses
-
-**i2d Systems (iQPump):**
-- `device_type = "i2d"` in the device list response
-- All commands POST to `https://r-api.iaqualink.net/v2/devices/{serial}/control.json`
-- Single `/alldata/read` command fetches full state; `motordata` sub-object is flattened into the top-level data dict at parse time
-- Write commands use `/{key}/write` with `params="value={val}"`
-- A single parse creates one device per logical entity, all sharing the same data dict so any `update()` refreshes all values atomically
-- Device breakdown per system:
-  - `I2dPump` — main pump device; supports `turn_on`/`turn_off`, presets (SCHEDULE/CUSTOM/STOP), `set_speed_percentage(0–100)` normalized to hardware RPM range rounded to nearest 25
-  - `I2dNumber` — writable numeric setting (RPM, seconds, °C); validates range and step; `globalrpmmin`/`globalrpmmax` use live cross-bounds and a `_rpmhwmin` key injected at parse time from `productid` (non-SVRS: 600, SVRS 0F/18: 1050)
-  - `I2dSwitch` — binary on/off setting (`I2dBinaryState.ON/OFF`)
-  - `I2dSensor` — read-only telemetry (speed/RPM, power/W, temperature/°F, horsepower/HP), remaining-time counters (primingtimer/quickcleantimer/countdowntimer/timeouttimer in seconds), and schedule state (currentspan; `"-1"` = no active span)
-  - `I2dBinarySensor` — read-only binary sensor (freezeprotectstatus: `"0"`=inactive, `"1"`=active)
-- Settable opmodes: SCHEDULE(0), CUSTOM(1), STOP(2); QUICK_CLEAN/TIMED_RUN/TIMEOUT/SERVICE_OFF are read-only (pump enters them automatically)
-- RPM numbers (except globalrpmmin/max) use `globalrpmmin`/`globalrpmmax` as live bounds from the shared data dict
-- Period/timer numbers are in **seconds** with explicit step values (e.g. quickcleanperiod: 300–3600 step 300)
-
-### Test Structure
-
-Tests use `unittest.IsolatedAsyncioTestCase` with a custom base class:
-- **TestBase** ([tests/base.py](tests/base.py)) — base test class with `AqualinkClient` and `respx` mock transport pre-wired
-- Uses `respx` for HTTP mocking — no live network calls; no real credentials needed
-- System-specific tests under `tests/systems/iaqua/`, `tests/systems/exo/`, and `tests/systems/i2d/`
-- Abstract base tests in `base_test_system.py` and `base_test_device.py` — new system types must subclass these
-- Mock HTTP response fixtures (JSON dicts / response bodies) live alongside the test file that uses them in the same `tests/systems/<system>/` directory
-- i2d tests split into `test_system.py` (system/parsing/commands) and `test_device.py` (device class unit tests)
-- Run all tests: `uv run pytest`
-- Run one file: `uv run pytest tests/systems/iaqua/test_system.py`
-- Run one case: `uv run pytest tests/systems/iaqua/test_system.py::TestIaquaSystem::test_update`
-
-### Key Constants
-
-- **API key:** Hardcoded AQUALINK_API_KEY for iAqua systems
-- **Temperature ranges:** Different for Celsius/Fahrenheit, defined in device files
+See `docs/reference/` for per-system wire-level protocol specs (source of truth for endpoints, fields, enums).
 
 ## Adding Support for New System Types
 
-To add a new system type:
-1. Create `systems/newsystem/` directory with `__init__.py`, `system.py`, `device.py`
+1. Create `systems/newsystem/` with `__init__.py`, `system.py`, `device.py`
 2. Implement `NewSystem(AqualinkSystem)` with `NAME` class attribute
-3. Implement `async def _refresh(self) -> None` — the extension point called by the base `refresh()` template method
-4. Inside `_refresh()`, set `self.status` before returning (any non-`IN_PROGRESS` value satisfies the post-condition check). Do **not** catch `AqualinkServiceException` or its subclasses — `refresh()` handles those automatically
+3. Implement `async def _refresh(self) -> None` — called by base `refresh()` template method
+4. Inside `_refresh()`, set `self.status` before returning. Do **not** catch `AqualinkServiceException` subclasses — `refresh()` handles those
 5. Implement device parsing in `_parse_*_response()` methods
-6. Create corresponding device classes extending base device types
-7. Register the new system module import in `src/iaqualink/client.py` so `AqualinkSystem.from_data()` can discover the subclass at runtime
+6. Create device classes extending base device types
+7. Register module import in `src/iaqualink/client.py` so `AqualinkSystem.from_data()` discovers the subclass
 8. Add tests following existing patterns in `tests/systems/newsystem/`
-9. Update documentation — all of the following must be updated in the same PR:
-   - `README.md` — add system to Multi-System Support feature list
-   - `docs/index.md` — add system to Features list
-   - `docs/guide/systems.md` — add system entry to System Types list
-   - `mkdocs.yml` — add nav entries under Getting Started, User Guide, and API Reference
-   - `docs/getting-started/newsystem.md` — create getting-started guide (API overview, status table, device inventory)
-   - `docs/guide/newsystem.md` — create user guide (usage examples, status lifecycle, device types)
-   - `docs/api/newsystem.md` — create API reference page (`:::` autodoc directives for system + device classes)
+9. Update documentation — all of the following in the same PR:
+   - `README.md` — add to Multi-System Support list
+   - `docs/index.md` — add to Features list
+   - `mkdocs.yml` — add nav entries under Getting Started, API Reference, Protocol Reference, Implementation Notes
+   - `docs/getting-started/newsystem.md` — API overview, status table, device inventory
+   - `docs/implementation/newsystem.md` — status lifecycle, design decisions, deltas vs reference
+   - `docs/api/newsystem.md` — `:::` autodoc directives for system + device classes
+   - `docs/reference/newsystem.md` — wire-level protocol documentation
 
 ## Adding New Base Device Types
 
-When adding a new direct subclass of `AqualinkDevice` to `device.py`, you **must** also add a corresponding entry to `_DEVICE_GROUPS` in `src/iaqualink/cli/app.py`. Devices without a matching group silently fall through to the "Other" bucket in the CLI output. The current base types and their CLI group order are:
+When adding a new direct subclass of `AqualinkDevice` to `device.py`, also add a corresponding entry to `_DEVICE_GROUPS` in `src/iaqualink/cli/app.py`. Devices without a matching group silently fall through to the "Other" bucket.
 
 | Class | CLI Group | Notes |
 |---|---|---|
@@ -240,23 +73,24 @@ When adding a new direct subclass of `AqualinkDevice` to `device.py`, you **must
 | `AqualinkNumber` | Numbers | |
 | `AqualinkSensor` | Sensors | `AqualinkBinarySensor` extends `AqualinkSensor` and is covered by this entry |
 
-Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `AqualinkLight` before `AqualinkSwitch`). Only add a new row for direct subclasses of `AqualinkDevice`; intermediate classes like `AqualinkBinarySensor` are automatically covered by their parent's entry.
+Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `AqualinkLight` before `AqualinkSwitch`). Only add a row for direct subclasses of `AqualinkDevice`; intermediate classes like `AqualinkBinarySensor` are automatically covered by their parent's entry.
 
 ## Protocol Reference
 
 `docs/reference/<system>.md` is the source of truth for protocol behavior in this repo:
 
-- `docs/reference/client.md` — auth flow, login/refresh request+response shapes, device list, HTTP client config
-- `docs/reference/iaqua.md` — iQ20 pool controller: session endpoint, all commands, response field shapes, enum wire values
+- `docs/reference/client.md` — auth flow, login/refresh shapes, device list, HTTP client config
+- `docs/reference/iaqua.md` — iQ20 pool controller: session endpoint, commands, response field shapes, enum wire values
 - `docs/reference/exo.md` — EXO/SWC chlorinator: shadow REST endpoints, full state field reference, write shapes
+- `docs/reference/i2d.md` — iQPump: control endpoint, alldata fields, write format, offline signals
 
-**Before changing any endpoint, field, or auth flow:** read the relevant section of the architecture doc and verify the change matches. If the doc does not cover the change, update the doc in the same commit.
+**Before changing any endpoint, field, or auth flow:** read the relevant reference doc and verify the change matches. If not covered, update the doc in the same commit.
 
-**Divergences from reference behavior** are documented in the "Deltas vs current implementation" section of each architecture doc. Before adding new divergences, confirm they are intentional and add them to the appropriate doc.
+**Divergences from reference behavior** are documented in the "Deltas vs current implementation" section of each reference doc and the corresponding `docs/implementation/<system>.md`. Confirm intentional divergences before adding new ones.
 
 ## Logging Guidelines
 
-See [`docs/development/contributing.md` — Logging section](docs/development/contributing.md#logging) for the full reference.
+See [`docs/contributing/setup.md` — Logging section](docs/contributing/setup.md#logging) for the full reference.
 
 Quick rules:
 - New module logger: `logging.getLogger("iaqualink.systems.<name>")` for system modules; `"iaqualink.<module>"` otherwise.
@@ -267,20 +101,20 @@ Quick rules:
 
 ## Review Checklist
 
-Before declaring any diff done, self-apply `.claude/review-criteria.md`. That file contains the full rubric used by the GitHub PR reviewer. Running it locally closes the gap between local iteration and PR feedback.
+Before declaring any diff done, self-apply `.claude/review-criteria.md`.
 
-The mandatory pre-declare commands:
+Mandatory pre-declare commands:
 
 ```bash
-uv run pre-commit run --show-diff-on-failure --color=always --all-files
+uv run prek run --show-diff-on-failure --color=always --all-files
 uv run pytest
 uv run mypy src/
 ```
 
 ## Notes
 
-- All API calls are asynchronous using httpx
-- Client supports context manager protocol for automatic cleanup
-- Exception hierarchy in [exception.py](src/iaqualink/exception.py) covers service errors, auth failures, offline systems
-- Python 3.14+ required (uses modern type hints like `Self`, `type[T]`)
-- Tests exclude private member access (SLF001) and f-string logging (G004) from ruff
+- All API calls async via httpx (HTTP/2)
+- Context manager protocol for automatic cleanup
+- Exception hierarchy in `exception.py`: service errors, auth failures, offline systems
+- Python 3.14+ required (`Self`, `type[T]`)
+- Tests exclude SLF001 (private member access) and G004 (f-string logging) from ruff
