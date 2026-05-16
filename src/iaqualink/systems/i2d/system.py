@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import json
 import logging
-import os
 from typing import Any, NamedTuple
 
 from iaqualink.const import AQUALINK_API_KEY
@@ -26,64 +24,6 @@ I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
 _SVRS_PRODUCT_IDS: frozenset[str] = frozenset({"0F", "18"})
 
 LOGGER = logging.getLogger("iaqualink")
-
-# Values captured from a real iQPump device. Some period/timer fields (e.g.
-# customspeedtimer=60, quickcleanperiod=8) fall outside the step-aligned ranges
-# enforced on write — that is expected; read values reflect device state and are
-# not required to satisfy write constraints.
-_MOCK_ALLDATA = {
-    "alldata": {
-        "motordata": {
-            "speed": "1500",
-            "power": "180",
-            "temperature": "110",
-            "productid": "1A",
-            "horsepower": "1.65",
-            "horsepowercode": "0A",
-            "updateprogress": "0",
-        },
-        "wifistatus": {"state": "connected", "ssid": "MyNetwork"},
-        "opmode": "0",
-        "runstate": "on",
-        "fwversion": "1.5.2",
-        "RS485fwversion": "1.0.0",
-        "localtime": "12:34",
-        "timezone": "America/Los_Angeles",
-        "utctime": "1700000000",
-        "hotspottimer": "5",
-        "busstatus": "0",
-        "updateprogress": "0",
-        "updateflag": "0",
-        "serialnumber": "ABC123",
-        "rpmtarget": "1500",
-        "globalrpmmin": "600",
-        "globalrpmmax": "3450",
-        "customspeedrpm": "1500",
-        "customspeedtimer": "60",
-        "quickcleanrpm": "3450",
-        "quickcleanperiod": "8",
-        "quickcleantimer": "0",
-        "countdownrpm": "1500",
-        "countdownperiod": "30",
-        "countdowntimer": "0",
-        "timeoutperiod": "10",
-        "timeouttimer": "0",
-        "primingrpm": "3450",
-        "primingperiod": "3",
-        "primingtimer": "0",
-        "freezeprotectenable": "1",
-        "freezeprotectrpm": "1000",
-        "freezeprotectperiod": "30",
-        "freezeprotectsetpointc": "4",
-        "freezeprotectstatus": "0",
-        "currentspan": "-1",
-        "demandvisible": "0",
-        "faultvisible": "0",
-        "relayK1Rpm": "1500",
-        "relayK2Rpm": "1200",
-    },
-    "requestID": "mock",
-}
 
 
 class NumberSpec(NamedTuple):
@@ -285,12 +225,6 @@ class I2dSystem(AqualinkSystem):
     async def send_control_command(
         self, command: str, params: str = "", **kwargs: Any
     ) -> httpx.Response:
-        if os.environ.get("IAQUALINK_I2D_MOCK"):
-            LOGGER.debug("i2d mock: returning canned response for %s", command)
-            return httpx.Response(
-                200, content=json.dumps(_MOCK_ALLDATA).encode()
-            )
-
         async def do_request() -> httpx.Response:
             url = f"{I2D_CONTROL_URL}/{self.serial}/control.json"
             headers = {
