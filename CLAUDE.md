@@ -218,6 +218,14 @@ To add a new system type:
 6. Create corresponding device classes extending base device types
 7. Register the new system module import in `src/iaqualink/client.py` so `AqualinkSystem.from_data()` can discover the subclass at runtime
 8. Add tests following existing patterns in `tests/systems/newsystem/`
+9. Update documentation — all of the following must be updated in the same PR:
+   - `README.md` — add system to Multi-System Support feature list
+   - `docs/index.md` — add system to Features list
+   - `docs/guide/systems.md` — add system entry to System Types list
+   - `mkdocs.yml` — add nav entries under Getting Started, User Guide, and API Reference
+   - `docs/getting-started/newsystem.md` — create getting-started guide (API overview, status table, device inventory)
+   - `docs/guide/newsystem.md` — create user guide (usage examples, status lifecycle, device types)
+   - `docs/api/newsystem.md` — create API reference page (`:::` autodoc directives for system + device classes)
 
 ## Adding New Base Device Types
 
