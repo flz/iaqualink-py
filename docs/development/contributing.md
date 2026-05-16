@@ -177,7 +177,7 @@ When adding a new system, use `logging.getLogger("iaqualink.systems.<name>")` in
 
 **Never** log the following values directly:
 
-- Credentials: `password`, `_password`
+- Credentials: `password`, `_password`, `api_key`
 - Auth tokens: `authentication_token`, `id_token`, `refresh_token`, `client_id`
 - Request secrets: HMAC `signature`, `sessionID`
 
