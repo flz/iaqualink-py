@@ -19,7 +19,7 @@ for file in "$@"; do
         while IFS= read -r match; do
             echo "FAIL [$pattern] $match"
             FOUND=1
-        done < <(grep -nP "$pattern" "$file" 2>/dev/null \
+        done < <(grep -nE "$pattern" "$file" 2>/dev/null \
                  | sed "s|^|$file:|" || true)
     done
 done

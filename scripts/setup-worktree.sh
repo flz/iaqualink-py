@@ -7,6 +7,9 @@ cd "$ROOT"
 
 echo "=== iAquaLink worktree setup ==="
 
+# Check hard dependencies
+command -v uv &>/dev/null || { echo "✗ uv not found — install from https://docs.astral.sh/uv/"; exit 1; }
+
 # Install prek (pre-commit) hooks for both stages
 uv run prek install --install-hooks --hook-type pre-commit --hook-type pre-push
 echo "✓ hooks installed (pre-commit + pre-push stages)"

@@ -35,19 +35,21 @@ fi
 
 echo "Running Claude review (.claude/review-criteria.md)…"
 
-CRITERIA_TEXT=$(cat "$CRITERIA")
+TMPFILE=$(mktemp)
+trap 'rm -f "$TMPFILE"' EXIT
 
-RESULT=$(claude --print \
-"Apply every section of the following review rubric to the diff below.
-Report ONLY issues found. Format each issue as:
-  §<section_number> <file>:<line> — <one-line description>
-If all sections are clean, output exactly: LGTM
+{
+    printf 'Apply every section of the following review rubric to the diff below.\n'
+    printf 'Report ONLY issues found. Format each issue as:\n'
+    printf '  §<section_number> <file>:<line> — <one-line description>\n'
+    printf 'If all sections are clean, output exactly: LGTM\n\n'
+    printf '=== RUBRIC ===\n'
+    cat "$CRITERIA"
+    printf '\n=== DIFF ===\n'
+    printf '%s\n' "$DIFF"
+} > "$TMPFILE"
 
-=== RUBRIC ===
-$CRITERIA_TEXT
-
-=== DIFF ===
-$DIFF" 2>&1) || true
+RESULT=$(claude --print "$(cat "$TMPFILE")" 2>&1) || true
 
 echo "$RESULT"
 
