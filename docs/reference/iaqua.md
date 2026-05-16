@@ -1,8 +1,8 @@
 # iaqua — iQ20 Pool Controller Protocol
 
-**Python system name:** `"iaqua"`  
-**Wire device type:** `"iQ20"`  
-**Protocol family:** Legacy REST session (polling, no real-time push)  
+**Python system name:** `"iaqua"`
+**Wire device type:** `"iQ20"`
+**Protocol family:** Legacy REST session (polling, no real-time push)
 **Auth:** See [client.md](client.md)
 
 ---

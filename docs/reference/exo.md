@@ -1,7 +1,7 @@
 # exo — EXO/SWC Chlorinator Protocol
 
-**Python system name:** `"exo"`  
-**Protocol family:** AWS IoT shadow (MQTT in reference; REST polling in current Python implementation)  
+**Python system name:** `"exo"`
+**Protocol family:** AWS IoT shadow (MQTT in reference; REST polling in current Python implementation)
 **Auth:** See [client.md](client.md)
 
 ---
@@ -237,12 +237,12 @@ For fields under `swc_0` that are scalars (not nested objects):
 
 The reference implementation does not poll via HTTP. It subscribes to AWS IoT MQTT topics using short-lived Cognito session credentials (accessKeyId, secretKey, sessionToken). This section documents the observed reference behavior for completeness.
 
-**MQTT broker:** `a1zi08qpbrtjyq-ats.iot.us-east-1.amazonaws.com`  
-**Transport:** TLS  
-**Client ID:** UUID, generated fresh per session  
-**Keepalive:** 60 seconds  
-**Auto-resubscribe:** Yes  
-**Max reconnect attempts:** 5  
+**MQTT broker:** `a1zi08qpbrtjyq-ats.iot.us-east-1.amazonaws.com`
+**Transport:** TLS
+**Client ID:** UUID, generated fresh per session
+**Keepalive:** 60 seconds
+**Auto-resubscribe:** Yes
+**Max reconnect attempts:** 5
 
 **Topic patterns:**
 
