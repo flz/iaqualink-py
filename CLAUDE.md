@@ -2,6 +2,18 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Confidentiality
+
+Repo-tracked files must contain only wire-observable identifiers: hostnames, URLs, HTTP header names, JSON field names, numeric constants, protocol constants visible on the wire.
+
+**ALLOWED:** hostnames, URLs, HTTP header names, JSON wire field names, numeric constants, protocol constants observable at the wire level.
+
+**NOT ALLOWED:** Java/Kotlin file paths, package names (`com.zodiac.*`, `com.amazonaws.*`), class names, method names, variable names from any external reference source.
+
+The private tooling that researches protocol behavior and produces architecture docs lives outside this repo.
+
+---
+
 ## General guidance (micro-caveman)
 
 For conversational replies, not generated docs/comments, respond like smart caveman.
@@ -77,6 +89,19 @@ uv run mkdocs build
 uv run mkdocs build --strict
 ```
 
+### Worktree Setup
+
+When starting work in a new git worktree, run the setup script to wire hooks and verify the environment:
+
+```bash
+bash scripts/setup-worktree.sh
+```
+
+The script (idempotent):
+- Installs pre-commit hooks for both `pre-commit` and `pre-push` stages
+- Checks that `uv` and `claude` are on `PATH`
+- Prints a checklist of what is wired
+
 ## Architecture
 
 ### Core Class Hierarchy
@@ -149,10 +174,14 @@ The library follows a plugin-style architecture with base classes and system-spe
 ### Test Structure
 
 Tests use `unittest.IsolatedAsyncioTestCase` with a custom base class:
-- **TestBase** ([tests/base.py](tests/base.py)) - Base test class with AqualinkClient setup
-- Uses `respx` library for HTTP mocking
+- **TestBase** ([tests/base.py](tests/base.py)) — base test class with `AqualinkClient` and `respx` mock transport pre-wired
+- Uses `respx` for HTTP mocking — no live network calls; no real credentials needed
 - System-specific tests under `tests/systems/iaqua/` and `tests/systems/exo/`
-- Abstract base tests in `base_test_system.py` and `base_test_device.py`
+- Abstract base tests in `base_test_system.py` and `base_test_device.py` — new system types must subclass these
+- Mock HTTP response fixtures (JSON dicts / response bodies) live alongside the test file that uses them in the same `tests/systems/<system>/` directory
+- Run all tests: `uv run pytest`
+- Run one file: `uv run pytest tests/systems/iaqua/test_system.py`
+- Run one case: `uv run pytest tests/systems/iaqua/test_system.py::TestIaquaSystem::test_update`
 
 ### Key Constants
 
@@ -186,15 +215,29 @@ When adding a new direct subclass of `AqualinkDevice` to `device.py`, you **must
 
 Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `AqualinkLight` before `AqualinkSwitch`). Only add a new row for direct subclasses of `AqualinkDevice`; intermediate classes like `AqualinkBinarySensor` are automatically covered by their parent's entry.
 
-## Quality Gates
+## Protocol Reference
 
-Before finalizing any change, validate it against the API spec files in `spec/` if they exist and are relevant to the change:
+`docs/reference/<system>.md` is the source of truth for protocol behavior in this repo:
 
-1. Read the relevant section(s) of any spec files found under `spec/` for any endpoint, field, or behavior being added or modified.
-2. Ensure URL paths, HTTP methods, request/response field names, and authentication flows match the spec exactly.
-3. If the implementation diverges from the spec, document the reason explicitly in the code with a comment.
+- `docs/reference/client.md` — auth flow, login/refresh request+response shapes, device list, HTTP client config
+- `docs/reference/iaqua.md` — iQ20 pool controller: session endpoint, all commands, response field shapes, enum wire values
+- `docs/reference/exo.md` — EXO/SWC chlorinator: shadow REST endpoints, full state field reference, write shapes
 
-This step is mandatory alongside linting, type checking, and tests.
+**Before changing any endpoint, field, or auth flow:** read the relevant section of the architecture doc and verify the change matches. If the doc does not cover the change, update the doc in the same commit.
+
+**Divergences from reference behavior** are documented in the "Deltas vs current implementation" section of each architecture doc. Before adding new divergences, confirm they are intentional and add them to the appropriate doc.
+
+## Review Checklist
+
+Before declaring any diff done, self-apply `.claude/review-criteria.md`. That file contains the full rubric used by the GitHub PR reviewer. Running it locally closes the gap between local iteration and PR feedback.
+
+The mandatory pre-declare commands:
+
+```bash
+uv run pre-commit run --show-diff-on-failure --color=always --all-files
+uv run pytest
+uv run mypy src/
+```
 
 ## Notes
 

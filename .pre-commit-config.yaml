@@ -28,3 +28,27 @@ repos:
     rev: 0.6.5
     hooks:
       - id: uv-lock
+
+  - repo: local
+    hooks:
+      - id: check-identifiers
+        name: check for third-party protocol identifiers
+        entry: bash scripts/precommit.sh
+        language: system
+        stages: [pre-commit]
+        types: [text]
+        exclude: |
+          (?x)^(
+            CLAUDE\.md|
+            \.claude/review-criteria\.md|
+            \.claude/commands/review\.md|
+            scripts/precommit\.sh
+          )$
+
+      - id: claude-review
+        name: claude AI review
+        entry: bash scripts/claude-review-hook.sh
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+        always_run: true
