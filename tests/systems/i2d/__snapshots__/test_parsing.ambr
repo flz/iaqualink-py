@@ -2,6 +2,7 @@
 # name: test_parse_alldata
   dict({
     'ABC123': dict({
+      'current_preset': 'SCHEDULE',
       'is_on': True,
       'label': 'IQPump',
       'state': '0',

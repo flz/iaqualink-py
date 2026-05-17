@@ -42,7 +42,6 @@ _SNAPSHOT_EXCLUDE = frozenset(
         "supports_presets",
         "supported_presets",
         "supports_set_speed_percentage",
-        "current_preset",
         "max_temperature",
         "min_temperature",
     }
