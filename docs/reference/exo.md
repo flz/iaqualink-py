@@ -267,16 +267,3 @@ The EXO device is identified at the MQTT routing layer by a device-type ordinal.
 | Other HTTP error | Response code ≠ 200 | Raise service exception |
 | System offline | Not observed as a field in shadow state — not observed in reference | Not observed in reference |
 
----
-
-## Deltas vs Current Implementation
-
-| # | Observed reference | Current Python (`ExoSystem`) |
-|---|---|---|
-| 1 | Uses MQTT exclusively for shadow get/update | Polls HTTP REST `GET /devices/v1/{serial}/shadow` |
-| 2 | Desired state sent via MQTT publish | POSTs desired state to same REST shadow URL |
-| 3 | Shadow URL version: not applicable (MQTT) | Uses `/devices/v1/` path (matches `tcx_filteration` config key, not `device_details` which is v2) |
-| 4 | `Authorization` format for REST shadow: not observed (MQTT path) | Sends bare `{id_token}` — consistent with other shadow endpoints |
-| 5 | `boost_time`, `vsp_speed`, `sn`, `vr`, `version` present in shadow | Python strips these fields — consistent with reference (reference also filters them in shadow processing) |
-| 6 | Temperature unit not present as a shadow field | Python hardcodes `temp_unit = "C"` — not contradicted by reference |
-| 7 | `heater` device derived from `heating.state` | Python creates a separate `"heater"` device entry with only `state` — not observed in reference as a distinct entity |

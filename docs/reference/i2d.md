@@ -429,17 +429,3 @@ The device also exposes an HTTP server at `http://192.168.0.1` on the local
 network with the same `/alldata/read` and `/{key}/write` commands. This path
 uses GET with no body (read) or a query parameter form (write). The library
 does not implement local access.
-
----
-
-## Deltas vs current implementation
-
-1. **`/schedule/read` and `/schedule/write`**: Fully defined in the reference
-   but not implemented in the library.
-
-2. **`demandvisible` / `faultvisible`**: Present in alldata but not exposed.
-   Values observed: `"0"` (no other values confirmed). No app logic was observed
-   consuming these fields — purpose not confirmed in reference.
-
-3. **Firmware endpoints**: `/devices/{serial}/latest_firmware_version` and OTA
-   trigger paths are defined in the reference but not implemented.

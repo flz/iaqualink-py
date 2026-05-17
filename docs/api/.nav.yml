@@ -2,7 +2,8 @@ nav:
   - Client: client.md
   - System: system.md
   - Device: device.md
-  - iAqua: iaqua.md
-  - eXO: exo.md
-  - i2d (iQPump): i2d.md
+  - Systems:
+      - iAqua: iaqua.md
+      - eXO: exo.md
+      - i2d (iQPump): i2d.md
   - Exceptions: exceptions.md
