@@ -1,0 +1,44 @@
+{
+  "message": "",
+  "devices_screen": [
+    {"status": "Online"},
+    {"response": ""},
+    {"group": "1"},
+    {
+      "aux_B1": [
+        {"state": "0"},
+        {"label": "Pool Light"},
+        {"icon": "aux_1_0.png"},
+        {"type": "2"},
+        {"subtype": "5"}
+      ]
+    },
+    {
+      "aux_1": [
+        {"state": "0"},
+        {"label": "Water Feature"},
+        {"icon": "aux_0.png"},
+        {"type": "0"},
+        {"subtype": "0"}
+      ]
+    },
+    {
+      "aux_2": [
+        {"state": "0"},
+        {"label": "Dimmable Light"},
+        {"icon": "aux_0.png"},
+        {"type": "1"},
+        {"subtype": "0"}
+      ]
+    },
+    {
+      "aux_3": [
+        {"state": "0"},
+        {"label": "AUX LIGHT"},
+        {"icon": "aux_0.png"},
+        {"type": "0"},
+        {"subtype": "0"}
+      ]
+    }
+  ]
+}

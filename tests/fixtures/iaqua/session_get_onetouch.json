@@ -1,0 +1,28 @@
+{
+  "message": "",
+  "onetouch_screen": [
+    {"status": "Online"},
+    {"response": ""},
+    {
+      "onetouch_1": [
+        {"state": "0"},
+        {"label": "Morning Scene"},
+        {"status": "1"}
+      ]
+    },
+    {
+      "onetouch_2": [
+        {"state": "0"},
+        {"label": "Evening Scene"},
+        {"status": "1"}
+      ]
+    },
+    {
+      "onetouch_3": [
+        {"state": "0"},
+        {"label": "Disabled Scene"},
+        {"status": "0"}
+      ]
+    }
+  ]
+}

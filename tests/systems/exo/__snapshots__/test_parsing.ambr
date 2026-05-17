@@ -1,0 +1,179 @@
+# serializer version: 1
+# name: test_parse_shadow
+  dict({
+    'amp': dict({
+      'data': dict({
+        'name': 'amp',
+        'state': 1,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'aux230': dict({
+      'data': dict({
+        'name': 'aux230',
+        'state': 1,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'aux_1': dict({
+      'data': dict({
+        'color': 0,
+        'mode': 0,
+        'name': 'aux_1',
+        'state': 0,
+        'type': 'none',
+      }),
+      'type': 'ExoAuxSwitch',
+    }),
+    'aux_2': dict({
+      'data': dict({
+        'color': 0,
+        'mode': 0,
+        'name': 'aux_2',
+        'state': 0,
+        'type': 'none',
+      }),
+      'type': 'ExoAuxSwitch',
+    }),
+    'boost': dict({
+      'data': dict({
+        'name': 'boost',
+        'state': 0,
+      }),
+      'type': 'ExoAttributeSwitch',
+    }),
+    'dual_link': dict({
+      'data': dict({
+        'name': 'dual_link',
+        'state': 1,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'error_code': dict({
+      'data': dict({
+        'name': 'error_code',
+        'state': 0,
+      }),
+      'type': 'ExoErrorSensor',
+    }),
+    'error_state': dict({
+      'data': dict({
+        'name': 'error_state',
+        'state': 0,
+      }),
+      'type': 'ExoErrorSensor',
+    }),
+    'exo_state': dict({
+      'data': dict({
+        'name': 'exo_state',
+        'state': 1,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'filter_pump': dict({
+      'data': dict({
+        'name': 'filter_pump',
+        'state': 1,
+        'type': 1,
+      }),
+      'type': 'ExoFilterPump',
+    }),
+    'lang': dict({
+      'data': dict({
+        'name': 'lang',
+        'state': 2,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'low': dict({
+      'data': dict({
+        'name': 'low',
+        'state': 0,
+      }),
+      'type': 'ExoAttributeSwitch',
+    }),
+    'orp_sp': dict({
+      'data': dict({
+        'name': 'orp_sp',
+        'state': 830,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'ph_only': dict({
+      'data': dict({
+        'name': 'ph_only',
+        'state': 1,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'ph_sp': dict({
+      'data': dict({
+        'name': 'ph_sp',
+        'state': 74,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'production': dict({
+      'data': dict({
+        'name': 'production',
+        'state': 1,
+      }),
+      'type': 'ExoAttributeSwitch',
+    }),
+    'sns_1': dict({
+      'data': dict({
+        'name': 'sns_1',
+        'sensor_type': 'Ph',
+        'state': 1,
+        'value': 75,
+      }),
+      'type': 'ExoSensor',
+    }),
+    'sns_2': dict({
+      'data': dict({
+        'name': 'sns_2',
+        'sensor_type': 'Orp',
+        'state': 1,
+        'value': 780,
+      }),
+      'type': 'ExoSensor',
+    }),
+    'sns_3': dict({
+      'data': dict({
+        'name': 'sns_3',
+        'sensor_type': 'Water temp',
+        'state': 1,
+        'value': 29,
+      }),
+      'type': 'ExoSensor',
+    }),
+    'swc': dict({
+      'data': dict({
+        'name': 'swc',
+        'state': 50,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'swc_low': dict({
+      'data': dict({
+        'name': 'swc_low',
+        'state': 0,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'temp': dict({
+      'data': dict({
+        'name': 'temp',
+        'state': 1,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+    'vsp': dict({
+      'data': dict({
+        'name': 'vsp',
+        'state': 1,
+      }),
+      'type': 'ExoAttributeSensor',
+    }),
+  })
+# ---

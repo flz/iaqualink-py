@@ -1,0 +1,20 @@
+{
+  "onetouch": "true",
+  "message": "",
+  "home_screen": [
+    {"status": "Online"},
+    {"response": ""},
+    {"system_type": "1"},
+    {"temp_scale": "F"},
+    {"pool_temp": "78"},
+    {"spa_temp": "102"},
+    {"air_temp": "72"},
+    {"pool_set_point": "80"},
+    {"spa_set_point": "104"},
+    {"pool_pump": "1"},
+    {"spa_pump": "0"},
+    {"pool_heater": "0"},
+    {"spa_heater": "1"},
+    {"freeze_protection": "0"}
+  ]
+}

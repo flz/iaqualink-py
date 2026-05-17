@@ -1,0 +1,219 @@
+# serializer version: 1
+# name: test_parse_devices
+  dict({
+    'air_temp': dict({
+      'data': dict({
+        'name': 'air_temp',
+        'state': '72',
+      }),
+      'type': 'IaquaSensor',
+    }),
+    'aux_1': dict({
+      'data': dict({
+        'aux': '1',
+        'icon': 'aux_0.png',
+        'label': 'Water Feature',
+        'name': 'aux_1',
+        'state': '0',
+        'subtype': '0',
+        'type': '0',
+      }),
+      'type': 'IaquaAuxSwitch',
+    }),
+    'aux_2': dict({
+      'data': dict({
+        'aux': '2',
+        'icon': 'aux_0.png',
+        'label': 'Dimmable Light',
+        'name': 'aux_2',
+        'state': '0',
+        'subtype': '0',
+        'type': '1',
+      }),
+      'type': 'IaquaDimmableLight',
+    }),
+    'aux_3': dict({
+      'data': dict({
+        'aux': '3',
+        'icon': 'aux_0.png',
+        'label': 'AUX LIGHT',
+        'name': 'aux_3',
+        'state': '0',
+        'subtype': '0',
+        'type': '0',
+      }),
+      'type': 'IaquaLightSwitch',
+    }),
+    'aux_B1': dict({
+      'data': dict({
+        'aux': 'B1',
+        'icon': 'aux_1_0.png',
+        'label': 'Pool Light',
+        'name': 'aux_B1',
+        'state': '0',
+        'subtype': '5',
+        'type': '2',
+      }),
+      'type': 'IaquaColorLightIB',
+    }),
+    'freeze_protection': dict({
+      'data': dict({
+        'name': 'freeze_protection',
+        'state': '0',
+      }),
+      'type': 'IaquaBinarySensor',
+    }),
+    'pool_heater': dict({
+      'data': dict({
+        'name': 'pool_heater',
+        'state': '0',
+      }),
+      'type': 'IaquaHeater',
+    }),
+    'pool_pump': dict({
+      'data': dict({
+        'name': 'pool_pump',
+        'state': '1',
+      }),
+      'type': 'IaquaSwitch',
+    }),
+    'pool_set_point': dict({
+      'data': dict({
+        'name': 'pool_set_point',
+        'state': '80',
+      }),
+      'type': 'IaquaThermostat',
+    }),
+    'pool_temp': dict({
+      'data': dict({
+        'name': 'pool_temp',
+        'state': '78',
+      }),
+      'type': 'IaquaSensor',
+    }),
+    'spa_heater': dict({
+      'data': dict({
+        'name': 'spa_heater',
+        'state': '1',
+      }),
+      'type': 'IaquaHeater',
+    }),
+    'spa_pump': dict({
+      'data': dict({
+        'name': 'spa_pump',
+        'state': '0',
+      }),
+      'type': 'IaquaSwitch',
+    }),
+    'spa_set_point': dict({
+      'data': dict({
+        'name': 'spa_set_point',
+        'state': '104',
+      }),
+      'type': 'IaquaThermostat',
+    }),
+    'spa_temp': dict({
+      'data': dict({
+        'name': 'spa_temp',
+        'state': '102',
+      }),
+      'type': 'IaquaSensor',
+    }),
+  })
+# ---
+# name: test_parse_home
+  dict({
+    'air_temp': dict({
+      'data': dict({
+        'name': 'air_temp',
+        'state': '72',
+      }),
+      'type': 'IaquaSensor',
+    }),
+    'freeze_protection': dict({
+      'data': dict({
+        'name': 'freeze_protection',
+        'state': '0',
+      }),
+      'type': 'IaquaBinarySensor',
+    }),
+    'pool_heater': dict({
+      'data': dict({
+        'name': 'pool_heater',
+        'state': '0',
+      }),
+      'type': 'IaquaHeater',
+    }),
+    'pool_pump': dict({
+      'data': dict({
+        'name': 'pool_pump',
+        'state': '1',
+      }),
+      'type': 'IaquaSwitch',
+    }),
+    'pool_set_point': dict({
+      'data': dict({
+        'name': 'pool_set_point',
+        'state': '80',
+      }),
+      'type': 'IaquaThermostat',
+    }),
+    'pool_temp': dict({
+      'data': dict({
+        'name': 'pool_temp',
+        'state': '78',
+      }),
+      'type': 'IaquaSensor',
+    }),
+    'spa_heater': dict({
+      'data': dict({
+        'name': 'spa_heater',
+        'state': '1',
+      }),
+      'type': 'IaquaHeater',
+    }),
+    'spa_pump': dict({
+      'data': dict({
+        'name': 'spa_pump',
+        'state': '0',
+      }),
+      'type': 'IaquaSwitch',
+    }),
+    'spa_set_point': dict({
+      'data': dict({
+        'name': 'spa_set_point',
+        'state': '104',
+      }),
+      'type': 'IaquaThermostat',
+    }),
+    'spa_temp': dict({
+      'data': dict({
+        'name': 'spa_temp',
+        'state': '102',
+      }),
+      'type': 'IaquaSensor',
+    }),
+  })
+# ---
+# name: test_parse_onetouch
+  dict({
+    'onetouch_1': dict({
+      'data': dict({
+        'label': 'Morning Scene',
+        'name': 'onetouch_1',
+        'state': '0',
+        'status': '1',
+      }),
+      'type': 'IaquaOneTouchSwitch',
+    }),
+    'onetouch_2': dict({
+      'data': dict({
+        'label': 'Evening Scene',
+        'name': 'onetouch_2',
+        'state': '0',
+        'status': '1',
+      }),
+      'type': 'IaquaOneTouchSwitch',
+    }),
+  })
+# ---
