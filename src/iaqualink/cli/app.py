@@ -536,15 +536,28 @@ async def _run_switch_command(
     devices = await _load_devices_for_system(system)
     device_name, device = _resolve_device(devices, device_selector)
 
-    if not isinstance(device, AqualinkSwitch):
+    if isinstance(device, AqualinkSwitch):
+        if target_state == "on":
+            await device.turn_on()
+        else:
+            await device.turn_off()
+    elif isinstance(device, AqualinkPump):
+        if target_state == "on" and not device.supports_turn_on:
+            _exit_with_error(
+                f"Pump {device_name!r} does not support turn on.",
+            )
+        if target_state == "off" and not device.supports_turn_off:
+            _exit_with_error(
+                f"Pump {device_name!r} does not support turn off.",
+            )
+        if target_state == "on":
+            await device.turn_on()
+        else:
+            await device.turn_off()
+    else:
         _exit_with_error(
             f"Device {device_name!r} does not support power controls.",
         )
-
-    if target_state == "on":
-        await device.turn_on()
-    else:
-        await device.turn_off()
 
     _save_session_jar(cookie_jar, system.aqualink.auth_state)
     t = Text()
@@ -553,6 +566,101 @@ async def _run_switch_command(
     t.append(device.label, style="bold")
     t.append(f" [{device_name}]", style="dim")
     t.append(" on ")
+    t.append_text(_format_system_line(system))
+    return t
+
+
+async def _set_pump_speed(
+    credentials: Credentials,
+    system_selector: str | None,
+    device_selector: str,
+    percentage: int,
+    cookie_jar: Path,
+) -> Text:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_system(systems, system_selector)
+    devices = await _load_devices_for_system(system)
+    device_name, device = _resolve_device(devices, device_selector)
+
+    if not isinstance(device, AqualinkPump):
+        _exit_with_error(f"Device {device_name!r} is not a pump.")
+
+    if not device.supports_set_speed_percentage:
+        _exit_with_error(
+            f"Pump {device_name!r} does not support speed control.",
+        )
+
+    await device.set_speed_percentage(percentage)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append("Set speed of ")
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    t.append(f" to {percentage}% on ")
+    t.append_text(_format_system_line(system))
+    return t
+
+
+async def _set_pump_preset(
+    credentials: Credentials,
+    system_selector: str | None,
+    device_selector: str,
+    preset: str,
+    cookie_jar: Path,
+) -> Text:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_system(systems, system_selector)
+    devices = await _load_devices_for_system(system)
+    device_name, device = _resolve_device(devices, device_selector)
+
+    if not isinstance(device, AqualinkPump):
+        _exit_with_error(f"Device {device_name!r} is not a pump.")
+
+    if not device.supports_presets:
+        _exit_with_error(
+            f"Pump {device_name!r} does not support presets.",
+        )
+
+    await device.set_preset(preset)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append("Set preset of ")
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    t.append(f" to {preset!r} on ")
+    t.append_text(_format_system_line(system))
+    return t
+
+
+async def _set_number_value(
+    credentials: Credentials,
+    system_selector: str | None,
+    device_selector: str,
+    value: float,
+    cookie_jar: Path,
+) -> Text:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_system(systems, system_selector)
+    devices = await _load_devices_for_system(system)
+    device_name, device = _resolve_device(devices, device_selector)
+
+    if not isinstance(device, AqualinkNumber):
+        _exit_with_error(
+            f"Device {device_name!r} does not support numeric values.",
+        )
+
+    await device.set_value(value)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append("Set ")
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    unit = device.unit
+    value_str = f" to {value}{unit}" if unit else f" to {value}"
+    t.append(f"{value_str} on ")
     t.append_text(_format_system_line(system))
     return t
 
@@ -805,4 +913,60 @@ def set_effect(
     credentials = _resolve_credentials(username, password, config)
     _console.print(
         _run_async(_set_effect(credentials, system, device, effect, cookie_jar))
+    )
+
+
+@app.command("set-speed")
+def set_speed(
+    device: DeviceArgument,
+    percentage: Annotated[
+        int, typer.Argument(help="Pump speed percentage (0-100).")
+    ],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    _console.print(
+        _run_async(
+            _set_pump_speed(credentials, system, device, percentage, cookie_jar)
+        )
+    )
+
+
+@app.command("set-preset")
+def set_preset(
+    device: DeviceArgument,
+    preset: Annotated[str, typer.Argument(help="Pump preset name.")],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    _console.print(
+        _run_async(
+            _set_pump_preset(credentials, system, device, preset, cookie_jar)
+        )
+    )
+
+
+@app.command("set-value")
+def set_value(
+    device: DeviceArgument,
+    value: Annotated[float, typer.Argument(help="Numeric value to set.")],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    _console.print(
+        _run_async(
+            _set_number_value(credentials, system, device, value, cookie_jar)
+        )
     )
