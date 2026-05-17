@@ -1,0 +1,44 @@
+{
+  "onetouch": "true",
+  "message": "",
+  "home_screen": [
+    {"status": "Online"},
+    {"response": "AQU=XXXX"},
+    {"system_type": "1"},
+    {"temp_scale": "F"},
+    {"spa_temp": ""},
+    {"pool_temp": "89"},
+    {"air_temp": "93"},
+    {"spa_set_point": "54"},
+    {"pool_set_point": "48"},
+    {"cover_pool": ""},
+    {"freeze_protection": "0"},
+    {"spa_pump": ""},
+    {"pool_pump": "1"},
+    {"spa_heater": "0"},
+    {"pool_heater": "0"},
+    {"solar_heater": ""},
+    {"spa_salinity": ""},
+    {"pool_salinity": ""},
+    {"orp": ""},
+    {"ph": ""},
+    {"is_icl_present": "present"},
+    {"icl_custom_color_info": [
+      {"zoneId": 1, "red_val": "247", "green_val": "255", "blue_val": "244", "white_val": "0"}
+    ]},
+    {"heatpump_info": {
+      "isheatpumpPresent": true,
+      "heatpumpstatus": "off",
+      "isChillAvailable": false,
+      "heatpumpmode": "heat",
+      "heatpumptype": "4-wired"
+    }},
+    {"pool_chill_set_point": ""},
+    {"swc_info": {
+      "isswcPresent": true,
+      "swcPoolValue": 0,
+      "swcPoolStatus": "offline"
+    }},
+    {"relay_count": "4"}
+  ]
+}

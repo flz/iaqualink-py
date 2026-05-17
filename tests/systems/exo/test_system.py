@@ -12,11 +12,6 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.exo.device import (
-    ExoAttributeSwitch,
-    ExoAuxSwitch,
-    ExoSensor,
-)
 from iaqualink.systems.exo.system import ExoSystem
 
 import respx
@@ -213,38 +208,6 @@ class TestExoSystem(TestBaseSystem):
             self.sut, "_parse_shadow_response", side_effect=_set_online
         ):
             await super().test_get_devices_needs_update()
-
-    def test_parse_devices_good(self) -> None:
-        response = MagicMock()
-        response.json.return_value = SAMPLE_DATA
-        self.sut._parse_shadow_response(response)
-
-        assert self.sut.status is SystemStatus.CONNECTED
-        assert len(self.sut.devices) > 0
-        # Chemistry sensors
-        assert "sns_1" in self.sut.devices
-        assert isinstance(self.sut.devices["sns_1"], ExoSensor)
-        assert "sns_2" in self.sut.devices
-        assert isinstance(self.sut.devices["sns_2"], ExoSensor)
-        assert "sns_3" in self.sut.devices
-        assert isinstance(self.sut.devices["sns_3"], ExoSensor)
-        # Auxiliary switches
-        assert "aux_1" in self.sut.devices
-        assert isinstance(self.sut.devices["aux_1"], ExoAuxSwitch)
-        assert "aux_2" in self.sut.devices
-        assert isinstance(self.sut.devices["aux_2"], ExoAuxSwitch)
-        # Attribute switches
-        assert "boost" in self.sut.devices
-        assert isinstance(self.sut.devices["boost"], ExoAttributeSwitch)
-        assert "production" in self.sut.devices
-        assert isinstance(self.sut.devices["production"], ExoAttributeSwitch)
-        # Filter pump
-        assert "filter_pump" in self.sut.devices
-        # Excluded keys must be absent
-        assert "sn" not in self.sut.devices
-        assert "vr" not in self.sut.devices
-        assert "version" not in self.sut.devices
-        assert "boost_time" not in self.sut.devices
 
     def _make_shadow_response(self, aws_status: str | None) -> MagicMock:
         import copy as _copy

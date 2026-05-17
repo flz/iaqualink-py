@@ -76,7 +76,9 @@ class AqualinkDevice:
 
 
 class AqualinkSensor(AqualinkDevice):
-    pass
+    @property
+    def unit(self) -> str | None:
+        return None
 
 
 class AqualinkBinarySensor(AqualinkSensor):

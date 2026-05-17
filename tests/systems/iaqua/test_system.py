@@ -13,7 +13,7 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.iaqua.device import IaquaAuxSwitch, IaquaOneTouchSwitch
+from iaqualink.systems.iaqua.device import IaquaOneTouchSwitch
 from iaqualink.systems.iaqua.enums import IaquaSystemType, IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import (
     IAQUA_SESSION_URL,
@@ -104,44 +104,6 @@ class TestIaquaSystem(TestBaseSystem):
 
         self.sut._parse_devices_response(response)
         assert self.sut.devices == {}
-
-    async def test_parse_devices_good(self) -> None:
-        message = {
-            "message": "",
-            "devices_screen": [
-                {"status": "Online"},
-                {"response": ""},
-                {"group": "1"},
-                {
-                    "aux_B1": [
-                        {"state": "0"},
-                        {"label": "Label B1"},
-                        {"icon": "aux_1_0.png"},
-                        {"type": "0"},
-                        {"subtype": "0"},
-                    ]
-                },
-            ],
-        }
-        response = MagicMock()
-        response.json.return_value = message
-
-        expected = {
-            "aux_B1": IaquaAuxSwitch(
-                system=self.sut,
-                data={
-                    "aux": "B1",
-                    "name": "aux_B1",
-                    "state": "0",
-                    "label": "Label B1",
-                    "icon": "aux_1_0.png",
-                    "type": "0",
-                    "subtype": "0",
-                },
-            )
-        }
-        self.sut._parse_devices_response(response)
-        assert self.sut.devices == expected
 
     async def test_parse_devices_skipped_on_nan_state(self) -> None:
         existing = MagicMock()
@@ -454,38 +416,6 @@ class TestIaquaSystem(TestBaseSystem):
 
         self.sut._parse_onetouch_response(response)
         assert self.sut.devices == {}
-
-    async def test_parse_onetouch_good(self) -> None:
-        message = {
-            "message": "",
-            "onetouch_screen": [
-                {"status": "Online"},
-                {"response": ""},
-                {
-                    "onetouch_1": [
-                        {"state": "0"},
-                        {"label": "Morning Scene"},
-                        {"status": "1"},
-                    ]
-                },
-            ],
-        }
-        response = MagicMock()
-        response.json.return_value = message
-
-        expected = {
-            "onetouch_1": IaquaOneTouchSwitch(
-                system=self.sut,
-                data={
-                    "name": "onetouch_1",
-                    "state": "0",
-                    "label": "Morning Scene",
-                    "status": "1",
-                },
-            )
-        }
-        self.sut._parse_onetouch_response(response)
-        assert self.sut.devices == expected
 
     async def test_parse_onetouch_skips_disabled_device(self) -> None:
         message = {

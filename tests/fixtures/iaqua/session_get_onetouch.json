@@ -1,0 +1,13 @@
+{
+  "message": "",
+  "onetouch_screen": [
+    {"status": "Online"},
+    {"response": "AQU='71','xx xx'"},
+    {"onetouch_1": [{"status": "1"}, {"state": "0"}, {"label": "All OFF"}]},
+    {"onetouch_2": [{"status": "1"}, {"state": "0"}, {"label": "Spa Mode"}]},
+    {"onetouch_3": [{"status": "1"}, {"state": "0"}, {"label": "Clean Mode"}]},
+    {"onetouch_4": [{"status": "0"}, {"state": "0"}, {"label": "ONETOUCH 4"}]},
+    {"onetouch_5": [{"status": "1"}, {"state": "0"}, {"label": "OneTouch 5"}]},
+    {"onetouch_6": [{"status": "1"}, {"state": "0"}, {"label": "Water Falls"}]}
+  ]
+}
