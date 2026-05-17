@@ -37,37 +37,9 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
-nav:
-  - Home: index.md
-  - Getting Started:
-      - Installation: getting-started/installation.md
-      - Home Assistant: getting-started/home-assistant.md
-      - Programmatic Use: getting-started/quickstart.md
-  - API Reference:
-      - Client: api/client.md
-      - System: api/system.md
-      - Device: api/device.md
-      - iAqua: api/iaqua.md
-      - eXO: api/exo.md
-      - i2d (iQPump): api/i2d.md
-      - Exceptions: api/exceptions.md
-  - Protocol Reference:
-      - Auth & Discovery: reference/client.md
-      - iAqua: reference/iaqua.md
-      - eXO: reference/exo.md
-      - i2d (iQPump): reference/i2d.md
-  - Implementation Notes:
-      - iAqua: implementation/iaqua.md
-      - eXO: implementation/exo.md
-      - i2d (iQPump): implementation/i2d.md
-  - Contributing:
-      - Development Setup: contributing/setup.md
-      - Architecture: contributing/architecture.md
-      - New System Type: contributing/new-system-type.md
-      - New Device Type: contributing/new-device-type.md
-
 plugins:
   - search
+  - awesome-nav
   - mkdocstrings:
       handlers:
         python:
