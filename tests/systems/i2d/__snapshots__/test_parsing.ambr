@@ -2,6 +2,7 @@
 # name: test_parse_alldata
   dict({
     'ABC123': dict({
+      'custom_speed_rpm': 1500,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -63,9 +64,16 @@
           'state': 'connected',
         }),
       }),
+      'is_on': True,
+      'label': 'IQPump',
+      'rpm_max': 3450,
+      'rpm_min': 600,
+      'state': '0',
+      'state_translated': 'SCHEDULE',
       'type': 'I2dPump',
     }),
     'countdownperiod': dict({
+      'current_value': 30.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -127,9 +135,17 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Countdown Period',
+      'max_value': 86400,
+      'min_value': 3600,
+      'state': '30',
+      'state_translated': None,
+      'step': 3600,
       'type': 'I2dNumber',
+      'unit': 's',
     }),
     'countdownrpm': dict({
+      'current_value': 1500.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -191,7 +207,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Countdown RPM',
+      'max_value': 3450.0,
+      'min_value': 600.0,
+      'state': '1500',
+      'state_translated': None,
+      'step': 25,
       'type': 'I2dNumber',
+      'unit': 'RPM',
     }),
     'countdowntimer': dict({
       'data': dict({
@@ -255,7 +278,11 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Countdown Timer',
+      'state': '0',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': 's',
     }),
     'currentspan': dict({
       'data': dict({
@@ -319,9 +346,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Current Schedule Span',
+      'state': '-1',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': None,
     }),
     'customspeedrpm': dict({
+      'current_value': 1500.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -383,9 +415,17 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Custom Speed RPM',
+      'max_value': 3450.0,
+      'min_value': 600.0,
+      'state': '1500',
+      'state_translated': None,
+      'step': 25,
       'type': 'I2dNumber',
+      'unit': 'RPM',
     }),
     'customspeedtimer': dict({
+      'current_value': 60.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -447,7 +487,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Custom Speed Timer',
+      'max_value': 3600,
+      'min_value': 300,
+      'state': '60',
+      'state_translated': None,
+      'step': 300,
       'type': 'I2dNumber',
+      'unit': 's',
     }),
     'freezeprotectenable': dict({
       'data': dict({
@@ -511,9 +558,14 @@
           'state': 'connected',
         }),
       }),
+      'is_on': True,
+      'label': 'Freeze Protection',
+      'state': 'on',
+      'state_translated': None,
       'type': 'I2dSwitch',
     }),
     'freezeprotectperiod': dict({
+      'current_value': 30.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -575,9 +627,17 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Freeze Protect Period',
+      'max_value': 28800,
+      'min_value': 0,
+      'state': '30',
+      'state_translated': None,
+      'step': 1800,
       'type': 'I2dNumber',
+      'unit': 's',
     }),
     'freezeprotectrpm': dict({
+      'current_value': 1000.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -639,9 +699,17 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Freeze Protect RPM',
+      'max_value': 3450.0,
+      'min_value': 600.0,
+      'state': '1000',
+      'state_translated': None,
+      'step': 25,
       'type': 'I2dNumber',
+      'unit': 'RPM',
     }),
     'freezeprotectsetpointc': dict({
+      'current_value': 4.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -703,7 +771,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Freeze Protect Setpoint',
+      'max_value': 7,
+      'min_value': 3,
+      'state': '4',
+      'state_translated': None,
+      'step': 1.0,
       'type': 'I2dNumber',
+      'unit': '°C',
     }),
     'freezeprotectstatus': dict({
       'data': dict({
@@ -767,6 +842,10 @@
           'state': 'connected',
         }),
       }),
+      'is_on': False,
+      'label': 'Freeze Protect Status',
+      'state': 'off',
+      'state_translated': None,
       'type': 'I2dBinarySensor',
     }),
     'fwversion': dict({
@@ -831,9 +910,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Firmware Version',
+      'state': '1.5.2',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': None,
     }),
     'globalrpmmax': dict({
+      'current_value': 3450.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -895,9 +979,17 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Global RPM Max',
+      'max_value': 3450,
+      'min_value': 600.0,
+      'state': '3450',
+      'state_translated': None,
+      'step': 25,
       'type': 'I2dNumber',
+      'unit': 'RPM',
     }),
     'globalrpmmin': dict({
+      'current_value': 600.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -959,7 +1051,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Global RPM Min',
+      'max_value': 3450.0,
+      'min_value': 600.0,
+      'state': '600',
+      'state_translated': None,
+      'step': 25,
       'type': 'I2dNumber',
+      'unit': 'RPM',
     }),
     'horsepower': dict({
       'data': dict({
@@ -1023,7 +1122,11 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Horsepower',
+      'state': '1.65',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': 'HP',
     }),
     'power': dict({
       'data': dict({
@@ -1087,9 +1190,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Motor Power',
+      'state': '180',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': 'W',
     }),
     'primingperiod': dict({
+      'current_value': 3.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -1151,9 +1259,17 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Priming Period',
+      'max_value': 300,
+      'min_value': 0,
+      'state': '3',
+      'state_translated': None,
+      'step': 60,
       'type': 'I2dNumber',
+      'unit': 's',
     }),
     'primingrpm': dict({
+      'current_value': 3450.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -1215,7 +1331,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Priming RPM',
+      'max_value': 3450.0,
+      'min_value': 600.0,
+      'state': '3450',
+      'state_translated': None,
+      'step': 25,
       'type': 'I2dNumber',
+      'unit': 'RPM',
     }),
     'primingtimer': dict({
       'data': dict({
@@ -1279,9 +1402,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Priming Timer',
+      'state': '0',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': 's',
     }),
     'quickcleanperiod': dict({
+      'current_value': 8.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -1343,9 +1471,17 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Quick Clean Period',
+      'max_value': 3600,
+      'min_value': 300,
+      'state': '8',
+      'state_translated': None,
+      'step': 300,
       'type': 'I2dNumber',
+      'unit': 's',
     }),
     'quickcleanrpm': dict({
+      'current_value': 3450.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -1407,7 +1543,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Quick Clean RPM',
+      'max_value': 3450.0,
+      'min_value': 600.0,
+      'state': '3450',
+      'state_translated': None,
+      'step': 25,
       'type': 'I2dNumber',
+      'unit': 'RPM',
     }),
     'quickcleantimer': dict({
       'data': dict({
@@ -1471,9 +1614,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Quick Clean Timer',
+      'state': '0',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': 's',
     }),
     'relayK1Rpm': dict({
+      'current_value': 1500.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -1535,9 +1683,17 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Auxiliary Relay K1 RPM',
+      'max_value': 3450.0,
+      'min_value': 600.0,
+      'state': '1500',
+      'state_translated': None,
+      'step': 25,
       'type': 'I2dNumber',
+      'unit': 'RPM',
     }),
     'relayK2Rpm': dict({
+      'current_value': 1200.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -1599,7 +1755,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Auxiliary Relay K2 RPM',
+      'max_value': 3450.0,
+      'min_value': 600.0,
+      'state': '1200',
+      'state_translated': None,
+      'step': 25,
       'type': 'I2dNumber',
+      'unit': 'RPM',
     }),
     'speed': dict({
       'data': dict({
@@ -1663,7 +1826,11 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Motor Speed',
+      'state': '1500',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': 'RPM',
     }),
     'temperature': dict({
       'data': dict({
@@ -1727,9 +1894,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Motor Temperature',
+      'state': '110',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': '°F',
     }),
     'timeoutperiod': dict({
+      'current_value': 10.0,
       'data': dict({
         'RS485fwversion': '1.0.0',
         '_rpmhwmin': '600',
@@ -1791,7 +1963,14 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Timeout Period',
+      'max_value': 86400,
+      'min_value': 3600,
+      'state': '10',
+      'state_translated': None,
+      'step': 3600,
       'type': 'I2dNumber',
+      'unit': 's',
     }),
     'timeouttimer': dict({
       'data': dict({
@@ -1855,7 +2034,11 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Timeout Timer',
+      'state': '0',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': 's',
     }),
     'updateflag': dict({
       'data': dict({
@@ -1919,7 +2102,11 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Update Flag',
+      'state': '0',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': None,
     }),
     'updateprogress': dict({
       'data': dict({
@@ -1983,7 +2170,11 @@
           'state': 'connected',
         }),
       }),
+      'label': 'Update Progress',
+      'state': '0',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': None,
     }),
     'wifissid': dict({
       'data': dict({
@@ -2047,7 +2238,11 @@
           'state': 'connected',
         }),
       }),
+      'label': 'WiFi SSID',
+      'state': 'MyNetwork',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': None,
     }),
     'wifistate': dict({
       'data': dict({
@@ -2111,7 +2306,11 @@
           'state': 'connected',
         }),
       }),
+      'label': 'WiFi State',
+      'state': 'connected',
+      'state_translated': None,
       'type': 'I2dSensor',
+      'unit': None,
     }),
   })
 # ---
