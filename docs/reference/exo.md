@@ -266,4 +266,3 @@ The EXO device is identified at the MQTT routing layer by a device-type ordinal.
 | HTTP 429 | Response code | Re-raise throttle exception before broader service exception |
 | Other HTTP error | Response code ≠ 200 | Raise service exception |
 | System offline | Not observed as a field in shadow state — not observed in reference | Not observed in reference |
-

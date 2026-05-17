@@ -24,8 +24,8 @@ Search for all occurrences of the old Python version across the codebase. You mu
 - `README.md` - Badge and requirements sections
 - `docs/index.md` - Badge and requirements sections
 - `docs/getting-started/installation.md` - Requirements section
-- `docs/development/contributing.md` - Prerequisites section
-- `docs/development/architecture.md` - Type hints references
+- `docs/contributing/setup.md` - Prerequisites section
+- `docs/contributing/architecture.md` - Type hints references
 - `CLAUDE.md` - Any version references
 
 Use Grep to search for patterns like:

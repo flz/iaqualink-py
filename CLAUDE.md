@@ -86,7 +86,7 @@ Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `Aquali
 
 **Before changing any endpoint, field, or auth flow:** read the relevant reference doc and verify the change matches. If not covered, update the doc in the same commit.
 
-**Divergences from reference behavior** are documented in the "Deltas vs current implementation" section of each reference doc and the corresponding `docs/implementation/<system>.md`. Confirm intentional divergences before adding new ones.
+**Divergences from reference behavior** are documented in the "Deltas vs Protocol Reference" section of `docs/implementation/<system>.md`. Confirm intentional divergences before adding new ones.
 
 ## Logging Guidelines
 

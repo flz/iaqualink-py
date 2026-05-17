@@ -60,7 +60,7 @@ This is an `asyncio`-based library. Flag any of the following:
 ## 5. Code Quality and Best Practices
 
 - No commented-out code.
-- No `print()` — use a module-level `LOGGER = logging.getLogger("iaqualink.<module>")`. See `docs/development/contributing.md` § Logging for the full name table.
+- No `print()` — use a module-level `LOGGER = logging.getLogger("iaqualink.<module>")`. See `docs/contributing/setup.md` § Logging for the full name table.
 - No f-string logging: `LOGGER.debug("x=%s", x)` not `LOGGER.debug(f"x={x}")`.
 - Constants in module scope, not inline magic strings or numbers (exception: trivial `""` / `0` / `1` states).
 - New device/system subclasses must register via the `NAME` + `__init_subclass__` pattern — no manual dict edits.
@@ -102,12 +102,12 @@ This is an `asyncio`-based library. Flag any of the following:
 Run before declaring done:
 
 ```bash
-uv run pre-commit run --show-diff-on-failure --color=always --all-files
+uv run prek run --show-diff-on-failure --color=always --all-files
 uv run pytest
 uv run mypy src/
 ```
 
-All three must be clean. Trailing whitespace, missing newlines, and lock-file drift are caught by pre-commit — fix them, do not suppress hooks.
+All three must be clean. Trailing whitespace, missing newlines, and lock-file drift are caught by prek — fix them, do not suppress hooks.
 
 ---
 
