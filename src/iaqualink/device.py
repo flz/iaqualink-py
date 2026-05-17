@@ -85,7 +85,11 @@ class AqualinkDevice:
 
 
 class AqualinkSensor(AqualinkDevice):
-    pass
+    _own_snapshot_props: tuple[str, ...] = ("unit",)
+
+    @property
+    def unit(self) -> str | None:
+        return None
 
 
 class AqualinkBinarySensor(AqualinkSensor):
@@ -217,6 +221,8 @@ class AqualinkNumber(AqualinkDevice):
 
 
 class AqualinkPump(AqualinkDevice):
+    _own_snapshot_props: tuple[str, ...] = ("is_on",)
+
     @property
     def supports_turn_on(self) -> bool:
         return False

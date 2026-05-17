@@ -2,11 +2,8 @@
 # name: test_parse_alldata
   dict({
     'ABC123': dict({
-      'custom_speed_rpm': 1500,
       'is_on': True,
       'label': 'IQPump',
-      'rpm_max': 3450,
-      'rpm_min': 600,
       'state': '0',
       'state_translated': 'SCHEDULE',
       'type': 'I2dPump',
@@ -75,6 +72,7 @@
       'state': 'on',
       'state_translated': None,
       'type': 'I2dSwitch',
+      'unit': None,
     }),
     'freezeprotectperiod': dict({
       'current_value': 30.0,
@@ -115,6 +113,7 @@
       'state': 'off',
       'state_translated': None,
       'type': 'I2dBinarySensor',
+      'unit': None,
     }),
     'fwversion': dict({
       'label': 'Firmware Version',

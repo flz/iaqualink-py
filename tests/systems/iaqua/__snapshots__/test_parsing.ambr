@@ -6,6 +6,7 @@
       'state': '93',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'aux_1': dict({
       'is_on': False,
@@ -13,6 +14,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_2': dict({
       'is_on': False,
@@ -20,6 +22,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_3': dict({
       'is_on': False,
@@ -27,6 +30,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_4': dict({
       'is_on': False,
@@ -34,6 +38,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_5': dict({
       'is_on': False,
@@ -41,6 +46,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_6': dict({
       'is_on': False,
@@ -48,6 +54,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_7': dict({
       'is_on': False,
@@ -55,6 +62,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_B1': dict({
       'is_on': False,
@@ -62,6 +70,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_B2': dict({
       'is_on': False,
@@ -69,6 +78,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_B3': dict({
       'is_on': False,
@@ -76,6 +86,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_B4': dict({
       'is_on': False,
@@ -83,6 +94,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_B5': dict({
       'is_on': False,
@@ -90,6 +102,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_B6': dict({
       'is_on': False,
@@ -97,6 +110,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_B7': dict({
       'is_on': False,
@@ -104,6 +118,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_B8': dict({
       'is_on': False,
@@ -111,6 +126,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_C1': dict({
       'is_on': False,
@@ -118,6 +134,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_C2': dict({
       'is_on': False,
@@ -125,6 +142,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_C3': dict({
       'is_on': False,
@@ -132,6 +150,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_C4': dict({
       'is_on': False,
@@ -139,6 +158,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_C5': dict({
       'is_on': False,
@@ -146,6 +166,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_C6': dict({
       'is_on': False,
@@ -153,6 +174,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_C7': dict({
       'is_on': False,
@@ -160,6 +182,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_C8': dict({
       'is_on': False,
@@ -167,6 +190,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_D1': dict({
       'is_on': False,
@@ -174,6 +198,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_D2': dict({
       'is_on': False,
@@ -181,6 +206,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_D3': dict({
       'is_on': False,
@@ -188,6 +214,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_D4': dict({
       'is_on': False,
@@ -195,6 +222,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_D5': dict({
       'is_on': False,
@@ -202,6 +230,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_D6': dict({
       'is_on': False,
@@ -209,6 +238,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_D7': dict({
       'is_on': False,
@@ -216,6 +246,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_D8': dict({
       'is_on': False,
@@ -223,6 +254,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'aux_EA': dict({
       'is_on': False,
@@ -230,12 +262,14 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaAuxSwitch',
+      'unit': None,
     }),
     'cover_pool': dict({
       'label': 'Cover Pool',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'freeze_protection': dict({
       'is_on': False,
@@ -243,6 +277,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaBinarySensor',
+      'unit': None,
     }),
     'is_icl_present': dict({
       'is_on': True,
@@ -250,18 +285,21 @@
       'state': 'present',
       'state_translated': 'PRESENT',
       'type': 'IaquaPresenceSensor',
+      'unit': None,
     }),
     'orp': dict({
       'label': 'Orp',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'ph': dict({
       'label': 'Ph',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'pool_heater': dict({
       'is_on': False,
@@ -269,6 +307,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaHeater',
+      'unit': None,
     }),
     'pool_pump': dict({
       'is_on': True,
@@ -276,12 +315,14 @@
       'state': '1',
       'state_translated': 'ON',
       'type': 'IaquaSwitch',
+      'unit': None,
     }),
     'pool_salinity': dict({
       'label': 'Pool Salinity',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'pool_set_point': dict({
       'current_temperature': '89',
@@ -298,12 +339,14 @@
       'state': '89',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'relay_count': dict({
       'label': 'Relay Count',
       'state': '4',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'solar_heater': dict({
       'is_on': False,
@@ -311,6 +354,7 @@
       'state': '',
       'state_translated': None,
       'type': 'IaquaHeater',
+      'unit': None,
     }),
     'spa_heater': dict({
       'is_on': False,
@@ -318,6 +362,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaHeater',
+      'unit': None,
     }),
     'spa_pump': dict({
       'is_on': False,
@@ -325,12 +370,14 @@
       'state': '',
       'state_translated': None,
       'type': 'IaquaSwitch',
+      'unit': None,
     }),
     'spa_salinity': dict({
       'label': 'Spa Salinity',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'spa_set_point': dict({
       'current_temperature': '',
@@ -347,6 +394,7 @@
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
   })
 # ---
@@ -357,12 +405,14 @@
       'state': '93',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'cover_pool': dict({
       'label': 'Cover Pool',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'freeze_protection': dict({
       'is_on': False,
@@ -370,6 +420,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaBinarySensor',
+      'unit': None,
     }),
     'is_icl_present': dict({
       'is_on': True,
@@ -377,18 +428,21 @@
       'state': 'present',
       'state_translated': 'PRESENT',
       'type': 'IaquaPresenceSensor',
+      'unit': None,
     }),
     'orp': dict({
       'label': 'Orp',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'ph': dict({
       'label': 'Ph',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'pool_heater': dict({
       'is_on': False,
@@ -396,6 +450,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaHeater',
+      'unit': None,
     }),
     'pool_pump': dict({
       'is_on': True,
@@ -403,12 +458,14 @@
       'state': '1',
       'state_translated': 'ON',
       'type': 'IaquaSwitch',
+      'unit': None,
     }),
     'pool_salinity': dict({
       'label': 'Pool Salinity',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'pool_set_point': dict({
       'current_temperature': '89',
@@ -425,12 +482,14 @@
       'state': '89',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'relay_count': dict({
       'label': 'Relay Count',
       'state': '4',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'solar_heater': dict({
       'is_on': False,
@@ -438,6 +497,7 @@
       'state': '',
       'state_translated': None,
       'type': 'IaquaHeater',
+      'unit': None,
     }),
     'spa_heater': dict({
       'is_on': False,
@@ -445,6 +505,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaHeater',
+      'unit': None,
     }),
     'spa_pump': dict({
       'is_on': False,
@@ -452,12 +513,14 @@
       'state': '',
       'state_translated': None,
       'type': 'IaquaSwitch',
+      'unit': None,
     }),
     'spa_salinity': dict({
       'label': 'Spa Salinity',
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
     'spa_set_point': dict({
       'current_temperature': '',
@@ -474,6 +537,7 @@
       'state': '',
       'state_translated': None,
       'type': 'IaquaSensor',
+      'unit': None,
     }),
   })
 # ---
@@ -485,6 +549,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaOneTouchSwitch',
+      'unit': None,
     }),
     'onetouch_2': dict({
       'is_on': False,
@@ -492,6 +557,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaOneTouchSwitch',
+      'unit': None,
     }),
     'onetouch_3': dict({
       'is_on': False,
@@ -499,6 +565,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaOneTouchSwitch',
+      'unit': None,
     }),
     'onetouch_5': dict({
       'is_on': False,
@@ -506,6 +573,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaOneTouchSwitch',
+      'unit': None,
     }),
     'onetouch_6': dict({
       'is_on': False,
@@ -513,6 +581,7 @@
       'state': '0',
       'state_translated': 'OFF',
       'type': 'IaquaOneTouchSwitch',
+      'unit': None,
     }),
   })
 # ---
