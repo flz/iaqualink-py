@@ -40,7 +40,6 @@ _SNAPSHOT_EXCLUDE = frozenset(
         "supports_brightness",
         "supports_effect",
         "supports_presets",
-        "supported_presets",
         "supports_set_speed_percentage",
         "max_temperature",
         "min_temperature",
