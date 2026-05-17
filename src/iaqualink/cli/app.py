@@ -586,6 +586,74 @@ async def _set_temperature(
     return t
 
 
+async def _set_brightness(
+    credentials: Credentials,
+    system_selector: str | None,
+    device_selector: str,
+    brightness: int,
+    cookie_jar: Path,
+) -> Text:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_system(systems, system_selector)
+    devices = await _load_devices_for_system(system)
+    device_name, device = _resolve_device(devices, device_selector)
+
+    if not isinstance(device, AqualinkLight):
+        _exit_with_error(
+            f"Device {device_name!r} is not a light.",
+        )
+
+    if not device.supports_brightness:
+        _exit_with_error(
+            f"Device {device_name!r} does not support brightness control.",
+        )
+
+    await device.set_brightness(brightness)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append("Set brightness of ")
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    t.append(f" to {brightness}% on ")
+    t.append_text(_format_system_line(system))
+    return t
+
+
+async def _set_effect(
+    credentials: Credentials,
+    system_selector: str | None,
+    device_selector: str,
+    effect: str,
+    cookie_jar: Path,
+) -> Text:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_system(systems, system_selector)
+    devices = await _load_devices_for_system(system)
+    device_name, device = _resolve_device(devices, device_selector)
+
+    if not isinstance(device, AqualinkLight):
+        _exit_with_error(
+            f"Device {device_name!r} is not a light.",
+        )
+
+    if not device.supports_effect:
+        _exit_with_error(
+            f"Device {device_name!r} does not support color effects.",
+        )
+
+    await device.set_effect_by_name(effect)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append("Set effect of ")
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    t.append(f" to {effect!r} on ")
+    t.append_text(_format_system_line(system))
+    return t
+
+
 @app.callback()
 def callback(
     debug: Annotated[
@@ -700,4 +768,40 @@ def set_temperature(
                 credentials, system, device, temperature, cookie_jar
             )
         )
+    )
+
+
+@app.command("set-brightness")
+def set_brightness(
+    device: DeviceArgument,
+    brightness: Annotated[
+        int, typer.Argument(help="Brightness percentage (0-100).")
+    ],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    _console.print(
+        _run_async(
+            _set_brightness(credentials, system, device, brightness, cookie_jar)
+        )
+    )
+
+
+@app.command("set-effect")
+def set_effect(
+    device: DeviceArgument,
+    effect: Annotated[str, typer.Argument(help="Effect name.")],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    _console.print(
+        _run_async(_set_effect(credentials, system, device, effect, cookie_jar))
     )
