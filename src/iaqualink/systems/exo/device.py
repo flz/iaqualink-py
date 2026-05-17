@@ -85,6 +85,8 @@ class ExoDevice(AqualinkDevice):
 class ExoSensor(ExoDevice, AqualinkSensor):
     """These sensors are called sns_#."""
 
+    _own_snapshot_props: tuple[str, ...] = ("is_on",)
+
     @property
     def is_on(self) -> bool:
         return self.data["state"] == ExoState.ON

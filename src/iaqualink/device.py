@@ -16,6 +16,15 @@ LOGGER = logging.getLogger("iaqualink.device")
 
 
 class AqualinkDevice:
+    # Properties that form this class's public API surface, used by snapshot
+    # tests and documentation. Each subclass declares only its own additions;
+    # tests collect the full set by walking the MRO via vars().
+    _own_snapshot_props: tuple[str, ...] = (
+        "label",
+        "state",
+        "state_translated",
+    )
+
     def __init__(
         self,
         system: Any,  # Should be AqualinkSystem but causes mypy errors.
@@ -82,6 +91,8 @@ class AqualinkSensor(AqualinkDevice):
 class AqualinkBinarySensor(AqualinkSensor):
     """These are non-actionable sensors, essentially read-only on/off."""
 
+    _own_snapshot_props: tuple[str, ...] = ("is_on",)
+
     @property
     def is_on(self) -> bool:
         raise NotImplementedError
@@ -96,6 +107,8 @@ class AqualinkSwitch(AqualinkBinarySensor, AqualinkDevice):
 
 
 class AqualinkLight(AqualinkSwitch, AqualinkDevice):
+    _own_snapshot_props: tuple[str, ...] = ("brightness", "effect")
+
     @property
     def brightness(self) -> int | None:
         return None
@@ -129,6 +142,12 @@ class AqualinkLight(AqualinkSwitch, AqualinkDevice):
 
 
 class AqualinkThermostat(AqualinkSwitch, AqualinkDevice):
+    _own_snapshot_props: tuple[str, ...] = (
+        "unit",
+        "current_temperature",
+        "target_temperature",
+    )
+
     @property
     def unit(self) -> str:
         raise NotImplementedError
@@ -154,6 +173,14 @@ class AqualinkThermostat(AqualinkSwitch, AqualinkDevice):
 
 
 class AqualinkNumber(AqualinkDevice):
+    _own_snapshot_props: tuple[str, ...] = (
+        "current_value",
+        "min_value",
+        "max_value",
+        "step",
+        "unit",
+    )
+
     @property
     def current_value(self) -> float | None:
         raise NotImplementedError

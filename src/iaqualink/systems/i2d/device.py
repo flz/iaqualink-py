@@ -85,6 +85,8 @@ class I2dBinarySensor(I2dDevice, AqualinkBinarySensor):
 class I2dSensor(I2dDevice, AqualinkSensor):
     """Read-only telemetry value from an iQPump device."""
 
+    _own_snapshot_props: tuple[str, ...] = ("unit",)
+
     def __init__(
         self,
         system: I2dSystem,
@@ -147,6 +149,13 @@ SETTABLE_OPMODES: tuple[I2dOpMode, ...] = (
 
 
 class I2dPump(I2dDevice, AqualinkPump):
+    _own_snapshot_props: tuple[str, ...] = (
+        "is_on",
+        "rpm_min",
+        "rpm_max",
+        "custom_speed_rpm",
+    )
+
     def __init__(self, system: I2dSystem, data: DeviceData) -> None:
         super().__init__(system, data)
         self.system: I2dSystem = system

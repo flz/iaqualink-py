@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from functools import cache
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -26,35 +27,27 @@ def make_response(data: dict) -> MagicMock:
     return r
 
 
-# Computed properties serialized alongside raw data to catch regressions in
-# parsing logic that derives values from constructor args rather than data keys
-# (e.g. I2dNumber min/max wired via min_key/max_key, I2dPump state_translated).
-_SNAPSHOT_PROPS = (
-    "state",
-    "state_translated",
-    "label",
-    "is_on",
-    "unit",
-    "current_value",
-    "min_value",
-    "max_value",
-    "step",
-    "rpm_min",
-    "rpm_max",
-    "custom_speed_rpm",
-)
+@cache
+def _collect_snapshot_props(cls: type) -> tuple[str, ...]:
+    """Collect _own_snapshot_props from each class in the MRO using vars()
+    so inheritance does not contaminate each class's own declaration."""
+    props: list[str] = []
+    seen: set[str] = set()
+    for ancestor in reversed(cls.__mro__):
+        for p in vars(ancestor).get("_own_snapshot_props", ()):
+            if p not in seen:
+                props.append(p)
+                seen.add(p)
+    return tuple(props)
 
 
 def snapshot_devices(
     devices: dict[str, AqualinkDevice],
 ) -> dict[str, dict]:
-    result = {}
-    for name, dev in devices.items():
-        entry: dict = {"type": type(dev).__name__}
-        for prop in _SNAPSHOT_PROPS:
-            try:
-                entry[prop] = getattr(dev, prop)
-            except AttributeError:
-                pass
-        result[name] = entry
-    return result
+    return {
+        name: {
+            "type": type(dev).__name__,
+            **{p: getattr(dev, p) for p in _collect_snapshot_props(type(dev))},
+        }
+        for name, dev in devices.items()
+    }
