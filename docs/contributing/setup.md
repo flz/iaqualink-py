@@ -76,7 +76,7 @@ uv run mypy src/
 
 ## Code Style
 
-- Line length: 88 characters
+- Line length: 80 characters
 - Type hints required on all public APIs
 - Google-style docstrings for public APIs
 

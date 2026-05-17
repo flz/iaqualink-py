@@ -429,3 +429,7 @@ The device also exposes an HTTP server at `http://192.168.0.1` on the local
 network with the same `/alldata/read` and `/{key}/write` commands. This path
 uses GET with no body (read) or a query parameter form (write). The library
 does not implement local access.
+
+## See Also
+
+- [Implementation Notes: i2d](../implementation/i2d.md) — status lifecycle, design decisions, accepted divergences from this spec

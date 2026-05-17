@@ -216,3 +216,7 @@ All enum fields are serialized as strings in JSON.
 | HTTP 401 | Response code | Trigger token refresh, retry once |
 | HTTP 429 | Response code | Re-raise throttle exception before broader service exception |
 | Other HTTP error | Response code ≠ 200 | Raise service exception |
+
+## See Also
+
+- [Implementation Notes: iAqua](../implementation/iaqua.md) — status lifecycle, design decisions, accepted divergences from this spec
