@@ -107,7 +107,7 @@ Raises `ValueError` if `parts` is empty.
 - Two API calls per update: `get_home` + `get_devices` (+ `get_onetouch` if supported)
 - Commands: GET requests to session endpoint with `command` query parameter
 
-See [Implementation Notes: iAqua](../implementation/iaqua.md) for status lifecycle and deltas.
+See [Implementation Notes: iAqua](../implementation/systems/iaqua.md) for status lifecycle and deltas.
 
 ### eXO Systems
 
@@ -120,7 +120,7 @@ See [Implementation Notes: iAqua](../implementation/iaqua.md) for status lifecyc
 - State updates via desired/reported pattern
 - Automatic token refresh on 401
 
-See [Implementation Notes: eXO](../implementation/exo.md) for status lifecycle and deltas.
+See [Implementation Notes: eXO](../implementation/systems/exo.md) for status lifecycle and deltas.
 
 ### i2d Systems
 
@@ -132,7 +132,7 @@ See [Implementation Notes: eXO](../implementation/exo.md) for status lifecycle a
 - Single POST endpoint for all operations (`/alldata/read` + `/{key}/write`)
 - `motordata` sub-object flattened into top-level data dict at parse time
 
-See [Implementation Notes: i2d](../implementation/i2d.md) for status lifecycle and deltas.
+See [Implementation Notes: i2d](../implementation/systems/i2d.md) for status lifecycle and deltas.
 
 ## Data Flow
 

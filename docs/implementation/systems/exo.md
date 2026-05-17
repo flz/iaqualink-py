@@ -1,6 +1,6 @@
 # eXO Implementation Notes
 
-Implementation details for the eXO system (`device_type: "exo"`). For the wire-level protocol, see [Protocol Reference: eXO](../reference/exo.md).
+Implementation details for the eXO system (`device_type: "exo"`). For the wire-level protocol, see [Protocol Reference: eXO](../../reference/systems/exo.md).
 
 ## Overview
 
@@ -79,5 +79,5 @@ The Python implementation strips `boost_time`, `vsp_speed`, `sn`, `vr`, and `ver
 
 ## See Also
 
-- [Protocol Reference: eXO](../reference/exo.md) — wire-level spec
-- [API Reference: eXO](../api/exo.md) — class and method docs
+- [Protocol Reference: eXO](../../reference/systems/exo.md) — wire-level spec
+- [API Reference: eXO](../../api/systems/exo.md) — class and method docs

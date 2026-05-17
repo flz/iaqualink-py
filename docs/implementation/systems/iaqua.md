@@ -1,6 +1,6 @@
 # iAqua Implementation Notes
 
-Implementation details for the iAqua system (`device_type: "iaqua"`). For the wire-level protocol, see [Protocol Reference: iAqua](../reference/iaqua.md).
+Implementation details for the iAqua system (`device_type: "iaqua"`). For the wire-level protocol, see [Protocol Reference: iAqua](../../reference/systems/iaqua.md).
 
 ## Overview
 
@@ -75,5 +75,5 @@ The reference app uses `p-api.iaqualink.net`. The Python implementation uses `r-
 
 ## See Also
 
-- [Protocol Reference: iAqua](../reference/iaqua.md) — wire-level spec
-- [API Reference: iAqua](../api/iaqua.md) — class and method docs
+- [Protocol Reference: iAqua](../../reference/systems/iaqua.md) — wire-level spec
+- [API Reference: iAqua](../../api/systems/iaqua.md) — class and method docs

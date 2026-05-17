@@ -1,6 +1,3 @@
 nav:
   - Auth & Discovery: client.md
-  - Systems:
-      - iAqua: iaqua.md
-      - eXO: exo.md
-      - i2d (iQPump): i2d.md
+  - Systems: systems/

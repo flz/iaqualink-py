@@ -3,7 +3,7 @@
 **Python system name:** `"iaqua"`
 **Wire device type:** `"iQ20"`
 **Protocol family:** Legacy REST session (polling, no real-time push)
-**Auth:** See [client.md](client.md)
+**Auth:** See [client.md](../client.md)
 
 ---
 
@@ -219,4 +219,4 @@ All enum fields are serialized as strings in JSON.
 
 ## See Also
 
-- [Implementation Notes: iAqua](../implementation/iaqua.md) — status lifecycle, design decisions, accepted divergences from this spec
+- [Implementation Notes: iAqua](../../implementation/systems/iaqua.md) — status lifecycle, design decisions, accepted divergences from this spec

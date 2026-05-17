@@ -18,7 +18,7 @@ Action: grep the diff for `.java`, `com.zodiac`, `com.amazonaws`, `infinity/`, `
 
 ## 1. Protocol Correctness
 
-- Every URL path, HTTP method, query parameter, and JSON field name must match `docs/reference/<system>.md` for the system being changed.
+- Every URL path, HTTP method, query parameter, and JSON field name must match `docs/reference/systems/<system>.md` for the system being changed.
 - If the diff diverges from the architecture doc, a comment in the code must explain why.
 - Check auth header format per system: iQ20 session uses bare `IdToken`; shadow endpoints vary — verify against the architecture doc.
 - New constants (URLs, paths, header names) must trace to the architecture doc, not be invented.
@@ -113,4 +113,4 @@ All three must be clean. Trailing whitespace, missing newlines, and lock-file dr
 
 ## 10. Spec Validation
 
-If the diff touches or adds any endpoint, field, or auth flow: read the relevant section of `docs/reference/<system>.md` and verify the implementation matches. If the doc does not yet cover the change, update the doc as part of the same commit. Do not ship protocol changes without doc coverage.
+If the diff touches or adds any endpoint, field, or auth flow: read the relevant section of `docs/reference/systems/<system>.md` and verify the implementation matches. If the doc does not yet cover the change, update the doc as part of the same commit. Do not ship protocol changes without doc coverage.

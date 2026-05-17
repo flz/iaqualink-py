@@ -54,11 +54,14 @@ See `docs/reference/` for per-system wire-level protocol specs (source of truth 
 9. Update documentation — all of the following in the same PR:
    - `README.md` — add to Multi-System Support list
    - `docs/index.md` — add to Features list
-   - `mkdocs.yml` — add nav entries under Getting Started, API Reference, Protocol Reference, Implementation Notes
+   - `docs/api/systems/.nav.yml` — add entry for the new system
+   - `docs/reference/systems/.nav.yml` — add entry for the new system
+   - `docs/implementation/systems/.nav.yml` — add entry for the new system
+   - `docs/.nav.yml` — add entry under Getting Started if needed
    - `docs/getting-started/newsystem.md` — API overview, status table, device inventory
-   - `docs/implementation/newsystem.md` — status lifecycle, design decisions, deltas vs reference
-   - `docs/api/newsystem.md` — `:::` autodoc directives for system + device classes
-   - `docs/reference/newsystem.md` — wire-level protocol documentation
+   - `docs/implementation/systems/newsystem.md` — status lifecycle, design decisions, deltas vs reference
+   - `docs/api/systems/newsystem.md` — `:::` autodoc directives for system + device classes
+   - `docs/reference/systems/newsystem.md` — wire-level protocol documentation
 
 ## Adding New Base Device Types
 
@@ -77,16 +80,16 @@ Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `Aquali
 
 ## Protocol Reference
 
-`docs/reference/<system>.md` is the source of truth for protocol behavior in this repo:
+`docs/reference/systems/<system>.md` is the source of truth for protocol behavior in this repo:
 
 - `docs/reference/client.md` — auth flow, login/refresh shapes, device list, HTTP client config
-- `docs/reference/iaqua.md` — iQ20 pool controller: session endpoint, commands, response field shapes, enum wire values
-- `docs/reference/exo.md` — EXO/SWC chlorinator: shadow REST endpoints, full state field reference, write shapes
-- `docs/reference/i2d.md` — iQPump: control endpoint, alldata fields, write format, offline signals
+- `docs/reference/systems/iaqua.md` — iQ20 pool controller: session endpoint, commands, response field shapes, enum wire values
+- `docs/reference/systems/exo.md` — EXO/SWC chlorinator: shadow REST endpoints, full state field reference, write shapes
+- `docs/reference/systems/i2d.md` — iQPump: control endpoint, alldata fields, write format, offline signals
 
 **Before changing any endpoint, field, or auth flow:** read the relevant reference doc and verify the change matches. If not covered, update the doc in the same commit.
 
-**Divergences from reference behavior** are documented in the "Deltas vs Protocol Reference" section of `docs/implementation/<system>.md`. Confirm intentional divergences before adding new ones.
+**Divergences from reference behavior** are documented in the "Deltas vs Protocol Reference" section of `docs/implementation/systems/<system>.md`. Confirm intentional divergences before adding new ones.
 
 ## Logging Guidelines
 

@@ -3,7 +3,4 @@ nav:
   - System: system.md
   - Device: device.md
   - Exceptions: exceptions.md
-  - Systems:
-      - iAqua: iaqua.md
-      - eXO: exo.md
-      - i2d (iQPump): i2d.md
+  - Systems: systems/

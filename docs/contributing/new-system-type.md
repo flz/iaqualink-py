@@ -87,9 +87,9 @@ All of the following must be updated in the same PR:
 | `docs/index.md` | System to Features list |
 | `mkdocs.yml` | Nav entries under Getting Started, API Reference, Protocol Reference, Implementation Notes |
 | `docs/getting-started/newsystem.md` | API overview, status table, device inventory |
-| `docs/implementation/newsystem.md` | Status lifecycle, design decisions, deltas vs reference |
-| `docs/api/newsystem.md` | `:::` autodoc directives for system + device classes |
-| `docs/reference/newsystem.md` | Wire-level protocol documentation |
+| `docs/implementation/systems/newsystem.md` | Status lifecycle, design decisions, deltas vs reference |
+| `docs/api/systems/newsystem.md` | `:::` autodoc directives for system + device classes |
+| `docs/reference/systems/newsystem.md` | Wire-level protocol documentation |
 
 ## Checklist
 

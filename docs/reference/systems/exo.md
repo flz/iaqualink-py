@@ -2,7 +2,7 @@
 
 **Python system name:** `"exo"`
 **Protocol family:** AWS IoT shadow (MQTT in reference; REST polling in current Python implementation)
-**Auth:** See [client.md](client.md)
+**Auth:** See [client.md](../client.md)
 
 ---
 
@@ -269,4 +269,4 @@ The EXO device is identified at the MQTT routing layer by a device-type ordinal.
 
 ## See Also
 
-- [Implementation Notes: eXO](../implementation/exo.md) — status lifecycle, design decisions, accepted divergences from this spec
+- [Implementation Notes: eXO](../../implementation/systems/exo.md) — status lifecycle, design decisions, accepted divergences from this spec

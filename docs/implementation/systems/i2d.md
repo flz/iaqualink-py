@@ -1,6 +1,6 @@
 # i2d Implementation Notes
 
-Implementation details for i2d systems (`device_type: "i2d"` — iQPump variable-speed pump controllers). For the wire-level protocol, see [Protocol Reference: i2d](../reference/i2d.md).
+Implementation details for i2d systems (`device_type: "i2d"` — iQPump variable-speed pump controllers). For the wire-level protocol, see [Protocol Reference: i2d](../../reference/systems/i2d.md).
 
 ## Overview
 
@@ -118,5 +118,5 @@ The reference protocol defines a local (same-LAN) access path at `http://192.168
 
 ## See Also
 
-- [Protocol Reference: i2d](../reference/i2d.md) — wire-level spec
-- [API Reference: i2d](../api/i2d.md) — class and method docs
+- [Protocol Reference: i2d](../../reference/systems/i2d.md) — wire-level spec
+- [API Reference: i2d](../../api/systems/i2d.md) — class and method docs

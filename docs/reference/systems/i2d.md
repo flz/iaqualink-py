@@ -432,4 +432,4 @@ does not implement local access.
 
 ## See Also
 
-- [Implementation Notes: i2d](../implementation/i2d.md) — status lifecycle, design decisions, accepted divergences from this spec
+- [Implementation Notes: i2d](../../implementation/systems/i2d.md) — status lifecycle, design decisions, accepted divergences from this spec
