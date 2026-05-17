@@ -3,7 +3,7 @@
 **Python system name:** `"iaqua"`
 **Wire device type:** `"iQ20"`
 **Protocol family:** Legacy REST session (polling, no real-time push)
-**Auth:** See [client.md](client.md)
+**Auth:** See [client.md](../client.md)
 
 ---
 
@@ -217,17 +217,6 @@ All enum fields are serialized as strings in JSON.
 | HTTP 429 | Response code | Re-raise throttle exception before broader service exception |
 | Other HTTP error | Response code ≠ 200 | Raise service exception |
 
----
+## See Also
 
-## Deltas vs Current Implementation
-
-| # | Observed reference | Current Python (`IaquaSystem`) |
-|---|---|---|
-| 1 | Session host: `p-api.iaqualink.net` | Uses `r-api.iaqualink.net` — different host |
-| 2 | `Authorization` header: bare `{IdToken}` (no prefix) | Sends `Bearer {id_token}` |
-| 3 | `get_home` sends `country` and `attached_test=true` params | Neither param is sent |
-| 4 | `sessionID` in query params | ✓ Matches reference (`client_id` = `session_id`) |
-| 5 | `api_key` header on session requests | ✓ Matches reference |
-| 6 | Response parsing: `home_screen` array flattened | ✓ Matches reference |
-| 7 | Offline detection from `status` field in both `get_home` and `get_devices` | ✓ Matches reference |
-| 8 | `devices_screen` aux entries start at index 3 | ✓ Matches reference (`[3:]`) |
+- [Implementation Notes: iAqua](../../implementation/systems/iaqua.md) — status lifecycle, design decisions, accepted divergences from this spec

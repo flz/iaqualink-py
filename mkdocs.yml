@@ -37,36 +37,9 @@ theme:
   icon:
     repo: fontawesome/brands/github
 
-nav:
-  - Home: index.md
-  - Getting Started:
-      - Installation: getting-started/installation.md
-      - Quick Start: getting-started/quickstart.md
-      - Authentication: getting-started/authentication.md
-      - iQPump (i2d): getting-started/i2d.md
-  - User Guide:
-      - Abstract Classes:
-          - Systems: guide/systems.md
-          - Devices: guide/devices.md
-      - System Implementations:
-          - iAqua: guide/iaqua.md
-          - eXO: guide/exo.md
-          - i2d (iQPump): guide/i2d.md
-      - Examples: guide/examples.md
-  - API Reference:
-      - Client: api/client.md
-      - System: api/system.md
-      - Device: api/device.md
-      - iAqua Systems: api/iaqua.md
-      - eXO Systems: api/exo.md
-      - i2d Systems: api/i2d.md
-      - Exceptions: api/exceptions.md
-  - Development:
-      - Contributing: development/contributing.md
-      - Architecture: development/architecture.md
-
 plugins:
   - search
+  - awesome-nav
   - mkdocstrings:
       handlers:
         python:

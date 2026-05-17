@@ -29,7 +29,7 @@ git diff "$BASE"...HEAD -- src/
 Pass the diff to the `ha-reviewer` agent.
 
 **`devices` mode:**
-Read `src/iaqualink/device.py`, `src/iaqualink/systems/iaqua/device.py`, `src/iaqualink/systems/exo/device.py`. Pass all three to the agent.
+Read `src/iaqualink/device.py`, `src/iaqualink/systems/iaqua/device.py`, `src/iaqualink/systems/exo/device.py`, `src/iaqualink/systems/i2d/device.py`. Pass all four to the agent.
 
 **Class name mode:**
 Grep for the class across `src/iaqualink/` and read the file. Pass to the agent.

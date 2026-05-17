@@ -150,6 +150,6 @@ Device data includes:
 
 ## See Also
 
-- [System API](system.md) - Base system reference
-- [Device API](device.md) - Base device reference
+- [System API](../system.md) - Base system reference
+- [Device API](../device.md) - Base device reference
 - [eXO Systems](exo.md) - Compare with eXO systems

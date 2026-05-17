@@ -44,6 +44,7 @@ Fetch only what is relevant to the question. Do not fetch everything upfront.
 Read from `src/iaqualink/device.py` (base classes) and the system-specific device files:
 - `src/iaqualink/systems/iaqua/device.py`
 - `src/iaqualink/systems/exo/device.py`
+- `src/iaqualink/systems/i2d/device.py`
 
 ## Review procedure
 

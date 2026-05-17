@@ -127,7 +127,6 @@ except AqualinkServiceException as e:
 
 ## Next Steps
 
-- [Authentication](authentication.md) - Learn about authentication details
-- [Systems Guide](../guide/systems.md) - Deep dive into systems
-- [Devices Guide](../guide/devices.md) - Learn about device types
-- [Examples](../guide/examples.md) - See more complete examples
+- [API Reference](../api/client.md) — `AqualinkClient` class reference
+- [Architecture](../contributing/architecture.md) — system/device hierarchy and data flow
+- [Protocol Reference](../reference/client.md) — wire-level auth and endpoint details

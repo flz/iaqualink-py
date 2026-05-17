@@ -235,6 +235,6 @@ print(pool_pump.is_on)
 ## See Also
 
 - [System API](system.md) - System reference
-- [iAqua Devices](iaqua.md) - iAqua-specific devices
-- [eXO Devices](exo.md) - eXO-specific devices
-- [Devices Guide](../guide/devices.md) - Device usage guide
+- [iAqua Devices](systems/iaqua.md) - iAqua-specific devices
+- [eXO Devices](systems/exo.md) - eXO-specific devices
+- [Architecture](../contributing/architecture.md) - Device hierarchy and design

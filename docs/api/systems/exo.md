@@ -211,6 +211,6 @@ Devices are automatically named based on their equipment type and position:
 
 ## See Also
 
-- [System API](system.md) - Base system reference
-- [Device API](device.md) - Base device reference
+- [System API](../system.md) - Base system reference
+- [Device API](../device.md) - Base device reference
 - [iAqua Systems](iaqua.md) - Compare with iAqua systems

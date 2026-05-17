@@ -48,4 +48,4 @@ print(iaqualink.__version__)
 ## Next Steps
 
 - [Quick Start](quickstart.md) - Get started with basic usage
-- [Authentication](authentication.md) - Learn about authentication
+- [API Reference](../api/client.md) - `AqualinkClient` reference

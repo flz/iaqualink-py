@@ -153,5 +153,5 @@ system = AqualinkSystem.from_data(client, system_data)
 
 - [Client API](client.md) - Client reference
 - [Device API](device.md) - Device reference
-- [iAqua Systems](iaqua.md) - iAqua-specific details
-- [eXO Systems](exo.md) - eXO-specific details
+- [iAqua Systems](systems/iaqua.md) - iAqua-specific details
+- [eXO Systems](systems/exo.md) - eXO-specific details

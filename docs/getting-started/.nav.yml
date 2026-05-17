@@ -1,0 +1,4 @@
+nav:
+  - Installation: installation.md
+  - Home Assistant: home-assistant.md
+  - Programmatic Use: quickstart.md
