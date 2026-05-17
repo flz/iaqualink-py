@@ -50,7 +50,7 @@ def snapshot_devices(
 ) -> dict[str, dict]:
     result = {}
     for name, dev in devices.items():
-        entry: dict = {"type": type(dev).__name__, "data": dev.data}
+        entry: dict = {"type": type(dev).__name__}
         for prop in _SNAPSHOT_PROPS:
             try:
                 entry[prop] = getattr(dev, prop)
