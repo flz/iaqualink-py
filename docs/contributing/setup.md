@@ -118,7 +118,7 @@ When adding a new system, use `logging.getLogger("iaqualink.systems.<name>")` in
 
 Never log these values directly:
 
-- Credentials: `password`, `api_key`
+- Credentials: `password`, `_password`, `api_key`
 - Auth tokens: `authentication_token`, `id_token`, `refresh_token`, `client_id`
 - Request secrets: HMAC `signature`, `sessionID`
 
@@ -131,6 +131,18 @@ LOGGER.debug("-> %s %s %s", method, _redact_url(url), _redact_kwargs(kwargs))
 `AqualinkAuthState.__repr__` masks token fields — logging an auth state object is safe.
 
 Auth response bodies (login, refresh) contain raw tokens — never log them on success.
+
+### INFO-level auth examples
+
+Auth lifecycle events log at `INFO`. Examples from `client.py`:
+
+```python
+LOGGER.info("Authenticated: user=%s", self.username)
+LOGGER.info("Auth token refreshed: user=%s", self.username)
+LOGGER.info("Refresh token expired, re-authenticating: user=%s", self.username)
+```
+
+Log `username` only — never log the password, token, or any credential value.
 
 ### Response body visibility
 

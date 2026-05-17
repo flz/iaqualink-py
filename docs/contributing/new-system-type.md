@@ -85,7 +85,9 @@ All of the following must be updated in the same PR:
 |---|---|
 | `README.md` | System to Multi-System Support feature list |
 | `docs/index.md` | System to Features list |
-| `mkdocs.yml` | Nav entries under Getting Started, API Reference, Protocol Reference, Implementation Notes |
+| `docs/api/systems/.nav.yml` | Add entry for the new system |
+| `docs/reference/systems/.nav.yml` | Add entry for the new system |
+| `docs/implementation/systems/.nav.yml` | Add entry for the new system |
 | `docs/getting-started/newsystem.md` | API overview, status table, device inventory |
 | `docs/implementation/systems/newsystem.md` | Status lifecycle, design decisions, deltas vs reference |
 | `docs/api/systems/newsystem.md` | `:::` autodoc directives for system + device classes |
