@@ -30,6 +30,7 @@ def _redact_dict(d: dict[str, Any]) -> dict[str, Any]:
 class CaptureSession:
     path: Path
     _file: IO[str] = field(init=False, repr=False)
+    _literals: set[str] = field(init=False, repr=False, default_factory=set)
 
     def __post_init__(self) -> None:
         self._file = self.path.open("a", encoding="utf-8")
@@ -38,6 +39,15 @@ class CaptureSession:
     def close(self) -> None:
         if not self._file.closed:
             self._file.close()
+
+    def register_serials(self, *serials: str) -> None:
+        self._literals.update(s for s in serials if s)
+
+    def _redact_url(self, url: str) -> str:
+        url = _redact_url(url)
+        for literal in self._literals:
+            url = url.replace(literal, "***")
+        return url
 
     def make_hooks(self) -> dict[str, list]:
         return {"response": [self._capture_response]}
@@ -70,7 +80,7 @@ class CaptureSession:
             ).isoformat(),
             "request": {
                 "method": request.method,
-                "url": _redact_url(str(request.url)),
+                "url": self._redact_url(str(request.url)),
                 "headers": _redact_dict(dict(request.headers)),
                 "body": req_body,
             },

@@ -218,6 +218,8 @@ async def _fetch_systems(
             await client.login()
             systems = await client.get_systems()
 
+        if _capture_session is not None:
+            _capture_session.register_serials(*systems.keys())
         _save_session_jar(cookie_jar, client.auth_state)
         return systems
 
