@@ -128,6 +128,21 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         assert body["refresh_token"] == "***"
         assert body["session_id"] == "sess-123"
 
+    async def test_redacts_authorization_header(self) -> None:
+        session = CaptureSession(path=self._path)
+        request = httpx.Request(
+            "GET",
+            "https://prod.zodiac-io.com/devices",
+            headers={"Authorization": "Bearer secret-id-token"},
+        )
+        response = _make_response(request, 200, {})
+
+        await session._capture_response(response)
+        session.close()
+
+        headers = self._load_lines()[0]["request"]["headers"]
+        assert headers["authorization"] == "***"
+
     async def test_redacts_sensitive_url_param(self) -> None:
         session = CaptureSession(path=self._path)
         request = _make_request(

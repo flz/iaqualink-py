@@ -50,6 +50,7 @@ _REDACT_KEYS = frozenset(
     {
         "api_key",
         "authentication_token",
+        "authorization",
         "client_id",
         "id_token",
         "password",
