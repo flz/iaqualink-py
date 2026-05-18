@@ -292,7 +292,7 @@
     }),
     'wifissid': dict({
       'label': 'WiFi SSID',
-      'state': 'MyNetwork',
+      'state': 'test-network',
       'state_translated': None,
       'type': 'I2dSensor',
       'unit': None,
