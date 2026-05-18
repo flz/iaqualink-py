@@ -542,17 +542,17 @@ async def _run_switch_command(
         else:
             await device.turn_off()
     elif isinstance(device, AqualinkPump):
-        if target_state == "on" and not device.supports_turn_on:
-            _exit_with_error(
-                f"Pump {device_name!r} does not support turn on.",
-            )
-        if target_state == "off" and not device.supports_turn_off:
-            _exit_with_error(
-                f"Pump {device_name!r} does not support turn off.",
-            )
         if target_state == "on":
+            if not device.supports_turn_on:
+                _exit_with_error(
+                    f"Pump {device_name!r} does not support turn on.",
+                )
             await device.turn_on()
         else:
+            if not device.supports_turn_off:
+                _exit_with_error(
+                    f"Pump {device_name!r} does not support turn off.",
+                )
             await device.turn_off()
     else:
         _exit_with_error(
