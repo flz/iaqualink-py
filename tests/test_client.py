@@ -694,11 +694,11 @@ class TestRedactKwargs(TestBase):
 
     def test_passthrough_when_no_sensitive_keys(self) -> None:
         kwargs = {
-            "json": {"command": "get_home", "serial": "ABC"},
+            "json": {"command": "get_home", "device_type": "iaqua"},
             "timeout": 10,
         }
         result = _redact_kwargs(kwargs)
-        assert result["json"] == {"command": "get_home", "serial": "ABC"}
+        assert result["json"] == {"command": "get_home", "device_type": "iaqua"}
         assert result["timeout"] == 10
 
     def test_redacts_sensitive_keys_in_data(self) -> None:

@@ -73,6 +73,9 @@ _REDACT_KEYS = frozenset(
         "last_name",
         "phone",
         "postal_code",
+        "serial",
+        "serialnumber",
+        "ssid",
         "username",
     }
 )

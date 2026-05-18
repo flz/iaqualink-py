@@ -49,8 +49,8 @@ class TestRedactDict(unittest.TestCase):
         assert result["authentication_token"] == "***"
 
     def test_passes_through_safe_keys(self) -> None:
-        result = _redact_dict({"status": "ok", "serial": "abc"})
-        assert result == {"status": "ok", "serial": "abc"}
+        result = _redact_dict({"status": "ok", "device_type": "iaqua"})
+        assert result == {"status": "ok", "device_type": "iaqua"}
 
     def test_empty_dict(self) -> None:
         assert _redact_dict({}) == {}
