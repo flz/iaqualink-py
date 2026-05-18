@@ -766,12 +766,6 @@ def _make_pump(
     supports_presets: bool = False,
     presets: list[str] | None = None,
 ) -> AqualinkPump:
-    _s_on = supports_turn_on
-    _s_off = supports_turn_off
-    _s_speed = supports_set_speed_percentage
-    _s_presets = supports_presets
-    _presets = presets or []
-
     class _Impl(AqualinkPump):
         @property
         def label(self) -> str:
@@ -795,11 +789,11 @@ def _make_pump(
 
         @property
         def supports_turn_on(self) -> bool:
-            return _s_on
+            return supports_turn_on
 
         @property
         def supports_turn_off(self) -> bool:
-            return _s_off
+            return supports_turn_off
 
         @property
         def is_on(self) -> bool:
@@ -813,25 +807,27 @@ def _make_pump(
 
         @property
         def supports_set_speed_percentage(self) -> bool:
-            return _s_speed
+            return supports_set_speed_percentage
 
         async def set_speed_percentage(self, percentage: int) -> None:
-            pass
+            if not 0 <= percentage <= 100:
+                raise AqualinkInvalidParameterException(percentage)
 
         @property
         def supports_presets(self) -> bool:
-            return _s_presets
+            return supports_presets
 
         @property
         def supported_presets(self) -> list[str]:
-            return _presets
+            return presets or []
 
         @property
         def current_preset(self) -> str | None:
             return None
 
         async def set_preset(self, preset: str) -> None:
-            pass
+            if preset not in (presets or []):
+                raise AqualinkInvalidParameterException(preset)
 
     return object.__new__(_Impl)
 
@@ -1011,6 +1007,18 @@ def test_set_speed_saves_jar(tmp_path: Path) -> None:
     assert data["client_id"] == "post-device-session"
 
 
+def test_set_speed_out_of_range_exits(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "1", supports_set_speed_percentage=True)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-speed", "vsp", "150")
+    assert result.exit_code == 1
+    assert "150" in result.stderr
+
+
 # ---------------------------------------------------------------------------
 # set-effect
 # ---------------------------------------------------------------------------
@@ -1149,6 +1157,20 @@ def test_set_preset_saves_jar(tmp_path: Path) -> None:
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"
+
+
+def test_set_preset_invalid_preset_exits(tmp_path: Path) -> None:
+    pump = _make_pump(
+        "VSP", "1", supports_presets=True, presets=["Low", "High"]
+    )
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-preset", "vsp", "Bogus")
+    assert result.exit_code == 1
+    assert "Bogus" in result.stderr
 
 
 # ---------------------------------------------------------------------------
