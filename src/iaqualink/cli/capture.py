@@ -11,9 +11,19 @@ import httpx
 
 from iaqualink.client import _REDACT_KEYS, _redact_url
 
+_REDACT_KEYS_CI = frozenset(k.lower() for k in _REDACT_KEYS)
+
 
 def _redact_dict(d: dict[str, Any]) -> dict[str, Any]:
-    return {k: "***" if k in _REDACT_KEYS else v for k, v in d.items()}
+    result: dict[str, Any] = {}
+    for k, v in d.items():
+        if k.lower() in _REDACT_KEYS_CI:
+            result[k] = "***"
+        elif isinstance(v, dict):
+            result[k] = _redact_dict(v)
+        else:
+            result[k] = v
+    return result
 
 
 @dataclass
@@ -37,7 +47,9 @@ class CaptureSession:
         request = response.request
 
         try:
-            req_body: Any = json.loads(request.content) if request.content else None
+            req_body: Any = (
+                json.loads(request.content) if request.content else None
+            )
         except (json.JSONDecodeError, UnicodeDecodeError):
             req_body = request.content.decode("utf-8", errors="replace") or None
 
@@ -53,7 +65,9 @@ class CaptureSession:
             resp_body = _redact_dict(resp_body)
 
         entry = {
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "timestamp": datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat(),
             "request": {
                 "method": request.method,
                 "url": _redact_url(str(request.url)),

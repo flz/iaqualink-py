@@ -625,7 +625,7 @@ class TestRedactUrl(TestBase):
         url = "https://example.com/login?email=user&password=s3cr3t"
         assert (
             _redact_url(url)
-            == "https://example.com/login?email=user&password=***"
+            == "https://example.com/login?email=***&password=***"
         )
 
     def test_redacts_signature_in_query(self) -> None:
@@ -661,7 +661,7 @@ class TestRedactKwargs(TestBase):
         kwargs = {"json": {"email": "user@example.com", "password": "s3cr3t"}}
         result = _redact_kwargs(kwargs)
         assert result["json"]["password"] == "***"
-        assert result["json"]["email"] == "user@example.com"
+        assert result["json"]["email"] == "***"
 
     def test_redacts_refresh_token_in_json(self) -> None:
         kwargs = {"json": {"email": "u", "refresh_token": "tok"}}
@@ -724,7 +724,7 @@ class TestAqualinkAuthStateRepr(TestBase):
             refresh_token="refresh-tok",
         )
         r = repr(state)
-        assert "user@example.com" in r
+        assert "user@example.com" not in r
         assert "42" in r
         assert "session-id" not in r
         assert "auth-tok" not in r

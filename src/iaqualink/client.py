@@ -48,6 +48,12 @@ LOGGER = logging.getLogger("iaqualink.client")
 
 _REDACT_KEYS = frozenset(
     {
+        # auth tokens & credentials
+        "AccessKeyId",
+        "IdToken",
+        "IdentityId",
+        "SecretKey",
+        "SessionToken",
         "api_key",
         "authentication_token",
         "authorization",
@@ -55,8 +61,19 @@ _REDACT_KEYS = frozenset(
         "id_token",
         "password",
         "refresh_token",
+        "session_id",
         "sessionID",
         "signature",
+        # PII
+        "address",
+        "address_1",
+        "address_2",
+        "email",
+        "first_name",
+        "last_name",
+        "phone",
+        "postal_code",
+        "username",
     }
 )
 _REDACT_URL_RE = re.compile(

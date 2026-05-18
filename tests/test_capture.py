@@ -44,7 +44,7 @@ class TestRedactDict(unittest.TestCase):
                 "authentication_token": "tok123",
             }
         )
-        assert result["email"] == "user@example.com"
+        assert result["email"] == "***"
         assert result["password"] == "***"
         assert result["authentication_token"] == "***"
 
@@ -54,6 +54,50 @@ class TestRedactDict(unittest.TestCase):
 
     def test_empty_dict(self) -> None:
         assert _redact_dict({}) == {}
+
+    def test_case_insensitive_key_match(self) -> None:
+        result = _redact_dict(
+            {"IdToken": "jwt-secret", "AccessKeyId": "AKIA123"}
+        )
+        assert result["IdToken"] == "***"
+        assert result["AccessKeyId"] == "***"
+
+    def test_recursive_nested_dicts(self) -> None:
+        result = _redact_dict(
+            {
+                "status": "ok",
+                "credentials": {
+                    "AccessKeyId": "AKIA123",
+                    "SecretKey": "secret",
+                    "SessionToken": "token",
+                },
+                "userPoolOAuth": {
+                    "IdToken": "jwt-value",
+                    "ExpiresIn": 3600,
+                },
+            }
+        )
+        assert result["status"] == "ok"
+        assert result["credentials"]["AccessKeyId"] == "***"
+        assert result["credentials"]["SecretKey"] == "***"
+        assert result["credentials"]["SessionToken"] == "***"
+        assert result["userPoolOAuth"]["IdToken"] == "***"
+        assert result["userPoolOAuth"]["ExpiresIn"] == 3600
+
+    def test_pii_fields_redacted(self) -> None:
+        result = _redact_dict(
+            {
+                "first_name": "Florent",
+                "last_name": "Thoumie",
+                "phone": "6508623243",
+                "postal_code": "95051",
+                "address": "123 Main St",
+                "address_1": "123 Main St",
+                "username": "f7ce4321-2927-4615-a30b-551d9873b2c3",
+            }
+        )
+        for key in result:
+            assert result[key] == "***", f"{key!r} not redacted"
 
 
 class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
@@ -105,7 +149,7 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
 
         entry = self._load_lines()[0]
         assert entry["request"]["body"]["password"] == "***"
-        assert entry["request"]["body"]["email"] == "u@example.com"
+        assert entry["request"]["body"]["email"] == "***"
 
     async def test_redacts_token_in_response_body(self) -> None:
         session = CaptureSession(path=self._path)
@@ -126,7 +170,7 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         body = self._load_lines()[0]["response"]["body"]
         assert body["authentication_token"] == "***"
         assert body["refresh_token"] == "***"
-        assert body["session_id"] == "sess-123"
+        assert body["session_id"] == "***"
 
     async def test_redacts_authorization_header(self) -> None:
         session = CaptureSession(path=self._path)
