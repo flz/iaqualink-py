@@ -752,6 +752,281 @@ def test_set_brightness_saves_jar_after_command(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Pump helpers
+# ---------------------------------------------------------------------------
+
+
+def _make_pump(
+    label: str = "VSP",
+    state: str | None = "1",
+    *,
+    supports_turn_on: bool = False,
+    supports_turn_off: bool = False,
+    supports_set_speed_percentage: bool = False,
+    supports_presets: bool = False,
+    presets: list[str] | None = None,
+) -> AqualinkPump:
+    class _Impl(AqualinkPump):
+        @property
+        def label(self) -> str:
+            return label
+
+        @property
+        def state(self) -> str | None:
+            return state
+
+        @property
+        def name(self) -> str:
+            return label
+
+        @property
+        def manufacturer(self) -> str:
+            return ""
+
+        @property
+        def model(self) -> str:
+            return ""
+
+        @property
+        def supports_turn_on(self) -> bool:
+            return supports_turn_on
+
+        @property
+        def supports_turn_off(self) -> bool:
+            return supports_turn_off
+
+        @property
+        def is_on(self) -> bool:
+            return bool(state)
+
+        async def turn_on(self) -> None:
+            pass
+
+        async def turn_off(self) -> None:
+            pass
+
+        @property
+        def supports_set_speed_percentage(self) -> bool:
+            return supports_set_speed_percentage
+
+        async def set_speed_percentage(self, percentage: int) -> None:
+            pass
+
+        @property
+        def supports_presets(self) -> bool:
+            return supports_presets
+
+        @property
+        def supported_presets(self) -> list[str]:
+            return presets or []
+
+        @property
+        def current_preset(self) -> str | None:
+            return None
+
+        async def set_preset(self, preset: str) -> None:
+            if preset not in (presets or []):
+                raise AqualinkInvalidParameterException(preset)
+
+    return object.__new__(_Impl)
+
+
+def _make_number(
+    label: str = "RPM",
+    state: str | None = "1500",
+    *,
+    min_value: float = 0.0,
+    max_value: float = 3450.0,
+    unit: str | None = "RPM",
+) -> AqualinkNumber:
+    class _Impl(AqualinkNumber):
+        @property
+        def label(self) -> str:
+            return label
+
+        @property
+        def state(self) -> str | None:
+            return state
+
+        @property
+        def name(self) -> str:
+            return label
+
+        @property
+        def manufacturer(self) -> str:
+            return ""
+
+        @property
+        def model(self) -> str:
+            return ""
+
+        @property
+        def current_value(self) -> float | None:
+            return float(state) if state else None
+
+        @property
+        def min_value(self) -> float:
+            return min_value
+
+        @property
+        def max_value(self) -> float:
+            return max_value
+
+        @property
+        def unit(self) -> str | None:
+            return unit
+
+        async def _set_value(self, value: float) -> None:
+            pass
+
+    return object.__new__(_Impl)
+
+
+# ---------------------------------------------------------------------------
+# turn-on / turn-off with AqualinkPump
+# ---------------------------------------------------------------------------
+
+
+def test_turn_on_pump_with_support(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "0", supports_turn_on=True)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "turn-on", "vsp")
+    assert result.exit_code == 0
+    assert "VSP" in result.output
+
+
+def test_turn_on_pump_without_support_exits(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "0", supports_turn_on=False)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "turn-on", "vsp")
+    assert result.exit_code == 1
+    assert "does not support turn on" in result.stderr
+
+
+def test_turn_off_pump_with_support(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "1", supports_turn_off=True)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "turn-off", "vsp")
+    assert result.exit_code == 0
+    assert "VSP" in result.output
+
+
+def test_turn_off_pump_without_support_exits(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "1", supports_turn_off=False)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "turn-off", "vsp")
+    assert result.exit_code == 1
+    assert "does not support turn off" in result.stderr
+
+
+def test_turn_on_sensor_exits(tmp_path: Path) -> None:
+    sensor = _make_device(AqualinkSensor, "Temp", "72")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"temp": sensor})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "turn-on", "temp")
+    assert result.exit_code == 1
+    assert "does not support power controls" in result.stderr
+
+
+def test_turn_off_sensor_exits(tmp_path: Path) -> None:
+    sensor = _make_device(AqualinkSensor, "Temp", "72")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"temp": sensor})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "turn-off", "temp")
+    assert result.exit_code == 1
+    assert "does not support power controls" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# set-speed
+# ---------------------------------------------------------------------------
+
+
+def test_set_speed_pump_with_support(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "1", supports_set_speed_percentage=True)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-speed", "vsp", "75")
+    assert result.exit_code == 0
+    assert "75%" in result.output
+    assert "VSP" in result.output
+
+
+def test_set_speed_pump_without_support_exits(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "1", supports_set_speed_percentage=False)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-speed", "vsp", "75")
+    assert result.exit_code == 1
+    assert "does not support speed control" in result.stderr
+
+
+def test_set_speed_non_pump_exits(tmp_path: Path) -> None:
+    switch = _make_device(AqualinkSwitch, "Filter", "1")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-speed", "filter", "50")
+    assert result.exit_code == 1
+    assert "is not a pump" in result.stderr
+
+
+def test_set_speed_saves_jar(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "1", supports_set_speed_percentage=True)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, cookie_jar = _invoke_with_jar(tmp_path, "set-speed", "vsp", "50")
+    assert result.exit_code == 0
+    data = json.loads(cookie_jar.read_text())
+    assert data["client_id"] == "post-device-session"
+
+
+def test_set_speed_out_of_range_exits(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "1", supports_set_speed_percentage=True)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-speed", "vsp", "150")
+    assert result.exit_code == 2
+    assert "150" in result.output
+
+
+# ---------------------------------------------------------------------------
 # set-effect
 # ---------------------------------------------------------------------------
 
@@ -830,3 +1105,151 @@ def test_set_effect_rejects_unknown_effect_name(tmp_path: Path) -> None:
     result, _ = _invoke_with_jar(tmp_path, "set-effect", "light", "Bogus")
     assert result.exit_code == 1
     assert "Bogus" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# set-preset
+# ---------------------------------------------------------------------------
+
+
+def test_set_preset_pump_with_support(tmp_path: Path) -> None:
+    pump = _make_pump(
+        "VSP", "1", supports_presets=True, presets=["Low", "High"]
+    )
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-preset", "vsp", "Low")
+    assert result.exit_code == 0
+    assert "Low" in result.output
+    assert "VSP" in result.output
+
+
+def test_set_preset_pump_without_support_exits(tmp_path: Path) -> None:
+    pump = _make_pump("VSP", "1", supports_presets=False)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-preset", "vsp", "Low")
+    assert result.exit_code == 1
+    assert "does not support presets" in result.stderr
+
+
+def test_set_preset_non_pump_exits(tmp_path: Path) -> None:
+    switch = _make_device(AqualinkSwitch, "Filter", "1")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-preset", "filter", "Low")
+    assert result.exit_code == 1
+    assert "is not a pump" in result.stderr
+
+
+def test_set_preset_saves_jar(tmp_path: Path) -> None:
+    pump = _make_pump(
+        "VSP", "1", supports_presets=True, presets=["Low", "High"]
+    )
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, cookie_jar = _invoke_with_jar(tmp_path, "set-preset", "vsp", "High")
+    assert result.exit_code == 0
+    data = json.loads(cookie_jar.read_text())
+    assert data["client_id"] == "post-device-session"
+
+
+def test_set_preset_invalid_preset_exits(tmp_path: Path) -> None:
+    pump = _make_pump(
+        "VSP", "1", supports_presets=True, presets=["Low", "High"]
+    )
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-preset", "vsp", "Bogus")
+    assert result.exit_code == 1
+    assert "Bogus" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# set-value
+# ---------------------------------------------------------------------------
+
+
+def test_set_value_number_device(tmp_path: Path) -> None:
+    number = _make_number("RPM", "1500", max_value=3450.0, unit="RPM")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"rpm": number})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-value", "rpm", "2000")
+    assert result.exit_code == 0
+    assert "2000 RPM" in result.output
+
+
+def test_set_value_number_device_without_unit(tmp_path: Path) -> None:
+    number = _make_number("Level", "5", max_value=10.0, unit=None)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"level": number})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-value", "level", "7")
+    assert result.exit_code == 0
+    assert "7" in result.output
+
+
+def test_set_value_non_number_exits(tmp_path: Path) -> None:
+    switch = _make_device(AqualinkSwitch, "Filter", "1")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-value", "filter", "50")
+    assert result.exit_code == 1
+    assert "does not support numeric values" in result.stderr
+
+
+def test_set_value_out_of_range_exits(tmp_path: Path) -> None:
+    number = _make_number("RPM", "1500", max_value=3450.0, unit="RPM")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"rpm": number})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-value", "rpm", "9999")
+    assert result.exit_code == 1
+    assert "out of range" in result.stderr
+
+
+def test_set_value_saves_jar(tmp_path: Path) -> None:
+    number = _make_number("RPM", "1500", max_value=3450.0, unit="RPM")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"rpm": number})
+        }
+    )
+    result, cookie_jar = _invoke_with_jar(tmp_path, "set-value", "rpm", "2000")
+    assert result.exit_code == 0
+    data = json.loads(cookie_jar.read_text())
+    assert data["client_id"] == "post-device-session"
+
+
+# ---------------------------------------------------------------------------
+# Smoke imports
+# ---------------------------------------------------------------------------
+
+
+def test_i2d_system_module_importable() -> None:
+    importlib.import_module("iaqualink.systems.i2d.system")
