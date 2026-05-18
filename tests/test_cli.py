@@ -8,6 +8,8 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock
 
+from iaqualink.exception import AqualinkInvalidParameterException
+
 import pytest
 from rich.console import Console as RichConsole
 from typer.testing import CliRunner
@@ -624,11 +626,16 @@ def test_set_temperature_saves_jar_after_command(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _make_dimmable_light(
-    label: str = "Spa Light", brightness: int = 100
+def _make_light(
+    label: str = "Light",
+    brightness: int | None = None,
+    effect: str | None = None,
 ) -> AqualinkLight:
+    """Concrete AqualinkLight with configurable brightness/effect support."""
     _brightness = brightness
-    _set_brightness_calls: list[int] = []
+    _effect = effect
+    brightness_calls: list[int] = []
+    effect_calls: list[str] = []
 
     class _Impl(AqualinkLight):
         @property
@@ -666,67 +673,31 @@ def _make_dimmable_light(
             return _brightness
 
         async def set_brightness(self, value: int) -> None:
-            _set_brightness_calls.append(value)
+            brightness_calls.append(value)
 
         @property
         def effect(self) -> str | None:
-            return None
+            return _effect
+
+        async def set_effect_by_name(self, name: str) -> None:
+            effect_calls.append(name)
 
     dev = object.__new__(_Impl)
-    dev._set_brightness_calls = _set_brightness_calls
+    dev._set_brightness_calls = brightness_calls
+    dev._effect_calls = effect_calls
     return dev
+
+
+def _make_dimmable_light(
+    label: str = "Spa Light", brightness: int = 100
+) -> AqualinkLight:
+    return _make_light(label=label, brightness=brightness)
 
 
 def _make_color_light(
     label: str = "Color Light", effect: str = "Alpine White"
 ) -> AqualinkLight:
-    _effect_calls: list[str] = []
-
-    class _Impl(AqualinkLight):
-        @property
-        def label(self) -> str:
-            return label
-
-        @property
-        def state(self) -> str:
-            return "1"
-
-        @property
-        def name(self) -> str:
-            return label
-
-        @property
-        def manufacturer(self) -> str:
-            return ""
-
-        @property
-        def model(self) -> str:
-            return ""
-
-        @property
-        def is_on(self) -> bool:
-            return True
-
-        async def turn_on(self) -> None:
-            pass
-
-        async def turn_off(self) -> None:
-            pass
-
-        @property
-        def brightness(self) -> int | None:
-            return None
-
-        @property
-        def effect(self) -> str | None:
-            return effect
-
-        async def set_effect_by_name(self, name: str) -> None:
-            _effect_calls.append(name)
-
-    dev = object.__new__(_Impl)
-    dev._effect_calls = _effect_calls
-    return dev
+    return _make_light(label=label, effect=effect)
 
 
 def test_set_brightness_succeeds_on_dimmable_light(tmp_path: Path) -> None:
@@ -840,3 +811,23 @@ def test_set_effect_saves_jar_after_command(tmp_path: Path) -> None:
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"
+
+
+def test_set_effect_rejects_unknown_effect_name(tmp_path: Path) -> None:
+    light = _make_color_light()
+
+    async def _raise(self: AqualinkLight, name: str) -> None:
+        raise AqualinkInvalidParameterException(
+            f"{name!r} isn't a valid effect."
+        )
+
+    type(light).set_effect_by_name = _raise  # type: ignore[method-assign]
+
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-effect", "light", "Bogus")
+    assert result.exit_code == 1
+    assert "Bogus" in result.stderr
