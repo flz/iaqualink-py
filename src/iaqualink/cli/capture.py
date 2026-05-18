@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import atexit
 import datetime
 import json
@@ -49,6 +50,10 @@ class CaptureSession:
     def close(self) -> None:
         if not self._file.closed:
             self._file.close()
+
+    def _write_line(self, line: str) -> None:
+        self._file.write(line)
+        self._file.flush()
 
     def register_serials(self, *serials: str) -> None:
         self._literals.update(s for s in serials if s)
@@ -101,5 +106,4 @@ class CaptureSession:
                 "body": resp_body,
             },
         }
-        self._file.write(json.dumps(entry) + "\n")
-        self._file.flush()
+        await asyncio.to_thread(self._write_line, json.dumps(entry) + "\n")

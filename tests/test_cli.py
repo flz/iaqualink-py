@@ -101,6 +101,39 @@ def reset_fake_client(monkeypatch: pytest.MonkeyPatch) -> None:
     FakeClient.login_call_count = 0
     FakeClient.systems_factory = staticmethod(dict[str, FakeSystem])
     monkeypatch.setattr(cli_module, "AqualinkClient", FakeClient)
+    monkeypatch.setattr(cli_module, "_capture_session", None)
+
+
+def test_capture_flag_creates_file_and_registers_serials(
+    tmp_path: Path,
+) -> None:
+    cookie_jar = tmp_path / "session.json"
+    capture_file = tmp_path / "capture.jsonl"
+    FakeClient.systems_factory = staticmethod(
+        lambda: {"SN001": FakeSystem("SN001", "Pool")}
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "--capture",
+            str(capture_file),
+            "list-systems",
+            "--username",
+            "user@example.com",
+            "--password",
+            "secret",
+            "--cookie-jar",
+            str(cookie_jar),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert capture_file.exists()
+    session = cli_module._capture_session
+    assert session is not None
+    assert "SN001" in session._literals
+    session.close()
 
 
 def test_list_systems_ignores_malformed_session_jar(tmp_path: Path) -> None:
