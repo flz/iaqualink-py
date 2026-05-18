@@ -8,8 +8,6 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import MagicMock
 
-from iaqualink.exception import AqualinkInvalidParameterException
-
 import pytest
 from rich.console import Console as RichConsole
 from typer.testing import CliRunner
@@ -25,6 +23,7 @@ from iaqualink.device import (
     AqualinkSwitch,
     AqualinkThermostat,
 )
+from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.system import SystemStatus, UnsupportedSystem
 
 cli_module = importlib.import_module("iaqualink.cli.app")

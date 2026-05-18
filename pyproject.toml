@@ -86,6 +86,7 @@ packages = ["src/iaqualink"]
 line-length = 80
 
 [tool.ruff.lint]
+extend-select = ["I"]
 ignore = [
     "SLF001",  # Some tests currently use private members
 ]

@@ -16,8 +16,8 @@ from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import IaquaOneTouchSwitch
 from iaqualink.systems.iaqua.enums import IaquaSystemType, IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import (
-    IAQUA_SESSION_URL,
     IAQUA_COMMAND_SET_ONETOUCH,
+    IAQUA_SESSION_URL,
     IaquaSystem,
 )
 
