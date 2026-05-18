@@ -952,6 +952,18 @@ def test_turn_on_sensor_exits(tmp_path: Path) -> None:
     assert "does not support power controls" in result.stderr
 
 
+def test_turn_off_sensor_exits(tmp_path: Path) -> None:
+    sensor = _make_device(AqualinkSensor, "Temp", "72")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"temp": sensor})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "turn-off", "temp")
+    assert result.exit_code == 1
+    assert "does not support power controls" in result.stderr
+
+
 # ---------------------------------------------------------------------------
 # set-speed
 # ---------------------------------------------------------------------------
@@ -1187,8 +1199,7 @@ def test_set_value_number_device(tmp_path: Path) -> None:
     )
     result, _ = _invoke_with_jar(tmp_path, "set-value", "rpm", "2000")
     assert result.exit_code == 0
-    assert "RPM" in result.output
-    assert "2000" in result.output
+    assert "2000.0 RPM" in result.output
 
 
 def test_set_value_number_device_without_unit(tmp_path: Path) -> None:
@@ -1238,3 +1249,12 @@ def test_set_value_saves_jar(tmp_path: Path) -> None:
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"
+
+
+# ---------------------------------------------------------------------------
+# Smoke imports
+# ---------------------------------------------------------------------------
+
+
+def test_i2d_system_module_importable() -> None:
+    importlib.import_module("iaqualink.systems.i2d.system")

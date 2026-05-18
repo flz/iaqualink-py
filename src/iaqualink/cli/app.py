@@ -659,7 +659,7 @@ async def _set_number_value(
     t.append(device.label, style="bold")
     t.append(f" [{device_name}]", style="dim")
     unit = device.unit
-    value_str = f" to {value}{unit}" if unit else f" to {value}"
+    value_str = f" to {value} {unit}" if unit else f" to {value}"
     t.append(f"{value_str} on ")
     t.append_text(_format_system_line(system))
     return t
