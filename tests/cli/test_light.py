@@ -11,6 +11,7 @@ from .conftest import (
     FakeSystemWithAqualink,
     invoke_with_jar,
     make_light,
+    make_rgbw_light,
     make_switch,
 )
 
@@ -164,3 +165,60 @@ def test_set_effect_rejects_unknown_effect_name(tmp_path: Path) -> None:
     result, _ = invoke_with_jar(tmp_path, "set-effect", "light", "Bogus")
     assert result.exit_code == 1
     assert "Bogus" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# set-rgbw
+# ---------------------------------------------------------------------------
+
+
+def test_set_rgbw_succeeds(tmp_path: Path) -> None:
+    light = make_rgbw_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = invoke_with_jar(tmp_path, "set-rgbw", "light", "255", "0", "128")
+    assert result.exit_code == 0
+    assert "(255, 0, 128, 0)" in result.stdout
+    light.set_rgbw.assert_awaited_once_with(255, 0, 128, 0)
+
+
+def test_set_rgbw_succeeds_with_white(tmp_path: Path) -> None:
+    light = make_rgbw_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = invoke_with_jar(
+        tmp_path, "set-rgbw", "light", "100", "150", "200", "50"
+    )
+    assert result.exit_code == 0
+    assert "(100, 150, 200, 50)" in result.stdout
+    light.set_rgbw.assert_awaited_once_with(100, 150, 200, 50)
+
+
+def test_set_rgbw_fails_on_non_light(tmp_path: Path) -> None:
+    switch = make_switch("Filter", is_on=False)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
+        }
+    )
+    result, _ = invoke_with_jar(tmp_path, "set-rgbw", "filter", "255", "0", "0")
+    assert result.exit_code == 1
+    assert "is not a light" in result.stderr
+
+
+def test_set_rgbw_fails_on_non_rgbw_light(tmp_path: Path) -> None:
+    light = make_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = invoke_with_jar(tmp_path, "set-rgbw", "light", "255", "0", "0")
+    assert result.exit_code == 1
+    assert "does not support RGBW" in result.stderr

@@ -173,8 +173,8 @@ if icl_light:
     await icl_light.turn_on()
     await icl_light.turn_off()
 
-    # Set preset color (indices 1-15)
-    await icl_light.set_effect_by_name("Emerald Green")
+    # Set preset color by name or index
+    await icl_light.set_effect("Emerald Green")
     await icl_light.set_effect_by_id(6)
 
     # Set custom RGBW color (0-255 each)
@@ -182,12 +182,12 @@ if icl_light:
     await icl_light.set_rgbw(100, 200, 255, white=50)
 
     # Set brightness (0-100)
-    await icl_light.set_brightness(75)
+    await icl_light.set_brightness_percentage(75)
 
     # Read current state
     print(f"Status: {'ON' if icl_light.is_on else 'OFF'}")
     print(f"Color: {icl_light.effect}")
-    print(f"Brightness: {icl_light.brightness}%")
+    print(f"Brightness: {icl_light.brightness_percentage}%")
     print(f"RGBW: {icl_light.rgbw}")
 ```
 
