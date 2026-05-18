@@ -629,9 +629,9 @@ class TestRedactUrl(TestBase):
         )
 
     def test_redacts_signature_in_query(self) -> None:
-        url = "https://r-api.iaqualink.net/v2/devices.json?user_id=1&signature=abc123&timestamp=1"
+        url = "https://r-api.iaqualink.net/v2/devices.json?serial=SN1&signature=abc123&timestamp=1"
         assert "signature=***" in _redact_url(url)
-        assert "user_id=1" in _redact_url(url)
+        assert "timestamp=1" in _redact_url(url)
 
     def test_redacts_sessionID_in_query(self) -> None:
         url = "https://p-api.iaqualink.net/v2/mobile/session.json?sessionID=tok&command=get_home"
@@ -646,14 +646,14 @@ class TestRedactUrl(TestBase):
         assert "other=ok" in result
 
     def test_no_change_when_no_sensitive_params(self) -> None:
-        url = "https://example.com/api?user_id=42&timestamp=1234"
+        url = "https://example.com/api?command=get_home&timestamp=1234"
         assert _redact_url(url) == url
 
     def test_redacts_api_key_in_query(self) -> None:
-        url = "https://example.com/api?api_key=deadbeef&user_id=1"
+        url = "https://example.com/api?api_key=deadbeef&command=get_home"
         result = _redact_url(url)
         assert "api_key=***" in result
-        assert "user_id=1" in result
+        assert "command=get_home" in result
 
 
 class TestRedactKwargs(TestBase):
@@ -672,7 +672,7 @@ class TestRedactKwargs(TestBase):
         kwargs = {"json": {"authentication_token": "tok", "user_id": "1"}}
         result = _redact_kwargs(kwargs)
         assert result["json"]["authentication_token"] == "***"
-        assert result["json"]["user_id"] == "1"
+        assert result["json"]["user_id"] == "***"
 
     def test_redacts_api_key_in_json(self) -> None:
         kwargs = {"json": {"api_key": "deadbeef", "command": "/opmode/write"}}
@@ -705,7 +705,7 @@ class TestRedactKwargs(TestBase):
         kwargs = {"data": {"password": "secret", "user_id": "1"}}
         result = _redact_kwargs(kwargs)
         assert result["data"]["password"] == "***"
-        assert result["data"]["user_id"] == "1"
+        assert result["data"]["user_id"] == "***"
 
     def test_ignores_non_dict_json(self) -> None:
         kwargs = {"json": "not-a-dict"}
@@ -725,7 +725,7 @@ class TestAqualinkAuthStateRepr(TestBase):
         )
         r = repr(state)
         assert "user@example.com" not in r
-        assert "42" in r
+        assert "42" not in r
         assert "session-id" not in r
         assert "auth-tok" not in r
         assert "jwt" not in r
