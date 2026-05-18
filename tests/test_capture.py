@@ -205,10 +205,10 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
 
     async def test_redacts_serial_in_url_path(self) -> None:
         session = CaptureSession(path=self._path)
-        session.register_serials("QFU537K7RARU")
+        session.register_serials("ZZZ000SERIAL")
         request = _make_request(
             "GET",
-            "https://r-api.iaqualink.net/v2/devices/QFU537K7RARU/control.json",
+            "https://r-api.iaqualink.net/v2/devices/ZZZ000SERIAL/control.json",
         )
         response = _make_response(request, 200, {})
 
@@ -216,7 +216,7 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         session.close()
 
         url = self._load_lines()[0]["request"]["url"]
-        assert "QFU537K7RARU" not in url
+        assert "ZZZ000SERIAL" not in url
         assert "***" in url
 
     def test_register_serials_ignores_empty(self) -> None:
