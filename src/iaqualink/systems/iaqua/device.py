@@ -51,6 +51,13 @@ class IaquaPresenceState(StrEnum):
     PRESENT = "present"
 
 
+@unique
+class IaquaZoneStatus(StrEnum):
+    OFF = "off"
+    ON = "on"
+    ABSENT = "absent"
+
+
 class IaquaDevice(AqualinkDevice):
     def __init__(self, system: IaquaSystem, data: DeviceData):
         super().__init__(system, data)
@@ -443,6 +450,140 @@ class IaquaSetPoint(IaquaDevice, AqualinkNumber):
 
     async def _set_value(self, value: float) -> None:
         await self.system.set_temps({self._temperature_key: str(int(value))})
+
+
+# index 16 = custom RGBW mode and is not a selectable preset
+ICL_EFFECTS = {
+    "Alpine White": 1,
+    "Sky Blue": 2,
+    "Cobalt Blue": 3,
+    "Caribbean Blue": 4,
+    "Spring Green": 5,
+    "Emerald Green": 6,
+    "Emerald Rose": 7,
+    "Ruby Red": 8,
+    "Magenta": 9,
+    "Violet": 10,
+    "Slow Color Splash": 11,
+    "Fast Color Splash": 12,
+    "America The Beautiful": 13,
+    "Fat Tuesday": 14,
+    "Disco Tech": 15,
+}
+
+
+class IaquaIclLight(IaquaDevice, AqualinkLight):
+    @property
+    def manufacturer(self) -> str:
+        return "Jandy"
+
+    @property
+    def model(self) -> str:
+        return "IntelliCenter Light"
+
+    @property
+    def _zone_id(self) -> int:
+        return int(self.data.get("zoneId", 0))
+
+    @property
+    def label(self) -> str:
+        name = self.data.get("zoneName", "")
+        if name:
+            return name
+        return f"Light Zone {self._zone_id}"
+
+    @property
+    def name(self) -> str:
+        return f"icl_zone_{self._zone_id}"
+
+    @property
+    def state(self) -> str:
+        return self.data.get("zoneStatus", IaquaZoneStatus.OFF)
+
+    @property
+    def is_on(self) -> bool:
+        return self.state == IaquaZoneStatus.ON
+
+    @property
+    def brightness_percentage(self) -> int | None:
+        dim_level = self.data.get("dim_level")
+        if dim_level is not None:
+            return int(dim_level)
+        return None
+
+    @property
+    def effect(self) -> str | None:
+        color_val = self.data.get("zoneColorVal")
+        if color_val and self.color_id != 0:
+            return color_val
+        return None
+
+    @property
+    def effect_list(self) -> list[str]:
+        return list(ICL_EFFECTS)
+
+    @property
+    def color_id(self) -> int | None:
+        color = self.data.get("zoneColor")
+        if color is not None:
+            return int(color)
+        return None
+
+    @property
+    def rgbw(self) -> tuple[int, int, int, int] | None:
+        try:
+            r = int(self.data.get("red_val", 0))
+            g = int(self.data.get("green_val", 0))
+            b = int(self.data.get("blue_val", 0))
+            w = int(self.data.get("white_val", 0))
+            return (r, g, b, w)
+        except (TypeError, ValueError):
+            return None
+
+    @property
+    def supports_rgbw(self) -> bool:
+        return self.rgbw is not None
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self.system.icl_zone_on_off(self._zone_id, turn_on=True)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self.system.icl_zone_on_off(self._zone_id, turn_on=False)
+
+    async def _set_brightness_percentage(self, brightness: int) -> None:
+        await self.system.icl_set_brightness(self._zone_id, brightness)
+
+    async def _set_effect(self, effect: str) -> None:
+        await self.set_effect_by_id(ICL_EFFECTS[effect])
+
+    async def set_effect_by_id(self, effect_id: int) -> None:
+        if effect_id not in ICL_EFFECTS.values():
+            msg = f"{effect_id!r} isn't a valid effect ID."
+            raise AqualinkInvalidParameterException(msg)
+        brightness = (
+            self.brightness_percentage
+            if self.brightness_percentage is not None
+            else 100
+        )
+        await self.system.icl_set_color(self._zone_id, effect_id, brightness)
+
+    async def set_rgbw(
+        self, red: int, green: int, blue: int, white: int = 0
+    ) -> None:
+        for name, val in [
+            ("red", red),
+            ("green", green),
+            ("blue", blue),
+            ("white", white),
+        ]:
+            if val < 0 or val > 255:
+                msg = f"{name}={val} isn't valid (0-255)."
+                raise AqualinkInvalidParameterException(msg)
+        await self.system.icl_set_custom_color(
+            self._zone_id, red, green, blue, white
+        )
 
 
 class IaquaClimate(IaquaDevice, AqualinkClimate):
