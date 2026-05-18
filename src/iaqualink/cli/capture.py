@@ -15,6 +15,14 @@ _REDACT_KEYS_CI = frozenset(k.lower() for k in _REDACT_KEYS)
 _REDACT_SUBSTRINGS = ("credential", "secret", "session", "token")
 
 
+def _redact_value(v: Any) -> Any:
+    if isinstance(v, dict):
+        return _redact_dict(v)
+    if isinstance(v, list):
+        return [_redact_value(item) for item in v]
+    return v
+
+
 def _redact_dict(d: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for k, v in d.items():
@@ -23,10 +31,8 @@ def _redact_dict(d: dict[str, Any]) -> dict[str, Any]:
             s in k_lower for s in _REDACT_SUBSTRINGS
         ):
             result[k] = "***"
-        elif isinstance(v, dict):
-            result[k] = _redact_dict(v)
         else:
-            result[k] = v
+            result[k] = _redact_value(v)
     return result
 
 
@@ -67,16 +73,16 @@ class CaptureSession:
         except (json.JSONDecodeError, UnicodeDecodeError):
             req_body = request.content.decode("utf-8", errors="replace") or None
 
-        if isinstance(req_body, dict):
-            req_body = _redact_dict(req_body)
+        if isinstance(req_body, (dict, list)):
+            req_body = _redact_value(req_body)
 
         try:
             resp_body: Any = response.json()
         except Exception:
             resp_body = response.text or None
 
-        if isinstance(resp_body, dict):
-            resp_body = _redact_dict(resp_body)
+        if isinstance(resp_body, (dict, list)):
+            resp_body = _redact_value(resp_body)
 
         entry = {
             "timestamp": datetime.datetime.now(

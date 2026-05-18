@@ -240,6 +240,42 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         assert "" not in session._literals
         assert "SN001" in session._literals
 
+    async def test_redacts_fields_in_list_response_body(self) -> None:
+        session = CaptureSession(path=self._path)
+        request = _make_request(
+            "GET", "https://r-api.iaqualink.net/v2/devices.json"
+        )
+        response = httpx.Response(
+            200,
+            json=[
+                {
+                    "id": 113883,
+                    "serial_number": "ZZZ000SERIAL",
+                    "device_type": "iaqua",
+                    "owner_id": None,
+                },
+                {
+                    "id": 607822,
+                    "serial_number": "ZZZ111SERIAL",
+                    "device_type": "i2d",
+                    "owner_id": 833029,
+                },
+            ],
+            request=request,
+        )
+
+        await session._capture_response(response)
+        session.close()
+
+        body = self._load_lines()[0]["response"]["body"]
+        assert isinstance(body, list)
+        assert body[0]["id"] == "***"
+        assert body[0]["serial_number"] == "***"
+        assert body[0]["device_type"] == "iaqua"
+        assert body[0]["owner_id"] == "***"
+        assert body[1]["id"] == "***"
+        assert body[1]["serial_number"] == "***"
+
     async def test_non_json_response_stored_as_string(self) -> None:
         session = CaptureSession(path=self._path)
         request = _make_request("GET", "https://prod.zodiac-io.com/raw")
