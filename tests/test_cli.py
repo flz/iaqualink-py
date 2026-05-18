@@ -739,6 +739,7 @@ def test_set_brightness_succeeds_on_dimmable_light(tmp_path: Path) -> None:
     result, _ = _invoke_with_jar(tmp_path, "set-brightness", "light", "75")
     assert result.exit_code == 0
     assert "75%" in result.stdout
+    assert light._set_brightness_calls == [75]
 
 
 def test_set_brightness_fails_on_non_light(tmp_path: Path) -> None:
@@ -797,6 +798,7 @@ def test_set_effect_succeeds_on_color_light(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert "Alpine White" in result.stdout
+    assert light._effect_calls == ["Alpine White"]
 
 
 def test_set_effect_fails_on_non_light(tmp_path: Path) -> None:

@@ -775,7 +775,8 @@ def set_temperature(
 def set_brightness(
     device: DeviceArgument,
     brightness: Annotated[
-        int, typer.Argument(help="Brightness percentage (0-100).")
+        int,
+        typer.Argument(help="Brightness percentage (0-100).", min=0, max=100),
     ],
     username: UsernameOption = None,
     password: PasswordOption = None,
