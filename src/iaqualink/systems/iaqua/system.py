@@ -11,9 +11,11 @@ from iaqualink.systems.iaqua.device import (
     IaquaBinaryState,
     IaquaClimate,
     IaquaDimmableLight,
+    IaquaIclLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
     IaquaSetPoint,
+    IaquaZoneStatus,
     light_subtype_to_class,
 )
 from iaqualink.systems.iaqua.enums import (
@@ -47,6 +49,11 @@ IAQUA_COMMAND_SET_SOLAR_HEATER = "set_solar_heater"
 IAQUA_COMMAND_SET_SPA_HEATER = "set_spa_heater"
 IAQUA_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 IAQUA_COMMAND_SET_TEMPS = "set_temps"
+
+# ICL (IntelliCenter Light) commands
+IAQUA_COMMAND_ICL_ONOFF = "onoff_iclzone"
+IAQUA_COMMAND_ICL_SET_COLOR = "set_iclzone_color"
+IAQUA_COMMAND_ICL_SET_CUSTOM_COLOR = "define_iclzone_customcolor"
 
 LOGGER = logging.getLogger("iaqualink.systems.iaqua")
 
@@ -135,6 +142,9 @@ class IaquaSystem(AqualinkSystem):
         if self._onetouch_supported:
             r3 = await self._send_onetouch_screen_request()
             self._parse_onetouch_response(r3)
+
+        # ICL info embedded in get_devices response as icl_info_list;
+        # parsed by _parse_devices_response. get_icl_info times out on hardware.
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -260,6 +270,8 @@ class IaquaSystem(AqualinkSystem):
             len(self.devices),
         )
 
+        self._upsert_icl_zones(data.get("icl_info_list", []))
+
     async def set_switch(self, command: str) -> None:
         r = await self._send_session_request(command)
         self._parse_home_response(r)
@@ -340,3 +352,96 @@ class IaquaSystem(AqualinkSystem):
         cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.removeprefix("onetouch_")
         r = await self._send_session_request(cmd)
         self._parse_onetouch_response(r)
+
+    def _upsert_icl_zones(self, icl_zones: list[dict[str, object]]) -> None:
+        for zone_data in icl_zones:
+            zone_id = zone_data.get("zoneId")
+            if zone_id is None:
+                continue
+            device_name = f"icl_zone_{zone_id}"
+            if zone_data.get("zoneStatus") == IaquaZoneStatus.ABSENT:
+                self.devices.pop(device_name, None)
+                continue
+            device_data = {
+                k: str(v) if v is not None else "" for k, v in zone_data.items()
+            }
+            if device_name in self.devices:
+                self.devices[device_name].data.update(device_data)
+            else:
+                self.devices[device_name] = IaquaIclLight(self, device_data)
+
+    def _parse_icl_info_response(self, response: httpx.Response) -> None:
+        data = response.json()
+        LOGGER.debug("ICL info body: %s", data)
+        self._upsert_icl_zones(data.get("icl_info_list", []))
+
+    async def icl_zone_on_off(self, zone_id: int, turn_on: bool) -> None:
+        params: Payload = {
+            "zone_id": str(zone_id),
+            "on_off_action": "on" if turn_on else "off",
+        }
+        r = await self._send_session_request(IAQUA_COMMAND_ICL_ONOFF, params)
+        self._parse_icl_info_response(r)
+
+    async def icl_set_color(
+        self, zone_id: int, color_id: int, dim_level: int = 100
+    ) -> None:
+        params: Payload = {
+            "zone_id": str(zone_id),
+            "color_id": str(color_id),
+            "dim_level": str(dim_level),
+        }
+        r = await self._send_session_request(
+            IAQUA_COMMAND_ICL_SET_COLOR, params
+        )
+        self._parse_icl_info_response(r)
+
+    async def icl_set_brightness(self, zone_id: int, dim_level: int) -> None:
+        # set_iclzone_color (not set_iclzone_dim) is the correct command for
+        # brightness-only changes — the app uses set_iclzone_color for both
+        # color and brightness adjustment; set_iclzone_dim is never exercised
+        # by any observed app UI path.
+        params: Payload = {
+            "zone_id": str(zone_id),
+            "dim_level": str(dim_level),
+        }
+        r = await self._send_session_request(
+            IAQUA_COMMAND_ICL_SET_COLOR, params
+        )
+        self._parse_icl_info_response(r)
+
+    def _parse_icl_custom_color_response(
+        self, response: httpx.Response
+    ) -> None:
+        data = response.json()
+        LOGGER.debug("ICL custom color body: %s", data)
+
+        zone_id = data.get("zone_id")
+        if zone_id is None:
+            return
+
+        device_name = f"icl_zone_{zone_id}"
+        if device_name not in self.devices:
+            return
+
+        for key in ("red_val", "green_val", "blue_val", "white_val"):
+            val = data.get(key)
+            if val is not None:
+                self.devices[device_name].data[key] = str(val)
+        self.devices[device_name].data["zoneColor"] = "16"
+        self.devices[device_name].data["zoneColorVal"] = "Custom Color"
+
+    async def icl_set_custom_color(
+        self, zone_id: int, red: int, green: int, blue: int, white: int = 0
+    ) -> None:
+        params: Payload = {
+            "zone_id": str(zone_id),
+            "red_val": str(red),
+            "green_val": str(green),
+            "blue_val": str(blue),
+            "white_val": str(white),
+        }
+        r = await self._send_session_request(
+            IAQUA_COMMAND_ICL_SET_CUSTOM_COLOR, params
+        )
+        self._parse_icl_custom_color_response(r)
