@@ -9,7 +9,7 @@ Implementation details for the iAqua system (`device_type: "iaqua"`). For the wi
 | `device_type` | `iaqua` |
 | API host | `p-api.iaqualink.net` |
 | Authentication | Session token (`session_id`) + Bearer `IdToken` |
-| Update calls | `get_home` + `get_devices` (+ `get_onetouch` if supported) |
+| Update calls | `get_home` + `get_devices` (+ `get_onetouch` if supported); ICL state embedded in `get_devices` |
 | Python class | `IaquaSystem` in `src/iaqualink/systems/iaqua/system.py` |
 
 ## Implemented vs Reference Coverage
@@ -27,6 +27,7 @@ Implementation details for the iAqua system (`device_type: "iaqua"`). For the wi
 | `set_light` | ✓ |
 | `set_temps` | ✓ |
 | `set_onetouch_{n}` | ✓ |
+| `onoff_iclzone`, `set_iclzone_color`, `define_iclzone_customcolor` | ✓ (ICL) |
 
 ### `get_home` response fields not tracked as devices
 
@@ -42,8 +43,6 @@ The following fields appear in the reference `get_home` response but are not cur
 | `acl_value` | ACL sensor; not yet parsed |
 | `lockedout_message` | Informational string; not parsed |
 
-`icl_info_list` in the `get_devices` response is also not parsed.
-
 ### Unimplemented subsystems
 
 #### SWC (Salt Water Chlorinator)
@@ -57,12 +56,6 @@ Devices that will be exposed when implemented: `swc_set_point` (sensor), `swc_po
 Commands `enable_disable_hpm`, `switch_hpm_mode`, and `setpoint_hpm_temp` are not implemented. The `heatpump_info` nested object from `get_home` is not parsed, so heat pump operational status (`heatpumpstatus`, `heatpumpmode`, `heatpumptype`) is not tracked.
 
 `pool_chill_set_point` from `get_home` is not tracked. Writing the chill set point requires `setpoint_hpm_temp` (HPM command), which is not yet implemented.
-
-#### ICL (Intellicenter Light)
-
-Zone control commands (`get_icl_info`, `onoff_iclzone`, `set_iclzone_color`, `set_iclzone_dim`, `define_iclzone_customcolor`, `set_iclzone_name`, `enable_disable_zoning_mode`, `move_lights_to_zone`) are not implemented. `icl_info_list` from `get_devices` is not parsed.
-
-`is_icl_present` from `get_home` is tracked as `IaquaPresenceSensor`, so ICL hardware presence is detectable.
 
 #### VSP via iQ20 Session
 
@@ -136,6 +129,83 @@ Only genuine divergences are listed here. The following reference behaviors all 
 | # | Observed reference | Current Python (`IaquaSystem`) |
 |---|---|---|
 | 1 | `Authorization` header: bare `{IdToken}` (no prefix) | Sends `Bearer {id_token}` |
+
+## ICL (IntelliCenter Light) Sub-System
+
+ICL is an optional iQ20 sub-system providing per-zone RGBW LED control. For the wire-level protocol see the [ICL section of the Protocol Reference](../../reference/systems/iaqua.md#icl-intellicenter-light-sub-system).
+
+### Overview
+
+| Property | Value |
+|---|---|
+| Detection | `is_icl_present` device (`IaquaPresenceSensor`) in `self.devices`; ICL zones auto-created from `icl_info_list` in `get_devices` |
+| Python class | `IaquaIclLight` (`src/iaqualink/systems/iaqua/device.py`) |
+| Device key format | `icl_zone_{zoneId}` (e.g. `icl_zone_1`) |
+| State enum | `IaquaZoneStatus` — `ON`/`OFF`/`ABSENT` |
+
+### Device Lifecycle
+
+ICL zones are parsed from `icl_info_list` embedded in the `get_devices` response (see [state source](#icl-state-source-embedded-icl_info_list-vs-get_icl_info) below). Zones with `zoneStatus = "absent"` are skipped and never added to `self.devices`. The remaining zones are upserted by key on every `_parse_devices_response` call.
+
+After write commands that return the full `icl_info_list` shape (`onoff_iclzone`, `set_iclzone_color`), state is refreshed via `_parse_icl_info_response`. The `define_iclzone_customcolor` response uses a narrower shape (no `icl_info_list`); `_parse_icl_custom_color_response` handles it by patching only the RGBW channel fields on the affected device.
+
+### State Model
+
+`IaquaIclLight.state` returns the raw `zoneStatus` wire value. `state_enum` is `IaquaZoneStatus`:
+
+| `IaquaZoneStatus` | Wire value | `is_on` |
+|---|---|---|
+| `ON` | `"on"` | `True` |
+| `OFF` | `"off"` | `False` |
+| `ABSENT` | `"absent"` | filtered at parse time — not a device |
+
+### Property → Wire Field Mapping
+
+| Property | Wire field(s) | Notes |
+|---|---|---|
+| `label` | `zoneName` | Falls back to `"Light Zone {_zone_id}"` if empty |
+| `state` | `zoneStatus` | Raw wire value |
+| `is_on` | `zoneStatus` | `== IaquaZoneStatus.ON` |
+| `brightness_percentage` | `dim_level` | `int`, 0–100; `None` if field absent |
+| `effect` | `zoneColorVal` | Human-readable name string; `None` if empty |
+| `color_id` | `zoneColor` | Integer 0–16; not part of base `AqualinkLight` API |
+| `rgbw` | `red_val`, `green_val`, `blue_val`, `white_val` | 4-tuple; returns `None` on parse error |
+
+### Operations
+
+| Method | Command | Notes |
+|---|---|---|
+| `turn_on()` | `onoff_iclzone` | Noop if already on |
+| `turn_off()` | `onoff_iclzone` | Noop if already off |
+| `set_brightness_percentage(0–100)` | `set_iclzone_color` | See brightness command decision below |
+| `set_effect(name)` | `set_iclzone_color` | Validated by base class; dispatches via `_set_effect()` |
+| `set_effect_by_id(id)` | `set_iclzone_color` | Validates against `ICL_EFFECTS` values |
+| `set_rgbw(r, g, b, w=0)` | `define_iclzone_customcolor` | Each channel 0–255 |
+
+### Design Decisions
+
+#### ICL state source: embedded `icl_info_list` vs `get_icl_info`
+
+Zone state is read from `icl_info_list` embedded in the `get_devices` response rather than via a separate `get_icl_info` call. The `get_icl_info` endpoint is not called for three reasons:
+
+1. **Redundant data** — `icl_info_list` embedded in `get_devices` contains the same per-zone fields; no zone data is lost.
+2. **Timeout** — a separate `get_icl_info` call times out on some hardware in the field.
+3. **Unused envelope** — `get_icl_info` additionally returns `alert_message`, `device_status`, `is_error`, and `zoneCount`; none are used by this implementation.
+
+#### ICL brightness command: `set_iclzone_color` not `set_iclzone_dim`
+
+`icl_set_brightness` uses `set_iclzone_color`, not `set_iclzone_dim`. The app uses `set_iclzone_color` for both color selection and brightness-only changes; `set_iclzone_dim` exists in the app source but is not called from any observed app UI path.
+
+### Deltas vs Protocol Reference (ICL)
+
+| # | Reference behaviour | Python implementation |
+|---|---|---|
+| 1 | `get_icl_info` for zone state polling | Not called — zone data read from `get_devices` embedded `icl_info_list`; see design decision above |
+| 2 | `is_icl_present` = `"present"` signals ICL presence | ✓ Matches |
+| 3 | Absent zones excluded from display | ✓ Filtered at parse time; absent zones are never added to `self.devices` |
+| 4 | Brightness via `set_iclzone_color` | ✓ Matches; `set_iclzone_dim` not used |
+| 5 | `define_iclzone_customcolor` returns a narrower response (no `icl_info_list`) | ✓ Handled by `_parse_icl_custom_color_response` |
+| 6 | Color preset index 16 = custom RGBW mode (not a named preset) | ✓ `ICL_EFFECTS` covers indices 1–15 only; index 0 ("off") and index 16 not exposed as effects |
 
 ## See Also
 
