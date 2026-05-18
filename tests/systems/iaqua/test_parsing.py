@@ -41,3 +41,13 @@ def test_parse_onetouch(system, snapshot: SnapshotAssertion) -> None:
         make_response(load_fixture("iaqua", "session_get_onetouch"))
     )
     assert snapshot_devices(system.devices) == snapshot
+
+
+def test_parse_devices_icl_zones(system, snapshot: SnapshotAssertion) -> None:
+    system._parse_home_response(
+        make_response(load_fixture("iaqua", "session_get_home"))
+    )
+    system._parse_devices_response(
+        make_response(load_fixture("iaqua", "session_get_devices_icl_zones"))
+    )
+    assert snapshot_devices(system.devices) == snapshot
