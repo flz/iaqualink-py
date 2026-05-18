@@ -810,8 +810,7 @@ def _make_pump(
             return supports_set_speed_percentage
 
         async def set_speed_percentage(self, percentage: int) -> None:
-            if not 0 <= percentage <= 100:
-                raise AqualinkInvalidParameterException(percentage)
+            pass
 
         @property
         def supports_presets(self) -> bool:
@@ -840,10 +839,6 @@ def _make_number(
     max_value: float = 3450.0,
     unit: str | None = "RPM",
 ) -> AqualinkNumber:
-    _min = min_value
-    _max = max_value
-    _unit = unit
-
     class _Impl(AqualinkNumber):
         @property
         def label(self) -> str:
@@ -871,15 +866,15 @@ def _make_number(
 
         @property
         def min_value(self) -> float:
-            return _min
+            return min_value
 
         @property
         def max_value(self) -> float:
-            return _max
+            return max_value
 
         @property
         def unit(self) -> str | None:
-            return _unit
+            return unit
 
         async def _set_value(self, value: float) -> None:
             pass
@@ -1027,8 +1022,8 @@ def test_set_speed_out_of_range_exits(tmp_path: Path) -> None:
         }
     )
     result, _ = _invoke_with_jar(tmp_path, "set-speed", "vsp", "150")
-    assert result.exit_code == 1
-    assert "150" in result.stderr
+    assert result.exit_code == 2
+    assert "150" in result.output
 
 
 # ---------------------------------------------------------------------------
@@ -1199,7 +1194,7 @@ def test_set_value_number_device(tmp_path: Path) -> None:
     )
     result, _ = _invoke_with_jar(tmp_path, "set-value", "rpm", "2000")
     assert result.exit_code == 0
-    assert "2000.0 RPM" in result.output
+    assert "2000 RPM" in result.output
 
 
 def test_set_value_number_device_without_unit(tmp_path: Path) -> None:

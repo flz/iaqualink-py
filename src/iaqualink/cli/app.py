@@ -659,7 +659,7 @@ async def _set_number_value(
     t.append(device.label, style="bold")
     t.append(f" [{device_name}]", style="dim")
     unit = device.unit
-    value_str = f" to {value} {unit}" if unit else f" to {value}"
+    value_str = f" to {value:g} {unit}" if unit else f" to {value:g}"
     t.append(f"{value_str} on ")
     t.append_text(_format_system_line(system))
     return t
@@ -920,7 +920,8 @@ def set_effect(
 def set_speed(
     device: DeviceArgument,
     percentage: Annotated[
-        int, typer.Argument(help="Pump speed percentage (0-100).")
+        int,
+        typer.Argument(help="Pump speed percentage (0-100).", min=0, max=100),
     ],
     username: UsernameOption = None,
     password: PasswordOption = None,
