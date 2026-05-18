@@ -12,12 +12,16 @@ import httpx
 from iaqualink.client import _REDACT_KEYS, _redact_url
 
 _REDACT_KEYS_CI = frozenset(k.lower() for k in _REDACT_KEYS)
+_REDACT_SUBSTRINGS = ("credential", "secret", "session", "token")
 
 
 def _redact_dict(d: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for k, v in d.items():
-        if k.lower() in _REDACT_KEYS_CI:
+        k_lower = k.lower()
+        if k_lower in _REDACT_KEYS_CI or any(
+            s in k_lower for s in _REDACT_SUBSTRINGS
+        ):
             result[k] = "***"
         elif isinstance(v, dict):
             result[k] = _redact_dict(v)

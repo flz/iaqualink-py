@@ -55,6 +55,22 @@ class TestRedactDict(unittest.TestCase):
     def test_empty_dict(self) -> None:
         assert _redact_dict({}) == {}
 
+    def test_substring_key_match(self) -> None:
+        result = _redact_dict(
+            {
+                "access_token": "tok",
+                "session_key": "sk",
+                "client_secret": "cs",
+                "api_credential": "cred",
+                "device_type": "iaqua",
+            }
+        )
+        assert result["access_token"] == "***"
+        assert result["session_key"] == "***"
+        assert result["client_secret"] == "***"
+        assert result["api_credential"] == "***"
+        assert result["device_type"] == "iaqua"
+
     def test_case_insensitive_key_match(self) -> None:
         result = _redact_dict(
             {"IdToken": "jwt-secret", "AccessKeyId": "AKIA123"}
@@ -78,9 +94,7 @@ class TestRedactDict(unittest.TestCase):
             }
         )
         assert result["status"] == "ok"
-        assert result["credentials"]["AccessKeyId"] == "***"
-        assert result["credentials"]["SecretKey"] == "***"
-        assert result["credentials"]["SessionToken"] == "***"
+        assert result["credentials"] == "***"
         assert result["userPoolOAuth"]["IdToken"] == "***"
         assert result["userPoolOAuth"]["ExpiresIn"] == 3600
 
