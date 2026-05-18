@@ -14,6 +14,7 @@ from rich.console import Console
 from rich.text import Text
 from rich.tree import Tree
 
+from iaqualink.cli.capture import CaptureSession
 from iaqualink.client import AqualinkAuthState, AqualinkClient
 from iaqualink.device import (
     AqualinkDevice,
@@ -46,6 +47,8 @@ app = typer.Typer(
 LOGGER = logging.getLogger("iaqualink.cli")
 DEBUG_LOG_FORMAT = "%(asctime)s %(name)s %(levelname)s %(message)s"
 DEBUG_HANDLER_NAME = "iaqualink.cli.debug"
+
+_capture_session: CaptureSession | None = None
 
 APP_DIR = Path(typer.get_app_dir("iaqualink"))
 DEFAULT_CONFIG_PATH = APP_DIR / "config.yaml"
@@ -197,6 +200,7 @@ async def _fetch_systems(
     client = AqualinkClient(
         username=credentials.username,
         password=credentials.password,
+        event_hooks=_capture_session.make_hooks() if _capture_session else None,
     )
     session_state = _load_session_jar(cookie_jar, credentials.username)
     restored_session = session_state is not None
@@ -780,8 +784,24 @@ def callback(
             is_eager=True,
         ),
     ] = False,
+    capture: Annotated[
+        Path | None,
+        typer.Option(
+            "--capture",
+            help=(
+                "Write all HTTP requests/responses to a JSONL file (sensitive "
+                "values redacted). Useful for reviewing traffic or building "
+                "regression fixtures."
+            ),
+            writable=True,
+        ),
+    ] = None,
 ) -> None:
+    global _capture_session
     _configure_logging(debug)
+
+    if capture is not None:
+        _capture_session = CaptureSession(path=capture)
 
     if version:
         typer.echo(__version__)

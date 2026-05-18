@@ -55,7 +55,12 @@ class FakeClient:
     systems_factory = staticmethod(dict[str, FakeSystem])
     login_call_count = 0
 
-    def __init__(self, username: str, password: str) -> None:
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        event_hooks: dict | None = None,
+    ) -> None:
         self.username = username
         self.password = password
         self._auth_state: AqualinkAuthState | None = None

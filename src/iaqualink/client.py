@@ -127,11 +127,13 @@ class AqualinkClient:
         username: str,
         password: str,
         httpx_client: httpx.AsyncClient | None = None,
+        event_hooks: dict[str, list] | None = None,
     ):
         self.username = username
         self._password = password
         self._logged = False
 
+        self._event_hooks: dict[str, list] = event_hooks or {}
         self._client: httpx.AsyncClient | None = None
 
         if httpx_client is None:
@@ -266,6 +268,7 @@ class AqualinkClient:
             self._client = httpx.AsyncClient(
                 http2=True,
                 limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
+                event_hooks=self._event_hooks,
             )
         return self._client
 
