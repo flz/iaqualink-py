@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
+import respx
 import respx.router
 
 from iaqualink.exception import (
@@ -13,8 +14,6 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.system import ExoSystem
-
-import respx
 
 from ...base import dotstar
 from ...base_test_system import TestBaseSystem

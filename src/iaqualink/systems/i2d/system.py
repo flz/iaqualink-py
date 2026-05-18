@@ -3,22 +3,21 @@ from __future__ import annotations
 import logging
 from typing import Any, NamedTuple
 
+import httpx
+
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import AqualinkServiceException, _AqualinkOfflineSignal
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.i2d.device import (
-    I2dBinarySensor,
-    I2dNumber,
-    I2dSensor,
-    I2dSwitch,
-    I2dPump,
+    _RPM_HARDWARE_MAX,
     _RPM_HARDWARE_MIN_DEFAULT,
     _RPM_HARDWARE_MIN_SVRS,
-    _RPM_HARDWARE_MAX,
+    I2dBinarySensor,
+    I2dNumber,
+    I2dPump,
+    I2dSensor,
+    I2dSwitch,
 )
-
-import httpx
-
 
 I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
 
@@ -264,7 +263,7 @@ class I2dSystem(AqualinkSystem):
                         raise _AqualinkOfflineSignal(
                             msg, response=exc.response
                         ) from exc
-                except (ValueError, KeyError):
+                except ValueError, KeyError:
                     pass
             raise
 

@@ -23,6 +23,7 @@ from iaqualink.device import (
     AqualinkSwitch,
     AqualinkThermostat,
 )
+from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.system import SystemStatus, UnsupportedSystem
 
 cli_module = importlib.import_module("iaqualink.cli.app")
@@ -617,3 +618,215 @@ def test_set_temperature_saves_jar_after_command(tmp_path: Path) -> None:
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"
+
+
+# ---------------------------------------------------------------------------
+# set-brightness
+# ---------------------------------------------------------------------------
+
+
+def _make_light(
+    label: str = "Light",
+    brightness: int | None = None,
+    effect: str | None = None,
+) -> AqualinkLight:
+    """Concrete AqualinkLight with configurable brightness/effect support."""
+    _brightness = brightness
+    _effect = effect
+    brightness_calls: list[int] = []
+    effect_calls: list[str] = []
+
+    class _Impl(AqualinkLight):
+        @property
+        def label(self) -> str:
+            return label
+
+        @property
+        def state(self) -> str:
+            return "1"
+
+        @property
+        def name(self) -> str:
+            return label
+
+        @property
+        def manufacturer(self) -> str:
+            return ""
+
+        @property
+        def model(self) -> str:
+            return ""
+
+        @property
+        def is_on(self) -> bool:
+            return True
+
+        async def turn_on(self) -> None:
+            pass
+
+        async def turn_off(self) -> None:
+            pass
+
+        @property
+        def brightness(self) -> int | None:
+            return _brightness
+
+        async def set_brightness(self, value: int) -> None:
+            brightness_calls.append(value)
+
+        @property
+        def effect(self) -> str | None:
+            return _effect
+
+        async def set_effect_by_name(self, name: str) -> None:
+            effect_calls.append(name)
+
+    dev = object.__new__(_Impl)
+    dev._set_brightness_calls = brightness_calls
+    dev._effect_calls = effect_calls
+    return dev
+
+
+def _make_dimmable_light(
+    label: str = "Spa Light", brightness: int = 100
+) -> AqualinkLight:
+    return _make_light(label=label, brightness=brightness)
+
+
+def _make_color_light(
+    label: str = "Color Light", effect: str = "Alpine White"
+) -> AqualinkLight:
+    return _make_light(label=label, effect=effect)
+
+
+def test_set_brightness_succeeds_on_dimmable_light(tmp_path: Path) -> None:
+    light = _make_dimmable_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-brightness", "light", "75")
+    assert result.exit_code == 0
+    assert "75%" in result.stdout
+    assert light._set_brightness_calls == [75]
+
+
+def test_set_brightness_fails_on_non_light(tmp_path: Path) -> None:
+    switch = _make_device(AqualinkSwitch, "Pump", "0")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"pump": switch})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-brightness", "pump", "50")
+    assert result.exit_code == 1
+    assert "not a light" in result.stderr
+
+
+def test_set_brightness_fails_on_non_dimmable_light(tmp_path: Path) -> None:
+    light = _make_device(AqualinkLight, "Pool Light", "1")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-brightness", "light", "50")
+    assert result.exit_code == 1
+    assert "does not support brightness" in result.stderr
+
+
+def test_set_brightness_saves_jar_after_command(tmp_path: Path) -> None:
+    light = _make_dimmable_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, cookie_jar = _invoke_with_jar(
+        tmp_path, "set-brightness", "light", "50"
+    )
+    assert result.exit_code == 0
+    data = json.loads(cookie_jar.read_text())
+    assert data["client_id"] == "post-device-session"
+
+
+# ---------------------------------------------------------------------------
+# set-effect
+# ---------------------------------------------------------------------------
+
+
+def test_set_effect_succeeds_on_color_light(tmp_path: Path) -> None:
+    light = _make_color_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = _invoke_with_jar(
+        tmp_path, "set-effect", "light", "Alpine White"
+    )
+    assert result.exit_code == 0
+    assert "Alpine White" in result.stdout
+    assert light._effect_calls == ["Alpine White"]
+
+
+def test_set_effect_fails_on_non_light(tmp_path: Path) -> None:
+    switch = _make_device(AqualinkSwitch, "Pump", "0")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"pump": switch})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-effect", "pump", "Alpine White")
+    assert result.exit_code == 1
+    assert "not a light" in result.stderr
+
+
+def test_set_effect_fails_on_non_color_light(tmp_path: Path) -> None:
+    light = _make_device(AqualinkLight, "Pool Light", "1")
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = _invoke_with_jar(
+        tmp_path, "set-effect", "light", "Alpine White"
+    )
+    assert result.exit_code == 1
+    assert "does not support color effects" in result.stderr
+
+
+def test_set_effect_saves_jar_after_command(tmp_path: Path) -> None:
+    light = _make_color_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, cookie_jar = _invoke_with_jar(
+        tmp_path, "set-effect", "light", "Alpine White"
+    )
+    assert result.exit_code == 0
+    data = json.loads(cookie_jar.read_text())
+    assert data["client_id"] == "post-device-session"
+
+
+def test_set_effect_rejects_unknown_effect_name(tmp_path: Path) -> None:
+    light = _make_color_light()
+
+    async def _raise(self: AqualinkLight, name: str) -> None:
+        raise AqualinkInvalidParameterException(
+            f"{name!r} isn't a valid effect."
+        )
+
+    type(light).set_effect_by_name = _raise  # type: ignore[method-assign]
+
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = _invoke_with_jar(tmp_path, "set-effect", "light", "Bogus")
+    assert result.exit_code == 1
+    assert "Bogus" in result.stderr

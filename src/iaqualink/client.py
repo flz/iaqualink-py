@@ -5,7 +5,8 @@ import importlib
 import logging
 import re
 import time
-from dataclasses import asdict, dataclass, fields as dataclass_fields
+from dataclasses import asdict, dataclass
+from dataclasses import fields as dataclass_fields
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
@@ -25,8 +26,8 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.reauth import send_with_reauth_retry
-from iaqualink.util import sign
 from iaqualink.system import AqualinkSystem
+from iaqualink.util import sign
 
 if TYPE_CHECKING:
     from types import TracebackType

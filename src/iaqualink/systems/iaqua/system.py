@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
+    _HOME_DEVICE_MAP,
     IaquaAuxSwitch,
     IaquaBinaryState,
     IaquaDimmableLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
     IaquaThermostat,
-    _HOME_DEVICE_MAP,
     light_subtype_to_class,
 )
 from iaqualink.systems.iaqua.enums import (
