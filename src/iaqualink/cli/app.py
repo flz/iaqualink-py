@@ -295,7 +295,12 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
         state_str: str | None = device.value
         translated: str | None = device.value_translated
     elif isinstance(device, AqualinkFan):
-        state_str = device.preset_mode
+        if device.supports_presets:
+            state_str = device.preset_mode
+        elif device.supports_turn_on or device.supports_turn_off:
+            state_str = "on" if device.is_on else "off"
+        else:
+            state_str = None
         translated = None
     elif isinstance(
         device,

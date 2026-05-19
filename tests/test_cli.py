@@ -583,6 +583,69 @@ def test_format_device_line_switch_shows_on_off() -> None:
     assert "on" in text.plain
 
 
+def test_format_device_line_light_shows_on_off() -> None:
+    device = _make_device(AqualinkLight, "Spa Light", "1")
+    text = cli_module._format_device_line("spa_light", device)
+    assert "Spa Light" in text.plain
+    assert "on" in text.plain
+
+
+def test_format_device_line_binary_sensor_shows_on_off() -> None:
+    device = _make_device(AqualinkBinarySensor, "Freeze", "1")
+    text = cli_module._format_device_line("freeze", device)
+    assert "Freeze" in text.plain
+    assert "on" in text.plain
+
+
+def test_format_device_line_number_with_unit() -> None:
+    device = _make_number("Filter RPM", "1500", unit="RPM")
+    text = cli_module._format_device_line("rpm", device)
+    assert "Filter RPM" in text.plain
+    assert "1500" in text.plain
+    assert "RPM" in text.plain
+
+
+def test_format_device_line_number_without_unit() -> None:
+    device = _make_number("Pump Speed", "75", unit=None)
+    text = cli_module._format_device_line("speed", device)
+    assert "Pump Speed" in text.plain
+    assert "75" in text.plain
+
+
+def test_format_device_line_number_none_value_shows_dim() -> None:
+    device = _make_number("Pump Speed", None)
+    text = cli_module._format_device_line("speed", device)
+    assert "Pump Speed" in text.plain
+    assert ": " not in text.plain
+
+
+def test_format_device_line_fan_with_preset_shows_preset() -> None:
+    fan = _make_fan(
+        "VSP",
+        "1",
+        supports_presets=True,
+        presets=["LOW", "CUSTOM"],
+        current_preset="CUSTOM",
+    )
+    text = cli_module._format_device_line("vsp", fan)
+    assert "VSP" in text.plain
+    assert "CUSTOM" in text.plain
+
+
+def test_format_device_line_fan_without_preset_no_crash() -> None:
+    fan = _make_fan("VSP", "1", supports_presets=False, supports_turn_on=True)
+    text = cli_module._format_device_line("vsp", fan)
+    assert "VSP" in text.plain
+    assert "on" in text.plain
+
+
+def test_format_device_line_fan_no_controls_shows_dim() -> None:
+    fan = _make_fan("VSP", "1", supports_presets=False)
+    text = cli_module._format_device_line("vsp", fan)
+    assert "VSP" in text.plain
+    assert ": " not in text.plain
+
+
 # ---------------------------------------------------------------------------
 # _render_device_tree — multi-system path
 # ---------------------------------------------------------------------------
@@ -834,6 +897,7 @@ def _make_fan(
     supports_percentage: bool = False,
     supports_presets: bool = False,
     presets: list[str] | None = None,
+    current_preset: str | None = None,
 ) -> AqualinkFan:
     class _Impl(AqualinkFan):
         @property
@@ -887,7 +951,7 @@ def _make_fan(
 
         @property
         def preset_mode(self) -> str | None:
-            return None
+            return current_preset
 
         async def set_preset_mode(self, preset_mode: str) -> None:
             if preset_mode not in (presets or []):

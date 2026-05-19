@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import math
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import TYPE_CHECKING, Any
@@ -292,9 +293,13 @@ class AqualinkNumber(AqualinkDevice):
             raise AqualinkInvalidParameterException(
                 f"{value} is out of range ({self.min_value}-{self.max_value})."
             )
-        if int(value) % int(self.step) != 0:
+        remainder = value % self.step
+        if not (
+            math.isclose(remainder, 0, abs_tol=1e-9)
+            or math.isclose(remainder, self.step, abs_tol=1e-9)
+        ):
             raise AqualinkInvalidParameterException(
-                f"{int(value)} is not a multiple of {int(self.step)}."
+                f"{value} is not a multiple of {self.step}."
             )
         await self._set_value(value)
 

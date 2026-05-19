@@ -327,11 +327,11 @@ class TestI2dNumber(unittest.IsolatedAsyncioTestCase):
             "/quickcleanrpm/write", "value=3000"
         )
 
-    async def test_set_value_truncates_to_int(self):
+    async def test_set_value_sends_as_int(self):
         num = _make_number({"quickcleanrpm": "3000"})
         mock_response = MagicMock()
         num.system.send_control_command = async_returns(mock_response)
-        await num.set_value(3000.9)
+        await num.set_value(3000.0)
         num.system.send_control_command.assert_awaited_once_with(
             "/quickcleanrpm/write", "value=3000"
         )
