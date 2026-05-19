@@ -457,7 +457,12 @@ Get names of all VSPs assigned to iQ20 aux slots.
 | `is_error` | string | Error flag |
 | `vsp_names` | array | List of VSP name objects |
 
-Each `vsp_names` element — see `VspName` model.
+Each `vsp_names` element:
+
+| Field | Type | Description |
+|---|---|---|
+| `pumpId` | integer | VSP slot identifier |
+| `pumpName` | string | VSP display name |
 
 #### `get_vsp_speedauxinfo`
 
@@ -525,7 +530,26 @@ Get available VSP application model serial numbers for assignment.
 
 **Common params only** (no extra params).
 
-**Response:** `VspAppModelSerialResponse` with `vsp_app_model_serials` array.
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `serial` | string | iQ20 serial |
+| `device_status` | string | `"online"` / `"offline"` |
+| `is_error` | string | Error flag |
+| `vsp_app_model_serials` | array | List of available VSP application/model records |
+| `response` | string | `"success"` or error string |
+
+Each `vsp_app_model_serials` element:
+
+| Field | Type | Description |
+|---|---|---|
+| `appId` | integer | Application identifier |
+| `appName` | string | Application name |
+| `modelName` | string | Model name |
+| `modelType` | integer | Model type identifier |
+| `pumpId` | integer | Pump slot identifier |
+| `pumpSerial` | string | Pump serial number |
 
 #### `get_unassigned_serials`
 
@@ -553,6 +577,8 @@ Rename a VSP.
 | `slot_id` | VSP slot identifier (integer) |
 | `pump_name` | New pump name string |
 
+**Response:** Not observed — response shape not confirmed from wire traffic.
+
 #### `set_vsp_definition`
 
 Write the full VSP definition (application and speed limits).
@@ -562,6 +588,8 @@ Write the full VSP definition (application and speed limits).
 | `slot_id` | VSP slot identifier (integer) |
 | `app_id` | Application ID (integer) |
 | `model_typeid` | Model type ID (integer) |
+
+**Response:** Not observed — response shape not confirmed from wire traffic.
 
 #### `assign_vsp_serial`
 
@@ -655,6 +683,8 @@ Rename a VSP speed preset.
 | `speedname_id` | Speed name identifier (integer) |
 | `speed_name` | New name string |
 
+**Response:** Not observed — response shape not confirmed from wire traffic.
+
 #### `set_speedname_value`
 
 Set the RPM/GPM value for a named VSP speed preset.
@@ -664,6 +694,8 @@ Set the RPM/GPM value for a named VSP speed preset.
 | `slot_id` | VSP slot identifier (integer) |
 | `speedname_id` | Speed name identifier (integer) |
 | `speed_value` | Speed value (integer) |
+
+**Response:** Not observed — response shape not confirmed from wire traffic.
 
 #### `enable_pump_speed_value`
 
@@ -688,24 +720,51 @@ Get the list of schedules for iQ20 devices.
 
 **Common params only** (no extra params).
 
-**Response:** Array of schedule objects. Each schedule object:
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `serial` | string | iQ20 serial |
+| `device_status` | string | `"online"` / `"offline"` |
+| `is_error` | boolean | Error flag |
+| `count` | integer | Number of schedules in this page |
+| `totalCount` | integer | Total schedule count |
+| `pageNum` | integer | Page number |
+| `isNewScheduleAllowed` | boolean | Whether creating additional schedules is permitted |
+| `scheduleList` | array | List of schedule objects (see below) |
+| `response` | string | `"success"` or error string |
+
+Each `scheduleList` element:
 
 | Field | Type | Description |
 |---|---|---|
 | `id` | integer | Schedule identifier |
 | `deviceId` | integer | Associated device identifier |
-| `startHrs` | integer | Start time hours |
+| `startHrs` | integer | Start time hours (0–23) |
 | `startMins` | integer | Start time minutes |
-| `stopHrs` | integer | Stop time hours |
+| `stopHrs` | integer | Stop time hours (0–23) |
 | `stopMins` | integer | Stop time minutes |
-| `scheduleDays` | string | Days bitmask or descriptor |
+| `scheduleDays` | string | Days descriptor (e.g. `"All Days"`) |
 | `vspId` | integer | Associated VSP identifier (if applicable) |
 
 #### `do_schedule_operation`
 
 Add, edit, or delete an iQ20 schedule.
 
-**Extra params:** Schedule fields as above.
+**Extra params:**
+
+| Param | Value | Required for |
+|---|---|---|
+| `operation` | `"Add"`, `"Edit"`, or `"Delete"` | All |
+| `deviceId` | Device identifier (integer) | Add, Edit |
+| `startHrs` | Start time hours (integer, 0–23) | Add, Edit |
+| `startMins` | Start time minutes (integer) | Add, Edit |
+| `stopHrs` | Stop time hours (integer, 0–23) | Add, Edit |
+| `stopMins` | Stop time minutes (integer) | Add, Edit |
+| `scheduleDays` | Days descriptor string (e.g. `"All Days"`) | Add, Edit |
+| `scheduleId` | Schedule identifier string | Edit, Delete |
+
+**Response:** Same shape as `get_schedule_list`.
 
 ---
 
@@ -751,6 +810,19 @@ Get current pH and ORP readings.
 |---|---|
 | `unit_id` | Sensor unit identifier (integer) |
 
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `serial` | string | iQ20 serial |
+| `device_status` | string | `"online"` / `"offline"` |
+| `is_error` | boolean | Error flag |
+| `pH_value` | number | Current pH reading |
+| `pH_sensor_status` | string | pH sensor operational status |
+| `ORP_value` | integer | Current ORP reading (mV) |
+| `ORP_sensor_status` | string | ORP sensor operational status |
+| `response` | string | `"success"` or error string |
+
 #### `get_phorp_lastcalibinfo`
 
 Get the last calibration date/info for pH or ORP.
@@ -759,9 +831,31 @@ Get the last calibration date/info for pH or ORP.
 |---|---|
 | `unit_id` | Sensor unit identifier (integer) |
 
+**Response fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `serial` | string | iQ20 serial |
+| `device_status` | string | `"online"` / `"offline"` |
+| `is_error` | boolean | Error flag |
+| `unit_id` | integer | Sensor unit identifier (echoed) |
+| `is_pH_calibrated` | string | Whether pH is calibrated |
+| `is_ORP_calibrated` | string | Whether ORP is calibrated |
+| `pH_calibration_date` | object | Last pH calibration date — `day`, `month`, `year` (all integers) |
+| `ORP_calibration_date` | object | Last ORP calibration date — `day`, `month`, `year` (all integers) |
+| `pHORP_Calibration_Status` | string | Combined calibration status string |
+| `ORP_Calibration_Status` | string | ORP-specific calibration status string |
+| `response` | string | `"success"` or error string |
+
 #### `get_phorp_calibstatus`
 
 Get the current calibration status.
+
+| Extra param | Value |
+|---|---|
+| `unit_id` | Sensor unit identifier (integer) |
+
+**Response:** Same shape as `get_phorp_lastcalibinfo`.
 
 #### `do1pointphcalibration`
 
@@ -794,6 +888,32 @@ Start an ORP calibration.
 ## Enum Wire Values
 
 All enum fields are serialized as strings in JSON.
+
+### `is_error` wire type
+
+The `is_error` field type is **inconsistent across subsystems** — it is a JSON boolean on some commands and a JSON string on others. This is a genuine wire inconsistency, not a documentation error. Parsers must handle both.
+
+| Subsystem / command | `is_error` type |
+|---|---|
+| SWC (`get_swc_config`, `set_swc_config`, `control_swc_boost`) | boolean |
+| HPM `enable_disable_hpm` | boolean |
+| HPM `switch_hpm_mode`, `setpoint_hpm_temp` | boolean |
+| ICL `enable_disable_zoning_mode` | boolean |
+| Master device list (`get_master_device_list`) | boolean |
+| Scheduling (`get_schedule_list`, `do_schedule_operation`) | boolean |
+| TruSense (`get_phorp_values`, `get_phorp_lastcalibinfo`, `get_phorp_calibstatus`) | boolean |
+| ICL `get_icl_info`, `onoff_iclzone`, `set_iclzone_color`, `set_iclzone_dim`, `set_iclzone_name` | string |
+| ICL `define_iclzone_customcolor` | string |
+| VSP `get_vsp_names`, `get_vsp_speedauxinfo`, `get_vsp_definition`, `get_vsp_appmodelserials`, `get_unassigned_serials` | string |
+| VSP `assign_vsp_serial`, `unassign_vsp_serial`, `enable_disable_pump_speedId`, `set_aux_speed`, `enable_pump_speed_value` | string |
+
+### `speedid` vs `speedId` in VSP responses
+
+Two VSP response objects use different casing for a similar field:
+- `get_vsp_speedauxinfo` → `vsp_speedInfo` elements use `speedid` (lowercase `i`)
+- `enable_disable_pump_speedId` → `vsp_speedInfo` elements use `speedId` (capital `I`)
+
+Both are correct wire field names for their respective response objects.
 
 ### SystemType
 
@@ -1017,10 +1137,10 @@ Wire values for `swcPoolStatus` / `swcSpaStatus`:
 
 | # | Item |
 |---|---|
-| 1 | `relay_count` — present in real-world `get_home` fixtures; not found in decompiled model source. Likely a wire field passed through transparently. |
-| 2 | `set_onetouch` write command — `get_onetouch` read is confirmed; no `set_onetouch` command string found in decompiled sources. One Touch preset activation may use a different mechanism. |
-| 3 | VSP commands via iQ20 session — confirmed via decompiled sources; exact wire behavior on multi-board configurations needs real-world verification. |
-| 4 | TruSense `unit_id` valid range and format — integer assumed from decompiled request signatures; not confirmed from live traffic. |
+| 1 | `relay_count` — present in real-world `get_home` fixtures; not found in protocol analysis of model sources. Likely a wire field passed through transparently. |
+| 2 | `set_onetouch` write command — `get_onetouch` read is confirmed; no `set_onetouch` command string found in protocol analysis. One Touch preset activation may use a different mechanism. |
+| 3 | VSP commands via iQ20 session — confirmed via protocol analysis; exact wire behavior on multi-board configurations needs real-world verification. |
+| 4 | TruSense `unit_id` valid range and format — integer confirmed from request signatures; valid range not confirmed from live traffic. |
 | 5 | HPM `on_off_action` values for `enable_disable_hpm` — `"on"` / `"off"` inferred; not confirmed from live traffic. |
 
 ---

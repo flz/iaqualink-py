@@ -124,6 +124,11 @@ The reference app sends the `IdToken` bare (no `Bearer` prefix) in the `Authoriz
 
 ## Deltas vs Protocol Reference
 
+Only genuine divergences are listed here. The following reference behaviors all match the current implementation and are not listed:
+
+- **Session host** — implementation uses `p-api.iaqualink.net` (matches reference). An earlier version of this doc incorrectly listed `r-api`; that was a documentation error.
+- **`get_home` extra params** — implementation sends both `country` and `attached_test=true` (matches reference).
+
 | # | Observed reference | Current Python (`IaquaSystem`) |
 |---|---|---|
 | 1 | `Authorization` header: bare `{IdToken}` (no prefix) | Sends `Bearer {id_token}` |
