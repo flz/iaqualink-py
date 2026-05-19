@@ -246,7 +246,7 @@ class TestIaquaOneTouchSwitch(TestIaquaSwitch, TestBaseSwitch):
         assert self.sut.label == "Morning Scene"
 
 
-class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):
+class TestIaquaAuxSwitch(TestIaquaDevice, TestBaseSwitch):
     def setUp(self) -> None:
         super().setUp()
 
@@ -259,6 +259,14 @@ class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):
         }
         self.sut = IaquaAuxSwitch(self.system, data)
         self.sut_class = IaquaAuxSwitch
+
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["state"] = "0"
+        super().test_property_is_on_false()
+
+    def test_property_is_on_true(self) -> None:
+        self.sut.data["state"] = "1"
+        super().test_property_is_on_true()
 
     async def test_turn_on(self) -> None:
         self.sut.data["state"] = "0"
@@ -281,7 +289,7 @@ class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):
             await super().test_turn_off_noop()
 
 
-class TestIaquaLightSwitch(TestIaquaAuxSwitch, TestBaseLight):
+class TestIaquaLightSwitch(TestIaquaDevice, TestBaseLight):
     def setUp(self) -> None:
         super().setUp()
 
@@ -296,6 +304,34 @@ class TestIaquaLightSwitch(TestIaquaAuxSwitch, TestBaseLight):
         self.sut = IaquaLightSwitch(self.system, data)
         self.sut_class = IaquaLightSwitch
 
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["state"] = "0"
+        super().test_property_is_on_false()
+
+    def test_property_is_on_true(self) -> None:
+        self.sut.data["state"] = "1"
+        super().test_property_is_on_true()
+
+    async def test_turn_on(self) -> None:
+        self.sut.data["state"] = "0"
+        with patch.object(self.sut.system, "_parse_devices_response"):
+            await super().test_turn_on()
+
+    async def test_turn_on_noop(self) -> None:
+        self.sut.data["state"] = "1"
+        with patch.object(self.sut.system, "_parse_devices_response"):
+            await super().test_turn_on_noop()
+
+    async def test_turn_off(self) -> None:
+        self.sut.data["state"] = "1"
+        with patch.object(self.sut.system, "_parse_devices_response"):
+            await super().test_turn_off()
+
+    async def test_turn_off_noop(self) -> None:
+        self.sut.data["state"] = "0"
+        with patch.object(self.sut.system, "_parse_devices_response"):
+            await super().test_turn_off_noop()
+
     def test_property_brightness_pct(self) -> None:
         assert self.sut.brightness_pct is None
 
@@ -303,7 +339,7 @@ class TestIaquaLightSwitch(TestIaquaAuxSwitch, TestBaseLight):
         assert self.sut.effect is None
 
 
-class TestIaquaDimmableLight(TestIaquaAuxSwitch, TestBaseLight):
+class TestIaquaDimmableLight(TestIaquaDevice, TestBaseLight):
     def setUp(self) -> None:
         super().setUp()
 
@@ -378,7 +414,7 @@ class TestIaquaDimmableLight(TestIaquaAuxSwitch, TestBaseLight):
             await super().test_set_brightness_percentage_75()
 
 
-class TestIaquaColorLight(TestIaquaAuxSwitch, TestBaseLight):
+class TestIaquaColorLight(TestIaquaDevice, TestBaseLight):
     def setUp(self) -> None:
         super().setUp()
 
@@ -408,6 +444,14 @@ class TestIaquaColorLight(TestIaquaAuxSwitch, TestBaseLight):
     def test_property_model(self) -> None:
         assert self.sut.model == "Intellibrite Light"
 
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["state"] = "0"
+        super().test_property_is_on_false()
+
+    def test_property_is_on_true(self) -> None:
+        self.sut.data["state"] = "1"
+        super().test_property_is_on_true()
+
     def test_property_supports_brightness(self) -> None:
         super().test_property_supports_brightness()
         assert self.sut.supports_brightness is False
@@ -427,6 +471,14 @@ class TestIaquaColorLight(TestIaquaAuxSwitch, TestBaseLight):
         with patch.object(self.sut.system, "_parse_devices_response"):
             await super().test_turn_on()
         # data = {"aux": "1", "light": "1", "subtype": "5"}
+
+    async def test_turn_on_noop(self) -> None:
+        self.sut.data["state"] = "1"
+        await super().test_turn_on_noop()
+
+    async def test_turn_off_noop(self) -> None:
+        self.sut.data["state"] = "0"
+        await super().test_turn_off_noop()
 
     async def test_set_effect_off(self) -> None:
         with patch.object(self.sut.system, "_parse_devices_response"):

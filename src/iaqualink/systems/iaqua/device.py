@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from abc import abstractmethod
 from enum import StrEnum, unique
 from typing import TYPE_CHECKING, cast
 
@@ -139,20 +138,32 @@ class IaquaHeater(IaquaSwitch):
         )
 
 
-class IaquaAuxSwitch(IaquaSwitch):
+class _IaquaAuxMixin:
     @property
     def is_on(self) -> bool:
-        return self.state == IaquaBinaryState.ON if self.state else False
+        return self.state == IaquaBinaryState.ON if self.state else False  # type: ignore[attr-defined]
 
     async def _toggle(self) -> None:
-        await self.system.set_aux(self.data["aux"])
+        await self.system.set_aux(self.data["aux"])  # type: ignore[attr-defined]
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self._toggle()
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self._toggle()
 
 
-class IaquaLightSwitch(IaquaAuxSwitch, AqualinkLight):
+class IaquaAuxSwitch(_IaquaAuxMixin, IaquaDevice, AqualinkSwitch):
     pass
 
 
-class IaquaDimmableLight(IaquaAuxSwitch, AqualinkLight):
+class IaquaLightSwitch(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
+    pass
+
+
+class IaquaDimmableLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
     async def turn_on(self) -> None:
         if not self.is_on:
             await self.set_brightness_percentage(100)
@@ -176,7 +187,7 @@ class IaquaDimmableLight(IaquaAuxSwitch, AqualinkLight):
         await self.system.set_light(data)
 
 
-class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
+class IaquaColorLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
     async def turn_on(self) -> None:
         if not self.is_on:
             await self._set_effect_by_id(1)
@@ -196,16 +207,11 @@ class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
         return self.data["state"]
 
     @property
-    @abstractmethod
-    def effect_list(self) -> list[str] | None:
-        raise NotImplementedError
+    def effect_list(self) -> list[str]:
+        return list(self._EFFECTS)  # type: ignore[attr-defined]
 
     async def _set_effect(self, effect: str) -> None:
-        await self._set_effect_by_id(self._effect_id(effect))
-
-    def _effect_id(self, effect: str) -> int:
-        """Return the wire ID for an effect name."""
-        raise NotImplementedError
+        await self._set_effect_by_id(self._EFFECTS[effect])  # type: ignore[attr-defined]
 
     async def _set_effect_by_id(self, effect_id: int) -> None:
         data = {
@@ -240,13 +246,6 @@ class IaquaColorLightJC(IaquaColorLight):
         "Color Splash": 11,
     }
 
-    @property
-    def effect_list(self) -> list[str]:
-        return list(self._EFFECTS)
-
-    def _effect_id(self, effect: str) -> int:
-        return self._EFFECTS[effect]
-
 
 class IaquaColorLightSL(IaquaColorLight):
     @property
@@ -269,13 +268,6 @@ class IaquaColorLightSL(IaquaColorLight):
         "Light Magenta": 8,
         "Color Splash": 9,
     }
-
-    @property
-    def effect_list(self) -> list[str]:
-        return list(self._EFFECTS)
-
-    def _effect_id(self, effect: str) -> int:
-        return self._EFFECTS[effect]
 
 
 class IaquaColorLightCL(IaquaColorLight):
@@ -302,13 +294,6 @@ class IaquaColorLightCL(IaquaColorLight):
         "Mardi Gras": 11,
         "Cool Cabaret": 12,
     }
-
-    @property
-    def effect_list(self) -> list[str]:
-        return list(self._EFFECTS)
-
-    def _effect_id(self, effect: str) -> int:
-        return self._EFFECTS[effect]
 
 
 class IaquaColorLightJL(IaquaColorLight):
@@ -338,13 +323,6 @@ class IaquaColorLightJL(IaquaColorLight):
         "Disco Tech": 14,
     }
 
-    @property
-    def effect_list(self) -> list[str]:
-        return list(self._EFFECTS)
-
-    def _effect_id(self, effect: str) -> int:
-        return self._EFFECTS[effect]
-
 
 class IaquaColorLightIB(IaquaColorLight):
     @property
@@ -370,13 +348,6 @@ class IaquaColorLightIB(IaquaColorLight):
         "White": 11,
         "Magenta": 12,
     }
-
-    @property
-    def effect_list(self) -> list[str]:
-        return list(self._EFFECTS)
-
-    def _effect_id(self, effect: str) -> int:
-        return self._EFFECTS[effect]
 
 
 class IaquaColorLightHU(IaquaColorLight):
@@ -408,13 +379,6 @@ class IaquaColorLightHU(IaquaColorLight):
         "Mardi Gras": 16,
         "Cool Cabaret": 17,
     }
-
-    @property
-    def effect_list(self) -> list[str]:
-        return list(self._EFFECTS)
-
-    def _effect_id(self, effect: str) -> int:
-        return self._EFFECTS[effect]
 
 
 light_subtype_to_class = {
