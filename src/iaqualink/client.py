@@ -48,14 +48,40 @@ LOGGER = logging.getLogger("iaqualink.client")
 
 _REDACT_KEYS = frozenset(
     {
+        # auth tokens & credentials
+        "AccessKeyId",
+        "IdToken",
+        "IdentityId",
+        "SecretKey",
+        "SessionToken",
         "api_key",
         "authentication_token",
+        "authorization",
         "client_id",
         "id_token",
         "password",
         "refresh_token",
+        "session_id",
         "sessionID",
         "signature",
+        # PII / session
+        "address",
+        "address_1",
+        "address_2",
+        "city",
+        "cookie",
+        "email",
+        "id",
+        "first_name",
+        "last_name",
+        "phone",
+        "postal_code",
+        "owner_id",
+        "serial",
+        "serial_number",
+        "serialnumber",
+        "ssid",
+        "user_id",
     }
 )
 _REDACT_URL_RE = re.compile(
@@ -127,11 +153,13 @@ class AqualinkClient:
         username: str,
         password: str,
         httpx_client: httpx.AsyncClient | None = None,
+        event_hooks: dict[str, list] | None = None,
     ):
         self.username = username
         self._password = password
         self._logged = False
 
+        self._event_hooks: dict[str, list] = event_hooks or {}
         self._client: httpx.AsyncClient | None = None
 
         if httpx_client is None:
@@ -266,6 +294,7 @@ class AqualinkClient:
             self._client = httpx.AsyncClient(
                 http2=True,
                 limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
+                event_hooks=self._event_hooks,
             )
         return self._client
 

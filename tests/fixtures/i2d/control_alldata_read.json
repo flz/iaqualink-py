@@ -9,7 +9,7 @@
       "horsepowercode": "0A",
       "updateprogress": "0"
     },
-    "wifistatus": {"state": "connected", "ssid": "MyNetwork"},
+    "wifistatus": {"state": "connected", "ssid": "test-network"},
     "opmode": "0",
     "runstate": "on",
     "fwversion": "1.5.2",
