@@ -321,16 +321,26 @@ class AqualinkFan(AqualinkDevice):
 
     async def set_percentage(self, percentage: int) -> None:
         """Set fan/pump speed as a percentage (0–100)."""
-        if self.supports_percentage:
-            if not 0 <= percentage <= 100:
-                raise AqualinkInvalidParameterException(percentage)
-            raise NotImplementedError
-        raise AqualinkOperationNotSupportedException
+        if not self.supports_percentage:
+            raise AqualinkOperationNotSupportedException
+        if not 0 <= percentage <= 100:
+            raise AqualinkInvalidParameterException(
+                f"Percentage {percentage} out of range (0-100)."
+            )
+        await self._set_percentage(percentage)
+
+    async def _set_percentage(self, percentage: int) -> None:
+        """Send the speed percentage to the device."""
+        raise NotImplementedError
 
     async def set_preset_mode(self, preset_mode: str) -> None:
         """Activate a preset mode by name."""
-        if self.supports_presets:
-            if preset_mode not in self.preset_modes:
-                raise AqualinkInvalidParameterException(preset_mode)
-            raise NotImplementedError
-        raise AqualinkOperationNotSupportedException
+        if not self.supports_presets:
+            raise AqualinkOperationNotSupportedException
+        if preset_mode not in self.preset_modes:
+            raise AqualinkInvalidParameterException(preset_mode)
+        await self._set_preset_mode(preset_mode)
+
+    async def _set_preset_mode(self, preset_mode: str) -> None:
+        """Send the preset mode to the device."""
+        raise NotImplementedError

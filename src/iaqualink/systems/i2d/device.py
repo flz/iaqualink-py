@@ -11,7 +11,6 @@ from iaqualink.device import (
     AqualinkSensor,
     AqualinkSwitch,
 )
-from iaqualink.exception import AqualinkInvalidParameterException
 
 if TYPE_CHECKING:
     from iaqualink.systems.i2d.system import I2dSystem
@@ -213,11 +212,7 @@ class I2dFan(I2dDevice, AqualinkFan):
     def supports_percentage(self) -> bool:
         return True
 
-    async def set_percentage(self, percentage: int) -> None:
-        if not 0 <= percentage <= 100:
-            raise AqualinkInvalidParameterException(
-                f"Percentage {percentage} out of range (0-100)."
-            )
+    async def _set_percentage(self, percentage: int) -> None:
         rpm_min = self.rpm_min or _RPM_HARDWARE_MIN_DEFAULT
         rpm_max = self.rpm_max or _RPM_HARDWARE_MAX
         raw = rpm_min + (rpm_max - rpm_min) * percentage / 100
@@ -248,11 +243,7 @@ class I2dFan(I2dDevice, AqualinkFan):
         except ValueError:
             return None
 
-    async def set_preset_mode(self, preset_mode: str) -> None:
-        if preset_mode not in self.preset_modes:
-            raise AqualinkInvalidParameterException(
-                f"{preset_mode!r} is not a valid preset. Valid: {self.preset_modes}"
-            )
+    async def _set_preset_mode(self, preset_mode: str) -> None:
         r = await self.system.send_control_command(
             "/opmode/write", f"value={I2dOpMode[preset_mode]}"
         )
