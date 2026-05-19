@@ -303,6 +303,14 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
     ):
         state_str = "on" if device.is_on else "off"
         translated = None
+    elif isinstance(device, AqualinkNumber):
+        cv = device.current_value
+        if cv is not None:
+            unit = device.unit_of_measurement
+            state_str = f"{int(cv)} {unit}" if unit else str(int(cv))
+        else:
+            state_str = None
+        translated = None
     else:
         state_str = None
         translated = None
@@ -326,7 +334,8 @@ def _group_devices(
     devices: list[tuple[str, AqualinkDevice]],
 ) -> list[tuple[str, str, list[tuple[str, AqualinkDevice]]]]:
     assigned: set[str] = set()
-    groups: list[tuple[str, str, list[tuple[str, AqualinkDevice]]]] = []
+    # label → (icon, members) — preserves insertion order, merges same-label entries
+    groups: dict[str, tuple[str, list[tuple[str, AqualinkDevice]]]] = {}
     for cls, icon, label in _DEVICE_GROUPS:
         members = [
             (name, dev)
@@ -336,11 +345,17 @@ def _group_devices(
         for name, _ in members:
             assigned.add(name)
         if members:
-            groups.append((icon, label, members))
+            if label in groups:
+                groups[label][1].extend(members)
+            else:
+                groups[label] = (icon, members)
+    result = [
+        (icon, label, members) for label, (icon, members) in groups.items()
+    ]
     remaining = [(name, dev) for name, dev in devices if name not in assigned]
     if remaining:
-        groups.append(("•", "Other", remaining))
-    return groups
+        result.append(("•", "Other", remaining))
+    return result
 
 
 def _add_devices_to_tree(

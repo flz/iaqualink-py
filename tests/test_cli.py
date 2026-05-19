@@ -441,8 +441,10 @@ def test_group_devices_all_types() -> None:
         "Fans",
         "Numbers",
         "Sensors",
-        "Sensors",
     ]
+    # Binary sensors and regular sensors merged into one group
+    sensors_group = next(g for g in groups if g[1] == "Sensors")
+    assert len(sensors_group[2]) == 2
 
 
 def test_group_devices_climate_not_swallowed_by_switch() -> None:
