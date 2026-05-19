@@ -5,10 +5,10 @@ from enum import IntEnum, unique
 from typing import TYPE_CHECKING, Any, cast
 
 from iaqualink.device import (
+    AqualinkClimate,
     AqualinkDevice,
     AqualinkSensor,
     AqualinkSwitch,
-    AqualinkThermostat,
 )
 from iaqualink.exception import AqualinkInvalidParameterException
 
@@ -42,6 +42,8 @@ class ExoDevice(AqualinkDevice):
         name = self.name
         return " ".join([x.capitalize() for x in name.split("_")])
 
+    # Internal property used by exo device logic; not part of the
+    # AqualinkDevice public contract.
     @property
     def state(self) -> str:
         return str(self.data["state"])
@@ -67,7 +69,7 @@ class ExoDevice(AqualinkDevice):
         elif data["name"].startswith("sns_"):
             class_ = ExoSensor
         elif data["name"] == "heating":
-            class_ = ExoThermostat
+            class_ = ExoClimate
         elif data["name"] == "heater":
             class_ = ExoHeater
         elif data["name"] in ["production", "boost", "low"]:
@@ -92,7 +94,7 @@ class ExoSensor(ExoDevice, AqualinkSensor):
         return self.data["state"] == ExoState.ON
 
     @property
-    def state(self) -> str:
+    def value(self) -> str:
         if self._is_active:
             return str(self.data["value"])
         return ""
@@ -110,6 +112,10 @@ class ExoSensor(ExoDevice, AqualinkSensor):
 
 class ExoAttributeSensor(ExoDevice, AqualinkSensor):
     """These sensors are a simple key/value in equipment->swc_0."""
+
+    @property
+    def value(self) -> str:
+        return str(self.data["state"])
 
 
 class ExoErrorSensor(ExoAttributeSensor):
@@ -158,16 +164,17 @@ class ExoAttributeSwitch(ExoSwitch):
 
 
 class ExoHeater(ExoDevice):
-    """This device is to separate the state of the heater from the thermostat to maintain the existing homeassistant API"""
+    """This device is to separate the state of the heater from the climate to maintain the existing homeassistant API"""
 
 
-class ExoThermostat(ExoSwitch, AqualinkThermostat):
+class ExoClimate(ExoSwitch, AqualinkClimate):
+    # Internal: the set-point stored in data["sp"]; not the AqualinkClimate.value
     @property
     def state(self) -> str:
         return str(self.data["sp"])
 
     @property
-    def unit(self) -> str:
+    def temperature_unit(self) -> str:
         return "C"
 
     @property
@@ -180,24 +187,24 @@ class ExoThermostat(ExoSwitch, AqualinkThermostat):
 
     @property
     def current_temperature(self) -> str:
-        return self._sensor.state
+        return self._sensor.value
 
     @property
     def target_temperature(self) -> str:
         return str(self.data["sp"])
 
     @property
-    def min_temperature(self) -> int:
+    def min_temp(self) -> int:
         return int(self.data["sp_min"])
 
     @property
-    def max_temperature(self) -> int:
+    def max_temp(self) -> int:
         return int(self.data["sp_max"])
 
     async def set_temperature(self, temperature: int) -> None:
-        unit = self.unit
-        low = self.min_temperature
-        high = self.max_temperature
+        unit = self.temperature_unit
+        low = self.min_temp
+        high = self.max_temp
 
         if temperature not in range(low, high + 1):
             msg = f"{temperature}{unit} isn't a valid temperature"

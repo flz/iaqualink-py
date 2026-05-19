@@ -15,13 +15,13 @@ from typer.testing import CliRunner
 from iaqualink.client import AqualinkAuthState
 from iaqualink.device import (
     AqualinkBinarySensor,
+    AqualinkClimate,
     AqualinkDevice,
+    AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
-    AqualinkPump,
     AqualinkSensor,
     AqualinkSwitch,
-    AqualinkThermostat,
 )
 from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.system import SystemStatus, UnsupportedSystem
@@ -274,11 +274,11 @@ def test_list_systems_shows_unsupported_note(tmp_path: Path) -> None:
 def _make_device(
     cls: type,
     label: str = "Dev",
-    state: str | None = "1",
-    state_enum: type[Enum] | None = None,
+    value: str | None = "1",
+    value_enum: type[Enum] | None = None,
 ) -> AqualinkDevice:
     """Minimal concrete device of a given base class (bypasses __init__)."""
-    _state_enum = state_enum
+    _value_enum = value_enum
 
     class _Impl(cls):  # type: ignore[valid-type]
         @property
@@ -286,12 +286,22 @@ def _make_device(
             return label
 
         @property
-        def state(self) -> str | None:
-            return state
+        def value(self) -> str | None:
+            return value
 
         @property
-        def state_enum(self) -> type[Enum] | None:
-            return _state_enum
+        def value_enum(self) -> type[Enum] | None:
+            return _value_enum
+
+        @property
+        def value_translated(self) -> str | None:
+            cls_ = _value_enum
+            if cls_ is None or value is None:
+                return None
+            try:
+                return cls_(value).name
+            except ValueError:
+                return None
 
         @property
         def name(self) -> str:
@@ -307,7 +317,7 @@ def _make_device(
 
         @property
         def is_on(self) -> bool:
-            return bool(state)
+            return bool(value)
 
         async def turn_on(self) -> None:
             pass
@@ -316,7 +326,7 @@ def _make_device(
             pass
 
         @property
-        def unit(self) -> str:
+        def temperature_unit(self) -> str:
             return "F"
 
         @property
@@ -328,21 +338,37 @@ def _make_device(
             return ""
 
         @property
-        def max_temperature(self) -> int:
+        def max_temp(self) -> int:
             return 104
 
         @property
-        def min_temperature(self) -> int:
+        def min_temp(self) -> int:
             return 40
 
         async def set_temperature(self, _: int) -> None:
             pass
 
         @property
-        def brightness(self) -> int | None:
+        def brightness_pct(self) -> int | None:
             return None
 
-        async def set_brightness(self, _: int) -> None:
+        async def set_brightness_percentage(self, _: int) -> None:
+            pass
+
+        # AqualinkNumber abstract stubs
+        @property
+        def current_value(self) -> float | None:
+            return float(value) if value else None
+
+        @property
+        def min_value(self) -> float:
+            return 0.0
+
+        @property
+        def max_value(self) -> float:
+            return 100.0
+
+        async def _set_value(self, v: float) -> None:
             pass
 
     return object.__new__(_Impl)
@@ -396,31 +422,31 @@ class FakeSystemWithAqualink(FakeSystem):
 
 def test_group_devices_all_types() -> None:
     devices = [
-        ("t1", _make_device(AqualinkThermostat, "Heater")),
+        ("t1", _make_device(AqualinkClimate, "Heater")),
         ("l1", _make_device(AqualinkLight, "Light")),
         ("s1", _make_device(AqualinkSwitch, "Switch")),
-        ("p1", _make_device(AqualinkPump, "Pump")),
+        ("p1", _make_device(AqualinkFan, "Pump")),
         ("nb1", _make_device(AqualinkNumber, "RPM")),
+        ("b1", _make_device(AqualinkBinarySensor, "Freeze")),
         ("n1", _make_device(AqualinkSensor, "Temp")),
     ]
     groups = cli_module._group_devices(devices)
     assert [label for _, label, _ in groups] == [
-        "Thermostats",
+        "Climate",
         "Lights",
         "Switches",
-        "Pumps",
+        "Fans",
         "Numbers",
         "Sensors",
+        "Sensors",
     ]
-    for _, _, members in groups:
-        assert len(members) == 1
 
 
-def test_group_devices_thermostat_not_swallowed_by_switch() -> None:
-    thermostat = _make_device(AqualinkThermostat, "Heater")
-    groups = cli_module._group_devices([("h", thermostat)])
+def test_group_devices_climate_not_swallowed_by_switch() -> None:
+    climate = _make_device(AqualinkClimate, "Heater")
+    groups = cli_module._group_devices([("h", climate)])
     assert len(groups) == 1
-    assert groups[0][1] == "Thermostats"
+    assert groups[0][1] == "Climate"
 
 
 def test_group_devices_light_not_swallowed_by_switch() -> None:
@@ -430,11 +456,11 @@ def test_group_devices_light_not_swallowed_by_switch() -> None:
     assert groups[0][1] == "Lights"
 
 
-def test_group_devices_pump_grouped_as_pump() -> None:
-    pump = _make_device(AqualinkPump, "Filter Pump")
-    groups = cli_module._group_devices([("p", pump)])
+def test_group_devices_fan_grouped_as_fan() -> None:
+    fan = _make_device(AqualinkFan, "Filter Pump")
+    groups = cli_module._group_devices([("p", fan)])
     assert len(groups) == 1
-    assert groups[0][1] == "Pumps"
+    assert groups[0][1] == "Fans"
 
 
 def test_group_devices_number_grouped_as_number() -> None:
@@ -444,20 +470,13 @@ def test_group_devices_number_grouped_as_number() -> None:
     assert groups[0][1] == "Numbers"
 
 
-def test_group_devices_binary_sensor_covered_by_sensor_group() -> None:
-    # AqualinkBinarySensor extends AqualinkSensor; no separate _DEVICE_GROUPS
-    # entry is needed — it is matched by the AqualinkSensor entry.
+def test_group_devices_binary_sensor_in_sensors_group() -> None:
+    # AqualinkBinarySensor has its own explicit _DEVICE_GROUPS entry since it
+    # no longer inherits from AqualinkSensor.
     binary = _make_device(AqualinkBinarySensor, "Freeze")
     groups = cli_module._group_devices([("b", binary)])
     assert len(groups) == 1
     assert groups[0][1] == "Sensors"
-
-
-# AqualinkPump and AqualinkNumber extend AqualinkDevice directly and share no
-# IS-A relationship with AqualinkSensor or AqualinkSwitch, so there is no risk
-# of them being swallowed by another group. No "not swallowed" tests are needed
-# for those types (unlike AqualinkThermostat/AqualinkLight which extend
-# AqualinkSwitch and do require such guards).
 
 
 def test_group_devices_unknown_type_goes_to_other() -> None:
@@ -465,10 +484,6 @@ def test_group_devices_unknown_type_goes_to_other() -> None:
         @property
         def label(self) -> str:
             return "X"
-
-        @property
-        def state(self) -> str:
-            return "x"
 
         @property
         def name(self) -> str:
@@ -497,61 +512,70 @@ def test_group_devices_empty() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_format_device_line_with_state() -> None:
-    device = _make_device(AqualinkSwitch, "Pool Pump", "1")
-    text = cli_module._format_device_line("pump", device)
-    assert "Pool Pump" in text.plain
-    assert "[pump]" in text.plain
-    assert "1" in text.plain
+def test_format_device_line_sensor_with_value() -> None:
+    device = _make_device(AqualinkSensor, "Pool Temp", "82")
+    text = cli_module._format_device_line("temp", device)
+    assert "Pool Temp" in text.plain
+    assert "[temp]" in text.plain
+    assert "82" in text.plain
     assert ": " in text.plain
 
 
-def test_format_device_line_none_state() -> None:
-    device = _make_device(AqualinkSwitch, "Pool Pump", None)
-    text = cli_module._format_device_line("pump", device)
-    assert "Pool Pump" in text.plain
-    assert "[pump]" in text.plain
+def test_format_device_line_sensor_none_value() -> None:
+    device = _make_device(AqualinkSensor, "Pool Temp", None)
+    text = cli_module._format_device_line("temp", device)
+    assert "Pool Temp" in text.plain
+    assert "[temp]" in text.plain
     assert ": " not in text.plain
 
 
-def test_format_device_line_empty_state() -> None:
-    device = _make_device(AqualinkSwitch, "Pool Pump", "")
-    text = cli_module._format_device_line("pump", device)
-    assert "Pool Pump" in text.plain
+def test_format_device_line_sensor_empty_value() -> None:
+    device = _make_device(AqualinkSensor, "Pool Temp", "")
+    text = cli_module._format_device_line("temp", device)
+    assert "Pool Temp" in text.plain
     assert ": " not in text.plain
 
 
-def test_format_device_line_uses_translated_state() -> None:
+def test_format_device_line_sensor_uses_translated_value() -> None:
     class _FakeState(StrEnum):
         OFF = "0"
         ON = "1"
 
     device = _make_device(
-        AqualinkSwitch, "Pool Pump", "1", state_enum=_FakeState
+        AqualinkSensor, "Pool Temp", "1", value_enum=_FakeState
     )
-    text = cli_module._format_device_line("pump", device)
+    text = cli_module._format_device_line("temp", device)
     assert "1" in text.plain
     assert "(ON)" in text.plain
 
 
-def test_format_device_line_no_translation_omits_parentheses() -> None:
-    device = _make_device(AqualinkSwitch, "Pool Pump", "1")
-    text = cli_module._format_device_line("pump", device)
-    assert "1" in text.plain
+def test_format_device_line_sensor_no_translation_omits_parentheses() -> None:
+    device = _make_device(AqualinkSensor, "Pool Temp", "82")
+    text = cli_module._format_device_line("temp", device)
+    assert "82" in text.plain
     assert "(" not in text.plain
 
 
-def test_format_device_line_unknown_enum_value_omits_parentheses() -> None:
+def test_format_device_line_sensor_unknown_enum_value_omits_parentheses() -> (
+    None
+):
     class _FakeState(StrEnum):
         OFF = "0"
         ON = "1"
 
     device = _make_device(
-        AqualinkSwitch, "Pool Pump", "99", state_enum=_FakeState
+        AqualinkSensor, "Pool Temp", "99", value_enum=_FakeState
     )
-    text = cli_module._format_device_line("pump", device)
+    text = cli_module._format_device_line("temp", device)
     assert "99" in text.plain
     assert "(" not in text.plain
+
+
+def test_format_device_line_switch_shows_on_off() -> None:
+    device = _make_device(AqualinkSwitch, "Pool Pump", "1")
+    text = cli_module._format_device_line("pump", device)
+    assert "Pool Pump" in text.plain
+    assert "on" in text.plain
 
 
 # ---------------------------------------------------------------------------
@@ -642,7 +666,7 @@ def test_turn_on_saves_jar_after_command(tmp_path: Path) -> None:
 
 
 def test_set_temperature_saves_jar_after_command(tmp_path: Path) -> None:
-    thermostat = _make_device(AqualinkThermostat, "Heater", "72")
+    thermostat = _make_device(AqualinkClimate, "Heater", "72")
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink(
@@ -680,10 +704,6 @@ def _make_light(
             return label
 
         @property
-        def state(self) -> str:
-            return "1"
-
-        @property
         def name(self) -> str:
             return label
 
@@ -706,17 +726,23 @@ def _make_light(
             pass
 
         @property
-        def brightness(self) -> int | None:
+        def brightness_pct(self) -> int | None:
             return _brightness
 
-        async def set_brightness(self, value: int) -> None:
+        async def set_brightness_percentage(self, value: int) -> None:
             brightness_calls.append(value)
 
         @property
         def effect(self) -> str | None:
             return _effect
 
-        async def set_effect_by_name(self, name: str) -> None:
+        @property
+        def effect_list(self) -> list[str] | None:
+            if _effect is None:
+                return None
+            return [_effect, "Off"]
+
+        async def set_effect(self, name: str) -> None:
             effect_calls.append(name)
 
     dev = object.__new__(_Impl)
@@ -747,7 +773,7 @@ def test_set_brightness_succeeds_on_dimmable_light(tmp_path: Path) -> None:
     result, _ = _invoke_with_jar(tmp_path, "set-brightness", "light", "75")
     assert result.exit_code == 0
     assert "75%" in result.stdout
-    assert light._set_brightness_calls == [75]
+    assert light._set_brightness_calls == [75]  # type: ignore[attr-defined]
 
 
 def test_set_brightness_fails_on_non_light(tmp_path: Path) -> None:
@@ -794,24 +820,20 @@ def test_set_brightness_saves_jar_after_command(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def _make_pump(
+def _make_fan(
     label: str = "VSP",
     state: str | None = "1",
     *,
     supports_turn_on: bool = False,
     supports_turn_off: bool = False,
-    supports_set_speed_percentage: bool = False,
+    supports_percentage: bool = False,
     supports_presets: bool = False,
     presets: list[str] | None = None,
-) -> AqualinkPump:
-    class _Impl(AqualinkPump):
+) -> AqualinkFan:
+    class _Impl(AqualinkFan):
         @property
         def label(self) -> str:
             return label
-
-        @property
-        def state(self) -> str | None:
-            return state
 
         @property
         def name(self) -> str:
@@ -844,10 +866,10 @@ def _make_pump(
             pass
 
         @property
-        def supports_set_speed_percentage(self) -> bool:
-            return supports_set_speed_percentage
+        def supports_percentage(self) -> bool:
+            return supports_percentage
 
-        async def set_speed_percentage(self, percentage: int) -> None:
+        async def set_percentage(self, percentage: int) -> None:
             pass
 
         @property
@@ -855,16 +877,16 @@ def _make_pump(
             return supports_presets
 
         @property
-        def supported_presets(self) -> list[str]:
+        def preset_modes(self) -> list[str]:
             return presets or []
 
         @property
-        def current_preset(self) -> str | None:
+        def preset_mode(self) -> str | None:
             return None
 
-        async def set_preset(self, preset: str) -> None:
-            if preset not in (presets or []):
-                raise AqualinkInvalidParameterException(preset)
+        async def set_preset_mode(self, preset_mode: str) -> None:
+            if preset_mode not in (presets or []):
+                raise AqualinkInvalidParameterException(preset_mode)
 
     return object.__new__(_Impl)
 
@@ -881,10 +903,6 @@ def _make_number(
         @property
         def label(self) -> str:
             return label
-
-        @property
-        def state(self) -> str | None:
-            return state
 
         @property
         def name(self) -> str:
@@ -911,7 +929,7 @@ def _make_number(
             return max_value
 
         @property
-        def unit(self) -> str | None:
+        def unit_of_measurement(self) -> str | None:
             return unit
 
         async def _set_value(self, value: float) -> None:
@@ -921,12 +939,12 @@ def _make_number(
 
 
 # ---------------------------------------------------------------------------
-# turn-on / turn-off with AqualinkPump
+# turn-on / turn-off with AqualinkFan
 # ---------------------------------------------------------------------------
 
 
 def test_turn_on_pump_with_support(tmp_path: Path) -> None:
-    pump = _make_pump("VSP", "0", supports_turn_on=True)
+    pump = _make_fan("VSP", "0", supports_turn_on=True)
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -938,7 +956,7 @@ def test_turn_on_pump_with_support(tmp_path: Path) -> None:
 
 
 def test_turn_on_pump_without_support_exits(tmp_path: Path) -> None:
-    pump = _make_pump("VSP", "0", supports_turn_on=False)
+    pump = _make_fan("VSP", "0", supports_turn_on=False)
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -950,7 +968,7 @@ def test_turn_on_pump_without_support_exits(tmp_path: Path) -> None:
 
 
 def test_turn_off_pump_with_support(tmp_path: Path) -> None:
-    pump = _make_pump("VSP", "1", supports_turn_off=True)
+    pump = _make_fan("VSP", "1", supports_turn_off=True)
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -962,7 +980,7 @@ def test_turn_off_pump_with_support(tmp_path: Path) -> None:
 
 
 def test_turn_off_pump_without_support_exits(tmp_path: Path) -> None:
-    pump = _make_pump("VSP", "1", supports_turn_off=False)
+    pump = _make_fan("VSP", "1", supports_turn_off=False)
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -1003,7 +1021,7 @@ def test_turn_off_sensor_exits(tmp_path: Path) -> None:
 
 
 def test_set_speed_pump_with_support(tmp_path: Path) -> None:
-    pump = _make_pump("VSP", "1", supports_set_speed_percentage=True)
+    pump = _make_fan("VSP", "1", supports_percentage=True)
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -1016,7 +1034,7 @@ def test_set_speed_pump_with_support(tmp_path: Path) -> None:
 
 
 def test_set_speed_pump_without_support_exits(tmp_path: Path) -> None:
-    pump = _make_pump("VSP", "1", supports_set_speed_percentage=False)
+    pump = _make_fan("VSP", "1", supports_percentage=False)
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -1036,11 +1054,11 @@ def test_set_speed_non_pump_exits(tmp_path: Path) -> None:
     )
     result, _ = _invoke_with_jar(tmp_path, "set-speed", "filter", "50")
     assert result.exit_code == 1
-    assert "is not a pump" in result.stderr
+    assert "is not a fan/pump" in result.stderr
 
 
 def test_set_speed_saves_jar(tmp_path: Path) -> None:
-    pump = _make_pump("VSP", "1", supports_set_speed_percentage=True)
+    pump = _make_fan("VSP", "1", supports_percentage=True)
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -1053,7 +1071,7 @@ def test_set_speed_saves_jar(tmp_path: Path) -> None:
 
 
 def test_set_speed_out_of_range_exits(tmp_path: Path) -> None:
-    pump = _make_pump("VSP", "1", supports_set_speed_percentage=True)
+    pump = _make_fan("VSP", "1", supports_percentage=True)
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -1081,7 +1099,7 @@ def test_set_effect_succeeds_on_color_light(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert "Alpine White" in result.stdout
-    assert light._effect_calls == ["Alpine White"]
+    assert light._effect_calls == ["Alpine White"]  # type: ignore[attr-defined]
 
 
 def test_set_effect_fails_on_non_light(tmp_path: Path) -> None:
@@ -1133,7 +1151,7 @@ def test_set_effect_rejects_unknown_effect_name(tmp_path: Path) -> None:
             f"{name!r} isn't a valid effect."
         )
 
-    type(light).set_effect_by_name = _raise  # type: ignore[method-assign]
+    type(light).set_effect = _raise  # type: ignore[method-assign]
 
     FakeClient.systems_factory = staticmethod(
         lambda: {
@@ -1151,9 +1169,7 @@ def test_set_effect_rejects_unknown_effect_name(tmp_path: Path) -> None:
 
 
 def test_set_preset_pump_with_support(tmp_path: Path) -> None:
-    pump = _make_pump(
-        "VSP", "1", supports_presets=True, presets=["Low", "High"]
-    )
+    pump = _make_fan("VSP", "1", supports_presets=True, presets=["Low", "High"])
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -1166,7 +1182,7 @@ def test_set_preset_pump_with_support(tmp_path: Path) -> None:
 
 
 def test_set_preset_pump_without_support_exits(tmp_path: Path) -> None:
-    pump = _make_pump("VSP", "1", supports_presets=False)
+    pump = _make_fan("VSP", "1", supports_presets=False)
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -1186,13 +1202,11 @@ def test_set_preset_non_pump_exits(tmp_path: Path) -> None:
     )
     result, _ = _invoke_with_jar(tmp_path, "set-preset", "filter", "Low")
     assert result.exit_code == 1
-    assert "is not a pump" in result.stderr
+    assert "is not a fan/pump" in result.stderr
 
 
 def test_set_preset_saves_jar(tmp_path: Path) -> None:
-    pump = _make_pump(
-        "VSP", "1", supports_presets=True, presets=["Low", "High"]
-    )
+    pump = _make_fan("VSP", "1", supports_presets=True, presets=["Low", "High"])
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
@@ -1205,9 +1219,7 @@ def test_set_preset_saves_jar(tmp_path: Path) -> None:
 
 
 def test_set_preset_invalid_preset_exits(tmp_path: Path) -> None:
-    pump = _make_pump(
-        "VSP", "1", supports_presets=True, presets=["Low", "High"]
-    )
+    pump = _make_fan("VSP", "1", supports_presets=True, presets=["Low", "High"])
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})

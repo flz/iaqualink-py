@@ -13,8 +13,8 @@ from iaqualink.systems.i2d.device import (
     _RPM_HARDWARE_MIN_DEFAULT,
     _RPM_HARDWARE_MIN_SVRS,
     I2dBinarySensor,
+    I2dFan,
     I2dNumber,
-    I2dPump,
     I2dSensor,
     I2dSwitch,
 )
@@ -330,7 +330,7 @@ class I2dSystem(AqualinkSystem):
         if self.serial in self.devices:
             self.devices[self.serial].data.update(device_data)
         else:
-            self.devices[self.serial] = I2dPump(self, device_data)
+            self.devices[self.serial] = I2dFan(self, device_data)
 
         # All number and switch sub-devices share the pump's data dict so they
         # see live values after each update() without a separate parse step.

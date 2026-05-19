@@ -1,16 +1,17 @@
 from __future__ import annotations
 
 import logging
+from abc import abstractmethod
 from enum import StrEnum, unique
 from typing import TYPE_CHECKING, cast
 
 from iaqualink.device import (
     AqualinkBinarySensor,
+    AqualinkClimate,
     AqualinkDevice,
     AqualinkLight,
     AqualinkSensor,
     AqualinkSwitch,
-    AqualinkThermostat,
 )
 from iaqualink.exception import (
     AqualinkInvalidParameterException,
@@ -65,6 +66,8 @@ class IaquaDevice(AqualinkDevice):
         label = self.data["name"]
         return " ".join([x.capitalize() for x in label.split("_")])
 
+    # Internal property used by iaqua device logic; not part of the
+    # AqualinkDevice public contract.
     @property
     def state(self) -> str:
         return self.data["state"]
@@ -83,19 +86,17 @@ class IaquaDevice(AqualinkDevice):
 
 
 class IaquaSensor(IaquaDevice, AqualinkSensor):
-    pass
+    @property
+    def value(self) -> str:
+        return self.data["state"]
 
 
-class IaquaBinarySensor(IaquaSensor, AqualinkBinarySensor):
+class IaquaBinarySensor(IaquaDevice, AqualinkBinarySensor):
     """These are non-actionable sensors, essentially read-only on/off."""
 
     @property
     def is_on(self) -> bool:
         return self.state == IaquaBinaryState.ON if self.state else False
-
-    @property
-    def state_enum(self) -> type[StrEnum]:
-        return IaquaBinaryState
 
 
 class IaquaPresenceSensor(IaquaBinarySensor):
@@ -103,12 +104,12 @@ class IaquaPresenceSensor(IaquaBinarySensor):
     def is_on(self) -> bool:
         return self.state == IaquaPresenceState.PRESENT
 
+
+class IaquaSwitch(IaquaDevice, AqualinkSwitch):
     @property
-    def state_enum(self) -> type[IaquaPresenceState]:
-        return IaquaPresenceState
+    def is_on(self) -> bool:
+        return self.state == IaquaBinaryState.ON if self.state else False
 
-
-class IaquaSwitch(IaquaBinarySensor, AqualinkSwitch):
     async def _toggle(self) -> None:
         await self.system.set_switch(f"set_{self.name}")
 
@@ -137,10 +138,6 @@ class IaquaHeater(IaquaSwitch):
             else False
         )
 
-    @property
-    def state_enum(self) -> type[IaquaHeaterState]:
-        return IaquaHeaterState
-
 
 class IaquaAuxSwitch(IaquaSwitch):
     @property
@@ -158,17 +155,17 @@ class IaquaLightSwitch(IaquaAuxSwitch, AqualinkLight):
 class IaquaDimmableLight(IaquaAuxSwitch, AqualinkLight):
     async def turn_on(self) -> None:
         if not self.is_on:
-            await self.set_brightness(100)
+            await self.set_brightness_percentage(100)
 
     async def turn_off(self) -> None:
         if self.is_on:
-            await self.set_brightness(0)
+            await self.set_brightness_percentage(0)
 
     @property
-    def brightness(self) -> int | None:
+    def brightness_pct(self) -> int | None:
         return int(self.data["subtype"])
 
-    async def set_brightness(self, brightness: int) -> None:
+    async def set_brightness_percentage(self, brightness: int) -> None:
         # Brightness only works in 25% increments.
         if brightness not in [0, 25, 50, 75, 100]:
             msg = f"{brightness}% isn't a valid percentage."
@@ -182,11 +179,11 @@ class IaquaDimmableLight(IaquaAuxSwitch, AqualinkLight):
 class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
     async def turn_on(self) -> None:
         if not self.is_on:
-            await self.set_effect_by_id(1)
+            await self._set_effect_by_id(1)
 
     async def turn_off(self) -> None:
         if self.is_on:
-            await self.set_effect_by_id(0)
+            await self._set_effect_by_id(0)
 
     @property
     def effect(self) -> str | None:
@@ -199,24 +196,22 @@ class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
         return self.data["state"]
 
     @property
-    def supported_effects(self) -> dict[str, int]:
+    @abstractmethod
+    def effect_list(self) -> list[str] | None:
         raise NotImplementedError
 
-    async def set_effect_by_name(self, effect: str) -> None:
-        try:
-            effect_id = self.supported_effects[effect]
-        except KeyError as e:
+    async def set_effect(self, effect: str) -> None:
+        effects = self.effect_list
+        if effects is None or effect not in effects:
             msg = f"{effect!r} isn't a valid effect."
-            raise AqualinkInvalidParameterException(msg) from e
-        await self.set_effect_by_id(effect_id)
+            raise AqualinkInvalidParameterException(msg)
+        await self._set_effect_by_id(self._effect_id(effect))
 
-    async def set_effect_by_id(self, effect_id: int) -> None:
-        try:
-            _ = list(self.supported_effects.values()).index(effect_id)
-        except ValueError as e:
-            msg = f"{effect_id!r} isn't a valid effect."
-            raise AqualinkInvalidParameterException(msg) from e
+    def _effect_id(self, effect: str) -> int:
+        """Return the wire ID for an effect name."""
+        raise NotImplementedError
 
+    async def _set_effect_by_id(self, effect_id: int) -> None:
         data = {
             "aux": self.data["aux"],
             "light": str(effect_id),
@@ -234,22 +229,27 @@ class IaquaColorLightJC(IaquaColorLight):
     def model(self) -> str:
         return "Colors Light"
 
+    _EFFECTS: dict[str, int] = {
+        "Off": 0,
+        "Alpine White": 1,
+        "Sky Blue": 2,
+        "Cobalt Blue": 3,
+        "Caribbean Blue": 4,
+        "Spring Green": 5,
+        "Emerald Green": 6,
+        "Emerald Rose": 7,
+        "Magenta": 8,
+        "Garnet Red": 9,
+        "Violet": 10,
+        "Color Splash": 11,
+    }
+
     @property
-    def supported_effects(self) -> dict[str, int]:
-        return {
-            "Off": 0,
-            "Alpine White": 1,
-            "Sky Blue": 2,
-            "Cobalt Blue": 3,
-            "Caribbean Blue": 4,
-            "Spring Green": 5,
-            "Emerald Green": 6,
-            "Emerald Rose": 7,
-            "Magenta": 8,
-            "Garnet Red": 9,
-            "Violet": 10,
-            "Color Splash": 11,
-        }
+    def effect_list(self) -> list[str]:
+        return list(self._EFFECTS)
+
+    def _effect_id(self, effect: str) -> int:
+        return self._EFFECTS[effect]
 
 
 class IaquaColorLightSL(IaquaColorLight):
@@ -261,20 +261,25 @@ class IaquaColorLightSL(IaquaColorLight):
     def model(self) -> str:
         return "SAm/SAL Light"
 
+    _EFFECTS: dict[str, int] = {
+        "Off": 0,
+        "White": 1,
+        "Light Green": 2,
+        "Green": 3,
+        "Cyan": 4,
+        "Blue": 5,
+        "Lavender": 6,
+        "Magenta": 7,
+        "Light Magenta": 8,
+        "Color Splash": 9,
+    }
+
     @property
-    def supported_effects(self) -> dict[str, int]:
-        return {
-            "Off": 0,
-            "White": 1,
-            "Light Green": 2,
-            "Green": 3,
-            "Cyan": 4,
-            "Blue": 5,
-            "Lavender": 6,
-            "Magenta": 7,
-            "Light Magenta": 8,
-            "Color Splash": 9,
-        }
+    def effect_list(self) -> list[str]:
+        return list(self._EFFECTS)
+
+    def _effect_id(self, effect: str) -> int:
+        return self._EFFECTS[effect]
 
 
 class IaquaColorLightCL(IaquaColorLight):
@@ -286,23 +291,28 @@ class IaquaColorLightCL(IaquaColorLight):
     def model(self) -> str:
         return "ColorLogic Light"
 
+    _EFFECTS: dict[str, int] = {
+        "Off": 0,
+        "Voodoo Lounge": 1,
+        "Deep Blue Sea": 2,
+        "Afternoon Skies": 3,
+        "Emerald": 4,
+        "Sangria": 5,
+        "Cloud White": 6,
+        "Twilight": 7,
+        "Tranquility": 8,
+        "Gemstone": 9,
+        "USA!": 10,
+        "Mardi Gras": 11,
+        "Cool Cabaret": 12,
+    }
+
     @property
-    def supported_effects(self) -> dict[str, int]:
-        return {
-            "Off": 0,
-            "Voodoo Lounge": 1,
-            "Deep Blue Sea": 2,
-            "Afternoon Skies": 3,
-            "Emerald": 4,
-            "Sangria": 5,
-            "Cloud White": 6,
-            "Twilight": 7,
-            "Tranquility": 8,
-            "Gemstone": 9,
-            "USA!": 10,
-            "Mardi Gras": 11,
-            "Cool Cabaret": 12,
-        }
+    def effect_list(self) -> list[str]:
+        return list(self._EFFECTS)
+
+    def _effect_id(self, effect: str) -> int:
+        return self._EFFECTS[effect]
 
 
 class IaquaColorLightJL(IaquaColorLight):
@@ -314,25 +324,30 @@ class IaquaColorLightJL(IaquaColorLight):
     def model(self) -> str:
         return "LED WaterColors Light"
 
+    _EFFECTS: dict[str, int] = {
+        "Off": 0,
+        "Alpine White": 1,
+        "Sky Blue": 2,
+        "Cobalt Blue": 3,
+        "Caribbean Blue": 4,
+        "Spring Green": 5,
+        "Emerald Green": 6,
+        "Emerald Rose": 7,
+        "Magenta": 8,
+        "Violet": 9,
+        "Slow Splash": 10,
+        "Fast Splash": 11,
+        "USA!": 12,
+        "Fat Tuesday": 13,
+        "Disco Tech": 14,
+    }
+
     @property
-    def supported_effects(self) -> dict[str, int]:
-        return {
-            "Off": 0,
-            "Alpine White": 1,
-            "Sky Blue": 2,
-            "Cobalt Blue": 3,
-            "Caribbean Blue": 4,
-            "Spring Green": 5,
-            "Emerald Green": 6,
-            "Emerald Rose": 7,
-            "Magenta": 8,
-            "Violet": 9,
-            "Slow Splash": 10,
-            "Fast Splash": 11,
-            "USA!": 12,
-            "Fat Tuesday": 13,
-            "Disco Tech": 14,
-        }
+    def effect_list(self) -> list[str]:
+        return list(self._EFFECTS)
+
+    def _effect_id(self, effect: str) -> int:
+        return self._EFFECTS[effect]
 
 
 class IaquaColorLightIB(IaquaColorLight):
@@ -344,23 +359,28 @@ class IaquaColorLightIB(IaquaColorLight):
     def model(self) -> str:
         return "Intellibrite Light"
 
+    _EFFECTS: dict[str, int] = {
+        "Off": 0,
+        "SAm": 1,
+        "Party": 2,
+        "Romance": 3,
+        "Caribbean": 4,
+        "American": 5,
+        "California Sunset": 6,
+        "Royal": 7,
+        "Blue": 8,
+        "Green": 9,
+        "Red": 10,
+        "White": 11,
+        "Magenta": 12,
+    }
+
     @property
-    def supported_effects(self) -> dict[str, int]:
-        return {
-            "Off": 0,
-            "SAm": 1,
-            "Party": 2,
-            "Romance": 3,
-            "Caribbean": 4,
-            "American": 5,
-            "California Sunset": 6,
-            "Royal": 7,
-            "Blue": 8,
-            "Green": 9,
-            "Red": 10,
-            "White": 11,
-            "Magenta": 12,
-        }
+    def effect_list(self) -> list[str]:
+        return list(self._EFFECTS)
+
+    def _effect_id(self, effect: str) -> int:
+        return self._EFFECTS[effect]
 
 
 class IaquaColorLightHU(IaquaColorLight):
@@ -372,28 +392,33 @@ class IaquaColorLightHU(IaquaColorLight):
     def model(self) -> str:
         return "Universal Light"
 
+    _EFFECTS: dict[str, int] = {
+        "Off": 0,
+        "Voodoo Lounge": 1,
+        "Deep Blue Sea": 2,
+        "Royal Blue": 3,
+        "Afternoon Skies": 4,
+        "Aqua Green": 5,
+        "Emerald": 6,
+        "Cloud White": 7,
+        "Warm Red": 8,
+        "Flamingo": 9,
+        "Vivid Violet": 10,
+        "Sangria": 11,
+        "Twilight": 12,
+        "Tranquility": 13,
+        "Gemstone": 14,
+        "USA!": 15,
+        "Mardi Gras": 16,
+        "Cool Cabaret": 17,
+    }
+
     @property
-    def supported_effects(self) -> dict[str, int]:
-        return {
-            "Off": 0,
-            "Voodoo Lounge": 1,
-            "Deep Blue Sea": 2,
-            "Royal Blue": 3,
-            "Afternoon Skies": 4,
-            "Aqua Green": 5,
-            "Emerald": 6,
-            "Cloud White": 7,
-            "Warm Red": 8,
-            "Flamingo": 9,
-            "Vivid Violet": 10,
-            "Sangria": 11,
-            "Twilight": 12,
-            "Tranquility": 13,
-            "Gemstone": 14,
-            "USA!": 15,
-            "Mardi Gras": 16,
-            "Cool Cabaret": 17,
-        }
+    def effect_list(self) -> list[str]:
+        return list(self._EFFECTS)
+
+    def _effect_id(self, effect: str) -> int:
+        return self._EFFECTS[effect]
 
 
 light_subtype_to_class = {
@@ -406,7 +431,7 @@ light_subtype_to_class = {
 }
 
 
-class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
+class IaquaClimate(IaquaSwitch, AqualinkClimate):
     @property
     def _type(self) -> str:
         return self.name.split("_")[0]
@@ -419,7 +444,7 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
         return "temp1"
 
     @property
-    def unit(self) -> IaquaTemperatureUnit:
+    def temperature_unit(self) -> IaquaTemperatureUnit:
         if self.system.temp_unit is None:
             raise AqualinkStateUnavailableException(
                 "Temperature unit unavailable; call update() first."
@@ -432,28 +457,28 @@ class IaquaThermostat(IaquaSwitch, AqualinkThermostat):
 
     @property
     def current_temperature(self) -> str:
-        return self._sensor.state
+        return self._sensor.value
 
     @property
     def target_temperature(self) -> str:
         return self.state
 
     @property
-    def min_temperature(self) -> int:
-        if self.unit == IaquaTemperatureUnit.FAHRENHEIT:
+    def min_temp(self) -> int:
+        if self.temperature_unit == IaquaTemperatureUnit.FAHRENHEIT:
             return IAQUA_TEMP_FAHRENHEIT_LOW
         return IAQUA_TEMP_CELSIUS_LOW
 
     @property
-    def max_temperature(self) -> int:
-        if self.unit == IaquaTemperatureUnit.FAHRENHEIT:
+    def max_temp(self) -> int:
+        if self.temperature_unit == IaquaTemperatureUnit.FAHRENHEIT:
             return IAQUA_TEMP_FAHRENHEIT_HIGH
         return IAQUA_TEMP_CELSIUS_HIGH
 
     async def set_temperature(self, temperature: int) -> None:
-        unit = self.unit
-        low = self.min_temperature
-        high = self.max_temperature
+        unit = self.temperature_unit
+        low = self.min_temp
+        high = self.max_temp
 
         if temperature not in range(low, high + 1):
             msg = f"{temperature}{unit} isn't a valid temperature"
@@ -496,8 +521,8 @@ _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
     "orp": IaquaSensor,
     "ph": IaquaSensor,
     "is_icl_present": IaquaPresenceSensor,
-    "spa_set_point": IaquaThermostat,
-    "pool_set_point": IaquaThermostat,
-    "pool_chill_set_point": IaquaThermostat,
+    "spa_set_point": IaquaClimate,
+    "pool_set_point": IaquaClimate,
+    "pool_chill_set_point": IaquaClimate,
     "relay_count": IaquaSensor,
 }

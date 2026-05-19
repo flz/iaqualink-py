@@ -425,7 +425,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         system._parse_alldata_response(response)
         pump = system.devices["ABC123"]
         assert pump.supports_presets is True
-        assert set(pump.supported_presets) == {"SCHEDULE", "CUSTOM", "STOP"}
+        assert set(pump.preset_modes) == {"SCHEDULE", "CUSTOM", "STOP"}
 
     def test_pump_current_preset(self):
         aqualink = MagicMock()
@@ -441,7 +441,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         response.json.return_value = SAMPLE_DATA  # opmode=0 → SCHEDULE
         system._parse_alldata_response(response)
         pump = system.devices["ABC123"]
-        assert pump.current_preset == "SCHEDULE"
+        assert pump.preset_mode == "SCHEDULE"
 
     async def test_pump_set_preset_valid(self):
         aqualink = MagicMock()
@@ -449,12 +449,12 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         system.send_control_command = async_returns(MagicMock())
         system._parse_alldata_response = MagicMock()
         # Directly construct a pump to test set_preset
-        from iaqualink.systems.i2d.device import I2dPump
+        from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dPump(
+        pump = I2dFan(
             system, {"name": "ABC123", "opmode": "0", "runstate": "on"}
         )
-        await pump.set_preset("STOP")
+        await pump.set_preset_mode("STOP")
         system.send_control_command.assert_awaited_once_with(
             "/opmode/write", "value=2"
         )
@@ -462,43 +462,43 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
     async def test_pump_set_preset_invalid_raises(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        from iaqualink.systems.i2d.device import I2dPump
+        from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dPump(system, {"name": "ABC123", "opmode": "0"})
+        pump = I2dFan(system, {"name": "ABC123", "opmode": "0"})
         with pytest.raises(AqualinkInvalidParameterException):
-            await pump.set_preset("QUICK_CLEAN")
+            await pump.set_preset_mode("QUICK_CLEAN")
 
     async def test_pump_set_preset_unknown_raises(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        from iaqualink.systems.i2d.device import I2dPump
+        from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dPump(system, {"name": "ABC123", "opmode": "0"})
+        pump = I2dFan(system, {"name": "ABC123", "opmode": "0"})
         with pytest.raises(AqualinkInvalidParameterException):
-            await pump.set_preset("BOGUS")
+            await pump.set_preset_mode("BOGUS")
 
     def test_pump_supports_set_speed_percentage(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        from iaqualink.systems.i2d.device import I2dPump
+        from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dPump(
+        pump = I2dFan(
             system,
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
-        assert pump.supports_set_speed_percentage is True
+        assert pump.supports_percentage is True
 
     async def test_set_speed_percentage_0_gives_rpm_min(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
         system.send_control_command = async_returns(MagicMock())
-        from iaqualink.systems.i2d.device import I2dPump
+        from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dPump(
+        pump = I2dFan(
             system,
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
-        await pump.set_speed_percentage(0)
+        await pump.set_percentage(0)
         system.send_control_command.assert_awaited_once_with(
             "/customspeedrpm/write", "value=600"
         )
@@ -507,13 +507,13 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
         system.send_control_command = async_returns(MagicMock())
-        from iaqualink.systems.i2d.device import I2dPump
+        from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dPump(
+        pump = I2dFan(
             system,
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
-        await pump.set_speed_percentage(100)
+        await pump.set_percentage(100)
         system.send_control_command.assert_awaited_once_with(
             "/customspeedrpm/write", "value=3450"
         )
@@ -523,13 +523,13 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
         system.send_control_command = async_returns(MagicMock())
-        from iaqualink.systems.i2d.device import I2dPump
+        from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dPump(
+        pump = I2dFan(
             system,
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
-        await pump.set_speed_percentage(50)
+        await pump.set_percentage(50)
         system.send_control_command.assert_awaited_once_with(
             "/customspeedrpm/write", "value=2025"
         )
@@ -537,13 +537,13 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
     async def test_set_speed_percentage_out_of_range_raises(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        from iaqualink.systems.i2d.device import I2dPump
+        from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dPump(
+        pump = I2dFan(
             system,
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         with pytest.raises(AqualinkInvalidParameterException):
-            await pump.set_speed_percentage(101)
+            await pump.set_percentage(101)
         with pytest.raises(AqualinkInvalidParameterException):
-            await pump.set_speed_percentage(-1)
+            await pump.set_percentage(-1)

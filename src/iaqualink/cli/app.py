@@ -17,13 +17,14 @@ from rich.tree import Tree
 from iaqualink.cli.capture import CaptureSession
 from iaqualink.client import AqualinkAuthState, AqualinkClient
 from iaqualink.device import (
+    AqualinkBinarySensor,
+    AqualinkClimate,
     AqualinkDevice,
+    AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
-    AqualinkPump,
     AqualinkSensor,
     AqualinkSwitch,
-    AqualinkThermostat,
 )
 from iaqualink.exception import (
     AqualinkException,
@@ -248,16 +249,16 @@ def _sorted_devices(
     )
 
 
-# Subclasses must appear before their superclass (Light/Thermostat extend Switch).
 # IMPORTANT: Every concrete AqualinkDevice subclass in device.py must have a
 # matching entry here so devices never silently fall through to "Other".
 # When adding a new base device type, add its entry to this list.
 _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
-    (AqualinkThermostat, "🌡️", "Thermostats"),
+    (AqualinkClimate, "🌡️", "Climate"),
     (AqualinkLight, "💡", "Lights"),
     (AqualinkSwitch, "⚡", "Switches"),
-    (AqualinkPump, "⚙️", "Pumps"),
+    (AqualinkFan, "⚙️", "Fans"),
     (AqualinkNumber, "🔢", "Numbers"),
+    (AqualinkBinarySensor, "📊", "Sensors"),
     (AqualinkSensor, "📊", "Sensors"),
 ]
 
@@ -290,7 +291,23 @@ def _format_system_line(system: AqualinkSystem) -> Text:
 
 
 def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
-    if device.state is None or device.state == "":
+    if isinstance(device, AqualinkSensor):
+        state_str: str | None = device.value
+        translated: str | None = device.value_translated
+    elif isinstance(device, AqualinkFan):
+        state_str = device.preset_mode
+        translated = None
+    elif isinstance(
+        device,
+        (AqualinkSwitch, AqualinkBinarySensor, AqualinkLight, AqualinkClimate),
+    ):
+        state_str = "on" if device.is_on else "off"
+        translated = None
+    else:
+        state_str = None
+        translated = None
+
+    if not state_str:
         t = Text()
         t.append(device.label, style="bold dim")
         t.append(f" [{device_name}]", style="dim")
@@ -299,8 +316,8 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
     t.append(device.label, style="bold")
     t.append(f" [{device_name}]", style="dim")
     t.append(": ")
-    t.append(device.state, style="yellow")
-    if (translated := device.state_translated) is not None:
+    t.append(state_str, style="yellow")
+    if translated is not None:
         t.append(f" ({translated})", style="yellow")
     return t
 
@@ -542,22 +559,22 @@ async def _run_switch_command(
     devices = await _load_devices_for_system(system)
     device_name, device = _resolve_device(devices, device_selector)
 
-    if isinstance(device, AqualinkSwitch):
+    if isinstance(device, (AqualinkSwitch, AqualinkLight, AqualinkClimate)):
         if target_state == "on":
             await device.turn_on()
         else:
             await device.turn_off()
-    elif isinstance(device, AqualinkPump):
+    elif isinstance(device, AqualinkFan):
         if target_state == "on":
             if not device.supports_turn_on:
                 _exit_with_error(
-                    f"Pump {device_name!r} does not support turn on.",
+                    f"Fan {device_name!r} does not support turn on.",
                 )
             await device.turn_on()
         else:
             if not device.supports_turn_off:
                 _exit_with_error(
-                    f"Pump {device_name!r} does not support turn off.",
+                    f"Fan {device_name!r} does not support turn off.",
                 )
             await device.turn_off()
     else:
@@ -588,15 +605,15 @@ async def _set_pump_speed(
     devices = await _load_devices_for_system(system)
     device_name, device = _resolve_device(devices, device_selector)
 
-    if not isinstance(device, AqualinkPump):
-        _exit_with_error(f"Device {device_name!r} is not a pump.")
+    if not isinstance(device, AqualinkFan):
+        _exit_with_error(f"Device {device_name!r} is not a fan/pump.")
 
-    if not device.supports_set_speed_percentage:
+    if not device.supports_percentage:
         _exit_with_error(
-            f"Pump {device_name!r} does not support speed control.",
+            f"Fan {device_name!r} does not support speed control.",
         )
 
-    await device.set_speed_percentage(percentage)
+    await device.set_percentage(percentage)
     _save_session_jar(cookie_jar, system.aqualink.auth_state)
     t = Text()
     t.append("✓ ", style="bold green")
@@ -620,15 +637,15 @@ async def _set_pump_preset(
     devices = await _load_devices_for_system(system)
     device_name, device = _resolve_device(devices, device_selector)
 
-    if not isinstance(device, AqualinkPump):
-        _exit_with_error(f"Device {device_name!r} is not a pump.")
+    if not isinstance(device, AqualinkFan):
+        _exit_with_error(f"Device {device_name!r} is not a fan/pump.")
 
     if not device.supports_presets:
         _exit_with_error(
-            f"Pump {device_name!r} does not support presets.",
+            f"Fan {device_name!r} does not support presets.",
         )
 
-    await device.set_preset(preset)
+    await device.set_preset_mode(preset)
     _save_session_jar(cookie_jar, system.aqualink.auth_state)
     t = Text()
     t.append("✓ ", style="bold green")
@@ -664,7 +681,7 @@ async def _set_number_value(
     t.append("Set ")
     t.append(device.label, style="bold")
     t.append(f" [{device_name}]", style="dim")
-    unit = device.unit
+    unit = device.unit_of_measurement
     value_str = f" to {value:g} {unit}" if unit else f" to {value:g}"
     t.append(f"{value_str} on ")
     t.append_text(_format_system_line(system))
@@ -683,7 +700,7 @@ async def _set_temperature(
     devices = await _load_devices_for_system(system)
     device_name, device = _resolve_device(devices, device_selector)
 
-    if not isinstance(device, AqualinkThermostat):
+    if not isinstance(device, AqualinkClimate):
         _exit_with_error(
             f"Device {device_name!r} does not support temperature changes.",
         )
@@ -695,7 +712,7 @@ async def _set_temperature(
     t.append("Set ")
     t.append(device.label, style="bold")
     t.append(f" [{device_name}]", style="dim")
-    t.append(f" to {temperature}{device.unit} on ")
+    t.append(f" to {temperature}{device.temperature_unit} on ")
     t.append_text(_format_system_line(system))
     return t
 
@@ -722,7 +739,7 @@ async def _set_brightness(
             f"Device {device_name!r} does not support brightness control.",
         )
 
-    await device.set_brightness(brightness)
+    await device.set_brightness_percentage(brightness)
     _save_session_jar(cookie_jar, system.aqualink.auth_state)
     t = Text()
     t.append("✓ ", style="bold green")
@@ -756,7 +773,7 @@ async def _set_effect(
             f"Device {device_name!r} does not support color effects.",
         )
 
-    await device.set_effect_by_name(effect)
+    await device.set_effect(effect)
     _save_session_jar(cookie_jar, system.aqualink.auth_state)
     t = Text()
     t.append("✓ ", style="bold green")

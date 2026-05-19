@@ -9,10 +9,10 @@ from iaqualink.systems.iaqua.device import (
     _HOME_DEVICE_MAP,
     IaquaAuxSwitch,
     IaquaBinaryState,
+    IaquaClimate,
     IaquaDimmableLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
-    IaquaThermostat,
     light_subtype_to_class,
 )
 from iaqualink.systems.iaqua.enums import (
@@ -184,7 +184,7 @@ class IaquaSystem(AqualinkSystem):
             if name in self.devices:
                 self.devices[name].data["state"] = state
             else:
-                if device_class is IaquaThermostat and not state:
+                if device_class is IaquaClimate and not state:
                     continue
                 self.devices[name] = device_class(
                     self, {"name": name, "state": state}

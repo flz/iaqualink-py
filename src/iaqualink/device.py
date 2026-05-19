@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from abc import ABC, abstractmethod
 from enum import Enum
 from typing import TYPE_CHECKING, Any
 
@@ -15,7 +16,9 @@ if TYPE_CHECKING:
 LOGGER = logging.getLogger("iaqualink.device")
 
 
-class AqualinkDevice:
+class AqualinkDevice(ABC):
+    """Abstract base for all Aqualink devices."""
+
     def __init__(
         self,
         system: Any,  # Should be AqualinkSystem but causes mypy errors.
@@ -41,72 +44,105 @@ class AqualinkDevice:
         return False
 
     @property
+    @abstractmethod
     def label(self) -> str:
-        raise NotImplementedError
+        """Human-readable display name."""
 
     @property
-    def state(self) -> str:
-        raise NotImplementedError
-
-    @property
+    @abstractmethod
     def name(self) -> str:
-        raise NotImplementedError
+        """Unique identifier within the system."""
 
     @property
+    @abstractmethod
     def manufacturer(self) -> str:
-        raise NotImplementedError
+        """Device manufacturer name."""
 
     @property
+    @abstractmethod
     def model(self) -> str:
-        raise NotImplementedError
-
-    @property
-    def state_enum(self) -> type[Enum] | None:
-        return None
-
-    @property
-    def state_translated(self) -> str | None:
-        cls = self.state_enum
-        if cls is None:
-            return None
-        try:
-            return cls(self.state).name
-        except ValueError:
-            return None
+        """Device model name."""
 
 
 class AqualinkSensor(AqualinkDevice):
+    """Read-only sensor. Maps to HA SensorEntity."""
+
     @property
-    def unit(self) -> str | None:
+    @abstractmethod
+    def value(self) -> str:
+        """Current sensor reading."""
+
+    @property
+    def value_enum(self) -> type[Enum] | None:
+        return None
+
+    @property
+    def value_translated(self) -> str | None:
+        cls = self.value_enum
+        if cls is None:
+            return None
+        try:
+            return cls(self.value).name
+        except ValueError:
+            return None
+
+    @property
+    def unit_of_measurement(self) -> str | None:
         return None
 
 
-class AqualinkBinarySensor(AqualinkSensor):
-    """These are non-actionable sensors, essentially read-only on/off."""
+class AqualinkBinarySensor(AqualinkDevice):
+    """Read-only binary sensor. Maps to HA BinarySensorEntity."""
 
     @property
+    @abstractmethod
     def is_on(self) -> bool:
-        raise NotImplementedError
+        """True if the sensor is active/on."""
 
 
-class AqualinkSwitch(AqualinkBinarySensor, AqualinkDevice):
-    async def turn_on(self) -> None:
-        raise NotImplementedError
+class AqualinkSwitch(AqualinkDevice):
+    """Controllable on/off device. Maps to HA SwitchEntity."""
 
-    async def turn_off(self) -> None:
-        raise NotImplementedError
-
-
-class AqualinkLight(AqualinkSwitch, AqualinkDevice):
     @property
-    def brightness(self) -> int | None:
+    @abstractmethod
+    def is_on(self) -> bool:
+        """True if the device is on."""
+
+    @abstractmethod
+    async def turn_on(self) -> None:
+        """Turn the device on."""
+
+    @abstractmethod
+    async def turn_off(self) -> None:
+        """Turn the device off."""
+
+
+class AqualinkLight(AqualinkDevice):
+    """Controllable light. Maps to HA LightEntity."""
+
+    @property
+    @abstractmethod
+    def is_on(self) -> bool:
+        """True if the light is on."""
+
+    @abstractmethod
+    async def turn_on(self) -> None:
+        """Turn the light on."""
+
+    @abstractmethod
+    async def turn_off(self) -> None:
+        """Turn the light off."""
+
+    @property
+    def brightness_pct(self) -> int | None:
         return None
 
     @property
     def supports_brightness(self) -> bool:
-        return self.brightness is not None
+        return self.brightness_pct is not None
 
-    async def set_brightness(self, _: int) -> None:
+    async def set_brightness_percentage(self, _: int) -> None:
+        """Set brightness as a percentage (0–100)."""
         if self.supports_brightness is True:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
@@ -116,67 +152,94 @@ class AqualinkLight(AqualinkSwitch, AqualinkDevice):
         return None
 
     @property
+    def effect_list(self) -> list[str] | None:
+        return None
+
+    @property
     def supports_effect(self) -> bool:
-        return self.effect is not None
+        return self.effect_list is not None
 
-    async def set_effect_by_name(self, _: str) -> None:
+    async def set_effect(self, _: str) -> None:
+        """Activate a light effect by name."""
         if self.supports_effect is True:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
-    async def set_effect_by_id(self, _: int) -> None:
-        if self.supports_effect is True:
-            raise NotImplementedError
-        raise AqualinkOperationNotSupportedException
 
-
-class AqualinkThermostat(AqualinkSwitch, AqualinkDevice):
-    @property
-    def unit(self) -> str:
-        raise NotImplementedError
+class AqualinkClimate(AqualinkDevice):
+    """Climate control. Maps to HA ClimateEntity."""
 
     @property
+    @abstractmethod
+    def is_on(self) -> bool:
+        """True if heating/cooling is active."""
+
+    @abstractmethod
+    async def turn_on(self) -> None:
+        """Enable climate control."""
+
+    @abstractmethod
+    async def turn_off(self) -> None:
+        """Disable climate control."""
+
+    @property
+    @abstractmethod
+    def temperature_unit(self) -> str:
+        """Unit of temperature: 'C' or 'F'."""
+
+    @property
+    @abstractmethod
     def current_temperature(self) -> str:
-        raise NotImplementedError
+        """Current measured temperature."""
 
     @property
+    @abstractmethod
     def target_temperature(self) -> str:
-        raise NotImplementedError
+        """Desired set-point temperature."""
 
     @property
-    def max_temperature(self) -> int:
-        raise NotImplementedError
+    @abstractmethod
+    def max_temp(self) -> int:
+        """Maximum allowed set-point."""
 
     @property
-    def min_temperature(self) -> int:
-        raise NotImplementedError
+    @abstractmethod
+    def min_temp(self) -> int:
+        """Minimum allowed set-point."""
 
+    @abstractmethod
     async def set_temperature(self, _: int) -> None:
-        raise NotImplementedError
+        """Set the target temperature."""
 
 
 class AqualinkNumber(AqualinkDevice):
+    """Writable numeric setting. Maps to HA NumberEntity."""
+
     @property
+    @abstractmethod
     def current_value(self) -> float | None:
-        raise NotImplementedError
+        """Current numeric value, or None if unavailable."""
 
     @property
+    @abstractmethod
     def min_value(self) -> float:
-        raise NotImplementedError
+        """Minimum allowed value."""
 
     @property
+    @abstractmethod
     def max_value(self) -> float:
-        raise NotImplementedError
+        """Maximum allowed value."""
 
     @property
     def step(self) -> float:
         return 1.0
 
     @property
-    def unit(self) -> str | None:
+    def unit_of_measurement(self) -> str | None:
         return None
 
     async def set_value(self, value: float) -> None:
+        """Set the numeric value (validates range and step)."""
         if not self.min_value <= value <= self.max_value:
             raise AqualinkInvalidParameterException(
                 f"{value} is out of range ({self.min_value}-{self.max_value})."
@@ -187,11 +250,16 @@ class AqualinkNumber(AqualinkDevice):
             )
         await self._set_value(value)
 
+    @abstractmethod
     async def _set_value(self, value: float) -> None:
-        raise NotImplementedError
+        """Write the value to the device."""
 
 
-class AqualinkPump(AqualinkDevice):
+class AqualinkFan(AqualinkDevice):
+    """Fan/pump control. Maps to HA FanEntity."""
+
+    # HA has no PumpEntity; FanEntity is the closest available mapping.
+
     @property
     def supports_turn_on(self) -> bool:
         return False
@@ -202,16 +270,19 @@ class AqualinkPump(AqualinkDevice):
 
     @property
     def is_on(self) -> bool:
+        """True if the fan/pump is running."""
         if self.supports_turn_on or self.supports_turn_off:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
     async def turn_on(self) -> None:
+        """Turn the fan/pump on."""
         if self.supports_turn_on:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
     async def turn_off(self) -> None:
+        """Turn the fan/pump off."""
         if self.supports_turn_off:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
@@ -221,32 +292,36 @@ class AqualinkPump(AqualinkDevice):
         return False
 
     @property
-    def supported_presets(self) -> list[str]:
+    def preset_modes(self) -> list[str]:
+        """List of available preset mode names."""
         # subclasses must override this when supports_presets returns True
         if self.supports_presets:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
     @property
-    def current_preset(self) -> str | None:
+    def preset_mode(self) -> str | None:
+        """Currently active preset mode."""
         if self.supports_presets:
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
     @property
-    def supports_set_speed_percentage(self) -> bool:
+    def supports_percentage(self) -> bool:
         return False
 
-    async def set_speed_percentage(self, percentage: int) -> None:
-        if self.supports_set_speed_percentage:
+    async def set_percentage(self, percentage: int) -> None:
+        """Set fan/pump speed as a percentage (0–100)."""
+        if self.supports_percentage:
             if not 0 <= percentage <= 100:
                 raise AqualinkInvalidParameterException(percentage)
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
-    async def set_preset(self, preset: str) -> None:
+    async def set_preset_mode(self, preset_mode: str) -> None:
+        """Activate a preset mode by name."""
         if self.supports_presets:
-            if preset not in self.supported_presets:
-                raise AqualinkInvalidParameterException(preset)
+            if preset_mode not in self.preset_modes:
+                raise AqualinkInvalidParameterException(preset_mode)
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
