@@ -394,12 +394,20 @@ class TestExoClimate(TestExoDevice, TestBaseClimate):
         content = self.respx_calls[0].request.content.decode("utf-8")
         assert "heating" in content
 
+    async def test_turn_on_noop(self) -> None:
+        self.sut.data["enabled"] = 1
+        await super().test_turn_on_noop()
+
     async def test_turn_off(self) -> None:
         self.sut.data["enabled"] = 1
         await super().test_turn_off()
         assert len(self.respx_calls) == 1
         content = self.respx_calls[0].request.content.decode("utf-8")
         assert "heating" in content
+
+    async def test_turn_off_noop(self) -> None:
+        self.sut.data["enabled"] = 0
+        await super().test_turn_off_noop()
 
     @pytest.mark.skip(reason="Exo doesn't support Fahrenheit")
     async def test_set_temperature_86f(self) -> None:

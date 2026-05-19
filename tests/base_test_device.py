@@ -245,6 +245,22 @@ class TestBaseClimate(TestBaseDevice):
         assert len(respx_mock.calls) > 0
         self.respx_calls = copy.copy(respx_mock.calls)
 
+    @respx.mock
+    async def test_turn_on_noop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.turn_on()
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_turn_off_noop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.turn_off()
+        assert len(respx_mock.calls) == 0
+
     def test_property_temperature_unit(self) -> None:
         assert self.sut.temperature_unit in ["C", "F"]
 

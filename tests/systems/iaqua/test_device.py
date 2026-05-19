@@ -573,6 +573,11 @@ class TestIaquaClimate(TestIaquaDevice, TestBaseClimate):
         url = str(self.respx_calls[0].request.url)
         assert "set_pool_heater" in url
 
+    async def test_turn_on_noop(self) -> None:
+        self.pool_heater.data["state"] = "1"
+        with patch.object(self.sut.system, "_parse_home_response"):
+            await super().test_turn_on_noop()
+
     async def test_turn_off(self) -> None:
         self.pool_heater.data["state"] = "1"
         with patch.object(self.sut.system, "_parse_home_response"):
@@ -580,6 +585,11 @@ class TestIaquaClimate(TestIaquaDevice, TestBaseClimate):
         assert len(self.respx_calls) == 1
         url = str(self.respx_calls[0].request.url)
         assert "set_pool_heater" in url
+
+    async def test_turn_off_noop(self) -> None:
+        self.pool_heater.data["state"] = "0"
+        with patch.object(self.sut.system, "_parse_home_response"):
+            await super().test_turn_off_noop()
 
     async def test_set_temperature_86f(self) -> None:
         self.sut.system.devices["spa_set_point"] = self.spa_set_point

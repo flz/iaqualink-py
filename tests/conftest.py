@@ -34,7 +34,6 @@ _SNAPSHOT_EXCLUDE = frozenset(
         "name",
         "manufacturer",
         "model",
-        "state_enum",
         "value_enum",
         "supports_turn_on",
         "supports_turn_off",

@@ -117,9 +117,6 @@ class _ConcreteClimate(_ConcreteDevice, AqualinkClimate):
     def min_temp(self) -> int:
         raise NotImplementedError
 
-    async def set_temperature(self, _: int) -> None:
-        raise NotImplementedError
-
     async def _set_temperature(self, _: int) -> None:
         raise NotImplementedError
 
@@ -314,9 +311,17 @@ class TestAqualinkClimate(TestBaseClimate, TestAqualinkDevice):
         with pytest.raises(NotImplementedError):
             await super().test_turn_on()
 
+    async def test_turn_on_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_on_noop()
+
     async def test_turn_off(self) -> None:
         with pytest.raises(NotImplementedError):
             await super().test_turn_off()
+
+    async def test_turn_off_noop(self) -> None:
+        with pytest.raises(NotImplementedError):
+            await super().test_turn_off_noop()
 
     async def test_set_temperature_86f(self) -> None:
         with pytest.raises(NotImplementedError):

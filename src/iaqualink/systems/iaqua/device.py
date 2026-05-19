@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import StrEnum, unique
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from iaqualink.device import (
     AqualinkBinarySensor,
@@ -138,13 +138,13 @@ class IaquaHeater(IaquaSwitch):
         )
 
 
-class _IaquaAuxMixin:
+class _IaquaAuxMixin(IaquaDevice):
     @property
     def is_on(self) -> bool:
-        return self.state == IaquaBinaryState.ON if self.state else False  # type: ignore[attr-defined]
+        return self.state == IaquaBinaryState.ON if self.state else False
 
     async def _toggle(self) -> None:
-        await self.system.set_aux(self.data["aux"])  # type: ignore[attr-defined]
+        await self.system.set_aux(self.data["aux"])
 
     async def turn_on(self) -> None:
         if not self.is_on:
@@ -188,6 +188,8 @@ class IaquaDimmableLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
 
 
 class IaquaColorLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
+    _EFFECTS: ClassVar[dict[str, int]] = {}
+
     async def turn_on(self) -> None:
         if not self.is_on:
             await self._set_effect_by_id(1)
@@ -208,10 +210,10 @@ class IaquaColorLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
 
     @property
     def effect_list(self) -> list[str]:
-        return list(self._EFFECTS)  # type: ignore[attr-defined]
+        return list(self._EFFECTS)
 
     async def _set_effect(self, effect: str) -> None:
-        await self._set_effect_by_id(self._EFFECTS[effect])  # type: ignore[attr-defined]
+        await self._set_effect_by_id(self._EFFECTS[effect])
 
     async def _set_effect_by_id(self, effect_id: int) -> None:
         data = {
@@ -231,7 +233,7 @@ class IaquaColorLightJC(IaquaColorLight):
     def model(self) -> str:
         return "Colors Light"
 
-    _EFFECTS: dict[str, int] = {
+    _EFFECTS: ClassVar[dict[str, int]] = {
         "Off": 0,
         "Alpine White": 1,
         "Sky Blue": 2,
@@ -256,7 +258,7 @@ class IaquaColorLightSL(IaquaColorLight):
     def model(self) -> str:
         return "SAm/SAL Light"
 
-    _EFFECTS: dict[str, int] = {
+    _EFFECTS: ClassVar[dict[str, int]] = {
         "Off": 0,
         "White": 1,
         "Light Green": 2,
@@ -279,7 +281,7 @@ class IaquaColorLightCL(IaquaColorLight):
     def model(self) -> str:
         return "ColorLogic Light"
 
-    _EFFECTS: dict[str, int] = {
+    _EFFECTS: ClassVar[dict[str, int]] = {
         "Off": 0,
         "Voodoo Lounge": 1,
         "Deep Blue Sea": 2,
@@ -305,7 +307,7 @@ class IaquaColorLightJL(IaquaColorLight):
     def model(self) -> str:
         return "LED WaterColors Light"
 
-    _EFFECTS: dict[str, int] = {
+    _EFFECTS: ClassVar[dict[str, int]] = {
         "Off": 0,
         "Alpine White": 1,
         "Sky Blue": 2,
@@ -333,7 +335,7 @@ class IaquaColorLightIB(IaquaColorLight):
     def model(self) -> str:
         return "Intellibrite Light"
 
-    _EFFECTS: dict[str, int] = {
+    _EFFECTS: ClassVar[dict[str, int]] = {
         "Off": 0,
         "SAm": 1,
         "Party": 2,
@@ -359,7 +361,7 @@ class IaquaColorLightHU(IaquaColorLight):
     def model(self) -> str:
         return "Universal Light"
 
-    _EFFECTS: dict[str, int] = {
+    _EFFECTS: ClassVar[dict[str, int]] = {
         "Off": 0,
         "Voodoo Lounge": 1,
         "Deep Blue Sea": 2,
