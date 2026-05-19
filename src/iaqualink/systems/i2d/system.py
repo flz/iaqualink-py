@@ -263,7 +263,7 @@ class I2dSystem(AqualinkSystem):
                         raise _AqualinkOfflineSignal(
                             msg, response=exc.response
                         ) from exc
-                except (ValueError, KeyError):
+                except (ValueError, KeyError):  # fmt: skip
                     pass
             raise
 

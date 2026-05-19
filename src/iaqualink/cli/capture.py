@@ -78,6 +78,9 @@ class CaptureSession:
     path: Path
     _file: IO[str] = field(init=False, repr=False)
     _literals: set[str] = field(init=False, repr=False, default_factory=set)
+    _lock: asyncio.Lock = field(
+        init=False, repr=False, default_factory=asyncio.Lock
+    )
 
     def __post_init__(self) -> None:
         self._file = self.path.open("a", encoding="utf-8")
@@ -148,4 +151,5 @@ class CaptureSession:
                 "body": resp_body,
             },
         }
-        await asyncio.to_thread(self._write_line, json.dumps(entry) + "\n")
+        async with self._lock:
+            await asyncio.to_thread(self._write_line, json.dumps(entry) + "\n")
