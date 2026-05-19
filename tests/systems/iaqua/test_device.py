@@ -332,8 +332,8 @@ class TestIaquaLightSwitch(TestIaquaDevice, TestBaseLight):
         with patch.object(self.sut.system, "_parse_devices_response"):
             await super().test_turn_off_noop()
 
-    def test_property_brightness_pct(self) -> None:
-        assert self.sut.brightness_pct is None
+    def test_property_brightness_percentage(self) -> None:
+        assert self.sut.brightness_percentage is None
 
     def test_property_effect(self) -> None:
         assert self.sut.effect is None

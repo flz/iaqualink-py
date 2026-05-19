@@ -173,7 +173,7 @@ class IaquaDimmableLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
             await self.set_brightness_percentage(0)
 
     @property
-    def brightness_pct(self) -> int | None:
+    def brightness_percentage(self) -> int | None:
         return int(self.data["subtype"])
 
     async def _set_brightness_percentage(self, brightness: int) -> None:

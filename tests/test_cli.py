@@ -348,8 +348,11 @@ def _make_device(
         async def set_temperature(self, _: int) -> None:
             pass
 
+        async def _set_temperature(self, _: int) -> None:
+            pass
+
         @property
-        def brightness_pct(self) -> int | None:
+        def brightness_percentage(self) -> int | None:
             return None
 
         async def set_brightness_percentage(self, _: int) -> None:
@@ -726,7 +729,7 @@ def _make_light(
             pass
 
         @property
-        def brightness_pct(self) -> int | None:
+        def brightness_percentage(self) -> int | None:
             return _brightness
 
         async def set_brightness_percentage(self, value: int) -> None:

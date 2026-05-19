@@ -148,11 +148,11 @@ class TestBaseLight(TestBaseDevice):
     def test_property_supports_effect(self) -> None:
         assert isinstance(self.sut.supports_effect, bool)
 
-    def test_property_brightness_pct(self) -> None:
+    def test_property_brightness_percentage(self) -> None:
         if not self.sut.supports_brightness:
             pytest.skip("Device doesn't support brightness")
-        assert isinstance(self.sut.brightness_pct, int)
-        assert 0 <= self.sut.brightness_pct <= 100
+        assert isinstance(self.sut.brightness_percentage, int)
+        assert 0 <= self.sut.brightness_percentage <= 100
 
     def test_property_effect(self) -> None:
         if not self.sut.supports_effect:

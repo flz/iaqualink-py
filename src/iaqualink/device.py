@@ -120,6 +120,8 @@ class AqualinkSwitch(AqualinkDevice):
 class AqualinkLight(AqualinkDevice):
     """Controllable light. Maps to HA LightEntity."""
 
+    # ── Required overrides ──────────────────────────────────────────────────
+
     @property
     @abstractmethod
     def is_on(self) -> bool:
@@ -133,13 +135,15 @@ class AqualinkLight(AqualinkDevice):
     async def turn_off(self) -> None:
         """Turn the light off."""
 
+    # ── Override if brightness is supported ─────────────────────────────────
+
     @property
-    def brightness_pct(self) -> int | None:
+    def brightness_percentage(self) -> int | None:
         return None
 
     @property
     def supports_brightness(self) -> bool:
-        return self.brightness_pct is not None
+        return self.brightness_percentage is not None
 
     async def set_brightness_percentage(self, brightness: int) -> None:
         """Set brightness as a percentage (0–100)."""
@@ -154,6 +158,8 @@ class AqualinkLight(AqualinkDevice):
     async def _set_brightness_percentage(self, brightness: int) -> None:
         """Send the brightness percentage to the device."""
         raise NotImplementedError
+
+    # ── Override if effects are supported ────────────────────────────────────
 
     @property
     def effect(self) -> str | None:
@@ -185,6 +191,8 @@ class AqualinkLight(AqualinkDevice):
 
 class AqualinkClimate(AqualinkDevice):
     """Climate control. Maps to HA ClimateEntity."""
+
+    # ── Required overrides ──────────────────────────────────────────────────
 
     @property
     @abstractmethod
@@ -224,6 +232,12 @@ class AqualinkClimate(AqualinkDevice):
     def min_temp(self) -> int:
         """Minimum allowed set-point."""
 
+    @abstractmethod
+    async def _set_temperature(self, temperature: int) -> None:
+        """Send the validated temperature to the device."""
+
+    # ── Template (do not override) ───────────────────────────────────────────
+
     async def set_temperature(self, temperature: int) -> None:
         """Set the target temperature."""
         low = self.min_temp
@@ -235,13 +249,11 @@ class AqualinkClimate(AqualinkDevice):
             raise AqualinkInvalidParameterException(msg)
         await self._set_temperature(temperature)
 
-    async def _set_temperature(self, temperature: int) -> None:
-        """Send the validated temperature to the device."""
-        raise NotImplementedError
-
 
 class AqualinkNumber(AqualinkDevice):
     """Writable numeric setting. Maps to HA NumberEntity."""
+
+    # ── Required overrides ──────────────────────────────────────────────────
 
     @property
     @abstractmethod
@@ -258,6 +270,12 @@ class AqualinkNumber(AqualinkDevice):
     def max_value(self) -> float:
         """Maximum allowed value."""
 
+    @abstractmethod
+    async def _set_value(self, value: float) -> None:
+        """Write the value to the device."""
+
+    # ── Optional overrides ───────────────────────────────────────────────────
+
     @property
     def step(self) -> float:
         return 1.0
@@ -265,6 +283,8 @@ class AqualinkNumber(AqualinkDevice):
     @property
     def unit_of_measurement(self) -> str | None:
         return None
+
+    # ── Template (do not override) ───────────────────────────────────────────
 
     async def set_value(self, value: float) -> None:
         """Set the numeric value (validates range and step)."""
@@ -278,15 +298,13 @@ class AqualinkNumber(AqualinkDevice):
             )
         await self._set_value(value)
 
-    @abstractmethod
-    async def _set_value(self, value: float) -> None:
-        """Write the value to the device."""
-
 
 class AqualinkFan(AqualinkDevice):
     """Fan/pump control. Maps to HA FanEntity."""
 
     # HA has no PumpEntity; FanEntity is the closest available mapping.
+
+    # ── Override if turn-on/off is supported (set supports_turn_on/off=True) ─
 
     @property
     def supports_turn_on(self) -> bool:
@@ -315,6 +333,8 @@ class AqualinkFan(AqualinkDevice):
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
+    # ── Override if presets are supported (set supports_presets=True) ────────
+
     @property
     def supports_presets(self) -> bool:
         return False
@@ -334,9 +354,21 @@ class AqualinkFan(AqualinkDevice):
             raise NotImplementedError
         raise AqualinkOperationNotSupportedException
 
+    async def _set_preset_mode(self, preset_mode: str) -> None:
+        """Send the preset mode to the device."""
+        raise NotImplementedError
+
+    # ── Override if speed control is supported (set supports_percentage=True) ─
+
     @property
     def supports_percentage(self) -> bool:
         return False
+
+    async def _set_percentage(self, percentage: int) -> None:
+        """Send the speed percentage to the device."""
+        raise NotImplementedError
+
+    # ── Templates (do not override) ──────────────────────────────────────────
 
     async def set_percentage(self, percentage: int) -> None:
         """Set fan/pump speed as a percentage (0–100)."""
@@ -348,10 +380,6 @@ class AqualinkFan(AqualinkDevice):
             )
         await self._set_percentage(percentage)
 
-    async def _set_percentage(self, percentage: int) -> None:
-        """Send the speed percentage to the device."""
-        raise NotImplementedError
-
     async def set_preset_mode(self, preset_mode: str) -> None:
         """Activate a preset mode by name."""
         if not self.supports_presets:
@@ -359,7 +387,3 @@ class AqualinkFan(AqualinkDevice):
         if preset_mode not in self.preset_modes:
             raise AqualinkInvalidParameterException(preset_mode)
         await self._set_preset_mode(preset_mode)
-
-    async def _set_preset_mode(self, preset_mode: str) -> None:
-        """Send the preset mode to the device."""
-        raise NotImplementedError

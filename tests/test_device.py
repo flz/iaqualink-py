@@ -118,6 +118,9 @@ class _ConcreteClimate(_ConcreteDevice, AqualinkClimate):
     async def set_temperature(self, _: int) -> None:
         raise NotImplementedError
 
+    async def _set_temperature(self, _: int) -> None:
+        raise NotImplementedError
+
 
 class _ConcreteNumber(_ConcreteDevice, AqualinkNumber):
     @property
