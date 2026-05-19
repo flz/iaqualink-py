@@ -200,11 +200,7 @@ class IaquaColorLight(IaquaAuxSwitch, AqualinkLight):
     def effect_list(self) -> list[str] | None:
         raise NotImplementedError
 
-    async def set_effect(self, effect: str) -> None:
-        effects = self.effect_list
-        if effects is None or effect not in effects:
-            msg = f"{effect!r} isn't a valid effect."
-            raise AqualinkInvalidParameterException(msg)
+    async def _set_effect(self, effect: str) -> None:
         await self._set_effect_by_id(self._effect_id(effect))
 
     def _effect_id(self, effect: str) -> int:

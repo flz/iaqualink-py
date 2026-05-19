@@ -159,11 +159,20 @@ class AqualinkLight(AqualinkDevice):
     def supports_effect(self) -> bool:
         return self.effect_list is not None
 
-    async def set_effect(self, _: str) -> None:
+    async def set_effect(self, effect: str) -> None:
         """Activate a light effect by name."""
-        if self.supports_effect is True:
-            raise NotImplementedError
-        raise AqualinkOperationNotSupportedException
+        if not self.supports_effect:
+            raise AqualinkOperationNotSupportedException
+        effect_list = self.effect_list
+        if effect_list is not None and effect not in effect_list:
+            raise AqualinkInvalidParameterException(
+                f"{effect!r} isn't a valid effect."
+            )
+        await self._set_effect(effect)
+
+    async def _set_effect(self, effect: str) -> None:
+        """Send the named effect to the device."""
+        raise NotImplementedError
 
 
 class AqualinkClimate(AqualinkDevice):
