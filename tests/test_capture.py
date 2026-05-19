@@ -7,7 +7,7 @@ from tempfile import NamedTemporaryFile
 
 import httpx
 
-from iaqualink.cli.capture import CaptureSession, _redact_dict
+from iaqualink.cli.capture import CaptureSession, _mask_email, _redact_dict
 
 
 def _make_request(
@@ -35,6 +35,31 @@ def _make_response(
     return httpx.Response(status_code, json={}, request=request)
 
 
+class TestMaskEmail(unittest.TestCase):
+    def test_masks_normal_email(self) -> None:
+        result = _mask_email("testuser@example.net")
+        assert "testuser" not in result
+        assert "example" not in result
+        assert "@" in result
+        assert result.endswith(".net")
+
+    def test_short_local_part(self) -> None:
+        result = _mask_email("ab@example.com")
+        assert "ab" not in result
+        assert "@" in result
+
+    def test_very_short_local_part(self) -> None:
+        result = _mask_email("a@b.com")
+        assert result == "***@b***.com"
+
+    def test_non_email_returns_redacted(self) -> None:
+        assert _mask_email("not-an-email") == "***"
+
+    def test_preserves_tld(self) -> None:
+        result = _mask_email("user@example.org")
+        assert result.endswith(".org")
+
+
 class TestRedactDict(unittest.TestCase):
     def test_redacts_sensitive_keys(self) -> None:
         result = _redact_dict(
@@ -44,7 +69,8 @@ class TestRedactDict(unittest.TestCase):
                 "authentication_token": "tok123",
             }
         )
-        assert result["email"] == "***"
+        assert result["email"] != "user@example.com"  # partially masked
+        assert "@" in result["email"]  # still recognisably an email
         assert result["password"] == "***"
         assert result["authentication_token"] == "***"
 
@@ -101,10 +127,10 @@ class TestRedactDict(unittest.TestCase):
     def test_pii_fields_redacted(self) -> None:
         result = _redact_dict(
             {
-                "first_name": "Florent",
-                "last_name": "Thoumie",
-                "phone": "6508623243",
-                "postal_code": "95051",
+                "first_name": "Test",
+                "last_name": "User",
+                "phone": "5550001234",
+                "postal_code": "00000",
                 "address": "123 Main St",
                 "address_1": "123 Main St",
                 "username": "f7ce4321-2927-4615-a30b-551d9873b2c3",
@@ -163,7 +189,7 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
 
         entry = self._load_lines()[0]
         assert entry["request"]["body"]["password"] == "***"
-        assert entry["request"]["body"]["email"] == "***"
+        assert "u@example.com" not in entry["request"]["body"]["email"]
 
     async def test_redacts_token_in_response_body(self) -> None:
         session = CaptureSession(path=self._path)
@@ -216,6 +242,26 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         assert "REAL_KEY" not in url
         assert "api_key=***" in url
         assert "foo=bar" in url
+
+    async def test_redacts_response_headers(self) -> None:
+        session = CaptureSession(path=self._path)
+        request = _make_request("GET", "https://prod.zodiac-io.com/status")
+        response = httpx.Response(
+            200,
+            headers={
+                "set-cookie": "session_id=abc123; HttpOnly",
+                "x-cdn": "Imperva",
+            },
+            json={},
+            request=request,
+        )
+
+        await session._capture_response(response)
+        session.close()
+
+        headers = self._load_lines()[0]["response"]["headers"]
+        assert headers["set-cookie"] == "***"
+        assert headers.get("x-cdn") == "Imperva"
 
     async def test_redacts_serial_in_url_path(self) -> None:
         session = CaptureSession(path=self._path)

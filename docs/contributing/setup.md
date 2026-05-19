@@ -194,6 +194,30 @@ Before submitting:
 
 PR description should include: what changed, why, any breaking changes, and how to test.
 
+## Capture mode
+
+The CLI `--capture <file>` flag writes all HTTP request/response pairs to a JSONL file.
+Sensitive values are redacted before writing. There are two tiers of redaction:
+
+**`_REDACT_KEYS` (in `client.py`)** — applied everywhere (debug logging and capture).
+Covers auth tokens, credentials, API keys, PII that is sensitive even in debug context
+(email, phone, address fields, serial numbers, etc.).
+
+**`_CAPTURE_EXTRA_KEYS` (in `capture.py`)** — applied only in capture output.
+Fields that are safe to log for debugging but should be redacted in shareable captures:
+- `"state"` — device on/off state (used throughout the protocol); only PII in address context
+- `"username"` — the login email; must remain visible in auth INFO events per logging contract
+
+**Email addresses** (`email`, `username`) are partially masked rather than fully replaced:
+`user@example.com` → `us***r@e***.com`. Preserves enough to identify the account.
+
+**Substring matching** — any key containing `"token"`, `"secret"`, `"session"`, or
+`"credential"` is also redacted in capture output.
+
+**Serial numbers in URL paths** — registered via `CaptureSession.register_serials()`
+after `get_systems()` resolves; the first login and device-list requests are captured
+before serials are known, so serial numbers in those URLs are not redacted.
+
 ## Getting Help
 
 - Open an issue for bugs

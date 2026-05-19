@@ -81,9 +81,7 @@ _REDACT_KEYS = frozenset(
         "serial_number",
         "serialnumber",
         "ssid",
-        "state",
         "user_id",
-        "username",
     }
 )
 _REDACT_URL_RE = re.compile(

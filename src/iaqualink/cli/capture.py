@@ -12,8 +12,42 @@ import httpx
 
 from iaqualink.client import _REDACT_KEYS, _redact_url
 
-_REDACT_KEYS_CI = frozenset(k.lower() for k in _REDACT_KEYS)
+# Fields redacted only in capture output (safe to show in debug logs).
+# "state" is PII in user-profile context but is the universal device on/off
+# field in device API responses — keeping it in _REDACT_KEYS would redact
+# device state throughout debug logging and make captures useless for
+# diagnosing device issues.
+# "username" is the email used for login; it must remain visible in auth
+# INFO log events per the logging contract in docs/contributing/setup.md.
+_CAPTURE_EXTRA_KEYS: frozenset[str] = frozenset(
+    {"set-cookie", "state", "username"}
+)
+
+_REDACT_KEYS_CI = frozenset(
+    k.lower() for k in (*_REDACT_KEYS, *_CAPTURE_EXTRA_KEYS)
+)
 _REDACT_SUBSTRINGS = ("credential", "secret", "session", "token")
+
+# Keys whose string values are partially masked rather than fully replaced.
+_EMAIL_KEYS: frozenset[str] = frozenset({"email", "username"})
+
+
+def _mask_email(value: str) -> str:
+    """Partially mask an email: fl***t@t***.net — preserves enough to identify the account."""
+    if "@" not in value:
+        return "***"
+    local, domain = value.rsplit("@", 1)
+    if len(local) <= 2:
+        masked_local = "***"
+    elif len(local) <= 5:
+        masked_local = local[:1] + "***"
+    else:
+        masked_local = local[:2] + "***" + local[-1:]
+    domain_parts = domain.split(".", 1)
+    masked_domain = domain_parts[0][:1] + "***"
+    if len(domain_parts) > 1:
+        masked_domain += "." + domain_parts[1]
+    return f"{masked_local}@{masked_domain}"
 
 
 def _redact_value(v: Any) -> Any:
@@ -28,7 +62,9 @@ def _redact_dict(d: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for k, v in d.items():
         k_lower = k.lower()
-        if k_lower in _REDACT_KEYS_CI or any(
+        if k_lower in _EMAIL_KEYS and isinstance(v, str):
+            result[k] = _mask_email(v)
+        elif k_lower in _REDACT_KEYS_CI or any(
             s in k_lower for s in _REDACT_SUBSTRINGS
         ):
             result[k] = "***"
@@ -56,6 +92,10 @@ class CaptureSession:
         self._file.flush()
 
     def register_serials(self, *serials: str) -> None:
+        # Called after get_systems() resolves. Requests made before that point
+        # (login, initial device list) are captured with serial numbers
+        # unredacted in URLs. The device-list response body is still redacted
+        # since serial_number is in _REDACT_KEYS.
         self._literals.update(s for s in serials if s)
 
     def _redact_url(self, url: str) -> str:
@@ -71,12 +111,14 @@ class CaptureSession:
         await response.aread()
         request = response.request
 
-        try:
-            req_body: Any = (
-                json.loads(request.content) if request.content else None
-            )
-        except (json.JSONDecodeError, UnicodeDecodeError):
-            req_body = request.content.decode("utf-8", errors="replace") or None
+        req_body: Any = None
+        if request.content:
+            try:
+                req_body = json.loads(request.content)
+            except ValueError:
+                req_body = (
+                    request.content.decode("utf-8", errors="replace") or None
+                )
 
         if isinstance(req_body, (dict, list)):
             req_body = _redact_value(req_body)
@@ -102,7 +144,7 @@ class CaptureSession:
             "response": {
                 "status_code": response.status_code,
                 "reason": response.reason_phrase,
-                "headers": dict(response.headers),
+                "headers": _redact_dict(dict(response.headers)),
                 "body": resp_body,
             },
         }
