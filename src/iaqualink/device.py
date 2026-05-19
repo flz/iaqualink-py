@@ -224,9 +224,20 @@ class AqualinkClimate(AqualinkDevice):
     def min_temp(self) -> int:
         """Minimum allowed set-point."""
 
-    @abstractmethod
-    async def set_temperature(self, _: int) -> None:
+    async def set_temperature(self, temperature: int) -> None:
         """Set the target temperature."""
+        low = self.min_temp
+        high = self.max_temp
+        unit = self.temperature_unit
+        if temperature not in range(low, high + 1):
+            msg = f"{temperature}{unit} isn't a valid temperature"
+            msg += f" ({low}-{high}{unit})."
+            raise AqualinkInvalidParameterException(msg)
+        await self._set_temperature(temperature)
+
+    async def _set_temperature(self, temperature: int) -> None:
+        """Send the validated temperature to the device."""
+        raise NotImplementedError
 
 
 class AqualinkNumber(AqualinkDevice):

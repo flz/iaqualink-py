@@ -435,16 +435,7 @@ class IaquaClimate(IaquaSwitch, AqualinkClimate):
             return IAQUA_TEMP_FAHRENHEIT_HIGH
         return IAQUA_TEMP_CELSIUS_HIGH
 
-    async def set_temperature(self, temperature: int) -> None:
-        unit = self.temperature_unit
-        low = self.min_temp
-        high = self.max_temp
-
-        if temperature not in range(low, high + 1):
-            msg = f"{temperature}{unit} isn't a valid temperature"
-            msg += f" ({low}-{high}{unit})."
-            raise AqualinkInvalidParameterException(msg)
-
+    async def _set_temperature(self, temperature: int) -> None:
         data = {self._temperature: str(temperature)}
         await self.system.set_temps(data)
 

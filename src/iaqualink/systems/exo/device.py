@@ -10,7 +10,6 @@ from iaqualink.device import (
     AqualinkSensor,
     AqualinkSwitch,
 )
-from iaqualink.exception import AqualinkInvalidParameterException
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Coroutine
@@ -201,16 +200,7 @@ class ExoClimate(ExoSwitch, AqualinkClimate):
     def max_temp(self) -> int:
         return int(self.data["sp_max"])
 
-    async def set_temperature(self, temperature: int) -> None:
-        unit = self.temperature_unit
-        low = self.min_temp
-        high = self.max_temp
-
-        if temperature not in range(low, high + 1):
-            msg = f"{temperature}{unit} isn't a valid temperature"
-            msg += f" ({low}-{high}{unit})."
-            raise AqualinkInvalidParameterException(msg)
-
+    async def _set_temperature(self, temperature: int) -> None:
         await self.system.set_heating("sp", temperature)
 
     @property
