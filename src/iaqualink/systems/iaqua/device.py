@@ -176,7 +176,7 @@ class IaquaDimmableLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
     def brightness_pct(self) -> int | None:
         return int(self.data["subtype"])
 
-    async def set_brightness_percentage(self, brightness: int) -> None:
+    async def _set_brightness_percentage(self, brightness: int) -> None:
         # Brightness only works in 25% increments.
         if brightness not in [0, 25, 50, 75, 100]:
             msg = f"{brightness}% isn't a valid percentage."

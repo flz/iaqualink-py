@@ -141,11 +141,19 @@ class AqualinkLight(AqualinkDevice):
     def supports_brightness(self) -> bool:
         return self.brightness_pct is not None
 
-    async def set_brightness_percentage(self, _: int) -> None:
+    async def set_brightness_percentage(self, brightness: int) -> None:
         """Set brightness as a percentage (0–100)."""
-        if self.supports_brightness is True:
-            raise NotImplementedError
-        raise AqualinkOperationNotSupportedException
+        if not self.supports_brightness:
+            raise AqualinkOperationNotSupportedException
+        if not 0 <= brightness <= 100:
+            raise AqualinkInvalidParameterException(
+                f"{brightness}% isn't a valid percentage."
+            )
+        await self._set_brightness_percentage(brightness)
+
+    async def _set_brightness_percentage(self, brightness: int) -> None:
+        """Send the brightness percentage to the device."""
+        raise NotImplementedError
 
     @property
     def effect(self) -> str | None:
