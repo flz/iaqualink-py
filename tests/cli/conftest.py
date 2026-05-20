@@ -130,20 +130,20 @@ def reset_fake_client(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(cli_module, "_capture_session", None)
 
 
-def _make_unsupported_system(
+def make_unsupported_system(
     serial: str = "SN001", name: str = "Pool"
 ) -> UnsupportedSystem:
     data = {"serial_number": serial, "name": name, "device_type": "foo"}
     return UnsupportedSystem(MagicMock(), data)
 
 
-def _render_plain(renderable: object) -> str:
+def render_plain(renderable: object) -> str:
     buf = StringIO()
     RichConsole(file=buf, no_color=True, width=120).print(renderable)
     return buf.getvalue()
 
 
-def _invoke_with_jar(tmp_path: Path, *args: str) -> tuple:
+def invoke_with_jar(tmp_path: Path, *args: str) -> tuple:
     cookie_jar = tmp_path / "session.json"
     result = CliRunner().invoke(
         app,

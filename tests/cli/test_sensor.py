@@ -7,7 +7,7 @@ import iaqualink.cli.app as cli_module
 from .conftest import (
     FakeClient,
     FakeSystemWithAqualink,
-    _invoke_with_jar,
+    invoke_with_jar,
     make_binary_sensor,
     make_sensor,
 )
@@ -74,7 +74,7 @@ def test_turn_on_sensor_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"temp": sensor})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "turn-on", "temp")
+    result, _ = invoke_with_jar(tmp_path, "turn-on", "temp")
     assert result.exit_code == 1
     assert "does not support power controls" in result.stderr
 
@@ -86,6 +86,6 @@ def test_turn_off_sensor_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"temp": sensor})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "turn-off", "temp")
+    result, _ = invoke_with_jar(tmp_path, "turn-off", "temp")
     assert result.exit_code == 1
     assert "does not support power controls" in result.stderr

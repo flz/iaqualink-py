@@ -6,7 +6,7 @@ from pathlib import Path
 from .conftest import (
     FakeClient,
     FakeSystemWithAqualink,
-    _invoke_with_jar,
+    invoke_with_jar,
     make_climate,
 )
 
@@ -20,7 +20,7 @@ def test_set_temperature_saves_jar_after_command(tmp_path: Path) -> None:
             )
         }
     )
-    result, cookie_jar = _invoke_with_jar(
+    result, cookie_jar = invoke_with_jar(
         tmp_path, "set-temperature", "heater", "78"
     )
     assert result.exit_code == 0

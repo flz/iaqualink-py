@@ -12,10 +12,10 @@ from .conftest import (
     FakeClient,
     FakeSystem,
     FakeSystemWithAqualink,
-    _invoke_with_jar,
-    _make_unsupported_system,
-    _render_plain,
     app,
+    invoke_with_jar,
+    make_unsupported_system,
+    render_plain,
 )
 
 
@@ -132,19 +132,19 @@ def test_list_devices_reports_ambiguous_system_name(tmp_path: Path) -> None:
 
 
 def test_format_system_line_unsupported() -> None:
-    system = _make_unsupported_system()
+    system = make_unsupported_system()
     line = cli_module._format_system_line(system)
     assert "(unsupported)" in line
     assert "foo" in line
 
 
 def test_render_device_tree_unsupported_system() -> None:
-    system = _make_unsupported_system(serial="SN001", name="Pool")
+    system = make_unsupported_system(serial="SN001", name="Pool")
     tree = cli_module._render_device_tree(
         [("SN001", system)],
         {"SN001": {}},
     )
-    output = _render_plain(tree)
+    output = render_plain(tree)
     assert "System type not supported" in output
     assert "No devices found" not in output
 
@@ -152,7 +152,7 @@ def test_render_device_tree_unsupported_system() -> None:
 def test_list_systems_shows_unsupported_note(tmp_path: Path) -> None:
     cookie_jar = tmp_path / "session.json"
     FakeClient.systems_factory = staticmethod(
-        lambda: {"SN001": _make_unsupported_system()}
+        lambda: {"SN001": make_unsupported_system()}
     )
 
     result = CliRunner().invoke(
@@ -173,21 +173,21 @@ def test_list_systems_shows_unsupported_note(tmp_path: Path) -> None:
 
 
 def test_render_device_tree_single_system_has_systems_root() -> None:
-    system = _make_unsupported_system(serial="SN001", name="Pool")
+    system = make_unsupported_system(serial="SN001", name="Pool")
     tree = cli_module._render_device_tree([("SN001", system)], {"SN001": {}})
-    output = _render_plain(tree)
+    output = render_plain(tree)
     assert "Systems" in output
     assert "Pool" in output
 
 
 def test_render_device_tree_multiple_systems() -> None:
-    sys1 = _make_unsupported_system(serial="SN001", name="Pool")
-    sys2 = _make_unsupported_system(serial="SN002", name="Spa")
+    sys1 = make_unsupported_system(serial="SN001", name="Pool")
+    sys2 = make_unsupported_system(serial="SN002", name="Spa")
     tree = cli_module._render_device_tree(
         [("SN001", sys1), ("SN002", sys2)],
         {"SN001": {}, "SN002": {}},
     )
-    output = _render_plain(tree)
+    output = render_plain(tree)
     assert "Pool" in output
     assert "Spa" in output
     assert "Systems" in output
@@ -195,7 +195,7 @@ def test_render_device_tree_multiple_systems() -> None:
 
 def test_render_device_tree_no_systems() -> None:
     tree = cli_module._render_device_tree([], {})
-    output = _render_plain(tree)
+    output = render_plain(tree)
     assert "No systems found" in output
 
 
@@ -203,7 +203,7 @@ def test_list_devices_saves_jar_after_device_load(tmp_path: Path) -> None:
     FakeClient.systems_factory = staticmethod(
         lambda: {"SN001": FakeSystemWithAqualink("SN001", "Pool")}
     )
-    result, cookie_jar = _invoke_with_jar(tmp_path, "list-devices")
+    result, cookie_jar = invoke_with_jar(tmp_path, "list-devices")
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"
@@ -213,7 +213,7 @@ def test_status_saves_jar_after_device_load(tmp_path: Path) -> None:
     FakeClient.systems_factory = staticmethod(
         lambda: {"SN001": FakeSystemWithAqualink("SN001", "Pool")}
     )
-    result, cookie_jar = _invoke_with_jar(tmp_path, "status")
+    result, cookie_jar = invoke_with_jar(tmp_path, "status")
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"

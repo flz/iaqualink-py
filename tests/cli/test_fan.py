@@ -9,7 +9,7 @@ from iaqualink.exception import AqualinkInvalidParameterException
 from .conftest import (
     FakeClient,
     FakeSystemWithAqualink,
-    _invoke_with_jar,
+    invoke_with_jar,
     make_fan,
     make_switch,
 )
@@ -59,7 +59,7 @@ def test_turn_on_pump_with_support(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "turn-on", "vsp")
+    result, _ = invoke_with_jar(tmp_path, "turn-on", "vsp")
     assert result.exit_code == 0
     assert "VSP" in result.output
 
@@ -71,7 +71,7 @@ def test_turn_on_pump_without_support_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "turn-on", "vsp")
+    result, _ = invoke_with_jar(tmp_path, "turn-on", "vsp")
     assert result.exit_code == 1
     assert "does not support turn on" in result.stderr
 
@@ -83,7 +83,7 @@ def test_turn_off_pump_with_support(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "turn-off", "vsp")
+    result, _ = invoke_with_jar(tmp_path, "turn-off", "vsp")
     assert result.exit_code == 0
     assert "VSP" in result.output
 
@@ -95,7 +95,7 @@ def test_turn_off_pump_without_support_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "turn-off", "vsp")
+    result, _ = invoke_with_jar(tmp_path, "turn-off", "vsp")
     assert result.exit_code == 1
     assert "does not support turn off" in result.stderr
 
@@ -112,7 +112,7 @@ def test_set_speed_pump_with_support(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-speed", "vsp", "75")
+    result, _ = invoke_with_jar(tmp_path, "set-speed", "vsp", "75")
     assert result.exit_code == 0
     assert "75%" in result.output
     assert "VSP" in result.output
@@ -125,7 +125,7 @@ def test_set_speed_pump_without_support_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-speed", "vsp", "75")
+    result, _ = invoke_with_jar(tmp_path, "set-speed", "vsp", "75")
     assert result.exit_code == 1
     assert "does not support speed control" in result.stderr
 
@@ -137,7 +137,7 @@ def test_set_speed_non_pump_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-speed", "filter", "50")
+    result, _ = invoke_with_jar(tmp_path, "set-speed", "filter", "50")
     assert result.exit_code == 1
     assert "is not a fan/pump" in result.stderr
 
@@ -149,7 +149,7 @@ def test_set_speed_saves_jar(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, cookie_jar = _invoke_with_jar(tmp_path, "set-speed", "vsp", "50")
+    result, cookie_jar = invoke_with_jar(tmp_path, "set-speed", "vsp", "50")
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"
@@ -162,7 +162,7 @@ def test_set_speed_out_of_range_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-speed", "vsp", "150")
+    result, _ = invoke_with_jar(tmp_path, "set-speed", "vsp", "150")
     assert result.exit_code == 2
     assert "150" in result.output
 
@@ -179,7 +179,7 @@ def test_set_preset_pump_with_support(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-preset", "vsp", "Low")
+    result, _ = invoke_with_jar(tmp_path, "set-preset", "vsp", "Low")
     assert result.exit_code == 0
     assert "Low" in result.output
     assert "VSP" in result.output
@@ -192,7 +192,7 @@ def test_set_preset_pump_without_support_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-preset", "vsp", "Low")
+    result, _ = invoke_with_jar(tmp_path, "set-preset", "vsp", "Low")
     assert result.exit_code == 1
     assert "does not support presets" in result.stderr
 
@@ -204,7 +204,7 @@ def test_set_preset_non_pump_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-preset", "filter", "Low")
+    result, _ = invoke_with_jar(tmp_path, "set-preset", "filter", "Low")
     assert result.exit_code == 1
     assert "is not a fan/pump" in result.stderr
 
@@ -216,7 +216,7 @@ def test_set_preset_saves_jar(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, cookie_jar = _invoke_with_jar(tmp_path, "set-preset", "vsp", "High")
+    result, cookie_jar = invoke_with_jar(tmp_path, "set-preset", "vsp", "High")
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"
@@ -232,6 +232,6 @@ def test_set_preset_invalid_preset_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-preset", "vsp", "Bogus")
+    result, _ = invoke_with_jar(tmp_path, "set-preset", "vsp", "Bogus")
     assert result.exit_code == 1
     assert "Bogus" in result.stderr

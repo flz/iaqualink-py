@@ -9,7 +9,7 @@ from iaqualink.exception import AqualinkInvalidParameterException
 from .conftest import (
     FakeClient,
     FakeSystemWithAqualink,
-    _invoke_with_jar,
+    invoke_with_jar,
     make_light,
     make_switch,
 )
@@ -34,7 +34,7 @@ def test_set_brightness_succeeds_on_dimmable_light(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-brightness", "light", "75")
+    result, _ = invoke_with_jar(tmp_path, "set-brightness", "light", "75")
     assert result.exit_code == 0
     assert "75%" in result.stdout
     light.set_brightness_percentage.assert_called_once_with(75)
@@ -47,7 +47,7 @@ def test_set_brightness_fails_on_non_light(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"pump": switch})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-brightness", "pump", "50")
+    result, _ = invoke_with_jar(tmp_path, "set-brightness", "pump", "50")
     assert result.exit_code == 1
     assert "not a light" in result.stderr
 
@@ -59,7 +59,7 @@ def test_set_brightness_fails_on_non_dimmable_light(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-brightness", "light", "50")
+    result, _ = invoke_with_jar(tmp_path, "set-brightness", "light", "50")
     assert result.exit_code == 1
     assert "does not support brightness" in result.stderr
 
@@ -71,7 +71,7 @@ def test_set_brightness_saves_jar_after_command(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
         }
     )
-    result, cookie_jar = _invoke_with_jar(
+    result, cookie_jar = invoke_with_jar(
         tmp_path, "set-brightness", "light", "50"
     )
     assert result.exit_code == 0
@@ -96,9 +96,7 @@ def test_set_effect_succeeds_on_color_light(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
         }
     )
-    result, _ = _invoke_with_jar(
-        tmp_path, "set-effect", "light", "Alpine White"
-    )
+    result, _ = invoke_with_jar(tmp_path, "set-effect", "light", "Alpine White")
     assert result.exit_code == 0
     assert "Alpine White" in result.stdout
     light.set_effect.assert_called_once_with("Alpine White")
@@ -111,7 +109,7 @@ def test_set_effect_fails_on_non_light(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"pump": switch})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-effect", "pump", "Alpine White")
+    result, _ = invoke_with_jar(tmp_path, "set-effect", "pump", "Alpine White")
     assert result.exit_code == 1
     assert "not a light" in result.stderr
 
@@ -123,9 +121,7 @@ def test_set_effect_fails_on_non_color_light(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
         }
     )
-    result, _ = _invoke_with_jar(
-        tmp_path, "set-effect", "light", "Alpine White"
-    )
+    result, _ = invoke_with_jar(tmp_path, "set-effect", "light", "Alpine White")
     assert result.exit_code == 1
     assert "does not support color effects" in result.stderr
 
@@ -142,7 +138,7 @@ def test_set_effect_saves_jar_after_command(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
         }
     )
-    result, cookie_jar = _invoke_with_jar(
+    result, cookie_jar = invoke_with_jar(
         tmp_path, "set-effect", "light", "Alpine White"
     )
     assert result.exit_code == 0
@@ -165,6 +161,6 @@ def test_set_effect_rejects_unknown_effect_name(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-effect", "light", "Bogus")
+    result, _ = invoke_with_jar(tmp_path, "set-effect", "light", "Bogus")
     assert result.exit_code == 1
     assert "Bogus" in result.stderr

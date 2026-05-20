@@ -9,7 +9,7 @@ from iaqualink.exception import AqualinkInvalidParameterException
 from .conftest import (
     FakeClient,
     FakeSystemWithAqualink,
-    _invoke_with_jar,
+    invoke_with_jar,
     make_number,
     make_switch,
 )
@@ -53,7 +53,7 @@ def test_set_value_number_device(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"rpm": number})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-value", "rpm", "2000")
+    result, _ = invoke_with_jar(tmp_path, "set-value", "rpm", "2000")
     assert result.exit_code == 0
     assert "2000 RPM" in result.output
 
@@ -65,7 +65,7 @@ def test_set_value_number_device_without_unit(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"level": number})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-value", "level", "7")
+    result, _ = invoke_with_jar(tmp_path, "set-value", "level", "7")
     assert result.exit_code == 0
     assert "7" in result.output
 
@@ -77,7 +77,7 @@ def test_set_value_non_number_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-value", "filter", "50")
+    result, _ = invoke_with_jar(tmp_path, "set-value", "filter", "50")
     assert result.exit_code == 1
     assert "does not support numeric values" in result.stderr
 
@@ -92,7 +92,7 @@ def test_set_value_out_of_range_exits(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"rpm": number})
         }
     )
-    result, _ = _invoke_with_jar(tmp_path, "set-value", "rpm", "9999")
+    result, _ = invoke_with_jar(tmp_path, "set-value", "rpm", "9999")
     assert result.exit_code == 1
     assert "out of range" in result.stderr
 
@@ -104,7 +104,7 @@ def test_set_value_saves_jar(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"rpm": number})
         }
     )
-    result, cookie_jar = _invoke_with_jar(tmp_path, "set-value", "rpm", "2000")
+    result, cookie_jar = invoke_with_jar(tmp_path, "set-value", "rpm", "2000")
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"

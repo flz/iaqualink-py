@@ -8,7 +8,7 @@ import iaqualink.cli.app as cli_module
 from .conftest import (
     FakeClient,
     FakeSystemWithAqualink,
-    _invoke_with_jar,
+    invoke_with_jar,
     make_switch,
 )
 
@@ -27,7 +27,7 @@ def test_turn_on_saves_jar_after_command(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"pump": switch})
         }
     )
-    result, cookie_jar = _invoke_with_jar(tmp_path, "turn-on", "pump")
+    result, cookie_jar = invoke_with_jar(tmp_path, "turn-on", "pump")
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"
