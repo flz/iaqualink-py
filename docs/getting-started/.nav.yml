@@ -1,4 +1,5 @@
 nav:
   - Installation: installation.md
+  - CLI: cli.md
   - Home Assistant: home-assistant.md
   - Programmatic Use: quickstart.md

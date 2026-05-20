@@ -212,6 +212,15 @@ class I2dFan(I2dDevice, AqualinkFan):
     def supports_percentage(self) -> bool:
         return True
 
+    @property
+    def percentage(self) -> int | None:
+        rpm = self.custom_speed_rpm
+        rpm_min = self.rpm_min or _RPM_HARDWARE_MIN_DEFAULT
+        rpm_max = self.rpm_max or _RPM_HARDWARE_MAX
+        if rpm is None or rpm_max <= rpm_min:
+            return None
+        return round((rpm - rpm_min) / (rpm_max - rpm_min) * 100)
+
     async def _set_percentage(self, percentage: int) -> None:
         rpm_min = self.rpm_min or _RPM_HARDWARE_MIN_DEFAULT
         rpm_max = self.rpm_max or _RPM_HARDWARE_MAX
