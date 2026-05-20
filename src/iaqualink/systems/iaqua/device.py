@@ -155,15 +155,15 @@ class _IaquaAuxMixin(IaquaDevice):
             await self._toggle()
 
 
-class IaquaAuxSwitch(_IaquaAuxMixin, IaquaDevice, AqualinkSwitch):
+class IaquaAuxSwitch(_IaquaAuxMixin, AqualinkSwitch):
     pass
 
 
-class IaquaLightSwitch(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
+class IaquaLightSwitch(_IaquaAuxMixin, AqualinkLight):
     pass
 
 
-class IaquaDimmableLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
+class IaquaDimmableLight(_IaquaAuxMixin, AqualinkLight):
     async def turn_on(self) -> None:
         if not self.is_on:
             await self.set_brightness_percentage(100)
@@ -187,7 +187,7 @@ class IaquaDimmableLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
         await self.system.set_light(data)
 
 
-class IaquaColorLight(_IaquaAuxMixin, IaquaDevice, AqualinkLight):
+class IaquaColorLight(_IaquaAuxMixin, AqualinkLight):
     _EFFECTS: ClassVar[dict[str, int]] = {}
 
     async def turn_on(self) -> None:
