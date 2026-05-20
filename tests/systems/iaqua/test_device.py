@@ -812,7 +812,7 @@ class TestIaquaIclLight(TestIaquaDevice):
         assert self.sut.supports_effect is True
 
     def test_property_color_id(self) -> None:
-        assert self.sut.color_id == 6
+        assert self.sut._color_id == 6
 
     def test_property_rgbw(self) -> None:
         assert self.sut.rgbw == (255, 128, 64, 0)
@@ -895,7 +895,7 @@ class TestIaquaIclLight(TestIaquaDevice):
     ) -> None:
         respx_mock.route(dotstar).mock(resp_200)
         with patch.object(self.sut.system, "_parse_icl_info_response"):
-            await self.sut.set_effect_by_id(4)
+            await self.sut._set_effect_by_id(4)
         assert len(respx_mock.calls) == 1
         url = str(respx_mock.calls[0].request.url)
         assert "set_iclzone_color" in url
@@ -906,7 +906,7 @@ class TestIaquaIclLight(TestIaquaDevice):
         from iaqualink.exception import AqualinkInvalidParameterException
 
         with self.assertRaises(AqualinkInvalidParameterException):
-            await self.sut.set_effect_by_id(27)
+            await self.sut._set_effect_by_id(27)
 
     @respx.mock
     async def test_set_effect_emerald_green(
@@ -995,5 +995,5 @@ class TestIaquaIclLight(TestIaquaDevice):
         )
         self.sut.system._parse_icl_custom_color_response(response)
         assert self.sut.rgbw == (200, 100, 50, 25)
-        assert self.sut.color_id == 16
+        assert self.sut._color_id == 16
         assert self.sut.effect == "Custom Color"

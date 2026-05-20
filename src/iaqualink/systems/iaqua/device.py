@@ -514,7 +514,7 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
     @property
     def effect(self) -> str | None:
         color_val = self.data.get("zoneColorVal")
-        if color_val and self.color_id != 0:
+        if color_val and self._color_id != 0:
             return color_val
         return None
 
@@ -523,7 +523,7 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
         return list(ICL_EFFECTS)
 
     @property
-    def color_id(self) -> int | None:
+    def _color_id(self) -> int | None:
         color = self.data.get("zoneColor")
         if color is not None:
             return int(color)
@@ -556,9 +556,9 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
         await self.system.icl_set_brightness(self._zone_id, brightness)
 
     async def _set_effect(self, effect: str) -> None:
-        await self.set_effect_by_id(ICL_EFFECTS[effect])
+        await self._set_effect_by_id(ICL_EFFECTS[effect])
 
-    async def set_effect_by_id(self, effect_id: int) -> None:
+    async def _set_effect_by_id(self, effect_id: int) -> None:
         if effect_id not in ICL_EFFECTS.values():
             msg = f"{effect_id!r} isn't a valid effect ID."
             raise AqualinkInvalidParameterException(msg)

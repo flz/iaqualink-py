@@ -168,7 +168,7 @@ After write commands that return the full `icl_info_list` shape (`onoff_iclzone`
 | `is_on` | `zoneStatus` | `== IaquaZoneStatus.ON` |
 | `brightness_percentage` | `dim_level` | `int`, 0–100; `None` if field absent |
 | `effect` | `zoneColorVal` | Human-readable name string; `None` if empty |
-| `color_id` | `zoneColor` | Integer 0–16; not part of base `AqualinkLight` API |
+| `_color_id` | `zoneColor` | Integer 0–16; internal — not part of `AqualinkLight` API |
 | `rgbw` | `red_val`, `green_val`, `blue_val`, `white_val` | 4-tuple; returns `None` on parse error |
 
 ### Operations
@@ -179,7 +179,7 @@ After write commands that return the full `icl_info_list` shape (`onoff_iclzone`
 | `turn_off()` | `onoff_iclzone` | Noop if already off |
 | `set_brightness_percentage(0–100)` | `set_iclzone_color` | See brightness command decision below |
 | `set_effect(name)` | `set_iclzone_color` | Validated by base class; dispatches via `_set_effect()` |
-| `set_effect_by_id(id)` | `set_iclzone_color` | Validates against `ICL_EFFECTS` values |
+| `_set_effect_by_id(id)` | `set_iclzone_color` | Internal; validates against `ICL_EFFECTS` values |
 | `set_rgbw(r, g, b, w=0)` | `define_iclzone_customcolor` | Each channel 0–255 |
 
 ### Design Decisions
