@@ -710,6 +710,32 @@ class TestRedactKwargs(TestBase):
         assert result["json"] == "not-a-dict"
 
 
+class TestLogRedactUrl(TestBase):
+    def test_masks_registered_serial_in_url_path(self) -> None:
+        self.client._log_serials = {"TESTSERIAL1"}
+        url = "https://r-api.iaqualink.net/v2/devices/TESTSERIAL1/control.json"
+        result = self.client._log_redact_url(url)
+        assert "TESTSERIAL1" not in result
+        assert "***" + "TESTSERIAL1"[-3:] in result
+
+    def test_unregistered_serial_not_redacted(self) -> None:
+        self.client._log_serials = {"TESTSERIAL1"}
+        url = "https://r-api.iaqualink.net/v2/devices/TESTDEVICE2/control.json"
+        result = self.client._log_redact_url(url)
+        assert "TESTDEVICE2" in result
+
+    def test_query_param_redaction_still_applied(self) -> None:
+        url = "https://example.com/api?signature=abc&command=get_home"
+        result = self.client._log_redact_url(url)
+        assert "signature=***" in result
+        assert "command=get_home" in result
+
+    def test_empty_serials_set(self) -> None:
+        url = "https://r-api.iaqualink.net/v2/devices/TESTSERIAL1/shadow"
+        result = self.client._log_redact_url(url)
+        assert "TESTSERIAL1" in result
+
+
 class TestAqualinkAuthStateRepr(TestBase):
     def test_repr_masks_tokens(self) -> None:
         state = AqualinkAuthState(

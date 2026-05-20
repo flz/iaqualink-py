@@ -8,7 +8,7 @@ from tempfile import NamedTemporaryFile
 import httpx
 
 from iaqualink.cli.capture import CaptureSession
-from iaqualink.utils.redact import mask_email, redact_dict
+from iaqualink.utils.redact import mask_email, mask_serial, redact_dict
 
 
 def _make_request(
@@ -59,6 +59,26 @@ class TestMaskEmail(unittest.TestCase):
     def test_preserves_tld(self) -> None:
         result = mask_email("user@example.org")
         assert result.endswith(".org")
+
+
+class TestMaskSerial(unittest.TestCase):
+    def test_normal_serial(self) -> None:
+        result = mask_serial("TESTSERIAL1")
+        assert result == "***AL1"
+        assert "TESTSERIAL1"[:-3] not in result
+
+    def test_exactly_three_chars(self) -> None:
+        assert mask_serial("ABC") == "***"
+
+    def test_short_serial(self) -> None:
+        assert mask_serial("AB") == "***"
+
+    def test_empty_string(self) -> None:
+        assert mask_serial("") == "***"
+
+    def test_four_char_serial(self) -> None:
+        result = mask_serial("ABCD")
+        assert result == "***BCD"
 
 
 class TestRedactDict(unittest.TestCase):
@@ -139,6 +159,22 @@ class TestRedactDict(unittest.TestCase):
         )
         for key in result:
             assert result[key] == "***", f"{key!r} not redacted"
+
+    def test_serial_keys_partially_masked(self) -> None:
+        result = redact_dict(
+            {
+                "serial": "TESTSERIAL1",
+                "serial_number": "TESTDEVICE2",
+                "serialnumber": "TESTUNIT003",
+            }
+        )
+        assert result["serial"] == "***AL1"
+        assert result["serial_number"] == "***CE2"
+        assert result["serialnumber"] == "***003"
+
+    def test_serial_key_short_value(self) -> None:
+        result = redact_dict({"serial_number": "AB"})
+        assert result["serial_number"] == "***"
 
 
 class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
@@ -278,7 +314,7 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
 
         url = self._load_lines()[0]["request"]["url"]
         assert "ZZZ000SERIAL" not in url
-        assert "***" in url
+        assert "***" + "ZZZ000SERIAL"[-3:] in url
 
     def test_register_serials_ignores_empty(self) -> None:
         session = CaptureSession(path=self._path)
@@ -317,11 +353,11 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         body = self._load_lines()[0]["response"]["body"]
         assert isinstance(body, list)
         assert body[0]["id"] == "***"
-        assert body[0]["serial_number"] == "***"
+        assert body[0]["serial_number"] == "***" + "ZZZ000SERIAL"[-3:]
         assert body[0]["device_type"] == "iaqua"
         assert body[0]["owner_id"] == "***"
         assert body[1]["id"] == "***"
-        assert body[1]["serial_number"] == "***"
+        assert body[1]["serial_number"] == "***" + "ZZZ111SERIAL"[-3:]
 
     async def test_non_json_response_stored_as_string(self) -> None:
         session = CaptureSession(path=self._path)

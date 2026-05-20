@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import ExoDevice
-from iaqualink.utils.redact import redact_value
+from iaqualink.utils.redact import mask_serial, redact_value
 
 _EXO_STATUS_MAP: dict[str, SystemStatus] = {
     "connected": SystemStatus.CONNECTED,
@@ -82,9 +82,10 @@ class ExoSystem(AqualinkSystem):
             mapped = _EXO_STATUS_MAP.get(raw_aws_status)
             if mapped is None:
                 LOGGER.warning(
-                    "Unknown aws.status %r for system %s; treating as Unknown.",
+                    "Unknown aws.status %r for system %s (%s); treating as Unknown.",
                     raw_aws_status,
-                    self.serial,
+                    mask_serial(self.serial),
+                    self.type,
                 )
                 self.status = SystemStatus.UNKNOWN
             else:

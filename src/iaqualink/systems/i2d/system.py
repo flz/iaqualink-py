@@ -18,7 +18,7 @@ from iaqualink.systems.i2d.device import (
     I2dSensor,
     I2dSwitch,
 )
-from iaqualink.utils.redact import redact_value
+from iaqualink.utils.redact import mask_serial, redact_value
 
 I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
 
@@ -296,7 +296,12 @@ class I2dSystem(AqualinkSystem):
         # API returns HTTP 200 even when device is unreachable; body carries status=500.
         if data.get("status") == "500":
             msg = data.get("error", {}).get("message", "Device offline.")
-            LOGGER.warning("System %s error: %s", self.serial, msg)
+            LOGGER.warning(
+                "System %s (%s) error: %s",
+                mask_serial(self.serial),
+                self.type,
+                msg,
+            )
             self.status = SystemStatus.OFFLINE
             return
 

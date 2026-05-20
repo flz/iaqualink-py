@@ -54,6 +54,9 @@ REDACT_SUBSTRINGS: tuple[str, ...] = (
 
 # Keys whose string values are partially masked rather than fully replaced.
 EMAIL_KEYS: frozenset[str] = frozenset({"email", "username"})
+SERIAL_KEYS: frozenset[str] = frozenset(
+    {"serial", "serial_number", "serialnumber"}
+)
 
 _REDACT_URL_RE = re.compile(
     r"(?<=[?&])(" + "|".join(sorted(REDACT_KEYS)) + r")=[^&]*"
@@ -78,6 +81,13 @@ def mask_email(value: str) -> str:
     return f"{masked_local}@{masked_domain}"
 
 
+def mask_serial(value: str) -> str:
+    # ABCDEFGHIJKL → ***JKL  (last 3 chars preserved)
+    if len(value) <= 3:
+        return "***"
+    return "***" + value[-3:]
+
+
 def redact_value(v: Any, keys_ci: frozenset[str] = REDACT_KEYS_CI) -> Any:
     if isinstance(v, dict):
         return redact_dict(v, keys_ci)
@@ -94,6 +104,8 @@ def redact_dict(
         k_lower = k.lower()
         if k_lower in EMAIL_KEYS and isinstance(v, str):
             result[k] = mask_email(v)
+        elif k_lower in SERIAL_KEYS and isinstance(v, str):
+            result[k] = mask_serial(v)
         elif k_lower in keys_ci or any(s in k_lower for s in REDACT_SUBSTRINGS):
             result[k] = "***"
         else:

@@ -12,6 +12,7 @@ import httpx
 
 from iaqualink.utils.redact import (
     REDACT_KEYS,
+    mask_serial,
     redact_dict,
     redact_url,
     redact_value,
@@ -22,8 +23,8 @@ from iaqualink.utils.redact import (
 # field in device API responses — keeping it in REDACT_KEYS would redact
 # device state throughout debug logging and make captures useless for
 # diagnosing device issues.
-# "username" is the email used for login; it must remain visible in auth
-# INFO log events per the logging contract in docs/contributing/setup.md.
+# "username" is the email used for login; auth INFO events now mask it via
+# mask_email(), but it stays capture-only so device state bodies aren't affected.
 _CAPTURE_EXTRA_KEYS: frozenset[str] = frozenset(
     {"set-cookie", "state", "username"}
 )
@@ -64,7 +65,7 @@ class CaptureSession:
     def _redact_url(self, url: str) -> str:
         url = redact_url(url)
         for literal in self._literals:
-            url = url.replace(literal, "***")
+            url = url.replace(literal, mask_serial(literal))
         return url
 
     def make_hooks(self) -> dict[str, list]:

@@ -30,6 +30,8 @@ from iaqualink.system import AqualinkSystem
 from iaqualink.util import sign
 from iaqualink.utils.redact import (
     REDACT_KEYS,
+    mask_email,
+    mask_serial,
     redact_kwargs,
     redact_url,
     redact_value,
@@ -127,6 +129,7 @@ class AqualinkClient:
         self._refresh_lock = asyncio.Lock()
 
         self._last_refresh = 0
+        self._log_serials: set[str] = set()
 
     @property
     def logged(self) -> bool:
@@ -194,6 +197,12 @@ class AqualinkClient:
         await self.close()
         return exc is None
 
+    def _log_redact_url(self, url: str) -> str:
+        url = redact_url(url)
+        for serial in self._log_serials:
+            url = url.replace(serial, mask_serial(serial))
+        return url
+
     async def send_request(
         self,
         url: str,
@@ -209,7 +218,7 @@ class AqualinkClient:
         LOGGER.debug(
             "-> %s %s %s",
             method.upper(),
-            redact_url(url),
+            self._log_redact_url(url),
             redact_kwargs(kwargs),
         )
         try:
@@ -222,7 +231,10 @@ class AqualinkClient:
             ) from e
 
         LOGGER.debug(
-            "<- %s %s - %s", r.status_code, r.reason_phrase, redact_url(url)
+            "<- %s %s - %s",
+            r.status_code,
+            r.reason_phrase,
+            self._log_redact_url(url),
         )
 
         if r.status_code == httpx.codes.UNAUTHORIZED:
@@ -300,7 +312,7 @@ class AqualinkClient:
                 # Refresh token is expired or invalid — fall back to full login.
                 LOGGER.info(
                     "Refresh token expired, re-authenticating: user=%s",
-                    self.username,
+                    mask_email(self.username),
                 )
                 await self.login()
                 return
@@ -309,12 +321,14 @@ class AqualinkClient:
                 r.json(),
                 refresh_token_fallback=self.refresh_token,
             )
-            LOGGER.info("Auth token refreshed: user=%s", self.username)
+            LOGGER.info(
+                "Auth token refreshed: user=%s", mask_email(self.username)
+            )
 
     async def login(self) -> None:
         r = await self._send_login_request()
         self._apply_login_data(r.json(), refresh_token_fallback="")
-        LOGGER.info("Authenticated: user=%s", self.username)
+        LOGGER.info("Authenticated: user=%s", mask_email(self.username))
 
     def _clear_auth_state(self) -> None:
         self.client_id = ""
@@ -379,4 +393,5 @@ class AqualinkClient:
         LOGGER.debug("get_systems: %d system(s) discovered", len(data))
 
         systems = [AqualinkSystem.from_data(self, x) for x in data]
+        self._log_serials.update(s.serial for s in systems if s.serial)
         return {x.serial: x for x in systems}
