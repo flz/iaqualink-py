@@ -122,10 +122,12 @@ Never log these values directly:
 - Auth tokens: `authentication_token`, `id_token`, `refresh_token`, `client_id`
 - Request secrets: HMAC `signature`, `sessionID`
 
-When logging request parameters, use the redaction helpers from `client.py`:
+When logging request parameters, use the redaction helpers from `iaqualink.utils.redact`:
 
 ```python
-LOGGER.debug("-> %s %s %s", method, _redact_url(url), _redact_kwargs(kwargs))
+from iaqualink.utils.redact import redact_kwargs, redact_url
+
+LOGGER.debug("-> %s %s %s", method, redact_url(url), redact_kwargs(kwargs))
 ```
 
 `AqualinkAuthState.__repr__` masks token fields — logging an auth state object is safe.
@@ -137,12 +139,12 @@ Auth response bodies (login, refresh) contain raw tokens — never log them on s
 Auth lifecycle events log at `INFO`. Examples from `client.py`:
 
 ```python
-LOGGER.info("Authenticated: user=%s", self.username)
-LOGGER.info("Auth token refreshed: user=%s", self.username)
-LOGGER.info("Refresh token expired, re-authenticating: user=%s", self.username)
+LOGGER.info("Authenticated: user=%s", mask_email(self.username))
+LOGGER.info("Auth token refreshed: user=%s", mask_email(self.username))
+LOGGER.info("Refresh token expired, re-authenticating: user=%s", mask_email(self.username))
 ```
 
-Log `username` only — never log the password, token, or any credential value.
+Log `username` only, masked via `mask_email` — never log the password, token, or any credential value.
 
 ### Response body visibility
 
