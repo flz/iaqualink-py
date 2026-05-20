@@ -173,9 +173,8 @@ if icl_light:
     await icl_light.turn_on()
     await icl_light.turn_off()
 
-    # Set preset color by name or index
+    # Set preset color by name
     await icl_light.set_effect("Emerald Green")
-    await icl_light.set_effect_by_id(6)
 
     # Set custom RGBW color (0-255 each)
     await icl_light.set_rgbw(255, 0, 128)

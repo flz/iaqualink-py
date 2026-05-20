@@ -3,7 +3,7 @@ from __future__ import annotations
 import importlib
 from io import StringIO
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, create_autospec
+from unittest.mock import MagicMock, create_autospec
 
 import pytest
 from rich.console import Console as RichConsole
@@ -20,6 +20,7 @@ from iaqualink.device import (
     AqualinkSwitch,
 )
 from iaqualink.system import SystemStatus, UnsupportedSystem
+from iaqualink.systems.iaqua.device import IaquaIclLight
 
 cli_module = importlib.import_module("iaqualink.cli.app")
 app = cli_module.app
@@ -219,14 +220,10 @@ def make_light(
     return m
 
 
-def make_rgbw_light(label: str = "ICL Light") -> AqualinkLight:
-    m = create_autospec(AqualinkLight, instance=True)
+def make_rgbw_light(label: str = "ICL Light") -> IaquaIclLight:
+    m = create_autospec(IaquaIclLight, instance=True)
     m.label = m.name = label
-    m.manufacturer = m.model = ""
-    m.is_on = True
-    m.supports_rgbw = True
     m.rgbw = (0, 0, 0, 0)
-    m.set_rgbw = AsyncMock()
     return m
 
 
