@@ -383,7 +383,8 @@ class I2dSystem(AqualinkSystem):
                 )
 
         LOGGER.debug(
-            "Alldata parsed: status=%s devices=%d",
+            "Alldata parsed: serial=%s status=%s devices=%d",
+            mask_serial(self.serial),
             self.status.name,
             len(self.devices),
         )

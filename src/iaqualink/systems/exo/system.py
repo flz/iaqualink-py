@@ -90,7 +90,11 @@ class ExoSystem(AqualinkSystem):
                 self.status = SystemStatus.UNKNOWN
             else:
                 self.status = mapped
-        LOGGER.debug("Shadow parsed: status=%s", self.status.name)
+        LOGGER.debug(
+            "Shadow parsed: serial=%s status=%s",
+            mask_serial(self.serial),
+            self.status.name,
+        )
 
         devices = {}
 
@@ -126,7 +130,11 @@ class ExoSystem(AqualinkSystem):
             attrs.update({"state": reported["heating"]["state"]})
             devices.update({name: attrs})
 
-        LOGGER.debug("EXO devices parsed: count=%d", len(devices))
+        LOGGER.debug(
+            "EXO devices parsed: serial=%s count=%d",
+            mask_serial(self.serial),
+            len(devices),
+        )
 
         for k, v in devices.items():
             if k in self.devices:

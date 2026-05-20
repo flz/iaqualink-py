@@ -53,8 +53,8 @@ REDACT_SUBSTRINGS: tuple[str, ...] = (
 )
 
 # Keys whose string values are partially masked rather than fully replaced.
-EMAIL_KEYS: frozenset[str] = frozenset({"email", "username"})
-SERIAL_KEYS: frozenset[str] = frozenset(
+_EMAIL_KEYS: frozenset[str] = frozenset({"email", "username"})
+_SERIAL_KEYS: frozenset[str] = frozenset(
     {"serial", "serial_number", "serialnumber"}
 )
 
@@ -102,9 +102,9 @@ def redact_dict(
     result: dict[str, Any] = {}
     for k, v in d.items():
         k_lower = k.lower()
-        if k_lower in EMAIL_KEYS and isinstance(v, str):
+        if k_lower in _EMAIL_KEYS and isinstance(v, str):
             result[k] = mask_email(v)
-        elif k_lower in SERIAL_KEYS and isinstance(v, str):
+        elif k_lower in _SERIAL_KEYS and isinstance(v, str):
             result[k] = mask_serial(v)
         elif k_lower in keys_ci or any(s in k_lower for s in REDACT_SUBSTRINGS):
             result[k] = "***"
@@ -118,6 +118,8 @@ def redact_url(url: str) -> str:
 
 
 def redact_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    # Always uses base REDACT_KEYS_CI. Capture callers use redact_dict() directly
+    # with _CAPTURE_KEYS_CI so this path does not need a keys_ci parameter.
     out = dict(kwargs)
     for key in ("json", "params", "data"):
         if key in out and isinstance(out[key], dict):

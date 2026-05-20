@@ -129,6 +129,8 @@ class AqualinkClient:
         self._refresh_lock = asyncio.Lock()
 
         self._last_refresh = 0
+        # Populated after get_systems() returns. Requests made before that point
+        # (login, device-list) will contain unmasked serials in debug-log URLs.
         self._log_serials: set[str] = set()
 
     @property
@@ -248,7 +250,7 @@ class AqualinkClient:
         if r.status_code != httpx.codes.OK:
             try:
                 _err_body = redact_value(json.loads(r.text))
-            except Exception:
+            except (json.JSONDecodeError, TypeError):
                 _err_body = r.text
             LOGGER.debug("<- body: %s", _err_body)
             m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
