@@ -559,9 +559,6 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
         await self._set_effect_by_id(ICL_EFFECTS[effect])
 
     async def _set_effect_by_id(self, effect_id: int) -> None:
-        if effect_id not in ICL_EFFECTS.values():
-            msg = f"{effect_id!r} isn't a valid effect ID."
-            raise AqualinkInvalidParameterException(msg)
         brightness = (
             self.brightness_percentage
             if self.brightness_percentage is not None
