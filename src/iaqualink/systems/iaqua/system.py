@@ -20,6 +20,7 @@ from iaqualink.systems.iaqua.enums import (
     IaquaSystemType,
     IaquaTemperatureUnit,
 )
+from iaqualink.utils.redact import redact_value
 
 if TYPE_CHECKING:
     import httpx
@@ -136,7 +137,7 @@ class IaquaSystem(AqualinkSystem):
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("Home body: %s", data)
+        LOGGER.debug("Home body: %s", redact_value(data))
 
         home: dict = {}
         for x in data["home_screen"]:
@@ -146,9 +147,7 @@ class IaquaSystem(AqualinkSystem):
         self.status = _IAQUA_STATUS_MAP.get(
             raw_status or "", SystemStatus.UNKNOWN
         )
-        LOGGER.debug(
-            "Home parsed: serial=%s status=%s", self.serial, self.status.name
-        )
+        LOGGER.debug("Home parsed: status=%s", self.status.name)
         if self.status is not SystemStatus.ONLINE:
             LOGGER.warning(
                 "Status for system %s is %s.", self.serial, raw_status
@@ -192,7 +191,7 @@ class IaquaSystem(AqualinkSystem):
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("Devices body: %s", data)
+        LOGGER.debug("Devices body: %s", redact_value(data))
 
         status = data["devices_screen"][0]["status"]
         if status in (IaquaSystemStatus.OFFLINE, IaquaSystemStatus.SERVICE, ""):
@@ -233,9 +232,7 @@ class IaquaSystem(AqualinkSystem):
                     device_class = IaquaAuxSwitch
                 self.devices[aux] = device_class(self, attrs)
 
-        LOGGER.debug(
-            "Devices parsed: serial=%s count=%d", self.serial, len(self.devices)
-        )
+        LOGGER.debug("Devices parsed: count=%d", len(self.devices))
 
     async def set_switch(self, command: str) -> None:
         r = await self._send_session_request(command)
@@ -267,7 +264,7 @@ class IaquaSystem(AqualinkSystem):
 
     def _parse_onetouch_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("OneTouch body: %s", data)
+        LOGGER.debug("OneTouch body: %s", redact_value(data))
 
         onetouch: dict = {}
         for x in data["onetouch_screen"]:
@@ -303,11 +300,7 @@ class IaquaSystem(AqualinkSystem):
             else:
                 self.devices[name] = IaquaOneTouchSwitch(self, attrs)
 
-        LOGGER.debug(
-            "OneTouch parsed: serial=%s count=%d",
-            self.serial,
-            onetouch_count,
-        )
+        LOGGER.debug("OneTouch parsed: count=%d", onetouch_count)
 
     async def set_onetouch(self, name: str) -> None:
         cmd = IAQUA_COMMAND_SET_ONETOUCH + "_" + name.removeprefix("onetouch_")

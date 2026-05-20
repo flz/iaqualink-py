@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import ExoDevice
+from iaqualink.utils.redact import redact_value
 
 _EXO_STATUS_MAP: dict[str, SystemStatus] = {
     "connected": SystemStatus.CONNECTED,
@@ -67,7 +68,7 @@ class ExoSystem(AqualinkSystem):
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("Shadow body: %s", data)
+        LOGGER.debug("Shadow body: %s", redact_value(data))
 
         raw_aws_status = (
             data.get("state", {})
@@ -88,9 +89,7 @@ class ExoSystem(AqualinkSystem):
                 self.status = SystemStatus.UNKNOWN
             else:
                 self.status = mapped
-        LOGGER.debug(
-            "Shadow parsed: serial=%s status=%s", self.serial, self.status.name
-        )
+        LOGGER.debug("Shadow parsed: status=%s", self.status.name)
 
         devices = {}
 
@@ -126,9 +125,7 @@ class ExoSystem(AqualinkSystem):
             attrs.update({"state": reported["heating"]["state"]})
             devices.update({name: attrs})
 
-        LOGGER.debug(
-            "EXO devices parsed: serial=%s count=%d", self.serial, len(devices)
-        )
+        LOGGER.debug("EXO devices parsed: count=%d", len(devices))
 
         for k, v in devices.items():
             if k in self.devices:

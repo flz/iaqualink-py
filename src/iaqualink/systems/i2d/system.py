@@ -18,6 +18,7 @@ from iaqualink.systems.i2d.device import (
     I2dSensor,
     I2dSwitch,
 )
+from iaqualink.utils.redact import redact_value
 
 I2D_CONTROL_URL = "https://r-api.iaqualink.net/v2/devices"
 
@@ -290,7 +291,7 @@ class I2dSystem(AqualinkSystem):
 
     def _parse_alldata_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("Alldata body: %s", data)
+        LOGGER.debug("Alldata body: %s", redact_value(data))
 
         # API returns HTTP 200 even when device is unreachable; body carries status=500.
         if data.get("status") == "500":
@@ -377,8 +378,7 @@ class I2dSystem(AqualinkSystem):
                 )
 
         LOGGER.debug(
-            "Alldata parsed: serial=%s status=%s devices=%d",
-            self.serial,
+            "Alldata parsed: status=%s devices=%d",
             self.status.name,
             len(self.devices),
         )

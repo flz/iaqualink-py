@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json
 import logging
 import time
 from dataclasses import asdict, dataclass
@@ -27,7 +28,12 @@ from iaqualink.exception import (
 from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
 from iaqualink.util import sign
-from iaqualink.utils.redact import REDACT_KEYS, redact_kwargs, redact_url
+from iaqualink.utils.redact import (
+    REDACT_KEYS,
+    redact_kwargs,
+    redact_url,
+    redact_value,
+)
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -215,7 +221,9 @@ class AqualinkClient:
                 f"Request failed: {method.upper()} {url}: {e}"
             ) from e
 
-        LOGGER.debug("<- %s %s - %s", r.status_code, r.reason_phrase, url)
+        LOGGER.debug(
+            "<- %s %s - %s", r.status_code, r.reason_phrase, redact_url(url)
+        )
 
         if r.status_code == httpx.codes.UNAUTHORIZED:
             self._logged = False
@@ -226,7 +234,11 @@ class AqualinkClient:
             raise AqualinkServiceThrottledException("Rate limited")
 
         if r.status_code != httpx.codes.OK:
-            LOGGER.debug("<- body: %s", r.text)
+            try:
+                _err_body = redact_value(json.loads(r.text))
+            except Exception:
+                _err_body = r.text
+            LOGGER.debug("<- body: %s", _err_body)
             m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
             raise AqualinkServiceException(m, response=r)
 
@@ -363,7 +375,7 @@ class AqualinkClient:
             raise
 
         data = r.json()
-        LOGGER.debug("Systems body: %s", data)
+        LOGGER.debug("Systems body: %s", redact_value(data))
         LOGGER.debug("get_systems: %d system(s) discovered", len(data))
 
         systems = [AqualinkSystem.from_data(self, x) for x in data]
