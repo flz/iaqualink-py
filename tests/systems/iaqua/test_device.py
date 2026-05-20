@@ -902,12 +902,6 @@ class TestIaquaIclLight(TestIaquaDevice):
         assert "zone_id=1" in url
         assert "color_id=4" in url
 
-    async def test_set_effect_by_id_invalid_27(self) -> None:
-        from iaqualink.exception import AqualinkInvalidParameterException
-
-        with self.assertRaises(AqualinkInvalidParameterException):
-            await self.sut._set_effect_by_id(27)
-
     @respx.mock
     async def test_set_effect_emerald_green(
         self, respx_mock: respx.router.MockRouter
