@@ -842,12 +842,12 @@ async def _set_rgbw(
     if not isinstance(device, AqualinkLight):
         _exit_with_error(f"Device {device_name!r} is not a light.")
 
-    if not hasattr(device, "set_rgbw"):
+    if not device.supports_rgbw:
         _exit_with_error(
             f"Device {device_name!r} does not support RGBW control."
         )
 
-    await device.set_rgbw(red, green, blue, white)  # type: ignore[attr-defined]
+    await device.set_rgbw(red, green, blue, white)
     _save_session_jar(cookie_jar, system.aqualink.auth_state)
     t = Text()
     t.append("✓ ", style="bold green")

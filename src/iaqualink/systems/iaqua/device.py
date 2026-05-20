@@ -452,7 +452,10 @@ class IaquaSetPoint(IaquaDevice, AqualinkNumber):
         await self.system.set_temps({self._temperature_key: str(int(value))})
 
 
-# index 16 = custom RGBW mode and is not a selectable preset
+ICL_CUSTOM_COLOR_ID = 16
+ICL_CUSTOM_COLOR_NAME = "Custom Color"
+
+# index 0 = off, index 16 = custom RGBW — neither is a selectable preset
 ICL_EFFECTS = {
     "Alpine White": 1,
     "Sky Blue": 2,
@@ -514,7 +517,8 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
     @property
     def effect(self) -> str | None:
         color_val = self.data.get("zoneColorVal")
-        if color_val and self._color_id != 0:
+        color_id = self._color_id
+        if color_val and color_id is not None and 1 <= color_id <= 15:
             return color_val
         return None
 
@@ -530,19 +534,12 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
         return None
 
     @property
-    def rgbw(self) -> tuple[int, int, int, int] | None:
-        try:
-            r = int(self.data.get("red_val", 0))
-            g = int(self.data.get("green_val", 0))
-            b = int(self.data.get("blue_val", 0))
-            w = int(self.data.get("white_val", 0))
-            return (r, g, b, w)
-        except (TypeError, ValueError):
-            return None
-
-    @property
-    def supports_rgbw(self) -> bool:
-        return self.rgbw is not None
+    def rgbw(self) -> tuple[int, int, int, int]:
+        r = int(self.data.get("red_val", 0))
+        g = int(self.data.get("green_val", 0))
+        b = int(self.data.get("blue_val", 0))
+        w = int(self.data.get("white_val", 0))
+        return (r, g, b, w)
 
     async def turn_on(self) -> None:
         if not self.is_on:
@@ -566,18 +563,9 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
         )
         await self.system.icl_set_color(self._zone_id, effect_id, brightness)
 
-    async def set_rgbw(
+    async def _set_rgbw(
         self, red: int, green: int, blue: int, white: int = 0
     ) -> None:
-        for name, val in [
-            ("red", red),
-            ("green", green),
-            ("blue", blue),
-            ("white", white),
-        ]:
-            if val < 0 or val > 255:
-                msg = f"{name}={val} isn't valid (0-255)."
-                raise AqualinkInvalidParameterException(msg)
         await self.system.icl_set_custom_color(
             self._zone_id, red, green, blue, white
         )

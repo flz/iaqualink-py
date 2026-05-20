@@ -202,6 +202,12 @@
       ]),
       'is_on': False,
       'label': 'Light Zone 1',
+      'rgbw': tuple(
+        0,
+        0,
+        0,
+        0,
+      ),
       'type': 'IaquaIclLight',
     }),
     'is_icl_present': dict({
@@ -349,6 +355,12 @@
       ]),
       'is_on': False,
       'label': 'Light Zone 1',
+      'rgbw': tuple(
+        247,
+        255,
+        244,
+        0,
+      ),
       'type': 'IaquaIclLight',
     }),
     'icl_zone_2': dict({
@@ -373,6 +385,12 @@
       ]),
       'is_on': True,
       'label': 'Spa Light',
+      'rgbw': tuple(
+        0,
+        255,
+        128,
+        0,
+      ),
       'type': 'IaquaIclLight',
     }),
     'is_icl_present': dict({

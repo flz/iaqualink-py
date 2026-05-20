@@ -14,6 +14,7 @@ from iaqualink.systems.iaqua.device import (
     IAQUA_TEMP_CELSIUS_LOW,
     IAQUA_TEMP_FAHRENHEIT_HIGH,
     IAQUA_TEMP_FAHRENHEIT_LOW,
+    ICL_CUSTOM_COLOR_ID,
     ICL_EFFECTS,
     IaquaAuxSwitch,
     IaquaBinarySensor,
@@ -795,6 +796,11 @@ class TestIaquaIclLight:
         assert "set_iclzone_color" in url
         assert "color_id=6" in url
 
+    def test_property_effect_color_id_zero(self) -> None:
+        self.sut.data["zoneColor"] = "0"
+        self.sut.data["zoneColorVal"] = "off"
+        assert self.sut.effect is None
+
     async def test_set_effect_off_invalid(self) -> None:
         from iaqualink.exception import AqualinkInvalidParameterException
 
@@ -876,5 +882,5 @@ class TestIaquaIclLight:
         )
         sut.system._parse_icl_custom_color_response(response)
         assert sut.rgbw == (200, 100, 50, 25)
-        assert sut._color_id == 16
-        assert sut.effect is None
+        assert sut._color_id == ICL_CUSTOM_COLOR_ID
+        assert sut.effect is None  # color_id=16 excluded from effect
