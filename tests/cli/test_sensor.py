@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from enum import StrEnum
 from pathlib import Path
 
 import iaqualink.cli.app as cli_module
@@ -52,7 +51,9 @@ def test_format_device_line_sensor_no_translation_omits_parentheses() -> None:
     assert "(" not in text.plain
 
 
-def test_format_device_line_sensor_unknown_enum_value_omits_parentheses() -> None:
+def test_format_device_line_sensor_unknown_enum_value_omits_parentheses() -> (
+    None
+):
     device = make_sensor("Pool Temp", "99")
     text = cli_module._format_device_line("temp", device)
     assert "99" in text.plain

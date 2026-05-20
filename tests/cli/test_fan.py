@@ -14,7 +14,6 @@ from .conftest import (
     make_switch,
 )
 
-
 # ---------------------------------------------------------------------------
 # _format_device_line
 # ---------------------------------------------------------------------------
@@ -33,7 +32,9 @@ def test_format_device_line_fan_with_preset_shows_preset() -> None:
 
 
 def test_format_device_line_fan_without_preset_no_crash() -> None:
-    fan = make_fan("VSP", is_on=True, supports_presets=False, supports_turn_on=True)
+    fan = make_fan(
+        "VSP", is_on=True, supports_presets=False, supports_turn_on=True
+    )
     text = cli_module._format_device_line("vsp", fan)
     assert "VSP" in text.plain
     assert "on" in text.plain
@@ -223,7 +224,9 @@ def test_set_preset_saves_jar(tmp_path: Path) -> None:
 
 def test_set_preset_invalid_preset_exits(tmp_path: Path) -> None:
     pump = make_fan("VSP", supports_presets=True, presets=["Low", "High"])
-    pump.set_preset_mode.side_effect = AqualinkInvalidParameterException("Bogus")
+    pump.set_preset_mode.side_effect = AqualinkInvalidParameterException(
+        "Bogus"
+    )
     FakeClient.systems_factory = staticmethod(
         lambda: {
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"vsp": pump})

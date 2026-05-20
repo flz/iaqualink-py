@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from iaqualink.device import AqualinkDevice
-
 import iaqualink.cli.app as cli_module
+from iaqualink.device import AqualinkDevice
 
 from .conftest import (
     make_binary_sensor,
