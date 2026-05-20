@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import importlib
+import json
 import logging
-import re
 import time
 from dataclasses import asdict, dataclass
 from dataclasses import fields as dataclass_fields
@@ -28,6 +28,14 @@ from iaqualink.exception import (
 from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
 from iaqualink.util import sign
+from iaqualink.utils.redact import (
+    REDACT_KEYS,
+    mask_email,
+    mask_serial,
+    redact_kwargs,
+    redact_url,
+    redact_value,
+)
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -45,63 +53,6 @@ AQUALINK_HTTP_HEADERS = {
 }
 
 LOGGER = logging.getLogger("iaqualink.client")
-
-_REDACT_KEYS = frozenset(
-    {
-        # auth tokens & credentials
-        "AccessKeyId",
-        "IdToken",
-        "IdentityId",
-        "SecretKey",
-        "SessionToken",
-        "api_key",
-        "authentication_token",
-        "authorization",
-        "client_id",
-        "id_token",
-        "password",
-        "refresh_token",
-        "session_id",
-        "sessionID",
-        "signature",
-        # PII / session
-        "address",
-        "address_1",
-        "address_2",
-        "city",
-        "cookie",
-        "email",
-        "id",
-        "first_name",
-        "last_name",
-        "phone",
-        "postal_code",
-        "owner_id",
-        "serial",
-        "serial_number",
-        "serialnumber",
-        "ssid",
-        "user_id",
-    }
-)
-_REDACT_URL_RE = re.compile(
-    r"(?<=[?&])(" + "|".join(sorted(_REDACT_KEYS)) + r")=[^&]*"
-)
-
-
-def _redact_url(url: str) -> str:
-    return _REDACT_URL_RE.sub(r"\1=***", url)
-
-
-def _redact_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
-    out = dict(kwargs)
-    for key in ("json", "params", "data"):
-        if key in out and isinstance(out[key], dict):
-            out[key] = {
-                k: "***" if k in _REDACT_KEYS else v
-                for k, v in out[key].items()
-            }
-    return out
 
 
 @dataclass(frozen=True)
@@ -140,7 +91,7 @@ class AqualinkAuthState:
     def __repr__(self) -> str:
         parts = ", ".join(
             f"{f.name}=***"
-            if f.name in _REDACT_KEYS
+            if f.name in REDACT_KEYS
             else f"{f.name}={getattr(self, f.name)!r}"
             for f in dataclass_fields(self)
         )
@@ -178,6 +129,9 @@ class AqualinkClient:
         self._refresh_lock = asyncio.Lock()
 
         self._last_refresh = 0
+        # Populated after get_systems() returns. Requests made before that point
+        # (login, device-list) will contain unmasked serials in debug-log URLs.
+        self._log_serials: set[str] = set()
 
     @property
     def logged(self) -> bool:
@@ -245,6 +199,12 @@ class AqualinkClient:
         await self.close()
         return exc is None
 
+    def _log_redact_url(self, url: str) -> str:
+        url = redact_url(url)
+        for serial in self._log_serials:
+            url = url.replace(serial, mask_serial(serial))
+        return url
+
     async def send_request(
         self,
         url: str,
@@ -260,8 +220,8 @@ class AqualinkClient:
         LOGGER.debug(
             "-> %s %s %s",
             method.upper(),
-            _redact_url(url),
-            _redact_kwargs(kwargs),
+            self._log_redact_url(url),
+            redact_kwargs(kwargs),
         )
         try:
             r = await client.request(method, url, headers=headers, **kwargs)
@@ -272,7 +232,12 @@ class AqualinkClient:
                 f"Request failed: {method.upper()} {url}: {e}"
             ) from e
 
-        LOGGER.debug("<- %s %s - %s", r.status_code, r.reason_phrase, url)
+        LOGGER.debug(
+            "<- %s %s - %s",
+            r.status_code,
+            r.reason_phrase,
+            self._log_redact_url(url),
+        )
 
         if r.status_code == httpx.codes.UNAUTHORIZED:
             self._logged = False
@@ -283,7 +248,11 @@ class AqualinkClient:
             raise AqualinkServiceThrottledException("Rate limited")
 
         if r.status_code != httpx.codes.OK:
-            LOGGER.debug("<- body: %s", r.text)
+            try:
+                _err_body = redact_value(json.loads(r.text))
+            except (json.JSONDecodeError, TypeError):
+                _err_body = r.text
+            LOGGER.debug("<- body: %s", _err_body)
             m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
             raise AqualinkServiceException(m, response=r)
 
@@ -345,7 +314,7 @@ class AqualinkClient:
                 # Refresh token is expired or invalid — fall back to full login.
                 LOGGER.info(
                     "Refresh token expired, re-authenticating: user=%s",
-                    self.username,
+                    mask_email(self.username),
                 )
                 await self.login()
                 return
@@ -354,12 +323,14 @@ class AqualinkClient:
                 r.json(),
                 refresh_token_fallback=self.refresh_token,
             )
-            LOGGER.info("Auth token refreshed: user=%s", self.username)
+            LOGGER.info(
+                "Auth token refreshed: user=%s", mask_email(self.username)
+            )
 
     async def login(self) -> None:
         r = await self._send_login_request()
         self._apply_login_data(r.json(), refresh_token_fallback="")
-        LOGGER.info("Authenticated: user=%s", self.username)
+        LOGGER.info("Authenticated: user=%s", mask_email(self.username))
 
     def _clear_auth_state(self) -> None:
         self.client_id = ""
@@ -420,8 +391,9 @@ class AqualinkClient:
             raise
 
         data = r.json()
-        LOGGER.debug("Systems body: %s", data)
+        LOGGER.debug("Systems body: %s", redact_value(data))
         LOGGER.debug("get_systems: %d system(s) discovered", len(data))
 
         systems = [AqualinkSystem.from_data(self, x) for x in data]
+        self._log_serials.update(s.serial for s in systems if s.serial)
         return {x.serial: x for x in systems}

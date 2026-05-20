@@ -11,6 +11,7 @@ from iaqualink.exception import (
     _AqualinkOfflineSignal,
 )
 from iaqualink.reauth import send_with_reauth_retry
+from iaqualink.utils.redact import mask_serial
 
 if TYPE_CHECKING:
     import httpx
@@ -154,10 +155,16 @@ class UnsupportedSystem(AqualinkSystem):
         return False
 
     async def refresh(self) -> None:
-        LOGGER.debug("Skipping refresh for unsupported system %r", self.serial)
+        LOGGER.debug(
+            "Skipping refresh for unsupported system %s (%s)",
+            mask_serial(self.serial),
+            self.type,
+        )
 
     async def get_devices(self) -> dict[str, AqualinkDevice]:
         LOGGER.debug(
-            "Skipping get_devices for unsupported system %r", self.serial
+            "Skipping get_devices for unsupported system %s (%s)",
+            mask_serial(self.serial),
+            self.type,
         )
         return {}

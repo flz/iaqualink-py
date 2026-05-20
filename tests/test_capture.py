@@ -7,7 +7,8 @@ from tempfile import NamedTemporaryFile
 
 import httpx
 
-from iaqualink.cli.capture import CaptureSession, _mask_email, _redact_dict
+from iaqualink.cli.capture import CaptureSession
+from iaqualink.utils.redact import mask_email, mask_serial, redact_dict
 
 
 def _make_request(
@@ -37,32 +38,52 @@ def _make_response(
 
 class TestMaskEmail(unittest.TestCase):
     def test_masks_normal_email(self) -> None:
-        result = _mask_email("testuser@example.net")
+        result = mask_email("testuser@example.net")
         assert "testuser" not in result
         assert "example" not in result
         assert "@" in result
         assert result.endswith(".net")
 
     def test_short_local_part(self) -> None:
-        result = _mask_email("ab@example.com")
+        result = mask_email("ab@example.com")
         assert "ab" not in result
         assert "@" in result
 
     def test_very_short_local_part(self) -> None:
-        result = _mask_email("a@b.com")
+        result = mask_email("a@b.com")
         assert result == "***@b***.com"
 
     def test_non_email_returns_redacted(self) -> None:
-        assert _mask_email("not-an-email") == "***"
+        assert mask_email("not-an-email") == "***"
 
     def test_preserves_tld(self) -> None:
-        result = _mask_email("user@example.org")
+        result = mask_email("user@example.org")
         assert result.endswith(".org")
+
+
+class TestMaskSerial(unittest.TestCase):
+    def test_normal_serial(self) -> None:
+        result = mask_serial("TESTSERIAL1")
+        assert result == "***AL1"
+        assert "TESTSERIAL1"[:-3] not in result
+
+    def test_exactly_three_chars(self) -> None:
+        assert mask_serial("ABC") == "***"
+
+    def test_short_serial(self) -> None:
+        assert mask_serial("AB") == "***"
+
+    def test_empty_string(self) -> None:
+        assert mask_serial("") == "***"
+
+    def test_four_char_serial(self) -> None:
+        result = mask_serial("ABCD")
+        assert result == "***BCD"
 
 
 class TestRedactDict(unittest.TestCase):
     def test_redacts_sensitive_keys(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {
                 "email": "user@example.com",
                 "password": "secret",
@@ -75,14 +96,14 @@ class TestRedactDict(unittest.TestCase):
         assert result["authentication_token"] == "***"
 
     def test_passes_through_safe_keys(self) -> None:
-        result = _redact_dict({"status": "ok", "device_type": "iaqua"})
+        result = redact_dict({"status": "ok", "device_type": "iaqua"})
         assert result == {"status": "ok", "device_type": "iaqua"}
 
     def test_empty_dict(self) -> None:
-        assert _redact_dict({}) == {}
+        assert redact_dict({}) == {}
 
     def test_substring_key_match(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {
                 "access_token": "tok",
                 "session_key": "sk",
@@ -98,14 +119,14 @@ class TestRedactDict(unittest.TestCase):
         assert result["device_type"] == "iaqua"
 
     def test_case_insensitive_key_match(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {"IdToken": "jwt-secret", "AccessKeyId": "AKIA123"}
         )
         assert result["IdToken"] == "***"
         assert result["AccessKeyId"] == "***"
 
     def test_recursive_nested_dicts(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {
                 "status": "ok",
                 "credentials": {
@@ -125,7 +146,7 @@ class TestRedactDict(unittest.TestCase):
         assert result["userPoolOAuth"]["ExpiresIn"] == 3600
 
     def test_pii_fields_redacted(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {
                 "first_name": "Test",
                 "last_name": "User",
@@ -138,6 +159,22 @@ class TestRedactDict(unittest.TestCase):
         )
         for key in result:
             assert result[key] == "***", f"{key!r} not redacted"
+
+    def test_serial_keys_partially_masked(self) -> None:
+        result = redact_dict(
+            {
+                "serial": "TESTSERIAL1",
+                "serial_number": "TESTDEVICE2",
+                "serialnumber": "TESTUNIT003",
+            }
+        )
+        assert result["serial"] == "***AL1"
+        assert result["serial_number"] == "***CE2"
+        assert result["serialnumber"] == "***003"
+
+    def test_serial_key_short_value(self) -> None:
+        result = redact_dict({"serial_number": "AB"})
+        assert result["serial_number"] == "***"
 
 
 class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
@@ -277,7 +314,7 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
 
         url = self._load_lines()[0]["request"]["url"]
         assert "ZZZ000SERIAL" not in url
-        assert "***" in url
+        assert "***" + "ZZZ000SERIAL"[-3:] in url
 
     def test_register_serials_ignores_empty(self) -> None:
         session = CaptureSession(path=self._path)
@@ -316,11 +353,11 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         body = self._load_lines()[0]["response"]["body"]
         assert isinstance(body, list)
         assert body[0]["id"] == "***"
-        assert body[0]["serial_number"] == "***"
+        assert body[0]["serial_number"] == "***" + "ZZZ000SERIAL"[-3:]
         assert body[0]["device_type"] == "iaqua"
         assert body[0]["owner_id"] == "***"
         assert body[1]["id"] == "***"
-        assert body[1]["serial_number"] == "***"
+        assert body[1]["serial_number"] == "***" + "ZZZ111SERIAL"[-3:]
 
     async def test_non_json_response_stored_as_string(self) -> None:
         session = CaptureSession(path=self._path)

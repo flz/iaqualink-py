@@ -20,6 +20,7 @@ from iaqualink.systems.iaqua.enums import (
     IaquaSystemType,
     IaquaTemperatureUnit,
 )
+from iaqualink.utils.redact import mask_serial, redact_value
 
 if TYPE_CHECKING:
     import httpx
@@ -136,7 +137,7 @@ class IaquaSystem(AqualinkSystem):
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("Home body: %s", data)
+        LOGGER.debug("Home body: %s", redact_value(data))
 
         home: dict = {}
         for x in data["home_screen"]:
@@ -147,11 +148,16 @@ class IaquaSystem(AqualinkSystem):
             raw_status or "", SystemStatus.UNKNOWN
         )
         LOGGER.debug(
-            "Home parsed: serial=%s status=%s", self.serial, self.status.name
+            "Home parsed: serial=%s status=%s",
+            mask_serial(self.serial),
+            self.status.name,
         )
         if self.status is not SystemStatus.ONLINE:
             LOGGER.warning(
-                "Status for system %s is %s.", self.serial, raw_status
+                "Status for system %s (%s) is %s.",
+                mask_serial(self.serial),
+                self.type,
+                raw_status,
             )
             return
 
@@ -192,13 +198,14 @@ class IaquaSystem(AqualinkSystem):
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("Devices body: %s", data)
+        LOGGER.debug("Devices body: %s", redact_value(data))
 
         status = data["devices_screen"][0]["status"]
         if status in (IaquaSystemStatus.OFFLINE, IaquaSystemStatus.SERVICE, ""):
             LOGGER.warning(
-                "Skipping device update for system %s: devices_screen status is %s.",
-                self.serial,
+                "Skipping device update for system %s (%s): devices_screen status is %s.",
+                mask_serial(self.serial),
+                self.type,
                 status,
             )
             return
@@ -234,7 +241,9 @@ class IaquaSystem(AqualinkSystem):
                 self.devices[aux] = device_class(self, attrs)
 
         LOGGER.debug(
-            "Devices parsed: serial=%s count=%d", self.serial, len(self.devices)
+            "Devices parsed: serial=%s count=%d",
+            mask_serial(self.serial),
+            len(self.devices),
         )
 
     async def set_switch(self, command: str) -> None:
@@ -267,7 +276,7 @@ class IaquaSystem(AqualinkSystem):
 
     def _parse_onetouch_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("OneTouch body: %s", data)
+        LOGGER.debug("OneTouch body: %s", redact_value(data))
 
         onetouch: dict = {}
         for x in data["onetouch_screen"]:
@@ -280,8 +289,9 @@ class IaquaSystem(AqualinkSystem):
             "",
         ):
             LOGGER.warning(
-                "Skipping onetouch update for system %s: onetouch_screen status is %s.",
-                self.serial,
+                "Skipping onetouch update for system %s (%s): onetouch_screen status is %s.",
+                mask_serial(self.serial),
+                self.type,
                 raw_ot_status,
             )
             return
@@ -305,7 +315,7 @@ class IaquaSystem(AqualinkSystem):
 
         LOGGER.debug(
             "OneTouch parsed: serial=%s count=%d",
-            self.serial,
+            mask_serial(self.serial),
             onetouch_count,
         )
 

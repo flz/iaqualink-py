@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import ExoDevice
+from iaqualink.utils.redact import mask_serial, redact_value
 
 _EXO_STATUS_MAP: dict[str, SystemStatus] = {
     "connected": SystemStatus.CONNECTED,
@@ -67,7 +68,7 @@ class ExoSystem(AqualinkSystem):
 
     def _parse_shadow_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("Shadow body: %s", data)
+        LOGGER.debug("Shadow body: %s", redact_value(data))
 
         raw_aws_status = (
             data.get("state", {})
@@ -81,15 +82,18 @@ class ExoSystem(AqualinkSystem):
             mapped = _EXO_STATUS_MAP.get(raw_aws_status)
             if mapped is None:
                 LOGGER.warning(
-                    "Unknown aws.status %r for system %s; treating as Unknown.",
+                    "Unknown aws.status %r for system %s (%s); treating as Unknown.",
                     raw_aws_status,
-                    self.serial,
+                    mask_serial(self.serial),
+                    self.type,
                 )
                 self.status = SystemStatus.UNKNOWN
             else:
                 self.status = mapped
         LOGGER.debug(
-            "Shadow parsed: serial=%s status=%s", self.serial, self.status.name
+            "Shadow parsed: serial=%s status=%s",
+            mask_serial(self.serial),
+            self.status.name,
         )
 
         devices = {}
@@ -127,7 +131,9 @@ class ExoSystem(AqualinkSystem):
             devices.update({name: attrs})
 
         LOGGER.debug(
-            "EXO devices parsed: serial=%s count=%d", self.serial, len(devices)
+            "EXO devices parsed: serial=%s count=%d",
+            mask_serial(self.serial),
+            len(devices),
         )
 
         for k, v in devices.items():

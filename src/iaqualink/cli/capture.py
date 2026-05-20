@@ -10,67 +10,28 @@ from typing import IO, Any
 
 import httpx
 
-from iaqualink.client import _REDACT_KEYS, _redact_url
+from iaqualink.utils.redact import (
+    REDACT_KEYS,
+    mask_serial,
+    redact_dict,
+    redact_url,
+    redact_value,
+)
 
 # Fields redacted only in capture output (safe to show in debug logs).
 # "state" is PII in user-profile context but is the universal device on/off
-# field in device API responses — keeping it in _REDACT_KEYS would redact
+# field in device API responses — keeping it in REDACT_KEYS would redact
 # device state throughout debug logging and make captures useless for
 # diagnosing device issues.
-# "username" is the email used for login; it must remain visible in auth
-# INFO log events per the logging contract in docs/contributing/setup.md.
+# "username" is the email used for login; auth INFO events now mask it via
+# mask_email(), but it stays capture-only so device state bodies aren't affected.
 _CAPTURE_EXTRA_KEYS: frozenset[str] = frozenset(
     {"set-cookie", "state", "username"}
 )
 
-_REDACT_KEYS_CI = frozenset(
-    k.lower() for k in (*_REDACT_KEYS, *_CAPTURE_EXTRA_KEYS)
+_CAPTURE_KEYS_CI: frozenset[str] = frozenset(
+    k.lower() for k in (*REDACT_KEYS, *_CAPTURE_EXTRA_KEYS)
 )
-_REDACT_SUBSTRINGS = ("credential", "secret", "session", "token")
-
-# Keys whose string values are partially masked rather than fully replaced.
-_EMAIL_KEYS: frozenset[str] = frozenset({"email", "username"})
-
-
-def _mask_email(value: str) -> str:
-    """Partially mask an email: fl***t@t***.net — preserves enough to identify the account."""
-    if "@" not in value:
-        return "***"
-    local, domain = value.rsplit("@", 1)
-    if len(local) <= 2:
-        masked_local = "***"
-    elif len(local) <= 5:
-        masked_local = local[:1] + "***"
-    else:
-        masked_local = local[:2] + "***" + local[-1:]
-    domain_parts = domain.split(".", 1)
-    masked_domain = domain_parts[0][:1] + "***"
-    if len(domain_parts) > 1:
-        masked_domain += "." + domain_parts[1]
-    return f"{masked_local}@{masked_domain}"
-
-
-def _redact_value(v: Any) -> Any:
-    if isinstance(v, dict):
-        return _redact_dict(v)
-    if isinstance(v, list):
-        return [_redact_value(item) for item in v]
-    return v
-
-
-def _redact_dict(d: dict[str, Any]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    for k, v in d.items():
-        k_lower = k.lower()
-        if k_lower in _EMAIL_KEYS and isinstance(v, str):
-            result[k] = _mask_email(v)
-        elif k_lower in _REDACT_KEYS_CI or any(
-            s in k_lower for s in _REDACT_SUBSTRINGS
-        ):
-            result[k] = "***"
-        else:
-            result[k] = _redact_value(v)
-    return result
 
 
 @dataclass
@@ -98,13 +59,13 @@ class CaptureSession:
         # Called after get_systems() resolves. Requests made before that point
         # (login, initial device list) are captured with serial numbers
         # unredacted in URLs. The device-list response body is still redacted
-        # since serial_number is in _REDACT_KEYS.
+        # since serial_number is in REDACT_KEYS.
         self._literals.update(s for s in serials if s)
 
     def _redact_url(self, url: str) -> str:
-        url = _redact_url(url)
+        url = redact_url(url)
         for literal in self._literals:
-            url = url.replace(literal, "***")
+            url = url.replace(literal, mask_serial(literal))
         return url
 
     def make_hooks(self) -> dict[str, list]:
@@ -124,7 +85,7 @@ class CaptureSession:
                 )
 
         if isinstance(req_body, (dict, list)):
-            req_body = _redact_value(req_body)
+            req_body = redact_value(req_body, _CAPTURE_KEYS_CI)
 
         try:
             resp_body: Any = response.json()
@@ -132,7 +93,7 @@ class CaptureSession:
             resp_body = response.text or None
 
         if isinstance(resp_body, (dict, list)):
-            resp_body = _redact_value(resp_body)
+            resp_body = redact_value(resp_body, _CAPTURE_KEYS_CI)
 
         entry = {
             "timestamp": datetime.datetime.now(
@@ -141,13 +102,15 @@ class CaptureSession:
             "request": {
                 "method": request.method,
                 "url": self._redact_url(str(request.url)),
-                "headers": _redact_dict(dict(request.headers)),
+                "headers": redact_dict(dict(request.headers), _CAPTURE_KEYS_CI),
                 "body": req_body,
             },
             "response": {
                 "status_code": response.status_code,
                 "reason": response.reason_phrase,
-                "headers": _redact_dict(dict(response.headers)),
+                "headers": redact_dict(
+                    dict(response.headers), _CAPTURE_KEYS_CI
+                ),
                 "body": resp_body,
             },
         }
