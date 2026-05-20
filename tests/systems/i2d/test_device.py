@@ -10,8 +10,8 @@ import respx.router
 from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.systems.i2d.device import (
     I2dBinarySensor,
+    I2dFan,
     I2dNumber,
-    I2dPump,
     I2dSensor,
     I2dSwitch,
 )
@@ -20,8 +20,8 @@ from iaqualink.systems.i2d.system import I2dSystem
 from ...base import dotstar, resp_200
 from ...base_test_device import (
     TestBaseBinarySensor,
+    TestBaseFan,
     TestBaseNumber,
-    TestBasePump,
     TestBaseSensor,
     TestBaseSwitch,
 )
@@ -134,7 +134,7 @@ class TestI2dNumberContract(TestBaseNumber):
         self.sut_class = I2dNumber
 
 
-class TestI2dPumpContract(TestBasePump):
+class TestI2dFanContract(TestBaseFan):
     def setUp(self) -> None:
         super().setUp()
         system = I2dSystem.from_data(self.client, _CONTRACT_SYSTEM_DATA)
@@ -145,8 +145,8 @@ class TestI2dPumpContract(TestBasePump):
             "globalrpmmin": "600",
             "globalrpmmax": "3450",
         }
-        self.sut = I2dPump(system, self._data)
-        self.sut_class = I2dPump
+        self.sut = I2dFan(system, self._data)
+        self.sut_class = I2dFan
 
     @respx.mock
     async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
@@ -177,17 +177,17 @@ class TestI2dSensor(unittest.IsolatedAsyncioTestCase):
         s = _make_sensor({"speed": "1500"})
         assert s.label == "Motor Speed"
 
-    def test_state_present(self):
+    def test_value_present(self):
         s = _make_sensor({"speed": "1500"})
-        assert s.state == "1500"
+        assert s.value == "1500"
 
-    def test_state_missing(self):
+    def test_value_missing(self):
         s = _make_sensor({})
-        assert s.state == ""
+        assert s.value == ""
 
-    def test_unit(self):
+    def test_unit_of_measurement(self):
         s = _make_sensor({})
-        assert s.unit == "RPM"
+        assert s.unit_of_measurement == "RPM"
 
     def test_manufacturer(self):
         s = _make_sensor({})
@@ -197,38 +197,38 @@ class TestI2dSensor(unittest.IsolatedAsyncioTestCase):
         s = _make_sensor({})
         assert s.model == "iQPump"
 
-    def test_state_updates_live(self):
+    def test_value_updates_live(self):
         data: dict = {"speed": "1500"}
         s = _make_sensor(data)
-        assert s.state == "1500"
+        assert s.value == "1500"
         data["speed"] = "3000"
-        assert s.state == "3000"
+        assert s.value == "3000"
 
     def test_path_reads_nested_value(self):
         data: dict = {"wifistatus": {"state": "connected", "ssid": "Home"}}
         s = _make_sensor(data, key="wifistate", label="WiFi State", unit=None)
         s._path = ("wifistatus", "state")
-        assert s.state == "connected"
+        assert s.value == "connected"
 
     def test_path_updates_live(self):
         data: dict = {"wifistatus": {"state": "connected"}}
         s = _make_sensor(data, key="wifistate", label="WiFi State", unit=None)
         s._path = ("wifistatus", "state")
-        assert s.state == "connected"
+        assert s.value == "connected"
         data["wifistatus"]["state"] = "disconnected"
-        assert s.state == "disconnected"
+        assert s.value == "disconnected"
 
     def test_path_missing_container_returns_empty(self):
         data: dict = {}
         s = _make_sensor(data, key="wifistate", label="WiFi State", unit=None)
         s._path = ("wifistatus", "state")
-        assert s.state == ""
+        assert s.value == ""
 
     def test_path_missing_leaf_returns_empty(self):
         data: dict = {"wifistatus": {}}
         s = _make_sensor(data, key="wifistate", label="WiFi State", unit=None)
         s._path = ("wifistatus", "state")
-        assert s.state == ""
+        assert s.value == ""
 
 
 def _make_number(data: dict, **kwargs) -> I2dNumber:
@@ -302,9 +302,9 @@ class TestI2dNumber(unittest.IsolatedAsyncioTestCase):
         )
         assert num.max_value == 3200.0
 
-    def test_unit(self):
+    def test_unit_of_measurement(self):
         num = _make_number({})
-        assert num.unit == "RPM"
+        assert num.unit_of_measurement == "RPM"
 
     def test_step_default(self):
         num = _make_number({})
@@ -327,11 +327,11 @@ class TestI2dNumber(unittest.IsolatedAsyncioTestCase):
             "/quickcleanrpm/write", "value=3000"
         )
 
-    async def test_set_value_truncates_to_int(self):
+    async def test_set_value_sends_as_int(self):
         num = _make_number({"quickcleanrpm": "3000"})
         mock_response = MagicMock()
         num.system.send_control_command = async_returns(mock_response)
-        await num.set_value(3000.9)
+        await num.set_value(3000.0)
         num.system.send_control_command.assert_awaited_once_with(
             "/quickcleanrpm/write", "value=3000"
         )
@@ -482,16 +482,16 @@ class TestI2dSwitch(unittest.IsolatedAsyncioTestCase):
         sw.system._apply_write_response.assert_called_once_with(mock_resp)
 
 
-class TestI2dPump(unittest.IsolatedAsyncioTestCase):
-    def _make_pump(self, data: dict):
-        from iaqualink.systems.i2d.device import I2dPump
+class TestI2dFan(unittest.IsolatedAsyncioTestCase):
+    def _make_fan(self, data: dict):
+        from iaqualink.systems.i2d.device import I2dFan
 
         system = MagicMock()
         system.serial = "ABC123"
-        return I2dPump(system, {"name": "ABC123", **data})
+        return I2dFan(system, {"name": "ABC123", **data})
 
     async def test_turn_on_when_off_sends_custom_opmode(self):
-        pump = self._make_pump({"runstate": "off", "opmode": "2"})
+        pump = self._make_fan({"runstate": "off", "opmode": "2"})
         pump.system.send_control_command = async_returns(MagicMock())
         await pump.turn_on()
         pump.system.send_control_command.assert_awaited_once_with(
@@ -499,13 +499,13 @@ class TestI2dPump(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_turn_on_when_already_on_does_nothing(self):
-        pump = self._make_pump({"runstate": "on", "opmode": "1"})
+        pump = self._make_fan({"runstate": "on", "opmode": "1"})
         pump.system.send_control_command = async_returns(MagicMock())
         await pump.turn_on()
         pump.system.send_control_command.assert_not_awaited()
 
     async def test_turn_off_when_on_sends_stop_opmode(self):
-        pump = self._make_pump({"runstate": "on", "opmode": "1"})
+        pump = self._make_fan({"runstate": "on", "opmode": "1"})
         pump.system.send_control_command = async_returns(MagicMock())
         await pump.turn_off()
         pump.system.send_control_command.assert_awaited_once_with(
@@ -513,59 +513,59 @@ class TestI2dPump(unittest.IsolatedAsyncioTestCase):
         )
 
     async def test_turn_off_when_already_off_does_nothing(self):
-        pump = self._make_pump({"runstate": "off", "opmode": "2"})
+        pump = self._make_fan({"runstate": "off", "opmode": "2"})
         pump.system.send_control_command = async_returns(MagicMock())
         await pump.turn_off()
         pump.system.send_control_command.assert_not_awaited()
 
-    def test_current_preset_for_internal_mode_readable(self):
+    def test_preset_mode_for_internal_mode_readable(self):
         from iaqualink.systems.i2d.device import I2dOpMode
 
-        pump = self._make_pump({"opmode": str(I2dOpMode.QUICK_CLEAN)})
-        assert pump.current_preset == "QUICK_CLEAN"
-        assert "QUICK_CLEAN" not in pump.supported_presets
+        pump = self._make_fan({"opmode": str(I2dOpMode.QUICK_CLEAN)})
+        assert pump.preset_mode == "QUICK_CLEAN"
+        assert "QUICK_CLEAN" not in pump.preset_modes
 
-    def test_current_preset_when_opmode_missing(self):
-        pump = self._make_pump({})
-        assert pump.current_preset is None
+    def test_preset_mode_when_opmode_missing(self):
+        pump = self._make_fan({})
+        assert pump.preset_mode is None
 
-    async def test_set_speed_percentage_svrs_bounds(self):
+    async def test_set_percentage_svrs_bounds(self):
         # SVRS pump: min=1050, max=3450 — 0% → 1050, 100% → 3450
-        pump = self._make_pump(
+        pump = self._make_fan(
             {"globalrpmmin": "1050", "globalrpmmax": "3450", "productid": "0F"}
         )
         pump.system.send_control_command = async_returns(MagicMock())
-        await pump.set_speed_percentage(0)
+        await pump.set_percentage(0)
         pump.system.send_control_command.assert_awaited_once_with(
             "/customspeedrpm/write", "value=1050"
         )
 
-    async def test_set_speed_percentage_rounding(self):
+    async def test_set_percentage_rounding(self):
         # 600 + (3450-600)*33/100 = 600 + 940.5 = 1540.5 → round to nearest 25 = 1550
-        pump = self._make_pump({"globalrpmmin": "600", "globalrpmmax": "3450"})
+        pump = self._make_fan({"globalrpmmin": "600", "globalrpmmax": "3450"})
         pump.system.send_control_command = async_returns(MagicMock())
-        await pump.set_speed_percentage(33)
+        await pump.set_percentage(33)
         pump.system.send_control_command.assert_awaited_once_with(
             "/customspeedrpm/write", "value=1550"
         )
 
-    async def test_set_speed_percentage_clamps_to_max(self):
-        pump = self._make_pump({"globalrpmmin": "600", "globalrpmmax": "3450"})
+    async def test_set_percentage_clamps_to_max(self):
+        pump = self._make_fan({"globalrpmmin": "600", "globalrpmmax": "3450"})
         pump.system.send_control_command = async_returns(MagicMock())
-        await pump.set_speed_percentage(100)
+        await pump.set_percentage(100)
         pump.system.send_control_command.assert_awaited_once_with(
             "/customspeedrpm/write", "value=3450"
         )
 
     async def test_turn_on_calls_apply_write_response(self):
-        pump = self._make_pump({"runstate": "off", "opmode": "2"})
+        pump = self._make_fan({"runstate": "off", "opmode": "2"})
         mock_resp = MagicMock()
         pump.system.send_control_command = async_returns(mock_resp)
         await pump.turn_on()
         pump.system._apply_write_response.assert_called_once_with(mock_resp)
 
-    async def test_set_speed_percentage_calls_apply_write_response(self):
-        pump = self._make_pump(
+    async def test_set_percentage_calls_apply_write_response(self):
+        pump = self._make_fan(
             {
                 "globalrpmmin": "600",
                 "globalrpmmax": "3450",
@@ -574,7 +574,7 @@ class TestI2dPump(unittest.IsolatedAsyncioTestCase):
         )
         mock_resp = MagicMock()
         pump.system.send_control_command = async_returns(mock_resp)
-        await pump.set_speed_percentage(50)
+        await pump.set_percentage(50)
         pump.system._apply_write_response.assert_called_once_with(mock_resp)
 
 
@@ -632,14 +632,6 @@ class TestI2dBinarySensor(unittest.TestCase):
     def test_is_on_when_missing(self):
         s = _make_binary_sensor({})
         assert s.is_on is False
-
-    def test_state_on(self):
-        s = _make_binary_sensor({"freezeprotectstatus": "1"})
-        assert s.state == "on"
-
-    def test_state_off(self):
-        s = _make_binary_sensor({"freezeprotectstatus": "0"})
-        assert s.state == "off"
 
     def test_manufacturer(self):
         s = _make_binary_sensor({})

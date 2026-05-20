@@ -13,21 +13,21 @@ from iaqualink.systems.exo.device import (
     ExoAttributeSensor,
     ExoAttributeSwitch,
     ExoAuxSwitch,
+    ExoClimate,
     ExoDevice,
     ExoErrorSensor,
     ExoFilterPump,
     ExoHeater,
     ExoSensor,
     ExoSwitch,
-    ExoThermostat,
 )
 from iaqualink.systems.exo.system import ExoSystem
 
 from ...base_test_device import (
+    TestBaseClimate,
     TestBaseDevice,
     TestBaseSensor,
     TestBaseSwitch,
-    TestBaseThermostat,
 )
 
 
@@ -84,8 +84,8 @@ class TestExoSensor(TestExoDevice, TestBaseSensor):
             " ", "_"
         )
 
-    def test_property_state(self) -> None:
-        assert self.sut.state == str(self.sut.data["value"])
+    def test_property_value(self) -> None:
+        assert self.sut.value == str(self.sut.data["value"])
 
 
 class TestExoAttributeSensor(TestExoDevice, TestBaseSensor):
@@ -98,6 +98,9 @@ class TestExoAttributeSensor(TestExoDevice, TestBaseSensor):
         }
         self.sut = ExoDevice.from_data(self.system, data)
         self.sut_class = ExoAttributeSensor
+
+    def test_property_value(self) -> None:
+        assert self.sut.value == str(self.sut.data["state"])
 
 
 class TestExoErrorSensor(TestExoDevice, TestBaseSensor):
@@ -114,8 +117,8 @@ class TestExoErrorSensor(TestExoDevice, TestBaseSensor):
     def test_property_label(self) -> None:
         assert self.sut.label == "Error Code"
 
-    def test_property_state(self) -> None:
-        assert self.sut.state == "0"
+    def test_property_value(self) -> None:
+        assert self.sut.value == "0"
 
     def test_error_state_routing(self) -> None:
         data = {"name": "error_state", "state": 0}
@@ -304,7 +307,7 @@ class TestExoHeater(TestExoDevice):
         assert type(device) is ExoHeater
 
 
-class TestExoThermostat(TestExoDevice, TestBaseThermostat):
+class TestExoClimate(TestExoDevice, TestBaseClimate):
     def setUp(self) -> None:
         super().setUp()
 
@@ -317,7 +320,7 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         }
 
         self.pool_set_point = cast(
-            ExoThermostat, ExoDevice.from_data(self.system, pool_set_point)
+            ExoClimate, ExoDevice.from_data(self.system, pool_set_point)
         )
 
         water_temp = {
@@ -335,7 +338,7 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         self.system.devices = {x.data["name"]: x for x in devices}
 
         self.sut = self.pool_set_point
-        self.sut_class = ExoThermostat
+        self.sut_class = ExoClimate
 
     def test_property_label(self) -> None:
         assert self.sut.label == "Heating"
@@ -344,6 +347,7 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         assert self.sut.name == "heating"
 
     def test_property_state(self) -> None:
+        # ExoClimate.state is an internal property (set-point from data["sp"])
         assert self.sut.state == "20"
 
     def test_property_is_on_true(self) -> None:
@@ -354,26 +358,26 @@ class TestExoThermostat(TestExoDevice, TestBaseThermostat):
         self.sut.data["enabled"] = 0
         super().test_property_is_on_false()
 
-    def test_property_unit(self) -> None:
-        assert self.sut.unit == "C"
+    def test_property_temperature_unit(self) -> None:
+        assert self.sut.temperature_unit == "C"
 
     @pytest.mark.skip(reason="Exo doesn't support Fahrenheit")
-    def test_property_min_temperature_f(self) -> None:
+    def test_property_min_temp_f(self) -> None:
         pass
 
-    def test_property_min_temperature_c(self) -> None:
+    def test_property_min_temp_c(self) -> None:
         self.sut.system.temp_unit = "C"
-        super().test_property_min_temperature_c()
-        assert self.sut.min_temperature == EXO_TEMP_CELSIUS_LOW
+        super().test_property_min_temp_c()
+        assert self.sut.min_temp == EXO_TEMP_CELSIUS_LOW
 
     @pytest.mark.skip(reason="Exo doesn't support Fahrenheit")
-    def test_property_max_temperature_f(self) -> None:
+    def test_property_max_temp_f(self) -> None:
         pass
 
-    def test_property_max_temperature_c(self) -> None:
+    def test_property_max_temp_c(self) -> None:
         self.sut.system.temp_unit = "C"
-        super().test_property_max_temperature_c()
-        assert self.sut.max_temperature == EXO_TEMP_CELSIUS_HIGH
+        super().test_property_max_temp_c()
+        assert self.sut.max_temp == EXO_TEMP_CELSIUS_HIGH
 
     def test_property_current_temperature(self) -> None:
         super().test_property_current_temperature()

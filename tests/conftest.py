@@ -21,9 +21,9 @@ _API_CLASSES = frozenset(
         _dev.AqualinkBinarySensor,
         _dev.AqualinkSwitch,
         _dev.AqualinkLight,
-        _dev.AqualinkThermostat,
+        _dev.AqualinkClimate,
         _dev.AqualinkNumber,
-        _dev.AqualinkPump,
+        _dev.AqualinkFan,
     }
 )
 
@@ -34,15 +34,15 @@ _SNAPSHOT_EXCLUDE = frozenset(
         "name",
         "manufacturer",
         "model",
-        "state_enum",
+        "value_enum",
         "supports_turn_on",
         "supports_turn_off",
         "supports_brightness",
         "supports_effect",
         "supports_presets",
-        "supports_set_speed_percentage",
-        "max_temperature",
-        "min_temperature",
+        "supports_percentage",
+        "max_temp",
+        "min_temp",
     }
 )
 

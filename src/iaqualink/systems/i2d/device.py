@@ -6,12 +6,11 @@ from typing import TYPE_CHECKING, Any
 
 from iaqualink.device import (
     AqualinkBinarySensor,
+    AqualinkFan,
     AqualinkNumber,
-    AqualinkPump,
     AqualinkSensor,
     AqualinkSwitch,
 )
-from iaqualink.exception import AqualinkInvalidParameterException
 
 if TYPE_CHECKING:
     from iaqualink.systems.i2d.system import I2dSystem
@@ -74,10 +73,6 @@ class I2dBinarySensor(I2dDevice, AqualinkBinarySensor):
         return self._label
 
     @property
-    def state(self) -> str:
-        return "on" if self.is_on else "off"
-
-    @property
     def is_on(self) -> bool:
         return self.data.get(self._key) == I2dBinaryState.ON
 
@@ -110,7 +105,7 @@ class I2dSensor(I2dDevice, AqualinkSensor):
         return self._label
 
     @property
-    def state(self) -> str:
+    def value(self) -> str:
         if self._path:
             val: Any = self.data
             for k in self._path:
@@ -123,7 +118,7 @@ class I2dSensor(I2dDevice, AqualinkSensor):
         return str(self.data.get(self._key, ""))
 
     @property
-    def unit(self) -> str | None:
+    def unit_of_measurement(self) -> str | None:
         return self._unit
 
 
@@ -146,7 +141,7 @@ SETTABLE_OPMODES: tuple[I2dOpMode, ...] = (
 )
 
 
-class I2dPump(I2dDevice, AqualinkPump):
+class I2dFan(I2dDevice, AqualinkFan):
     def __init__(self, system: I2dSystem, data: DeviceData) -> None:
         super().__init__(system, data)
         self.system: I2dSystem = system
@@ -159,6 +154,7 @@ class I2dPump(I2dDevice, AqualinkPump):
     def label(self) -> str:
         return "IQPump"
 
+    # Internal opmode string; not part of AqualinkFan contract.
     @property
     def state(self) -> str:
         return self.data.get("opmode", "")
@@ -213,14 +209,10 @@ class I2dPump(I2dDevice, AqualinkPump):
     # --- Speed percentage ---
 
     @property
-    def supports_set_speed_percentage(self) -> bool:
+    def supports_percentage(self) -> bool:
         return True
 
-    async def set_speed_percentage(self, percentage: int) -> None:
-        if not 0 <= percentage <= 100:
-            raise AqualinkInvalidParameterException(
-                f"Percentage {percentage} out of range (0-100)."
-            )
+    async def _set_percentage(self, percentage: int) -> None:
         rpm_min = self.rpm_min or _RPM_HARDWARE_MIN_DEFAULT
         rpm_max = self.rpm_max or _RPM_HARDWARE_MAX
         raw = rpm_min + (rpm_max - rpm_min) * percentage / 100
@@ -238,20 +230,22 @@ class I2dPump(I2dDevice, AqualinkPump):
         return True
 
     @property
-    def supported_presets(self) -> list[str]:
+    def preset_modes(self) -> list[str]:
         return [m.name for m in SETTABLE_OPMODES]
 
     @property
-    def current_preset(self) -> str | None:
-        return self.state_translated
+    def preset_mode(self) -> str | None:
+        opmode = self.data.get("opmode", "")
+        if not opmode:
+            return None
+        try:
+            return I2dOpMode(opmode).name
+        except ValueError:
+            return None
 
-    async def set_preset(self, preset: str) -> None:
-        if preset not in self.supported_presets:
-            raise AqualinkInvalidParameterException(
-                f"{preset!r} is not a valid preset. Valid: {self.supported_presets}"
-            )
+    async def _set_preset_mode(self, preset_mode: str) -> None:
         r = await self.system.send_control_command(
-            "/opmode/write", f"value={I2dOpMode[preset]}"
+            "/opmode/write", f"value={I2dOpMode[preset_mode]}"
         )
         self.system._apply_write_response(r)
 
@@ -295,6 +289,7 @@ class I2dNumber(I2dDevice, AqualinkNumber):
     def label(self) -> str:
         return self._label
 
+    # Informal convenience property; not part of AqualinkNumber contract.
     @property
     def state(self) -> str:
         val = self.current_value
@@ -322,7 +317,7 @@ class I2dNumber(I2dDevice, AqualinkNumber):
         return self._step
 
     @property
-    def unit(self) -> str | None:
+    def unit_of_measurement(self) -> str | None:
         return self._unit
 
     async def _set_value(self, value: float) -> None:
@@ -355,6 +350,7 @@ class I2dSwitch(I2dDevice, AqualinkSwitch):
     def label(self) -> str:
         return self._label
 
+    # Informal convenience property; not part of AqualinkSwitch contract.
     @property
     def state(self) -> str:
         return "on" if self.is_on else "off"

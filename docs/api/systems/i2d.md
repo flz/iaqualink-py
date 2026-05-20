@@ -6,9 +6,9 @@ i2d systems are iQPump variable-speed pump controllers using the `r-api.iaqualin
 
 ::: iaqualink.systems.i2d.system.I2dSystem
 
-## I2dPump
+## I2dFan
 
-::: iaqualink.systems.i2d.device.I2dPump
+::: iaqualink.systems.i2d.device.I2dFan
 
 ## I2dNumber
 

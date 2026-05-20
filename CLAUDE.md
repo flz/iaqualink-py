@@ -69,14 +69,15 @@ When adding a new direct subclass of `AqualinkDevice` to `device.py`, also add a
 
 | Class | CLI Group | Notes |
 |---|---|---|
-| `AqualinkThermostat` | Thermostats | |
+| `AqualinkClimate` | Climate | |
 | `AqualinkLight` | Lights | |
 | `AqualinkSwitch` | Switches | |
-| `AqualinkPump` | Pumps | |
+| `AqualinkFan` | Fans | HA has no PumpEntity; FanEntity is closest match |
 | `AqualinkNumber` | Numbers | |
-| `AqualinkSensor` | Sensors | `AqualinkBinarySensor` extends `AqualinkSensor` and is covered by this entry |
+| `AqualinkBinarySensor` | Sensors | |
+| `AqualinkSensor` | Sensors | Entries with the same label are merged into one group |
 
-Subclasses must appear before their superclass in `_DEVICE_GROUPS` (e.g. `AqualinkLight` before `AqualinkSwitch`). Only add a row for direct subclasses of `AqualinkDevice`; intermediate classes like `AqualinkBinarySensor` are automatically covered by their parent's entry.
+All classes are direct subclasses of `AqualinkDevice` (flat hierarchy — no class covers another). Multiple entries can share a group label; `_group_devices` merges them.
 
 ## Protocol Reference
 

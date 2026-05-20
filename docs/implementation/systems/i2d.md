@@ -50,7 +50,7 @@ All devices share a single data dict. Any `update()` call refreshes all device v
 
 | Class | Key(s) | Type |
 |---|---|---|
-| `I2dPump` | `iqpump` | Pump on/off, presets, speed percentage |
+| `I2dFan` | `iqpump` | Pump on/off, presets, speed percentage |
 | `I2dNumber` | `globalrpmmin`, `globalrpmmax`, `customspeedrpm`, `primingrpm`, `quickcleanrpm`, `freezeprotectrpm`, `countdownrpm`, `relayK1Rpm`*, `relayK2Rpm`*, `customspeedtimer`, `primingperiod`, `quickcleanperiod`, `freezeprotectperiod`, `countdownperiod`, `timeoutperiod`, `freezeprotectsetpointc` | Writable numeric setting |
 | `I2dSwitch` | `freezeprotectenable` | Binary on/off setting |
 | `I2dSensor` | `speed`, `power`, `temperature`, `horsepower`, `primingtimer`, `quickcleantimer`, `countdowntimer`, `timeouttimer`, `currentspan`, `wifistate`, `wifissid`, `fwversion`, `updateprogress`, `updateflag` | Read-only telemetry |

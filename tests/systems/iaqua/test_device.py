@@ -13,30 +13,27 @@ from iaqualink.systems.iaqua.device import (
     IAQUA_TEMP_FAHRENHEIT_LOW,
     IaquaAuxSwitch,
     IaquaBinarySensor,
-    IaquaBinaryState,
+    IaquaClimate,
     IaquaColorLight,
     IaquaColorLightIB,
     IaquaDevice,
     IaquaDimmableLight,
     IaquaHeater,
-    IaquaHeaterState,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
     IaquaPresenceSensor,
-    IaquaPresenceState,
     IaquaSensor,
     IaquaSwitch,
-    IaquaThermostat,
 )
 from iaqualink.systems.iaqua.system import IaquaSystem
 
 from ...base_test_device import (
     TestBaseBinarySensor,
+    TestBaseClimate,
     TestBaseDevice,
     TestBaseLight,
     TestBaseSensor,
     TestBaseSwitch,
-    TestBaseThermostat,
 )
 
 
@@ -83,8 +80,11 @@ class TestIaquaSensor(TestIaquaDevice, TestBaseSensor):
         self.sut = IaquaSensor(self.system, data)
         self.sut_class = IaquaSensor
 
+    def test_property_value(self) -> None:
+        assert self.sut.value == self.sut.data["state"]
 
-class TestIaquaBinarySensor(TestIaquaSensor, TestBaseBinarySensor):
+
+class TestIaquaBinarySensor(TestIaquaDevice, TestBaseBinarySensor):
     def setUp(self) -> None:
         super().setUp()
 
@@ -101,9 +101,6 @@ class TestIaquaBinarySensor(TestIaquaSensor, TestBaseBinarySensor):
         self.sut.data["state"] = "1"
         super().test_property_is_on_true()
         assert self.sut.is_on is True
-
-    def test_property_state_enum(self) -> None:
-        assert self.sut.state_enum is IaquaBinaryState
 
 
 class TestIaquaPresenceSensor(TestIaquaBinarySensor):
@@ -126,11 +123,8 @@ class TestIaquaPresenceSensor(TestIaquaBinarySensor):
         self.sut.data["state"] = ""
         assert self.sut.is_on is False
 
-    def test_property_state_enum(self) -> None:
-        assert self.sut.state_enum is IaquaPresenceState
 
-
-class TestIaquaSwitch(TestIaquaBinarySensor, TestBaseSwitch):
+class TestIaquaSwitch(TestIaquaDevice, TestBaseSwitch):
     def setUp(self) -> None:
         super().setUp()
 
@@ -141,6 +135,14 @@ class TestIaquaSwitch(TestIaquaBinarySensor, TestBaseSwitch):
         self.sut = IaquaSwitch(self.system, data)
         self.sut_class = IaquaSwitch
 
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["state"] = "0"
+        super().test_property_is_on_false()
+
+    def test_property_is_on_true(self) -> None:
+        self.sut.data["state"] = "1"
+        super().test_property_is_on_true()
+
     async def test_turn_on(self) -> None:
         self.sut.data["state"] = "0"
         with patch.object(self.sut.system, "_parse_home_response"):
@@ -162,7 +164,7 @@ class TestIaquaSwitch(TestIaquaBinarySensor, TestBaseSwitch):
             await super().test_turn_off_noop()
 
 
-class TestIaquaHeater(TestIaquaBinarySensor, TestBaseSwitch):
+class TestIaquaHeater(TestIaquaDevice, TestBaseSwitch):
     def setUp(self) -> None:
         super().setUp()
 
@@ -173,6 +175,18 @@ class TestIaquaHeater(TestIaquaBinarySensor, TestBaseSwitch):
         self.sut = IaquaHeater(self.system, data)
         self.sut_class = IaquaHeater
 
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["state"] = "0"
+        super().test_property_is_on_false()
+
+    def test_property_is_on_true(self) -> None:
+        self.sut.data["state"] = "1"
+        super().test_property_is_on_true()
+
+    def test_property_is_on_enabled(self) -> None:
+        self.sut.data["state"] = "3"
+        assert self.sut.is_on is True
+
     async def test_turn_on(self) -> None:
         self.sut.data["state"] = "0"
         with patch.object(self.sut.system, "_parse_home_response"):
@@ -192,13 +206,6 @@ class TestIaquaHeater(TestIaquaBinarySensor, TestBaseSwitch):
         self.sut.data["state"] = "0"
         with patch.object(self.sut.system, "_parse_home_response"):
             await super().test_turn_off_noop()
-
-    def test_property_is_on_enabled(self) -> None:
-        self.sut.data["state"] = "3"
-        assert self.sut.is_on is True
-
-    def test_property_state_enum(self) -> None:
-        assert self.sut.state_enum is IaquaHeaterState
 
 
 class TestIaquaOneTouchSwitch(TestIaquaSwitch, TestBaseSwitch):
@@ -239,7 +246,7 @@ class TestIaquaOneTouchSwitch(TestIaquaSwitch, TestBaseSwitch):
         assert self.sut.label == "Morning Scene"
 
 
-class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):
+class TestIaquaAuxSwitch(TestIaquaDevice, TestBaseSwitch):
     def setUp(self) -> None:
         super().setUp()
 
@@ -252,6 +259,14 @@ class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):
         }
         self.sut = IaquaAuxSwitch(self.system, data)
         self.sut_class = IaquaAuxSwitch
+
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["state"] = "0"
+        super().test_property_is_on_false()
+
+    def test_property_is_on_true(self) -> None:
+        self.sut.data["state"] = "1"
+        super().test_property_is_on_true()
 
     async def test_turn_on(self) -> None:
         self.sut.data["state"] = "0"
@@ -274,7 +289,7 @@ class TestIaquaAuxSwitch(TestIaquaSwitch, TestBaseSwitch):
             await super().test_turn_off_noop()
 
 
-class TestIaquaLightSwitch(TestIaquaAuxSwitch, TestBaseLight):
+class TestIaquaLightSwitch(TestIaquaDevice, TestBaseLight):
     def setUp(self) -> None:
         super().setUp()
 
@@ -289,14 +304,42 @@ class TestIaquaLightSwitch(TestIaquaAuxSwitch, TestBaseLight):
         self.sut = IaquaLightSwitch(self.system, data)
         self.sut_class = IaquaLightSwitch
 
-    def test_property_brightness(self) -> None:
-        assert self.sut.brightness is None
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["state"] = "0"
+        super().test_property_is_on_false()
+
+    def test_property_is_on_true(self) -> None:
+        self.sut.data["state"] = "1"
+        super().test_property_is_on_true()
+
+    async def test_turn_on(self) -> None:
+        self.sut.data["state"] = "0"
+        with patch.object(self.sut.system, "_parse_devices_response"):
+            await super().test_turn_on()
+
+    async def test_turn_on_noop(self) -> None:
+        self.sut.data["state"] = "1"
+        with patch.object(self.sut.system, "_parse_devices_response"):
+            await super().test_turn_on_noop()
+
+    async def test_turn_off(self) -> None:
+        self.sut.data["state"] = "1"
+        with patch.object(self.sut.system, "_parse_devices_response"):
+            await super().test_turn_off()
+
+    async def test_turn_off_noop(self) -> None:
+        self.sut.data["state"] = "0"
+        with patch.object(self.sut.system, "_parse_devices_response"):
+            await super().test_turn_off_noop()
+
+    def test_property_brightness_percentage(self) -> None:
+        assert self.sut.brightness_percentage is None
 
     def test_property_effect(self) -> None:
         assert self.sut.effect is None
 
 
-class TestIaquaDimmableLight(TestIaquaAuxSwitch, TestBaseLight):
+class TestIaquaDimmableLight(TestIaquaDevice, TestBaseLight):
     def setUp(self) -> None:
         super().setUp()
 
@@ -320,7 +363,6 @@ class TestIaquaDimmableLight(TestIaquaAuxSwitch, TestBaseLight):
         assert self.sut.label == "Spa Light"
 
     def test_property_state(self) -> None:
-        super().test_property_state()
         assert self.sut.state == "1"
 
     def test_property_is_on_false(self) -> None:
@@ -367,12 +409,12 @@ class TestIaquaDimmableLight(TestIaquaAuxSwitch, TestBaseLight):
         super().test_property_supports_effect()
         assert self.sut.supports_effect is False
 
-    async def test_set_brightness_75(self) -> None:
+    async def test_set_brightness_percentage_75(self) -> None:
         with patch.object(self.sut.system, "_parse_devices_response"):
-            await super().test_set_brightness_75()
+            await super().test_set_brightness_percentage_75()
 
 
-class TestIaquaColorLight(TestIaquaAuxSwitch, TestBaseLight):
+class TestIaquaColorLight(TestIaquaDevice, TestBaseLight):
     def setUp(self) -> None:
         super().setUp()
 
@@ -396,14 +438,19 @@ class TestIaquaColorLight(TestIaquaAuxSwitch, TestBaseLight):
         super().test_property_label()
         assert self.sut.label == "Pool Light"
 
-    def test_property_state(self) -> None:
-        super().test_property_state()
-
     def test_property_manufacturer(self) -> None:
         assert self.sut.manufacturer == "Pentair"
 
     def test_property_model(self) -> None:
         assert self.sut.model == "Intellibrite Light"
+
+    def test_property_is_on_false(self) -> None:
+        self.sut.data["state"] = "0"
+        super().test_property_is_on_false()
+
+    def test_property_is_on_true(self) -> None:
+        self.sut.data["state"] = "1"
+        super().test_property_is_on_true()
 
     def test_property_supports_brightness(self) -> None:
         super().test_property_supports_brightness()
@@ -425,30 +472,29 @@ class TestIaquaColorLight(TestIaquaAuxSwitch, TestBaseLight):
             await super().test_turn_on()
         # data = {"aux": "1", "light": "1", "subtype": "5"}
 
-    async def test_set_effect_by_id_4(self) -> None:
+    async def test_turn_on_noop(self) -> None:
+        self.sut.data["state"] = "1"
+        await super().test_turn_on_noop()
+
+    async def test_turn_off_noop(self) -> None:
+        self.sut.data["state"] = "0"
+        await super().test_turn_off_noop()
+
+    async def test_set_effect_off(self) -> None:
         with patch.object(self.sut.system, "_parse_devices_response"):
-            await super().test_set_effect_by_id_4()
-        # data = {"aux": "1", "light": "2", "subtype": "5"}
+            await super().test_set_effect_off()
 
-    async def test_set_effect_by_id_invalid_27(self) -> None:
+    async def test_set_effect_invalid_amaranth(self) -> None:
         with patch.object(self.sut.system, "_parse_devices_response"):
-            await super().test_set_effect_by_id_invalid_27()
-
-    async def test_set_effect_by_name_off(self) -> None:
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await super().test_set_effect_by_name_off()
-
-    async def test_set_effect_by_name_invalid_amaranth(self) -> None:
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await super().test_set_effect_by_name_invalid_amaranth()
+            await super().test_set_effect_invalid_amaranth()
 
 
-class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
+class TestIaquaClimate(TestIaquaDevice, TestBaseClimate):
     def setUp(self) -> None:
         super().setUp()
 
         pool_set_point = {"name": "pool_set_point", "state": "86"}
-        self.pool_set_point = IaquaThermostat(self.system, pool_set_point)
+        self.pool_set_point = IaquaClimate(self.system, pool_set_point)
 
         pool_temp = {"name": "pool_temp", "state": "65"}
         self.pool_temp = IaquaSensor(self.system, pool_temp)
@@ -457,7 +503,7 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
         self.pool_heater = IaquaSwitch(self.system, pool_heater)
 
         spa_set_point = {"name": "spa_set_point", "state": "102"}
-        self.spa_set_point = IaquaThermostat(self.system, spa_set_point)
+        self.spa_set_point = IaquaClimate(self.system, spa_set_point)
 
         devices = [
             self.pool_set_point,
@@ -467,7 +513,7 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
         self.system.devices = {x.name: x for x in devices}
 
         self.sut = self.pool_set_point
-        self.sut_class = IaquaThermostat
+        self.sut_class = IaquaClimate
 
     def test_property_label(self) -> None:
         assert self.sut.label == "Pool Set Point"
@@ -476,6 +522,7 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
         assert self.sut.name == "pool_set_point"
 
     def test_property_state(self) -> None:
+        # IaquaDevice.state is an internal property (set-point from data["state"])
         assert self.sut.state == "86"
 
     def test_property_is_on_true(self) -> None:
@@ -486,29 +533,29 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
         self.pool_heater.data["state"] = "0"
         super().test_property_is_on_false()
 
-    def test_property_unit(self) -> None:
+    def test_property_temperature_unit(self) -> None:
         self.sut.system.temp_unit = "F"
-        super().test_property_unit()
+        super().test_property_temperature_unit()
 
-    def test_property_min_temperature_f(self) -> None:
+    def test_property_min_temp_f(self) -> None:
         self.sut.system.temp_unit = "F"
-        super().test_property_min_temperature_c()
-        assert self.sut.min_temperature == IAQUA_TEMP_FAHRENHEIT_LOW
+        super().test_property_min_temp_c()
+        assert self.sut.min_temp == IAQUA_TEMP_FAHRENHEIT_LOW
 
-    def test_property_min_temperature_c(self) -> None:
+    def test_property_min_temp_c(self) -> None:
         self.sut.system.temp_unit = "C"
-        super().test_property_min_temperature_f()
-        assert self.sut.min_temperature == IAQUA_TEMP_CELSIUS_LOW
+        super().test_property_min_temp_f()
+        assert self.sut.min_temp == IAQUA_TEMP_CELSIUS_LOW
 
-    def test_property_max_temperature_f(self) -> None:
+    def test_property_max_temp_f(self) -> None:
         self.sut.system.temp_unit = "F"
-        super().test_property_max_temperature_f()
-        assert self.sut.max_temperature == IAQUA_TEMP_FAHRENHEIT_HIGH
+        super().test_property_max_temp_f()
+        assert self.sut.max_temp == IAQUA_TEMP_FAHRENHEIT_HIGH
 
-    def test_property_max_temperature_c(self) -> None:
+    def test_property_max_temp_c(self) -> None:
         self.sut.system.temp_unit = "C"
-        super().test_property_max_temperature_c()
-        assert self.sut.max_temperature == IAQUA_TEMP_CELSIUS_HIGH
+        super().test_property_max_temp_c()
+        assert self.sut.max_temp == IAQUA_TEMP_CELSIUS_HIGH
 
     def test_property_current_temperature(self) -> None:
         super().test_property_current_temperature()
@@ -528,7 +575,8 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
 
     async def test_turn_on_noop(self) -> None:
         self.pool_heater.data["state"] = "1"
-        await super().test_turn_on_noop()
+        with patch.object(self.sut.system, "_parse_home_response"):
+            await super().test_turn_on_noop()
 
     async def test_turn_off(self) -> None:
         self.pool_heater.data["state"] = "1"
@@ -540,7 +588,8 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
 
     async def test_turn_off_noop(self) -> None:
         self.pool_heater.data["state"] = "0"
-        await super().test_turn_off_noop()
+        with patch.object(self.sut.system, "_parse_home_response"):
+            await super().test_turn_off_noop()
 
     async def test_set_temperature_86f(self) -> None:
         self.sut.system.devices["spa_set_point"] = self.spa_set_point
@@ -567,7 +616,7 @@ class TestIaquaThermostat(TestIaquaDevice, TestBaseThermostat):
     async def test_temp_name_no_spa(self) -> None:
         assert self.pool_set_point._temperature == "temp1"
 
-    def test_unit_raises_when_temp_unit_is_none(self) -> None:
+    def test_temperature_unit_raises_when_temp_unit_is_none(self) -> None:
         self.sut.system.temp_unit = None
         with pytest.raises(AqualinkStateUnavailableException):
-            _ = self.sut.unit
+            _ = self.sut.temperature_unit

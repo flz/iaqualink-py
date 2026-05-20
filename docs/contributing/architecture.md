@@ -64,18 +64,23 @@ class AqualinkSystem:
 
 Base class for all devices.
 
-**Hierarchy:**
+**Hierarchy (flat — all are direct subclasses of `AqualinkDevice`):**
 
 ```
-AqualinkDevice (base)
-├── AqualinkSensor (read-only)
-│   └── AqualinkBinarySensor (on/off state)
-│       └── AqualinkSwitch (controllable)
-│           ├── AqualinkLight (toggle)
-│           └── AqualinkThermostat (temperature)
-├── AqualinkPump (variable-speed pump control)
-└── AqualinkNumber (writable numeric setting)
+AqualinkDevice (ABC)
+├── AqualinkSensor        — read-only sensor; maps to HA SensorEntity
+├── AqualinkBinarySensor  — read-only on/off sensor; maps to HA BinarySensorEntity
+├── AqualinkSwitch        — controllable on/off; maps to HA SwitchEntity
+├── AqualinkLight         — controllable light; maps to HA LightEntity
+├── AqualinkClimate       — temperature control; maps to HA ClimateEntity
+├── AqualinkNumber        — writable numeric setting; maps to HA NumberEntity
+└── AqualinkFan           — fan/pump control; maps to HA FanEntity
 ```
+
+Each subclass uses `@abstractmethod` for required overrides and `raise NotImplementedError`
+stubs for optional overrides that concrete classes implement only when the feature is supported.
+Template methods (e.g. `set_temperature`, `set_value`) validate arguments and delegate to
+private `_set_*` methods that concrete classes implement.
 
 ### 4. Utilities
 
