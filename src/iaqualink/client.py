@@ -27,7 +27,7 @@ from iaqualink.exception import (
 from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
 from iaqualink.util import sign
-from iaqualink.utils.redact import _REDACT_KEYS, _redact_kwargs, _redact_url
+from iaqualink.utils.redact import REDACT_KEYS, redact_kwargs, redact_url
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -83,7 +83,7 @@ class AqualinkAuthState:
     def __repr__(self) -> str:
         parts = ", ".join(
             f"{f.name}=***"
-            if f.name in _REDACT_KEYS
+            if f.name in REDACT_KEYS
             else f"{f.name}={getattr(self, f.name)!r}"
             for f in dataclass_fields(self)
         )
@@ -203,8 +203,8 @@ class AqualinkClient:
         LOGGER.debug(
             "-> %s %s %s",
             method.upper(),
-            _redact_url(url),
-            _redact_kwargs(kwargs),
+            redact_url(url),
+            redact_kwargs(kwargs),
         )
         try:
             r = await client.request(method, url, headers=headers, **kwargs)

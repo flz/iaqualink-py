@@ -22,7 +22,7 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import UnsupportedSystem
-from iaqualink.utils.redact import _redact_kwargs, _redact_url
+from iaqualink.utils.redact import redact_kwargs, redact_url
 
 from .base import TestBase
 from .common import async_noop, async_raises
@@ -620,34 +620,34 @@ class TestRedactUrl(TestBase):
     def test_redacts_password_in_query(self) -> None:
         url = "https://example.com/login?email=user&password=s3cr3t"
         assert (
-            _redact_url(url)
+            redact_url(url)
             == "https://example.com/login?email=***&password=***"
         )
 
     def test_redacts_signature_in_query(self) -> None:
         url = "https://r-api.iaqualink.net/v2/devices.json?serial=SN1&signature=abc123&timestamp=1"
-        assert "signature=***" in _redact_url(url)
-        assert "timestamp=1" in _redact_url(url)
+        assert "signature=***" in redact_url(url)
+        assert "timestamp=1" in redact_url(url)
 
     def test_redacts_sessionID_in_query(self) -> None:
         url = "https://p-api.iaqualink.net/v2/mobile/session.json?sessionID=tok&command=get_home"
-        result = _redact_url(url)
+        result = redact_url(url)
         assert "sessionID=***" in result
         assert "command=get_home" in result
 
     def test_redacts_authentication_token_in_query(self) -> None:
         url = "https://example.com/api?authentication_token=secret&other=ok"
-        result = _redact_url(url)
+        result = redact_url(url)
         assert "authentication_token=***" in result
         assert "other=ok" in result
 
     def test_no_change_when_no_sensitive_params(self) -> None:
         url = "https://example.com/api?command=get_home&timestamp=1234"
-        assert _redact_url(url) == url
+        assert redact_url(url) == url
 
     def test_redacts_api_key_in_query(self) -> None:
         url = "https://example.com/api?api_key=deadbeef&command=get_home"
-        result = _redact_url(url)
+        result = redact_url(url)
         assert "api_key=***" in result
         assert "command=get_home" in result
 
@@ -655,38 +655,38 @@ class TestRedactUrl(TestBase):
 class TestRedactKwargs(TestBase):
     def test_redacts_password_in_json(self) -> None:
         kwargs = {"json": {"email": "user@example.com", "password": "s3cr3t"}}
-        result = _redact_kwargs(kwargs)
+        result = redact_kwargs(kwargs)
         assert result["json"]["password"] == "***"
         assert result["json"]["email"] != "user@example.com"
         assert "@" in result["json"]["email"]
 
     def test_redacts_refresh_token_in_json(self) -> None:
         kwargs = {"json": {"email": "u", "refresh_token": "tok"}}
-        result = _redact_kwargs(kwargs)
+        result = redact_kwargs(kwargs)
         assert result["json"]["refresh_token"] == "***"
 
     def test_redacts_authentication_token_in_json(self) -> None:
         kwargs = {"json": {"authentication_token": "tok", "user_id": "1"}}
-        result = _redact_kwargs(kwargs)
+        result = redact_kwargs(kwargs)
         assert result["json"]["authentication_token"] == "***"
         assert result["json"]["user_id"] == "***"
 
     def test_redacts_api_key_in_json(self) -> None:
         kwargs = {"json": {"api_key": "deadbeef", "command": "/opmode/write"}}
-        result = _redact_kwargs(kwargs)
+        result = redact_kwargs(kwargs)
         assert result["json"]["api_key"] == "***"
         assert result["json"]["command"] == "/opmode/write"
 
     def test_redacts_sessionID_in_params(self) -> None:
         kwargs = {"params": {"sessionID": "tok", "command": "get_home"}}
-        result = _redact_kwargs(kwargs)
+        result = redact_kwargs(kwargs)
         assert result["params"]["sessionID"] == "***"
         assert result["params"]["command"] == "get_home"
 
     def test_does_not_mutate_original(self) -> None:
         original_json = {"password": "secret", "email": "u"}
         kwargs = {"json": original_json}
-        _redact_kwargs(kwargs)
+        redact_kwargs(kwargs)
         assert original_json["password"] == "secret"
 
     def test_passthrough_when_no_sensitive_keys(self) -> None:
@@ -694,19 +694,19 @@ class TestRedactKwargs(TestBase):
             "json": {"command": "get_home", "device_type": "iaqua"},
             "timeout": 10,
         }
-        result = _redact_kwargs(kwargs)
+        result = redact_kwargs(kwargs)
         assert result["json"] == {"command": "get_home", "device_type": "iaqua"}
         assert result["timeout"] == 10
 
     def test_redacts_sensitive_keys_in_data(self) -> None:
         kwargs = {"data": {"password": "secret", "user_id": "1"}}
-        result = _redact_kwargs(kwargs)
+        result = redact_kwargs(kwargs)
         assert result["data"]["password"] == "***"
         assert result["data"]["user_id"] == "***"
 
     def test_ignores_non_dict_json(self) -> None:
         kwargs = {"json": "not-a-dict"}
-        result = _redact_kwargs(kwargs)
+        result = redact_kwargs(kwargs)
         assert result["json"] == "not-a-dict"
 
 

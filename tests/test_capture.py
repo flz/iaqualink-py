@@ -8,7 +8,7 @@ from tempfile import NamedTemporaryFile
 import httpx
 
 from iaqualink.cli.capture import CaptureSession
-from iaqualink.utils.redact import _mask_email, _redact_dict
+from iaqualink.utils.redact import mask_email, redact_dict
 
 
 def _make_request(
@@ -38,32 +38,32 @@ def _make_response(
 
 class TestMaskEmail(unittest.TestCase):
     def test_masks_normal_email(self) -> None:
-        result = _mask_email("testuser@example.net")
+        result = mask_email("testuser@example.net")
         assert "testuser" not in result
         assert "example" not in result
         assert "@" in result
         assert result.endswith(".net")
 
     def test_short_local_part(self) -> None:
-        result = _mask_email("ab@example.com")
+        result = mask_email("ab@example.com")
         assert "ab" not in result
         assert "@" in result
 
     def test_very_short_local_part(self) -> None:
-        result = _mask_email("a@b.com")
+        result = mask_email("a@b.com")
         assert result == "***@b***.com"
 
     def test_non_email_returns_redacted(self) -> None:
-        assert _mask_email("not-an-email") == "***"
+        assert mask_email("not-an-email") == "***"
 
     def test_preserves_tld(self) -> None:
-        result = _mask_email("user@example.org")
+        result = mask_email("user@example.org")
         assert result.endswith(".org")
 
 
 class TestRedactDict(unittest.TestCase):
     def test_redacts_sensitive_keys(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {
                 "email": "user@example.com",
                 "password": "secret",
@@ -76,14 +76,14 @@ class TestRedactDict(unittest.TestCase):
         assert result["authentication_token"] == "***"
 
     def test_passes_through_safe_keys(self) -> None:
-        result = _redact_dict({"status": "ok", "device_type": "iaqua"})
+        result = redact_dict({"status": "ok", "device_type": "iaqua"})
         assert result == {"status": "ok", "device_type": "iaqua"}
 
     def test_empty_dict(self) -> None:
-        assert _redact_dict({}) == {}
+        assert redact_dict({}) == {}
 
     def test_substring_key_match(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {
                 "access_token": "tok",
                 "session_key": "sk",
@@ -99,14 +99,14 @@ class TestRedactDict(unittest.TestCase):
         assert result["device_type"] == "iaqua"
 
     def test_case_insensitive_key_match(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {"IdToken": "jwt-secret", "AccessKeyId": "AKIA123"}
         )
         assert result["IdToken"] == "***"
         assert result["AccessKeyId"] == "***"
 
     def test_recursive_nested_dicts(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {
                 "status": "ok",
                 "credentials": {
@@ -126,7 +126,7 @@ class TestRedactDict(unittest.TestCase):
         assert result["userPoolOAuth"]["ExpiresIn"] == 3600
 
     def test_pii_fields_redacted(self) -> None:
-        result = _redact_dict(
+        result = redact_dict(
             {
                 "first_name": "Test",
                 "last_name": "User",
