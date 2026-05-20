@@ -9,12 +9,7 @@ import httpx
 import pytest
 import respx
 
-from iaqualink.client import (
-    AqualinkAuthState,
-    AqualinkClient,
-    _redact_kwargs,
-    _redact_url,
-)
+from iaqualink.client import AqualinkAuthState, AqualinkClient
 from iaqualink.const import (
     AQUALINK_API_KEY,
     AQUALINK_API_SIGNING_KEY,
@@ -27,6 +22,7 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import UnsupportedSystem
+from iaqualink.utils.redact import _redact_kwargs, _redact_url
 
 from .base import TestBase
 from .common import async_noop, async_raises
@@ -661,7 +657,8 @@ class TestRedactKwargs(TestBase):
         kwargs = {"json": {"email": "user@example.com", "password": "s3cr3t"}}
         result = _redact_kwargs(kwargs)
         assert result["json"]["password"] == "***"
-        assert result["json"]["email"] == "***"
+        assert result["json"]["email"] != "user@example.com"
+        assert "@" in result["json"]["email"]
 
     def test_redacts_refresh_token_in_json(self) -> None:
         kwargs = {"json": {"email": "u", "refresh_token": "tok"}}

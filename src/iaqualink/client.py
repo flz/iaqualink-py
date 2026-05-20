@@ -3,7 +3,6 @@ from __future__ import annotations
 import asyncio
 import importlib
 import logging
-import re
 import time
 from dataclasses import asdict, dataclass
 from dataclasses import fields as dataclass_fields
@@ -28,6 +27,7 @@ from iaqualink.exception import (
 from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
 from iaqualink.util import sign
+from iaqualink.utils.redact import _REDACT_KEYS, _redact_kwargs, _redact_url
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -45,63 +45,6 @@ AQUALINK_HTTP_HEADERS = {
 }
 
 LOGGER = logging.getLogger("iaqualink.client")
-
-_REDACT_KEYS = frozenset(
-    {
-        # auth tokens & credentials
-        "AccessKeyId",
-        "IdToken",
-        "IdentityId",
-        "SecretKey",
-        "SessionToken",
-        "api_key",
-        "authentication_token",
-        "authorization",
-        "client_id",
-        "id_token",
-        "password",
-        "refresh_token",
-        "session_id",
-        "sessionID",
-        "signature",
-        # PII / session
-        "address",
-        "address_1",
-        "address_2",
-        "city",
-        "cookie",
-        "email",
-        "id",
-        "first_name",
-        "last_name",
-        "phone",
-        "postal_code",
-        "owner_id",
-        "serial",
-        "serial_number",
-        "serialnumber",
-        "ssid",
-        "user_id",
-    }
-)
-_REDACT_URL_RE = re.compile(
-    r"(?<=[?&])(" + "|".join(sorted(_REDACT_KEYS)) + r")=[^&]*"
-)
-
-
-def _redact_url(url: str) -> str:
-    return _REDACT_URL_RE.sub(r"\1=***", url)
-
-
-def _redact_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
-    out = dict(kwargs)
-    for key in ("json", "params", "data"):
-        if key in out and isinstance(out[key], dict):
-            out[key] = {
-                k: "***" if k in _REDACT_KEYS else v
-                for k, v in out[key].items()
-            }
-    return out
 
 
 @dataclass(frozen=True)

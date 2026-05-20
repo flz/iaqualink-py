@@ -7,7 +7,8 @@ from tempfile import NamedTemporaryFile
 
 import httpx
 
-from iaqualink.cli.capture import CaptureSession, _mask_email, _redact_dict
+from iaqualink.cli.capture import CaptureSession
+from iaqualink.utils.redact import _mask_email, _redact_dict
 
 
 def _make_request(
