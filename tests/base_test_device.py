@@ -220,6 +220,33 @@ class TestBaseLight(TestBaseDevice):
             await self.sut.set_effect("Amaranth")
         assert len(respx_mock.calls) == 0
 
+    def test_property_supports_rgbw(self) -> None:
+        assert isinstance(self.sut.supports_rgbw, bool)
+
+    @respx.mock
+    async def test_set_rgbw(self, respx_mock: respx.router.MockRouter) -> None:
+        if not self.sut.supports_rgbw:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_rgbw(0, 0, 0)
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        await self.sut.set_rgbw(0, 0, 0)
+        assert len(respx_mock.calls) > 0
+        self.respx_calls = copy.copy(respx_mock.calls)
+
+    @respx.mock
+    async def test_set_rgbw_invalid_red(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        if not self.sut.supports_rgbw:
+            with pytest.raises(AqualinkOperationNotSupportedException):
+                await self.sut.set_rgbw(256, 0, 0)
+            return
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await self.sut.set_rgbw(256, 0, 0)
+        assert len(respx_mock.calls) == 0
+
 
 class TestBaseClimate(TestBaseDevice):
     def test_inheritance(self) -> None:

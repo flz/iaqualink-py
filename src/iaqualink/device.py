@@ -200,6 +200,40 @@ class AqualinkLight(AqualinkDevice):
         """Send the named effect to the device."""
         raise NotImplementedError
 
+    # ── Override if RGBW is supported ───────────────────────────────────────
+
+    @property
+    def rgbw(self) -> tuple[int, int, int, int] | None:
+        return None
+
+    @property
+    def supports_rgbw(self) -> bool:
+        return self.rgbw is not None
+
+    async def set_rgbw(
+        self, red: int, green: int, blue: int, white: int = 0
+    ) -> None:
+        """Set RGBW color (0–255 per channel)."""
+        if not self.supports_rgbw:
+            raise AqualinkOperationNotSupportedException
+        for name, val in [
+            ("red", red),
+            ("green", green),
+            ("blue", blue),
+            ("white", white),
+        ]:
+            if not 0 <= val <= 255:
+                raise AqualinkInvalidParameterException(
+                    f"{name}={val} isn't valid (0-255)."
+                )
+        await self._set_rgbw(red, green, blue, white)
+
+    async def _set_rgbw(
+        self, red: int, green: int, blue: int, white: int = 0
+    ) -> None:
+        """Send the RGBW color to the device."""
+        raise NotImplementedError
+
 
 class AqualinkClimate(AqualinkDevice):
     """Climate control. Maps to HA ClimateEntity."""

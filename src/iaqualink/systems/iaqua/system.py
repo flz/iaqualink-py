@@ -7,6 +7,8 @@ from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
     _HOME_DEVICE_MAP,
+    ICL_CUSTOM_COLOR_ID,
+    ICL_CUSTOM_COLOR_NAME,
     IaquaAuxSwitch,
     IaquaBinaryState,
     IaquaClimate,
@@ -428,8 +430,8 @@ class IaquaSystem(AqualinkSystem):
             val = data.get(key)
             if val is not None:
                 self.devices[device_name].data[key] = str(val)
-        self.devices[device_name].data["zoneColor"] = "16"
-        self.devices[device_name].data["zoneColorVal"] = "Custom Color"
+        self.devices[device_name].data["zoneColor"] = str(ICL_CUSTOM_COLOR_ID)
+        self.devices[device_name].data["zoneColorVal"] = ICL_CUSTOM_COLOR_NAME
 
     async def icl_set_custom_color(
         self, zone_id: int, red: int, green: int, blue: int, white: int = 0

@@ -224,6 +224,7 @@ def make_rgbw_light(label: str = "ICL Light") -> IaquaIclLight:
     m = create_autospec(IaquaIclLight, instance=True)
     m.label = m.name = label
     m.rgbw = (0, 0, 0, 0)
+    m.supports_rgbw = True
     return m
 
 
