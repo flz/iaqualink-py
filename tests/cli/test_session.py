@@ -14,6 +14,7 @@ from .conftest import (
     FakeSystemWithAqualink,
     app,
     invoke_with_jar,
+    make_switch,
     make_unsupported_system,
     render_plain,
 )
@@ -217,3 +218,57 @@ def test_status_saves_jar_after_device_load(tmp_path: Path) -> None:
     assert result.exit_code == 0
     data = json.loads(cookie_jar.read_text())
     assert data["client_id"] == "post-device-session"
+
+
+# ---------------------------------------------------------------------------
+# get command
+# ---------------------------------------------------------------------------
+
+
+def test_get_device_prints_state(tmp_path: Path) -> None:
+    switch = make_switch("Filter", is_on=True)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
+        }
+    )
+    result, _ = invoke_with_jar(tmp_path, "get", "filter")
+    assert result.exit_code == 0
+    assert "Filter" in result.output
+
+
+def test_get_device_saves_jar(tmp_path: Path) -> None:
+    switch = make_switch("Filter", is_on=True)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
+        }
+    )
+    result, cookie_jar = invoke_with_jar(tmp_path, "get", "filter")
+    assert result.exit_code == 0
+    data = json.loads(cookie_jar.read_text())
+    assert data["client_id"] == "post-device-session"
+
+
+# ---------------------------------------------------------------------------
+# logout command
+# ---------------------------------------------------------------------------
+
+
+def test_logout_removes_existing_jar(tmp_path: Path) -> None:
+    cookie_jar = tmp_path / "session.json"
+    cookie_jar.write_text("{}")
+    result = CliRunner().invoke(
+        app, ["logout", "--cookie-jar", str(cookie_jar)]
+    )
+    assert result.exit_code == 0
+    assert not cookie_jar.exists()
+
+
+def test_logout_missing_jar_prints_message(tmp_path: Path) -> None:
+    cookie_jar = tmp_path / "session.json"
+    result = CliRunner().invoke(
+        app, ["logout", "--cookie-jar", str(cookie_jar)]
+    )
+    assert result.exit_code == 0
+    assert "No session jar found" in result.output

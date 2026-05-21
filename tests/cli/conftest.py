@@ -265,9 +265,11 @@ def make_climate(
     label: str = "Heater",
     *,
     is_on: bool = True,
-    temperature_unit: str = "F",
+    temperature_unit: str = "°F",
     min_temp: int = 40,
     max_temp: int = 104,
+    current_temperature: int | None = None,
+    target_temperature: int | None = None,
 ) -> AqualinkClimate:
     m = create_autospec(AqualinkClimate, instance=True)
     m.label = m.name = label
@@ -276,4 +278,6 @@ def make_climate(
     m.temperature_unit = temperature_unit
     m.min_temp = min_temp
     m.max_temp = max_temp
+    m.current_temperature = current_temperature
+    m.target_temperature = target_temperature
     return m
