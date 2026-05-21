@@ -23,6 +23,13 @@ def test_format_device_line_climate_with_temps() -> None:
     assert "on" in text.plain
 
 
+def test_format_device_line_climate_cur_only_shows_cur() -> None:
+    thermostat = make_climate(current_temperature=78, is_on=True)
+    text = cli_module._format_device_line("heater", thermostat)
+    assert "78" in text.plain
+    assert "on" in text.plain
+
+
 def test_format_device_line_climate_without_temps_shows_on_off() -> None:
     thermostat = make_climate(is_on=False)
     text = cli_module._format_device_line("heater", thermostat)

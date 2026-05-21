@@ -219,7 +219,9 @@ class I2dFan(I2dDevice, AqualinkFan):
         rpm_max = self.rpm_max or _RPM_HARDWARE_MAX
         if rpm is None or rpm_max <= rpm_min:
             return None
-        return round((rpm - rpm_min) / (rpm_max - rpm_min) * 100)
+        return max(
+            0, min(100, round((rpm - rpm_min) / (rpm_max - rpm_min) * 100))
+        )
 
     async def _set_percentage(self, percentage: int) -> None:
         rpm_min = self.rpm_min or _RPM_HARDWARE_MIN_DEFAULT

@@ -226,6 +226,7 @@ def make_fan(
     supports_turn_on: bool = False,
     supports_turn_off: bool = False,
     supports_percentage: bool = False,
+    percentage: int | None = None,
     supports_presets: bool = False,
     presets: list[str] | None = None,
     preset_mode: str | None = None,
@@ -237,6 +238,7 @@ def make_fan(
     m.supports_turn_on = supports_turn_on
     m.supports_turn_off = supports_turn_off
     m.supports_percentage = supports_percentage
+    m.percentage = percentage
     m.supports_presets = supports_presets
     m.preset_modes = presets or []
     m.preset_mode = preset_mode
@@ -265,7 +267,7 @@ def make_climate(
     label: str = "Heater",
     *,
     is_on: bool = True,
-    temperature_unit: str = "°F",
+    temperature_unit: str = "F",
     min_temp: int = 40,
     max_temp: int = 104,
     current_temperature: int | None = None,

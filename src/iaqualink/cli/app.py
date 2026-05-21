@@ -314,6 +314,8 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
         unit = device.temperature_unit
         if cur is not None and tgt is not None:
             state_str = f"{cur}{unit} → {tgt}{unit} ({on_off})"
+        elif cur is not None:
+            state_str = f"{cur}{unit} ({on_off})"
         else:
             state_str = on_off
         translated = None

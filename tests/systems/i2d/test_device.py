@@ -216,6 +216,26 @@ class TestI2dFanPercentage(unittest.IsolatedAsyncioTestCase):
         )
         assert fan.percentage == 0
 
+    def test_clamped_to_100_when_rpm_above_max(self) -> None:
+        fan = _make_fan_with_data(
+            {
+                "customspeedrpm": "4000",
+                "globalrpmmin": "600",
+                "globalrpmmax": "3450",
+            }
+        )
+        assert fan.percentage == 100
+
+    def test_clamped_to_0_when_rpm_below_min(self) -> None:
+        fan = _make_fan_with_data(
+            {
+                "customspeedrpm": "100",
+                "globalrpmmin": "600",
+                "globalrpmmax": "3450",
+            }
+        )
+        assert fan.percentage == 0
+
 
 def _make_sensor(
     data: dict,
