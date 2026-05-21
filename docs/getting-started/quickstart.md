@@ -21,16 +21,18 @@ async with AqualinkClient('user@example.com', 'password') as client:
 ### Getting Devices
 
 ```python
+from iaqualink.device import AqualinkSensor, AqualinkSwitch
+
 # Get all devices for a system
 devices = await system.get_devices()
 
 # Access specific devices
 pool_temp = devices.get('pool_temp')
-if pool_temp:
-    print(f"Pool temperature: {pool_temp.state}°F")
+if isinstance(pool_temp, AqualinkSensor):
+    print(f"Pool temperature: {pool_temp.value}°F")
 
 spa_heater = devices.get('spa_heater')
-if spa_heater:
+if isinstance(spa_heater, AqualinkSwitch):
     print(f"Spa heater: {'ON' if spa_heater.is_on else 'OFF'}")
 ```
 
@@ -53,42 +55,46 @@ if spa_heater:
 #### Lights
 
 ```python
-# Toggle pool light
+from iaqualink.device import AqualinkLight
+
 pool_light = devices.get('aux_3')
-if pool_light:
-    await pool_light.toggle()
+if isinstance(pool_light, AqualinkLight):
+    await pool_light.turn_on()
 ```
 
 #### Thermostats
 
 ```python
+from iaqualink.device import AqualinkClimate
+
 # Set spa temperature
-spa_thermostat = devices.get('spa_set_point')
-if spa_thermostat:
-    await spa_thermostat.set_temperature(102)
+spa_heater = devices.get('spa_set_point')
+if isinstance(spa_heater, AqualinkClimate):
+    await spa_heater.set_temperature(102)
 
 # Set pool temperature
-pool_thermostat = devices.get('pool_set_point')
-if pool_thermostat:
-    await pool_thermostat.set_temperature(82)
+pool_heater = devices.get('pool_set_point')
+if isinstance(pool_heater, AqualinkClimate):
+    await pool_heater.set_temperature(82)
 ```
 
 ### Monitoring System Status
 
 ```python
-# Update system state
-await system.update()
+# Check if system is online
+from iaqualink import AqualinkSensor, SystemStatus
+
+# Refresh system state
+await system.refresh()
 
 # Check if system is online
-from iaqualink import SystemStatus
-
 if system.status is SystemStatus.ONLINE:
     print(f"System {system.name} is online")
 
     # Get all temperature readings
     for device_name, device in devices.items():
-        if 'temp' in device_name and device.state:
-            print(f"{device.label}: {device.state}°")
+        if isinstance(device, AqualinkSensor) and device.value:
+            print(f"{device.label}: {device.value}")
 ```
 
 ## Working with Multiple Systems
@@ -127,6 +133,7 @@ except AqualinkServiceException as e:
 
 ## Next Steps
 
+- [CLI Reference](cli.md) — command-line client for scripting and quick control
 - [API Reference](../api/client.md) — `AqualinkClient` class reference
 - [Architecture](../contributing/architecture.md) — system/device hierarchy and data flow
 - [Protocol Reference](../reference/client.md) — wire-level auth and endpoint details

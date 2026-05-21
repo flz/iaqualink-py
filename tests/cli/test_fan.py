@@ -47,6 +47,20 @@ def test_format_device_line_fan_no_controls_shows_dim() -> None:
     assert ": " not in text.plain
 
 
+def test_format_device_line_fan_preset_and_percentage() -> None:
+    fan = make_fan(
+        "VSP",
+        supports_presets=True,
+        presets=["CUSTOM"],
+        preset_mode="CUSTOM",
+        supports_percentage=True,
+        percentage=65,
+    )
+    text = cli_module._format_device_line("vsp", fan)
+    assert "CUSTOM" in text.plain
+    assert "65%" in text.plain
+
+
 # ---------------------------------------------------------------------------
 # turn-on / turn-off
 # ---------------------------------------------------------------------------

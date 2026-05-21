@@ -295,16 +295,35 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
         state_str: str | None = device.value
         translated: str | None = device.value_translated
     elif isinstance(device, AqualinkFan):
-        if device.supports_presets:
-            state_str = device.preset_mode
-        elif device.supports_turn_on or device.supports_turn_off:
-            state_str = "on" if device.is_on else "off"
+        parts: list[str] = []
+        if device.supports_presets and device.preset_mode:
+            parts.append(device.preset_mode)
+        if device.supports_percentage:
+            pct = device.percentage
+            if pct is not None:
+                parts.append(f"{pct}%")
+        if not parts:
+            if device.supports_turn_on or device.supports_turn_off:
+                parts.append("on" if device.is_on else "off")
+        state_str = " / ".join(parts) if parts else None
+        translated = None
+    elif isinstance(device, AqualinkClimate):
+        if device.is_on:
+            cur = device.current_temperature
+            tgt = device.target_temperature
+            unit = f"°{device.temperature_unit}"
+            if cur is not None and tgt is not None:
+                state_str = f"{cur}{unit} → {tgt}{unit} (on)"
+            elif cur is not None:
+                state_str = f"{cur}{unit} (on)"
+            else:
+                state_str = "on"
         else:
-            state_str = None
+            state_str = "off"
         translated = None
     elif isinstance(
         device,
-        (AqualinkSwitch, AqualinkBinarySensor, AqualinkLight, AqualinkClimate),
+        (AqualinkSwitch, AqualinkBinarySensor, AqualinkLight),
     ):
         state_str = "on" if device.is_on else "off"
         translated = None
@@ -312,7 +331,7 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
         cv = device.current_value
         if cv is not None:
             unit = device.unit_of_measurement
-            state_str = f"{int(cv)} {unit}" if unit else str(int(cv))
+            state_str = f"{cv:g} {unit}" if unit else f"{cv:g}"
         else:
             state_str = None
         translated = None
@@ -732,7 +751,7 @@ async def _set_temperature(
     t.append("Set ")
     t.append(device.label, style="bold")
     t.append(f" [{device_name}]", style="dim")
-    t.append(f" to {temperature}{device.temperature_unit} on ")
+    t.append(f" to {temperature}°{device.temperature_unit} on ")
     t.append_text(_format_system_line(system))
     return t
 
@@ -1030,3 +1049,47 @@ def set_value(
             _set_number_value(credentials, system, device, value, cookie_jar)
         )
     )
+
+
+async def _get_device_state(
+    credentials: Credentials,
+    system_selector: str | None,
+    device_selector: str,
+    cookie_jar: Path,
+) -> Text:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_system(systems, system_selector)
+    devices = await _load_devices_for_system(system)
+    device_name, device = _resolve_device(devices, device_selector)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
+    return _format_device_line(device_name, device)
+
+
+@app.command("get")
+def get(
+    device: DeviceArgument,
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    """Print the current state of a single device."""
+    credentials = _resolve_credentials(username, password, config)
+    _console.print(
+        _run_async(_get_device_state(credentials, system, device, cookie_jar))
+    )
+
+
+@app.command("logout")
+def logout(
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    """Remove the saved session cookie jar and force fresh authentication."""
+    if cookie_jar.exists():
+        cookie_jar.unlink()
+        _console.print(
+            f"[bold green]✓[/bold green] Removed session jar {cookie_jar}"
+        )
+    else:
+        _console.print(f"[dim]No session jar found at {cookie_jar}[/dim]")

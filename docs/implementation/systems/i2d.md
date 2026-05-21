@@ -66,7 +66,9 @@ RPM numbers (except `globalrpmmin`/`globalrpmmax`) use `globalrpmmin`/`globalrpm
 - Non-SVRS products: 600 RPM
 - SVRS products (0F/18): 1050 RPM
 
-Speed percentage mapping: `set_speed_percentage(0–100)` normalises to the hardware RPM range, rounded to the nearest 25 RPM.
+Speed percentage read: `I2dFan.percentage` computes `round((rpm - rpm_min) / (rpm_max - rpm_min) * 100)` from `customspeedrpm` and the global RPM bounds. Returns `None` if `customspeedrpm` is absent or bounds are degenerate (`rpm_max <= rpm_min`).
+
+Speed percentage write: `set_percentage(0–100)` normalises to the hardware RPM range, rounded to the nearest 25 RPM.
 
 ### Period/timer numbers
 
