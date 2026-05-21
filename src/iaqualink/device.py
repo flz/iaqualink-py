@@ -1,5 +1,16 @@
 from __future__ import annotations
 
+__all__ = [
+    "AqualinkBinarySensor",
+    "AqualinkClimate",
+    "AqualinkDevice",
+    "AqualinkFan",
+    "AqualinkLight",
+    "AqualinkNumber",
+    "AqualinkSensor",
+    "AqualinkSwitch",
+]
+
 import logging
 import math
 from abc import ABC, abstractmethod

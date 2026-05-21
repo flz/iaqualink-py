@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__all__ = ["AqualinkAuthState", "AqualinkClient"]
+
 import asyncio
 import importlib
 import json
@@ -250,7 +252,7 @@ class AqualinkClient:
         if r.status_code != httpx.codes.OK:
             try:
                 _err_body = redact_value(json.loads(r.text))
-            except (json.JSONDecodeError, TypeError):
+            except (json.JSONDecodeError, TypeError):  # fmt: skip
                 _err_body = r.text
             LOGGER.debug("<- body: %s", _err_body)
             m = f"Unexpected response: {r.status_code} {r.reason_phrase}"
