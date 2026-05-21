@@ -10,27 +10,25 @@ from typing import IO, Any
 
 import httpx
 
+from iaqualink.const import AQUALINK_LOGIN_URL, AQUALINK_REFRESH_URL
 from iaqualink.utils.redact import (
-    REDACT_KEYS,
+    REDACT_KEYS_CI,
     mask_serial,
     redact_dict,
     redact_url,
     redact_value,
 )
 
-# Fields redacted only in capture output (safe to show in debug logs).
-# "state" is PII in user-profile context but is the universal device on/off
-# field in device API responses — keeping it in REDACT_KEYS would redact
-# device state throughout debug logging and make captures useless for
-# diagnosing device issues.
-# "username" is the email used for login; auth INFO events now mask it via
-# mask_email(), but it stays capture-only so device state bodies aren't affected.
-_CAPTURE_EXTRA_KEYS: frozenset[str] = frozenset(
-    {"set-cookie", "state", "username"}
-)
+# "state" is PII (user address field) in auth responses but is the universal
+# device on/off field in device API responses. Auth responses are never logged
+# by the library, so REDACT_KEYS omits it to keep device debug logs useful.
+# Capture writes all responses to disk, so auth responses need extra redaction.
+_AUTH_EXTRA_KEYS_CI: frozenset[str] = frozenset({"state"})
 
-_CAPTURE_KEYS_CI: frozenset[str] = frozenset(
-    k.lower() for k in (*REDACT_KEYS, *_CAPTURE_EXTRA_KEYS)
+_AUTH_CAPTURE_KEYS_CI: frozenset[str] = REDACT_KEYS_CI | _AUTH_EXTRA_KEYS_CI
+
+_AUTH_URLS: frozenset[str] = frozenset(
+    {AQUALINK_LOGIN_URL, AQUALINK_REFRESH_URL}
 )
 
 
@@ -75,6 +73,11 @@ class CaptureSession:
         await response.aread()
         request = response.request
 
+        url_str = str(request.url)
+        keys_ci = (
+            _AUTH_CAPTURE_KEYS_CI if url_str in _AUTH_URLS else REDACT_KEYS_CI
+        )
+
         req_body: Any = None
         if request.content:
             try:
@@ -85,7 +88,7 @@ class CaptureSession:
                 )
 
         if isinstance(req_body, (dict, list)):
-            req_body = redact_value(req_body, _CAPTURE_KEYS_CI)
+            req_body = redact_value(req_body, keys_ci)
 
         try:
             resp_body: Any = response.json()
@@ -93,7 +96,7 @@ class CaptureSession:
             resp_body = response.text or None
 
         if isinstance(resp_body, (dict, list)):
-            resp_body = redact_value(resp_body, _CAPTURE_KEYS_CI)
+            resp_body = redact_value(resp_body, keys_ci)
 
         entry = {
             "timestamp": datetime.datetime.now(
@@ -101,16 +104,14 @@ class CaptureSession:
             ).isoformat(),
             "request": {
                 "method": request.method,
-                "url": self._redact_url(str(request.url)),
-                "headers": redact_dict(dict(request.headers), _CAPTURE_KEYS_CI),
+                "url": self._redact_url(url_str),
+                "headers": redact_dict(dict(request.headers), keys_ci),
                 "body": req_body,
             },
             "response": {
                 "status_code": response.status_code,
                 "reason": response.reason_phrase,
-                "headers": redact_dict(
-                    dict(response.headers), _CAPTURE_KEYS_CI
-                ),
+                "headers": redact_dict(dict(response.headers), keys_ci),
                 "body": resp_body,
             },
         }

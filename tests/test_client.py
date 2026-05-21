@@ -747,7 +747,8 @@ class TestAqualinkAuthStateRepr(TestBase):
             refresh_token="refresh-tok",
         )
         r = repr(state)
-        assert "user@example.com" in r  # username visible for auth log triage
+        assert "user@example.com" not in r  # partially masked
+        assert "@" in r  # still identifiable as email for auth log triage
         assert "42" not in r
         assert "session-id" not in r
         assert "auth-tok" not in r

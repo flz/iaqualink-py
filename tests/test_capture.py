@@ -395,3 +395,62 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         assert "response" in hooks
         assert len(hooks["response"]) == 1
         assert hooks["response"][0] == session._capture_response
+
+    async def test_state_redacted_in_auth_response(self) -> None:
+        # "state" is a user-profile PII field (address state) in auth responses.
+        session = CaptureSession(path=self._path)
+        request = _make_request(
+            "POST",
+            "https://prod.zodiac-io.com/users/v1/login",
+            body={"email": "u@example.com", "password": "hunter2"},
+        )
+        response = _make_response(
+            request,
+            200,
+            {"id": 1, "state": "CA", "username": "u@example.com"},
+        )
+
+        await session._capture_response(response)
+        session.close()
+
+        body = self._load_lines()[0]["response"]["body"]
+        assert body["state"] == "***"
+
+    async def test_state_visible_in_device_response(self) -> None:
+        # "state" in device responses is the on/off field — must not be redacted.
+        session = CaptureSession(path=self._path)
+        request = _make_request(
+            "GET",
+            "https://r-api.iaqualink.net/v2/devices/SERIAL/control.json",
+        )
+        response = _make_response(
+            request,
+            200,
+            {"devices_screen": [{"name": "Pool Pump", "state": "1"}]},
+        )
+
+        await session._capture_response(response)
+        session.close()
+
+        body = self._load_lines()[0]["response"]["body"]
+        assert body["devices_screen"][0]["state"] == "1"
+
+    async def test_username_redacted_in_auth_response(self) -> None:
+        session = CaptureSession(path=self._path)
+        request = _make_request(
+            "POST",
+            "https://prod.zodiac-io.com/users/v1/login",
+        )
+        response = _make_response(
+            request,
+            200,
+            {"username": "florent@example.com", "state": "CA"},
+        )
+
+        await session._capture_response(response)
+        session.close()
+
+        body = self._load_lines()[0]["response"]["body"]
+        # username gets mask_email() treatment — partial mask, not full ***
+        assert "@" in body["username"]
+        assert "florent" not in body["username"]
