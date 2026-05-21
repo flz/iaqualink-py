@@ -12,7 +12,7 @@ from iaqualink.exception import (
     AqualinkServiceThrottledException,
     _AqualinkOfflineSignal,
 )
-from iaqualink.reauth import send_with_reauth_retry
+from iaqualink.utils.reauth import send_with_reauth_retry
 from iaqualink.utils.redact import mask_serial
 
 if TYPE_CHECKING:

@@ -84,7 +84,7 @@ private `_set_*` methods that concrete classes implement.
 
 ### 4. Utilities
 
-**Location:** `src/iaqualink/util.py`
+**Location:** `src/iaqualink/utils/crypto.py`
 
 Shared HMAC-SHA1 helpers.
 
@@ -218,7 +218,9 @@ tests/
 ├── test_client.py
 ├── test_system.py
 ├── test_device.py
-├── test_util.py
+├── utils/
+│   ├── test_crypto.py
+│   └── test_redact.py
 └── systems/
     ├── iaqua/
     │   ├── base_test_system.py   # Abstract tests — new system types must subclass these

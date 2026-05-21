@@ -27,9 +27,9 @@ from iaqualink.exception import (
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
 )
-from iaqualink.reauth import send_with_reauth_retry
 from iaqualink.system import AqualinkSystem
-from iaqualink.util import sign
+from iaqualink.utils.crypto import sign
+from iaqualink.utils.reauth import send_with_reauth_retry
 from iaqualink.utils.redact import (
     REDACT_KEYS,
     mask_email,
