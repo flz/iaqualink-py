@@ -418,8 +418,9 @@ class IaquaClimate(IaquaSwitch, AqualinkClimate):
         return cast(IaquaSensor, self.system.devices[f"{self._type}_temp"])
 
     @property
-    def current_temperature(self) -> str:
-        return self._sensor.value
+    def current_temperature(self) -> str | None:
+        value = self._sensor.value
+        return value if value else None
 
     @property
     def target_temperature(self) -> str:

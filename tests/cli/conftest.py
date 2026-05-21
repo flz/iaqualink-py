@@ -226,6 +226,7 @@ def make_fan(
     supports_turn_on: bool = False,
     supports_turn_off: bool = False,
     supports_percentage: bool = False,
+    percentage: int | None = None,
     supports_presets: bool = False,
     presets: list[str] | None = None,
     preset_mode: str | None = None,
@@ -237,6 +238,7 @@ def make_fan(
     m.supports_turn_on = supports_turn_on
     m.supports_turn_off = supports_turn_off
     m.supports_percentage = supports_percentage
+    m.percentage = percentage
     m.supports_presets = supports_presets
     m.preset_modes = presets or []
     m.preset_mode = preset_mode
@@ -268,6 +270,8 @@ def make_climate(
     temperature_unit: str = "F",
     min_temp: int = 40,
     max_temp: int = 104,
+    current_temperature: str | None = None,
+    target_temperature: str | None = None,
 ) -> AqualinkClimate:
     m = create_autospec(AqualinkClimate, instance=True)
     m.label = m.name = label
@@ -276,4 +280,6 @@ def make_climate(
     m.temperature_unit = temperature_unit
     m.min_temp = min_temp
     m.max_temp = max_temp
+    m.current_temperature = current_temperature
+    m.target_temperature = target_temperature
     return m

@@ -142,6 +142,7 @@ All devices inherit these properties from `AqualinkDevice`:
 | `preset_modes` | `list[str]` | Available preset names |
 | `supports_presets` | `bool` | `True` if preset modes are available |
 | `set_preset_mode(preset_mode)` | async | Activate a preset (validates name) |
+| `percentage` | `int \| None` | Current speed as a percentage (0–100); `None` if unavailable |
 | `supports_percentage` | `bool` | `True` if speed percentage control is available |
 | `set_percentage(percentage)` | async | Set speed 0–100% (validates range) |
 

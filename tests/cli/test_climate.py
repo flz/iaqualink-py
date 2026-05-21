@@ -3,12 +3,46 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import iaqualink.cli.app as cli_module
+
 from .conftest import (
     FakeClient,
     FakeSystemWithAqualink,
     invoke_with_jar,
     make_climate,
 )
+
+
+def test_format_device_line_climate_with_temps() -> None:
+    thermostat = make_climate(
+        current_temperature="78", target_temperature="82", is_on=True
+    )
+    text = cli_module._format_device_line("heater", thermostat)
+    assert "78°F" in text.plain
+    assert "82°F" in text.plain
+    assert "on" in text.plain
+
+
+def test_format_device_line_climate_cur_only_shows_cur() -> None:
+    thermostat = make_climate(current_temperature="78", is_on=True)
+    text = cli_module._format_device_line("heater", thermostat)
+    assert "78°F" in text.plain
+    assert "on" in text.plain
+
+
+def test_format_device_line_climate_off_hides_temps() -> None:
+    thermostat = make_climate(
+        current_temperature="86", target_temperature="86", is_on=False
+    )
+    text = cli_module._format_device_line("heater", thermostat)
+    assert "off" in text.plain
+    assert "86" not in text.plain
+
+
+def test_format_device_line_climate_without_temps_shows_on_off() -> None:
+    thermostat = make_climate(is_on=False)
+    text = cli_module._format_device_line("heater", thermostat)
+    assert "off" in text.plain
 
 
 def test_set_temperature_saves_jar_after_command(tmp_path: Path) -> None:

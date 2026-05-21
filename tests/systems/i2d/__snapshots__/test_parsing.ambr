@@ -4,6 +4,7 @@
     'ABC123': dict({
       'is_on': True,
       'label': 'IQPump',
+      'percentage': 32,
       'preset_mode': 'SCHEDULE',
       'preset_modes': list([
         'SCHEDULE',

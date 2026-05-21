@@ -215,13 +215,13 @@ class AqualinkClimate(AqualinkDevice):
 
     @property
     @abstractmethod
-    def current_temperature(self) -> str:
-        """Current measured temperature."""
+    def current_temperature(self) -> str | None:
+        """Current measured temperature, or None if unavailable."""
 
     @property
     @abstractmethod
-    def target_temperature(self) -> str:
-        """Desired set-point temperature."""
+    def target_temperature(self) -> str | None:
+        """Desired set-point temperature, or None if unavailable."""
 
     @property
     @abstractmethod
@@ -368,6 +368,11 @@ class AqualinkFan(AqualinkDevice):
     @property
     def supports_percentage(self) -> bool:
         return False
+
+    @property
+    def percentage(self) -> int | None:
+        """Current speed as a percentage (0–100), or None if unknown."""
+        return None
 
     async def _set_percentage(self, percentage: int) -> None:
         """Send the speed percentage to the device."""

@@ -157,6 +157,86 @@ class TestI2dFanContract(TestBaseFan):
         self.respx_calls = respx_mock.calls[:]
 
 
+def _make_fan_with_data(data: dict) -> I2dFan:
+    system = I2dSystem.from_data(MagicMock(), _CONTRACT_SYSTEM_DATA)
+    return I2dFan(system, data)
+
+
+class TestI2dFanPercentage(unittest.IsolatedAsyncioTestCase):
+    def test_mid_range(self) -> None:
+        fan = _make_fan_with_data(
+            {
+                "customspeedrpm": "1500",
+                "globalrpmmin": "600",
+                "globalrpmmax": "3450",
+            }
+        )
+        assert fan.percentage == 32  # (1500-600)/(3450-600)*100 = 31.57 → 32
+
+    def test_at_min(self) -> None:
+        fan = _make_fan_with_data(
+            {
+                "customspeedrpm": "600",
+                "globalrpmmin": "600",
+                "globalrpmmax": "3450",
+            }
+        )
+        assert fan.percentage == 0
+
+    def test_at_max(self) -> None:
+        fan = _make_fan_with_data(
+            {
+                "customspeedrpm": "3450",
+                "globalrpmmin": "600",
+                "globalrpmmax": "3450",
+            }
+        )
+        assert fan.percentage == 100
+
+    def test_none_when_rpm_missing(self) -> None:
+        fan = _make_fan_with_data(
+            {"globalrpmmin": "600", "globalrpmmax": "3450"}
+        )
+        assert fan.percentage is None
+
+    def test_none_when_min_equals_max(self) -> None:
+        fan = _make_fan_with_data(
+            {
+                "customspeedrpm": "1500",
+                "globalrpmmin": "1500",
+                "globalrpmmax": "1500",
+            }
+        )
+        assert fan.percentage is None
+
+    def test_uses_hardware_default_min_when_key_absent(self) -> None:
+        # rpm_min defaults to _RPM_HARDWARE_MIN_DEFAULT (600) when globalrpmmin absent
+        fan = _make_fan_with_data(
+            {"customspeedrpm": "600", "globalrpmmax": "3450"}
+        )
+        assert fan.percentage == 0
+
+    def test_clamped_to_100_when_rpm_above_max(self) -> None:
+        fan = _make_fan_with_data(
+            {
+                "customspeedrpm": "4000",
+                "globalrpmmin": "600",
+                "globalrpmmax": "3450",
+            }
+        )
+        assert fan.percentage == 100
+
+    def test_clamped_to_0_when_rpm_below_min(self) -> None:
+        fan = _make_fan_with_data(
+            {
+                "customspeedrpm": "100",
+                "globalrpmmin": "600",
+                "globalrpmmax": "3450",
+            }
+        )
+        assert fan.percentage == 0
+
+
 def _make_sensor(
     data: dict,
     key: str = "speed",
