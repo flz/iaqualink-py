@@ -90,7 +90,9 @@ class AqualinkAuthState:
 
     def __repr__(self) -> str:
         parts = ", ".join(
-            f"{f.name}=***"
+            f"{f.name}={mask_email(getattr(self, f.name))}"
+            if f.name == "username"
+            else f"{f.name}=***"
             if f.name in REDACT_KEYS
             else f"{f.name}={getattr(self, f.name)!r}"
             for f in dataclass_fields(self)
