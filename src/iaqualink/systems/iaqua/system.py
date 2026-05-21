@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.system import AqualinkSystem, SystemStatus
@@ -13,6 +13,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaDimmableLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
+    IaquaSetPoint,
     light_subtype_to_class,
 )
 from iaqualink.systems.iaqua.enums import (
@@ -190,10 +191,23 @@ class IaquaSystem(AqualinkSystem):
             if name in self.devices:
                 self.devices[name].data["state"] = state
             else:
-                if device_class is IaquaClimate and not state:
+                if device_class is IaquaSetPoint and not state:
                     continue
                 self.devices[name] = device_class(
                     self, {"name": name, "state": state}
+                )
+
+        for prefix in ("pool", "spa"):
+            sp_key = f"{prefix}_set_point"
+            htr_key = f"{prefix}_heater"
+            therm_key = f"{prefix}_thermostat"
+            if (
+                sp_key in self.devices
+                and htr_key in self.devices
+                and therm_key not in self.devices
+            ):
+                self.devices[therm_key] = IaquaClimate(
+                    self, {"name": therm_key}
                 )
 
     def _parse_devices_response(self, response: httpx.Response) -> None:
@@ -251,15 +265,18 @@ class IaquaSystem(AqualinkSystem):
         self._parse_home_response(r)
 
     async def set_temps(self, temps: Payload) -> None:
-        # I'm not proud of this. If you read this, please submit a PR to make it better.
-        # We need to pass the temperatures for both pool and spa (if present) in the same request.
-        # Set args to current target temperatures and override with the request payload.
-        args = {}
+        # Both pool and spa temperatures must be sent together in one request.
+        # Seed args with current set-point values then apply the caller's override.
+        args: Payload = {}
         i = 1
         if "spa_set_point" in self.devices:
-            args[f"temp{i}"] = self.devices["spa_set_point"].target_temperature
+            args[f"temp{i}"] = cast(
+                IaquaSetPoint, self.devices["spa_set_point"]
+            ).state
             i += 1
-        args[f"temp{i}"] = self.devices["pool_set_point"].target_temperature
+        args[f"temp{i}"] = cast(
+            IaquaSetPoint, self.devices["pool_set_point"]
+        ).state
         args.update(temps)
 
         r = await self._send_session_request(IAQUA_COMMAND_SET_TEMPS, args)

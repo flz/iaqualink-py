@@ -13,7 +13,7 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.iaqua.device import IaquaOneTouchSwitch
+from iaqualink.systems.iaqua.device import IaquaClimate, IaquaOneTouchSwitch
 from iaqualink.systems.iaqua.enums import IaquaSystemType, IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import (
     IAQUA_COMMAND_SET_ONETOUCH,
@@ -687,3 +687,47 @@ class TestIaquaSystem(TestBaseSystem):
         headers = mock_request.call_args[1]["headers"]
         assert headers["Authorization"] == "Bearer test-id-token"
         assert headers["api_key"] == AQUALINK_API_KEY
+
+    def _home_response(self, extra: list[dict]) -> MagicMock:
+        message = {
+            "home_screen": [
+                {"status": "Online"},
+                {"response": ""},
+                {"system_type": "1"},
+                {"temp_scale": "F"},
+                *extra,
+            ],
+        }
+        r = MagicMock()
+        r.json.return_value = message
+        return r
+
+    async def test_parse_home_creates_pool_thermostat(self) -> None:
+        r = self._home_response(
+            [{"pool_set_point": "86"}, {"pool_heater": "0"}]
+        )
+        self.sut._parse_home_response(r)
+        assert "pool_thermostat" in self.sut.devices
+        assert isinstance(self.sut.devices["pool_thermostat"], IaquaClimate)
+
+    async def test_parse_home_creates_spa_thermostat(self) -> None:
+        r = self._home_response([{"spa_set_point": "102"}, {"spa_heater": "0"}])
+        self.sut._parse_home_response(r)
+        assert "spa_thermostat" in self.sut.devices
+        assert isinstance(self.sut.devices["spa_thermostat"], IaquaClimate)
+
+    async def test_parse_home_no_thermostat_without_heater(self) -> None:
+        r = self._home_response([{"pool_set_point": "86"}])
+        self.sut._parse_home_response(r)
+        assert "pool_thermostat" not in self.sut.devices
+
+    async def test_parse_home_thermostat_not_duplicated_on_reparse(
+        self,
+    ) -> None:
+        r = self._home_response(
+            [{"pool_set_point": "86"}, {"pool_heater": "0"}]
+        )
+        self.sut._parse_home_response(r)
+        first = self.sut.devices["pool_thermostat"]
+        self.sut._parse_home_response(r)
+        assert self.sut.devices["pool_thermostat"] is first
