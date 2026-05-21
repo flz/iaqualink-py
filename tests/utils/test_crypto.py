@@ -4,7 +4,7 @@ import unittest
 
 import pytest
 
-from iaqualink.util import sign
+from iaqualink.utils.crypto import sign
 
 
 class TestSign(unittest.TestCase):
