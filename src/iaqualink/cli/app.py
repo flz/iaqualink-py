@@ -311,7 +311,7 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
         on_off = "on" if device.is_on else "off"
         cur = device.current_temperature
         tgt = device.target_temperature
-        unit = device.temperature_unit
+        unit = f"°{device.temperature_unit}"
         if cur is not None and tgt is not None:
             state_str = f"{cur}{unit} → {tgt}{unit} ({on_off})"
         elif cur is not None:
@@ -749,7 +749,7 @@ async def _set_temperature(
     t.append("Set ")
     t.append(device.label, style="bold")
     t.append(f" [{device_name}]", style="dim")
-    t.append(f" to {temperature}{device.temperature_unit} on ")
+    t.append(f" to {temperature}°{device.temperature_unit} on ")
     t.append_text(_format_system_line(system))
     return t
 

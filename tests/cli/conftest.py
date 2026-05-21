@@ -270,8 +270,8 @@ def make_climate(
     temperature_unit: str = "F",
     min_temp: int = 40,
     max_temp: int = 104,
-    current_temperature: int | None = None,
-    target_temperature: int | None = None,
+    current_temperature: str | None = None,
+    target_temperature: str | None = None,
 ) -> AqualinkClimate:
     m = create_autospec(AqualinkClimate, instance=True)
     m.label = m.name = label

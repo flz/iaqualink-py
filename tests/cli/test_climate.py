@@ -15,18 +15,18 @@ from .conftest import (
 
 def test_format_device_line_climate_with_temps() -> None:
     thermostat = make_climate(
-        current_temperature=78, target_temperature=82, is_on=True
+        current_temperature="78", target_temperature="82", is_on=True
     )
     text = cli_module._format_device_line("heater", thermostat)
-    assert "78" in text.plain
-    assert "82" in text.plain
+    assert "78°F" in text.plain
+    assert "82°F" in text.plain
     assert "on" in text.plain
 
 
 def test_format_device_line_climate_cur_only_shows_cur() -> None:
-    thermostat = make_climate(current_temperature=78, is_on=True)
+    thermostat = make_climate(current_temperature="78", is_on=True)
     text = cli_module._format_device_line("heater", thermostat)
-    assert "78" in text.plain
+    assert "78°F" in text.plain
     assert "on" in text.plain
 
 

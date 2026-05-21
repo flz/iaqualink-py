@@ -215,13 +215,13 @@ class AqualinkClimate(AqualinkDevice):
 
     @property
     @abstractmethod
-    def current_temperature(self) -> str:
-        """Current measured temperature."""
+    def current_temperature(self) -> str | None:
+        """Current measured temperature, or None if unavailable."""
 
     @property
     @abstractmethod
-    def target_temperature(self) -> str:
-        """Desired set-point temperature."""
+    def target_temperature(self) -> str | None:
+        """Desired set-point temperature, or None if unavailable."""
 
     @property
     @abstractmethod
