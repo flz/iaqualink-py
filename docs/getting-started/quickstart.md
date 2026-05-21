@@ -80,7 +80,7 @@ if pool_thermostat:
 await system.update()
 
 # Check if system is online
-from iaqualink.system import SystemStatus
+from iaqualink import SystemStatus
 
 if system.status is SystemStatus.ONLINE:
     print(f"System {system.name} is online")
@@ -110,8 +110,8 @@ async with AqualinkClient('user@example.com', 'password') as client:
 ## Error Handling
 
 ```python
-from iaqualink import (
-    AqualinkClient,
+from iaqualink import AqualinkClient
+from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceUnauthorizedException,
 )

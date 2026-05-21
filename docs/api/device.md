@@ -241,7 +241,7 @@ for name, device in devices.items():
     print(f"{name}: {device.label}")
 
 # Filter by type
-from iaqualink.device import AqualinkSensor
+from iaqualink import AqualinkSensor
 sensors = {k: v for k, v in devices.items() if isinstance(v, AqualinkSensor)}
 ```
 

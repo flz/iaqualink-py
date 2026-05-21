@@ -46,10 +46,8 @@ AqualinkException (base)
 ### Basic Error Handling
 
 ```python
-from iaqualink import (
-    AqualinkClient,
-    AqualinkException,
-)
+from iaqualink import AqualinkClient
+from iaqualink.exception import AqualinkException
 
 try:
     async with AqualinkClient(username, password) as client:
@@ -64,8 +62,7 @@ System availability is exposed through `system.status` rather than exceptions.
 Check it after `refresh()` before interacting with devices:
 
 ```python
-from iaqualink import AqualinkClient
-from iaqualink.system import SystemStatus
+from iaqualink import AqualinkClient, SystemStatus
 
 async with AqualinkClient(username, password) as client:
     systems = await client.get_systems()
@@ -82,7 +79,7 @@ async with AqualinkClient(username, password) as client:
 
 ```python
 import asyncio
-from iaqualink import AqualinkServiceException
+from iaqualink.exception import AqualinkServiceException
 
 async def refresh_with_retry(system, max_retries=3):
     for attempt in range(max_retries):
@@ -101,7 +98,7 @@ async def refresh_with_retry(system, max_retries=3):
 ### Graceful Degradation
 
 ```python
-from iaqualink.system import SystemStatus
+from iaqualink import SystemStatus
 
 async def get_system_status(system):
     await system.refresh()
@@ -176,7 +173,7 @@ finally:
 ### Catch Specific Exceptions
 
 ```python
-from iaqualink import AqualinkServiceUnauthorizedException, AqualinkServiceException
+from iaqualink.exception import AqualinkServiceUnauthorizedException, AqualinkServiceException
 
 # Good - handle specific errors
 try:
