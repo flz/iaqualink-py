@@ -120,8 +120,8 @@ def redact_url(url: str) -> str:
 
 
 def redact_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
-    # Always uses base REDACT_KEYS_CI. Capture callers use redact_dict() directly
-    # with _CAPTURE_KEYS_CI so this path does not need a keys_ci parameter.
+    # Always uses base REDACT_KEYS_CI. Capture uses URL-aware key sets via
+    # redact_dict() / redact_value() directly, so no keys_ci parameter needed.
     out = dict(kwargs)
     for key in ("json", "params", "data"):
         if key in out and isinstance(out[key], dict):

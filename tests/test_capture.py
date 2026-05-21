@@ -435,7 +435,10 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         body = self._load_lines()[0]["response"]["body"]
         assert body["devices_screen"][0]["state"] == "1"
 
-    async def test_username_redacted_in_auth_response(self) -> None:
+    async def test_auth_url_applies_extended_key_set(self) -> None:
+        # Verifies URL dispatch: auth URL → _AUTH_CAPTURE_KEYS_CI (includes state).
+        # username is masked unconditionally via _EMAIL_KEYS; state being redacted
+        # proves the auth key set (not just REDACT_KEYS_CI) was selected.
         session = CaptureSession(path=self._path)
         request = _make_request(
             "POST",
@@ -451,6 +454,6 @@ class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
         session.close()
 
         body = self._load_lines()[0]["response"]["body"]
-        # username gets mask_email() treatment — partial mask, not full ***
+        assert body["state"] == "***"
         assert "@" in body["username"]
         assert "florent" not in body["username"]
