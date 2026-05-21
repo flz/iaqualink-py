@@ -23,7 +23,7 @@ async with AqualinkClient(username, password) as client:
 await system.update()
 
 # Check if online
-from iaqualink.system import SystemStatus
+from iaqualink import SystemStatus
 
 if system.status is SystemStatus.ONLINE:
     print(f"System {system.name} is online")

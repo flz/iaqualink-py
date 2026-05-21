@@ -41,7 +41,7 @@ Key rules:
 
 ```python
 # src/iaqualink/systems/newsystem/device.py
-from iaqualink.device import AqualinkDevice, AqualinkSwitch, AqualinkThermostat
+from iaqualink.device import AqualinkDevice, AqualinkSwitch, AqualinkClimate
 
 class NewDevice(AqualinkDevice):
     """Base device for new system."""

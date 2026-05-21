@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+__all__ = ["AqualinkSystem", "SystemStatus", "UnsupportedSystem"]
+
 import enum
 import logging
 from collections.abc import Awaitable, Callable

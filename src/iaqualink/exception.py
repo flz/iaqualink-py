@@ -1,5 +1,15 @@
 from __future__ import annotations
 
+__all__ = [
+    "AqualinkException",
+    "AqualinkInvalidParameterException",
+    "AqualinkOperationNotSupportedException",
+    "AqualinkServiceException",
+    "AqualinkServiceThrottledException",
+    "AqualinkServiceUnauthorizedException",
+    "AqualinkStateUnavailableException",
+]
+
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:

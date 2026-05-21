@@ -81,8 +81,8 @@ if isinstance(pool_heater, AqualinkClimate):
 ### Monitoring System Status
 
 ```python
-from iaqualink.device import AqualinkSensor
-from iaqualink.system import SystemStatus
+# Check if system is online
+from iaqualink import AqualinkSensor, SystemStatus
 
 # Refresh system state
 await system.refresh()
@@ -116,8 +116,8 @@ async with AqualinkClient('user@example.com', 'password') as client:
 ## Error Handling
 
 ```python
-from iaqualink import (
-    AqualinkClient,
+from iaqualink import AqualinkClient
+from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceUnauthorizedException,
 )
