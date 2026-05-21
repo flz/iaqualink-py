@@ -308,16 +308,18 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
         state_str = " / ".join(parts) if parts else None
         translated = None
     elif isinstance(device, AqualinkClimate):
-        on_off = "on" if device.is_on else "off"
-        cur = device.current_temperature
-        tgt = device.target_temperature
-        unit = f"°{device.temperature_unit}"
-        if cur is not None and tgt is not None:
-            state_str = f"{cur}{unit} → {tgt}{unit} ({on_off})"
-        elif cur is not None:
-            state_str = f"{cur}{unit} ({on_off})"
+        if device.is_on:
+            cur = device.current_temperature
+            tgt = device.target_temperature
+            unit = f"°{device.temperature_unit}"
+            if cur is not None and tgt is not None:
+                state_str = f"{cur}{unit} → {tgt}{unit} (on)"
+            elif cur is not None:
+                state_str = f"{cur}{unit} (on)"
+            else:
+                state_str = "on"
         else:
-            state_str = on_off
+            state_str = "off"
         translated = None
     elif isinstance(
         device,

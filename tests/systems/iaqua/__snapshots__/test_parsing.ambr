@@ -261,7 +261,7 @@
       'value_translated': None,
     }),
     'spa_set_point': dict({
-      'current_temperature': '',
+      'current_temperature': None,
       'is_on': False,
       'label': 'Spa Set Point',
       'target_temperature': '54',
@@ -379,7 +379,7 @@
       'value_translated': None,
     }),
     'spa_set_point': dict({
-      'current_temperature': '',
+      'current_temperature': None,
       'is_on': False,
       'label': 'Spa Set Point',
       'target_temperature': '54',
