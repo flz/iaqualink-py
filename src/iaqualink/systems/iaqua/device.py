@@ -59,10 +59,11 @@ class IaquaDevice(AqualinkDevice):
 
     @property
     def label(self) -> str:
+        if fixed := _HOME_DEVICE_LABELS.get(self.name):
+            return fixed
         if "label" in self.data:
             label = self.data["label"]
             return " ".join([x.capitalize() for x in label.split()])
-
         label = self.data["name"]
         return " ".join([x.capitalize() for x in label.split("_")])
 
@@ -528,4 +529,26 @@ _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
     "pool_set_point": IaquaSetPoint,
     "pool_chill_set_point": IaquaSetPoint,
     "relay_count": IaquaSensor,
+}
+
+_HOME_DEVICE_LABELS: dict[str, str] = {
+    "spa_temp": "Spa Temperature",
+    "pool_temp": "Pool Temperature",
+    "air_temp": "Air Temperature",
+    "cover_pool": "Pool Cover",
+    "freeze_protection": "Freeze Protection",
+    "spa_pump": "Spa Pump",
+    "pool_pump": "Pool Pump",
+    "spa_heater": "Spa Heater",
+    "pool_heater": "Pool Heater",
+    "solar_heater": "Solar Heater",
+    "spa_salinity": "Spa Salinity",
+    "pool_salinity": "Pool Salinity",
+    "orp": "ORP",
+    "ph": "pH",
+    "is_icl_present": "ICL Present",
+    "spa_set_point": "Spa Set Point",
+    "pool_set_point": "Pool Set Point",
+    "pool_chill_set_point": "Pool Chill Set Point",
+    "relay_count": "Relay Count",
 }
