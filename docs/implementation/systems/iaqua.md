@@ -56,7 +56,7 @@ Devices that will be exposed when implemented: `swc_set_point` (sensor), `swc_po
 
 Commands `enable_disable_hpm`, `switch_hpm_mode`, and `setpoint_hpm_temp` are not implemented. The `heatpump_info` nested object from `get_home` is not parsed, so heat pump operational status (`heatpumpstatus`, `heatpumpmode`, `heatpumptype`) is not tracked.
 
-`pool_chill_set_point` is already exposed as an `IaquaThermostat` device (sourced from `get_home`), so the chill set point is partially surfaced even without HPM command support.
+`pool_chill_set_point` from `get_home` is not tracked. Writing the chill set point requires `setpoint_hpm_temp` (HPM command), which is not yet implemented.
 
 #### ICL (Intellicenter Light)
 
@@ -117,6 +117,10 @@ system.temp_unit     # IaquaTemperatureUnit: FAHRENHEIT ("F") or CELSIUS ("C")
 ```
 
 ## Design Decisions
+
+### Virtual thermostat devices
+
+`pool_thermostat` and `spa_thermostat` do not appear in any wire response. They are synthesised by `_parse_home_response` when both the matching `{prefix}_set_point` (Number) and `{prefix}_heater` (Switch) are present. This gives callers a single `IaquaClimate` object aggregating the set point, heater state, and temperature sensor — matching the HA climate platform contract without extra network calls.
 
 ### Authorization header format
 

@@ -15,6 +15,7 @@ from iaqualink.device import (
 )
 from iaqualink.exception import (
     AqualinkInvalidParameterException,
+    AqualinkOperationNotSupportedException,
     AqualinkStateUnavailableException,
 )
 from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
@@ -449,7 +450,13 @@ class IaquaClimate(IaquaDevice, AqualinkClimate):
 
     @property
     def _type(self) -> str:
-        return self.name.split("_")[0]  # "pool_thermostat" -> "pool"
+        return self.name.split("_")[0]
+
+    @property
+    def state(self) -> str:
+        raise AqualinkOperationNotSupportedException(
+            "IaquaClimate is a virtual device and has no state field."
+        )
 
     @property
     def _set_point(self) -> IaquaSetPoint:
@@ -527,7 +534,6 @@ _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
     "is_icl_present": IaquaPresenceSensor,
     "spa_set_point": IaquaSetPoint,
     "pool_set_point": IaquaSetPoint,
-    "pool_chill_set_point": IaquaSetPoint,
     "relay_count": IaquaSensor,
 }
 
@@ -549,6 +555,5 @@ _HOME_DEVICE_LABELS: dict[str, str] = {
     "is_icl_present": "ICL Present",
     "spa_set_point": "Spa Set Point",
     "pool_set_point": "Pool Set Point",
-    "pool_chill_set_point": "Pool Chill Set Point",
     "relay_count": "Relay Count",
 }

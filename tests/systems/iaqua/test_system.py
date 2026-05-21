@@ -721,13 +721,6 @@ class TestIaquaSystem(TestBaseSystem):
         self.sut._parse_home_response(r)
         assert "pool_thermostat" not in self.sut.devices
 
-    async def test_parse_home_no_thermostat_for_chill_set_point(self) -> None:
-        r = self._home_response(
-            [{"pool_chill_set_point": "65"}, {"pool_heater": "0"}]
-        )
-        self.sut._parse_home_response(r)
-        assert "pool_chill_thermostat" not in self.sut.devices
-
     async def test_parse_home_thermostat_not_duplicated_on_reparse(
         self,
     ) -> None:

@@ -7,7 +7,10 @@ import pytest
 import respx
 import respx.router
 
-from iaqualink.exception import AqualinkStateUnavailableException
+from iaqualink.exception import (
+    AqualinkOperationNotSupportedException,
+    AqualinkStateUnavailableException,
+)
 from iaqualink.systems.iaqua.device import (
     IAQUA_TEMP_CELSIUS_HIGH,
     IAQUA_TEMP_CELSIUS_LOW,
@@ -642,7 +645,8 @@ class TestIaquaClimate(TestIaquaDevice, TestBaseClimate):
         assert self.sut.name == "pool_thermostat"
 
     def test_property_state(self) -> None:
-        pytest.skip("Virtual thermostat has no state field.")
+        with pytest.raises(AqualinkOperationNotSupportedException):
+            _ = self.sut.state
 
     def test_property_is_on_true(self) -> None:
         self.pool_heater.data["state"] = "1"
