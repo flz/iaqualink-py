@@ -9,6 +9,7 @@ from iaqualink.device import (
     AqualinkClimate,
     AqualinkDevice,
     AqualinkLight,
+    AqualinkNumber,
     AqualinkSensor,
     AqualinkSwitch,
 )
@@ -393,17 +394,75 @@ light_subtype_to_class = {
 }
 
 
-class IaquaClimate(IaquaSwitch, AqualinkClimate):
+class IaquaSetPoint(IaquaDevice, AqualinkNumber):
     @property
-    def _type(self) -> str:
-        return self.name.split("_")[0]
-
-    @property
-    def _temperature(self) -> str:
-        # Spa takes precedence for temp1 if present.
-        if self._type == "pool" and "spa_set_point" in self.system.devices:
+    def _temperature_key(self) -> str:
+        # Spa takes precedence for temp1 if both set points are present.
+        if (
+            self.name.split("_")[0] == "pool"
+            and "spa_set_point" in self.system.devices
+        ):
             return "temp2"
         return "temp1"
+
+    @property
+    def current_value(self) -> float | None:
+        try:
+            return float(self.state)
+        except (ValueError, KeyError):
+            return None
+
+    @property
+    def min_value(self) -> float:
+        if self.system.temp_unit is None:
+            raise AqualinkStateUnavailableException(
+                "Temperature unit unavailable; call update() first."
+            )
+        if self.system.temp_unit == IaquaTemperatureUnit.FAHRENHEIT:
+            return float(IAQUA_TEMP_FAHRENHEIT_LOW)
+        return float(IAQUA_TEMP_CELSIUS_LOW)
+
+    @property
+    def max_value(self) -> float:
+        if self.system.temp_unit is None:
+            raise AqualinkStateUnavailableException(
+                "Temperature unit unavailable; call update() first."
+            )
+        if self.system.temp_unit == IaquaTemperatureUnit.FAHRENHEIT:
+            return float(IAQUA_TEMP_FAHRENHEIT_HIGH)
+        return float(IAQUA_TEMP_CELSIUS_HIGH)
+
+    @property
+    def unit_of_measurement(self) -> str | None:
+        unit = self.system.temp_unit
+        if unit is None:
+            return None
+        return "°C" if unit == IaquaTemperatureUnit.CELSIUS else "°F"
+
+    async def _set_value(self, value: float) -> None:
+        await self.system.set_temps({self._temperature_key: str(int(value))})
+
+
+class IaquaClimate(IaquaDevice, AqualinkClimate):
+    """Virtual thermostat composed from a set-point Number, a temp Sensor, and a heater Switch."""
+
+    @property
+    def _type(self) -> str:
+        return self.name.split("_")[0]  # "pool_thermostat" -> "pool"
+
+    @property
+    def _set_point(self) -> IaquaSetPoint:
+        return cast(
+            IaquaSetPoint, self.system.devices[f"{self._type}_set_point"]
+        )
+
+    @property
+    def _heater(self) -> IaquaHeater:
+        return cast(IaquaHeater, self.system.devices[f"{self._type}_heater"])
+
+    @property
+    def _sensor(self) -> IaquaSensor:
+        return cast(IaquaSensor, self.system.devices[f"{self._type}_temp"])
 
     @property
     def temperature_unit(self) -> IaquaTemperatureUnit:
@@ -414,17 +473,12 @@ class IaquaClimate(IaquaSwitch, AqualinkClimate):
         return self.system.temp_unit
 
     @property
-    def _sensor(self) -> IaquaSensor:
-        return cast(IaquaSensor, self.system.devices[f"{self._type}_temp"])
-
-    @property
-    def current_temperature(self) -> str | None:
-        value = self._sensor.value
-        return value if value else None
+    def current_temperature(self) -> str:
+        return self._sensor.value
 
     @property
     def target_temperature(self) -> str:
-        return self.state
+        return self._set_point.state
 
     @property
     def min_temp(self) -> int:
@@ -438,25 +492,20 @@ class IaquaClimate(IaquaSwitch, AqualinkClimate):
             return IAQUA_TEMP_FAHRENHEIT_HIGH
         return IAQUA_TEMP_CELSIUS_HIGH
 
-    async def _set_temperature(self, temperature: int) -> None:
-        data = {self._temperature: str(temperature)}
-        await self.system.set_temps(data)
-
-    @property
-    def _heater(self) -> IaquaHeater:
-        return cast(IaquaHeater, self.system.devices[f"{self._type}_heater"])
-
     @property
     def is_on(self) -> bool:
         return self._heater.is_on
 
     async def turn_on(self) -> None:
-        if self._heater.is_on is False:
+        if not self._heater.is_on:
             await self._heater.turn_on()
 
     async def turn_off(self) -> None:
-        if self._heater.is_on is True:
+        if self._heater.is_on:
             await self._heater.turn_off()
+
+    async def _set_temperature(self, temperature: int) -> None:
+        await self._set_point.set_value(float(temperature))
 
 
 _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
@@ -475,8 +524,8 @@ _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
     "orp": IaquaSensor,
     "ph": IaquaSensor,
     "is_icl_present": IaquaPresenceSensor,
-    "spa_set_point": IaquaClimate,
-    "pool_set_point": IaquaClimate,
-    "pool_chill_set_point": IaquaClimate,
+    "spa_set_point": IaquaSetPoint,
+    "pool_set_point": IaquaSetPoint,
+    "pool_chill_set_point": IaquaSetPoint,
     "relay_count": IaquaSensor,
 }
