@@ -135,6 +135,43 @@ class TestAqualinkClient(TestBase):
 
         assert AqualinkAuthState.from_dict(auth_state.to_dict()) == auth_state
 
+    def test_auth_state_app_client_id_default_empty(self) -> None:
+        state = AqualinkAuthState(
+            username="u",
+            client_id="c",
+            authentication_token="t",
+            user_id="1",
+            id_token="i",
+            refresh_token="r",
+        )
+        assert state.app_client_id == ""
+
+    def test_auth_state_from_dict_tolerates_missing_app_client_id(self) -> None:
+        raw = {
+            "username": "u",
+            "client_id": "c",
+            "authentication_token": "t",
+            "user_id": "1",
+            "id_token": "i",
+            "refresh_token": "r",
+        }
+        state = AqualinkAuthState.from_dict(raw)
+        assert state.app_client_id == ""
+
+    def test_auth_state_from_dict_round_trip_with_app_client_id(self) -> None:
+        raw = {
+            "username": "u",
+            "client_id": "c",
+            "authentication_token": "t",
+            "user_id": "1",
+            "id_token": "i",
+            "refresh_token": "r",
+            "app_client_id": "abc123",
+        }
+        state = AqualinkAuthState.from_dict(raw)
+        assert state.app_client_id == "abc123"
+        assert state.to_dict()["app_client_id"] == "abc123"
+
     async def test_auth_state_setter(self) -> None:
         auth_state = AqualinkAuthState(
             username="restored-user",

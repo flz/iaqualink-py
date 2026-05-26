@@ -65,6 +65,7 @@ class AqualinkAuthState:
     user_id: str
     id_token: str
     refresh_token: str
+    app_client_id: str = ""
 
     def to_dict(self) -> dict[str, str]:
         return asdict(self)
@@ -88,7 +89,10 @@ class AqualinkAuthState:
                 )
             values[field_name] = value
 
-        return cls(**values)
+        app_client_id = data.get("app_client_id", "")
+        if not isinstance(app_client_id, str):
+            app_client_id = ""
+        return cls(app_client_id=app_client_id, **values)
 
     def __repr__(self) -> str:
         parts = ", ".join(
