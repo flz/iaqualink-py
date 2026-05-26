@@ -46,15 +46,19 @@ Write commands are sent as JSON frames. Equipment payload is wrapped in the lite
 
 ```json
 {
+  "version": 1,
   "action": "setCleanerState",
   "namespace": "vr",
-  "version": 1,
-  "clientToken": "{user_id}|{auth_token}|{app_client_id}",
-  "serial": "{serial}",
+  "target": "{serial}",
   "payload": {
-    "equipment": {
-      "robot": {
-        "state": 1
+    "clientToken": "{user_id}|{auth_token}|{app_client_id}",
+    "state": {
+      "desired": {
+        "equipment": {
+          "robot": {
+            "state": 1
+          }
+        }
       }
     }
   }
@@ -108,7 +112,7 @@ The Python implementation reads `state.reported.equipment.robot`.
 
 ---
 
-## Remote Control Enum (`rmt_ctrl`, action=`setRemoteSteering`)
+## Remote Control Enum (`rmt_ctrl`, action=`setRemoteSteeringControl`)
 
 | `rmt_ctrl` | Meaning |
 |---|---|
@@ -129,13 +133,13 @@ All VR writes wrap their equipment payload under the literal string key `"robot"
 | Set state | `{"robot": {"state": N}}` | setCleanerState |
 | Set cycle | `{"robot": {"prCyc": N}}` | setCleanerState |
 | Set stepper | `{"robot": {"stepper": minutes}}` | setCleanerState |
-| Remote steering | `{"robot": {"rmt_ctrl": N}}` | setRemoteSteering |
+| Remote steering | `{"robot": {"rmt_ctrl": N}}` | setRemoteSteeringControl |
 
 ---
 
 ## Remote Control Protocol
 
-The caller must put the robot into `state == 2` (paused) before sending any `setRemoteSteering` frame. The Python wrapper handles this automatically via `_enter_remote_mode`, which issues a `pause_cleaning()` call if the robot is not already paused.
+The caller must put the robot into `state == 2` (paused) before sending any `setRemoteSteeringControl` frame. The Python wrapper handles this automatically via `_enter_remote_mode`, which issues a `pause_cleaning()` call if the robot is not already paused.
 
 ---
 
