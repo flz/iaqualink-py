@@ -1,6 +1,6 @@
 # Cyclobat Implementation Notes
 
-Implementation details for cyclobat systems (`device_type: "cyclobat"` — Zodiac battery-powered robot cleaners). For the wire-level protocol, see Protocol Reference: cyclobat.
+Implementation details for cyclobat systems (`device_type: "cyclobat"` — Zodiac battery-powered robot cleaners). For the wire-level protocol, see [Protocol Reference: cyclobat](../../reference/systems/cyclobat.md).
 
 ## Overview
 
@@ -123,5 +123,5 @@ None at present.
 
 ## See Also
 
-- Protocol Reference: cyclobat — wire-level spec
+- [Protocol Reference: cyclobat](../../reference/systems/cyclobat.md) — wire-level spec
 - [API Reference: cyclobat](../../api/systems/cyclobat.md) — class and method docs

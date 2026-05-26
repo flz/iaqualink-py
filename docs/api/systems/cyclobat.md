@@ -17,3 +17,8 @@ Cyclobat systems are Zodiac battery-powered robot cleaners using the zodiac-io.c
 ## CyclobatBinarySensor
 
 ::: iaqualink.systems.cyclobat.device.CyclobatBinarySensor
+
+## See Also
+
+- [Implementation Notes](../../implementation/systems/cyclobat.md)
+- [Protocol Reference](../../reference/systems/cyclobat.md)
