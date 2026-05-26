@@ -98,3 +98,22 @@ class TestUnsupportedSystem(unittest.IsolatedAsyncioTestCase):
     async def test_get_devices_returns_empty(self) -> None:
         devices = await self.system.get_devices()
         assert devices == {}
+
+
+class TestI2dRobotRegistration(unittest.TestCase):
+    def test_i2d_robot_registered_as_system(self) -> None:
+        assert "i2d_robot" in AqualinkSystem.subclasses
+
+    def test_i2d_robot_from_data(self) -> None:
+        from iaqualink.systems.i2d_robot.system import I2dRobotSystem
+
+        aqualink = MagicMock()
+        data = {
+            "id": 1,
+            "serial_number": "ROBOT001",
+            "device_type": "i2d_robot",
+            "name": "robot",
+        }
+        system = AqualinkSystem.from_data(aqualink, data)
+        assert isinstance(system, I2dRobotSystem)
+        assert system.supported is True
