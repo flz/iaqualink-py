@@ -46,6 +46,7 @@ dev = [
     "prek>=0.4.0",
     "mypy>=1.15.0",
     "ruff>=0.11.2",
+    "ty>=0.0.32",
     "types-PyYAML>=6.0.12.20250915",
     "iaqualink[cli]",
 ]
@@ -104,6 +105,9 @@ exclude_lines = [
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.ty.src]
+include = ["src"]
 
 [tool.pytest.ini_options]
 filterwarnings = [

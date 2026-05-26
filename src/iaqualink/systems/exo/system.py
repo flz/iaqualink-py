@@ -96,7 +96,7 @@ class ExoSystem(AqualinkSystem):
             self.status.name,
         )
 
-        devices = {}
+        devices: dict[str, dict[str, Any]] = {}
 
         reported = data.get("state", {}).get("reported", {})
 

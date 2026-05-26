@@ -2,6 +2,7 @@ from __future__ import annotations
 
 __all__ = ["AqualinkSystem", "SystemStatus", "UnsupportedSystem"]
 
+import builtins
 import enum
 import logging
 from collections.abc import Awaitable, Callable
@@ -38,7 +39,9 @@ class SystemStatus(enum.Enum):
 
 
 class AqualinkSystem:
-    subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
+    NAME: ClassVar[str]
+    # builtins.type used here because `type` property below shadows builtin in class scope
+    subclasses: ClassVar[dict[str, builtins.type[AqualinkSystem]]] = {}
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
