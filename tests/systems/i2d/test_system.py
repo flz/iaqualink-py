@@ -10,15 +10,13 @@ from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
     AqualinkInvalidParameterException,
     AqualinkServiceException,
-    AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.i2d.device import I2dOpMode
 from iaqualink.systems.i2d.system import I2dSystem
 
-from ...base_test_system import TestBaseSystem
-from ...common import async_raises, async_returns
+from ...conftest import async_raises, async_returns
 
 # Values captured from a real iQPump device. Some period/timer fields fall
 # outside the step-aligned write ranges — read values are not required to
@@ -85,38 +83,6 @@ OFFLINE_DATA = {
 _SYSTEM_DATA = {"id": 1, "serial_number": "ABC123", "device_type": "i2d"}
 
 
-_CONTRACT_DATA = {
-    "id": 1,
-    "serial_number": "ABC123",
-    "name": "Pool Pump",
-    "device_type": "i2d",
-}
-
-
-class TestI2dSystemContract(TestBaseSystem):
-    """Verifies I2dSystem satisfies the AqualinkSystem API contract."""
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.sut = I2dSystem.from_data(self.client, _CONTRACT_DATA)
-        self.sut_class = I2dSystem
-
-    def _set_online(self, _response: object) -> None:
-        self.sut.status = SystemStatus.ONLINE
-
-    async def test_refresh_success(self) -> None:
-        with patch.object(
-            self.sut, "_parse_alldata_response", side_effect=self._set_online
-        ):
-            await super().test_refresh_success()
-
-    async def test_get_devices_needs_update(self) -> None:
-        with patch.object(
-            self.sut, "_parse_alldata_response", side_effect=self._set_online
-        ):
-            await super().test_get_devices_needs_update()
-
-
 class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         pass
@@ -165,16 +131,6 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         mock_request.return_value.json = MagicMock(return_value=OFFLINE_DATA)
         await system.refresh()  # must not raise
         assert system.status is SystemStatus.OFFLINE
-
-    async def test_refresh_throttled(self):
-        aqualink = MagicMock()
-        system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_raises(
-            AqualinkServiceThrottledException
-        )
-        with pytest.raises(AqualinkServiceThrottledException):
-            await system.refresh()
-        assert system.status is SystemStatus.UNKNOWN
 
     def test_parse_alldata_response_relay_absent(self):
         aqualink = MagicMock()

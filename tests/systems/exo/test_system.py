@@ -9,14 +9,12 @@ import respx
 import respx.router
 
 from iaqualink.exception import (
-    AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.system import ExoSystem
 
-from ...base import dotstar
-from ...base_test_system import TestBaseSystem
+from ...conftest import TestBase, dotstar
 
 SAMPLE_DATA = {
     "state": {
@@ -169,7 +167,7 @@ SAMPLE_DATA = {
 }
 
 
-class TestExoSystem(TestBaseSystem):
+class TestExoSystem(TestBase):
     def setUp(self) -> None:
         super().setUp()
 
@@ -192,21 +190,19 @@ class TestExoSystem(TestBaseSystem):
         assert self.sut.status is SystemStatus.CONNECTED
         self.respx_calls = copy.copy(respx_mock.calls)
 
-    async def test_refresh_throttled(self) -> None:
-        with patch.object(self.sut, "send_reported_state_request") as mock_req:
-            mock_req.side_effect = AqualinkServiceThrottledException
-            with pytest.raises(AqualinkServiceThrottledException):
-                await self.sut.refresh()
-        assert self.sut.status is SystemStatus.UNKNOWN
-
-    async def test_get_devices_needs_update(self) -> None:
+    @respx.mock
+    async def test_get_devices_needs_update(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
         def _set_online(_response):
             self.sut.status = SystemStatus.ONLINE
 
+        respx_mock.route(dotstar).mock(httpx.Response(200, json=SAMPLE_DATA))
         with patch.object(
             self.sut, "_parse_shadow_response", side_effect=_set_online
         ):
-            await super().test_get_devices_needs_update()
+            await self.sut.get_devices()
+        assert len(respx_mock.calls) > 0
 
     def _make_shadow_response(self, aws_status: str | None) -> MagicMock:
         import copy as _copy

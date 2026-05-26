@@ -221,11 +221,14 @@ tests/
 ├── utils/
 │   ├── test_crypto.py
 │   └── test_redact.py
+├── conformance/
+│   ├── conftest.py           # Aggregates factories, parametrized fixtures
+│   ├── fixtures.py           # Fixture dataclasses (SwitchFixture, etc.)
+│   ├── _factories_*.py       # Per-system factory functions
+│   └── test_*.py             # Conformance tests per device/system type
 └── systems/
     ├── iaqua/
-    │   ├── base_test_system.py   # Abstract tests — new system types must subclass these
-    │   ├── base_test_device.py
-    │   └── test_*.py
+    │   └── test_*.py         # Wire-protocol and parsing tests
     ├── exo/
     │   └── ...
     └── i2d/

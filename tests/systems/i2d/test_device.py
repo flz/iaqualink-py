@@ -1,12 +1,10 @@
 from __future__ import annotations
 
-import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 
 import pytest
-import respx
-import respx.router
 
+from iaqualink.client import AqualinkClient
 from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.systems.i2d.device import (
     I2dBinarySensor,
@@ -17,181 +15,39 @@ from iaqualink.systems.i2d.device import (
 )
 from iaqualink.systems.i2d.system import I2dSystem
 
-from ...base import dotstar, resp_200
-from ...base_test_device import (
-    TestBaseBinarySensor,
-    TestBaseFan,
-    TestBaseNumber,
-    TestBaseSensor,
-    TestBaseSwitch,
-)
-from ...common import async_returns
-
-_CONTRACT_SYSTEM_DATA = {
-    "id": 1,
-    "serial_number": "ABC123",
-    "name": "Pool Pump",
-    "device_type": "i2d",
-}
-
-
-class TestI2dSensorContract(TestBaseSensor):
-    def setUp(self) -> None:
-        super().setUp()
-        system = I2dSystem.from_data(self.client, _CONTRACT_SYSTEM_DATA)
-        self.sut = I2dSensor(
-            system,
-            {"speed": "1500"},
-            key="speed",
-            label="Motor Speed",
-            unit="RPM",
-        )
-        self.sut_class = I2dSensor
-
-
-class TestI2dBinarySensorContract(TestBaseBinarySensor):
-    def setUp(self) -> None:
-        super().setUp()
-        system = I2dSystem.from_data(self.client, _CONTRACT_SYSTEM_DATA)
-        self._data: dict = {"freezeprotectstatus": "0"}
-        self.sut = I2dBinarySensor(
-            system,
-            self._data,
-            key="freezeprotectstatus",
-            label="Freeze Protect Status",
-        )
-        self.sut_class = I2dBinarySensor
-
-    def test_property_is_on_false(self) -> None:
-        self._data["freezeprotectstatus"] = "0"
-        assert self.sut.is_on is False
-
-    def test_property_is_on_true(self) -> None:
-        self._data["freezeprotectstatus"] = "1"
-        assert self.sut.is_on is True
-
-
-class TestI2dSwitchContract(TestBaseSwitch):
-    def setUp(self) -> None:
-        super().setUp()
-        system = I2dSystem.from_data(self.client, _CONTRACT_SYSTEM_DATA)
-        self._data: dict = {"freezeprotectenable": "0"}
-        self.sut = I2dSwitch(
-            system,
-            self._data,
-            key="freezeprotectenable",
-            label="Freeze Protection",
-        )
-        self.sut_class = I2dSwitch
-
-    def test_property_is_on_false(self) -> None:
-        self._data["freezeprotectenable"] = "0"
-        assert self.sut.is_on is False
-
-    def test_property_is_on_true(self) -> None:
-        self._data["freezeprotectenable"] = "1"
-        assert self.sut.is_on is True
-
-    @respx.mock
-    async def test_turn_on_noop(
-        self, respx_mock: respx.router.MockRouter
-    ) -> None:
-        # I2dSwitch has no is_on guard: always writes (idempotent hardware setting)
-        self._data["freezeprotectenable"] = "1"
-        respx_mock.route(dotstar).mock(resp_200)
-        await self.sut.turn_on()
-        assert len(respx_mock.calls) > 0
-
-    @respx.mock
-    async def test_turn_off_noop(
-        self, respx_mock: respx.router.MockRouter
-    ) -> None:
-        self._data["freezeprotectenable"] = "0"
-        respx_mock.route(dotstar).mock(resp_200)
-        await self.sut.turn_off()
-        assert len(respx_mock.calls) > 0
-
-
-class TestI2dNumberContract(TestBaseNumber):
-    def setUp(self) -> None:
-        super().setUp()
-        system = I2dSystem.from_data(self.client, _CONTRACT_SYSTEM_DATA)
-        data = {
-            "quickcleanrpm": "3000",
-            "globalrpmmin": "600",
-            "globalrpmmax": "3450",
-        }
-        self.sut = I2dNumber(
-            system,
-            data,
-            key="quickcleanrpm",
-            label="Quick Clean RPM",
-            min_value=600.0,
-            max_value=3450.0,
-            step=25.0,
-            unit="RPM",
-        )
-        self.sut_class = I2dNumber
-
-
-class TestI2dFanContract(TestBaseFan):
-    def setUp(self) -> None:
-        super().setUp()
-        system = I2dSystem.from_data(self.client, _CONTRACT_SYSTEM_DATA)
-        self._data: dict = {
-            "name": "ABC123",
-            "runstate": "off",
-            "opmode": "2",
-            "globalrpmmin": "600",
-            "globalrpmmax": "3450",
-        }
-        self.sut = I2dFan(system, self._data)
-        self.sut_class = I2dFan
-
-    @respx.mock
-    async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
-        self._data["runstate"] = "on"
-        respx_mock.route(dotstar).mock(resp_200)
-        await self.sut.turn_off()
-        assert len(respx_mock.calls) > 0
-        self.respx_calls = respx_mock.calls[:]
+from ...conftest import async_returns
+from .factories import CONTRACT_SYSTEM_DATA
 
 
 def _make_fan_with_data(data: dict) -> I2dFan:
-    system = I2dSystem.from_data(MagicMock(), _CONTRACT_SYSTEM_DATA)
+    client = create_autospec(AqualinkClient, instance=True)
+    system = I2dSystem.from_data(client, CONTRACT_SYSTEM_DATA)
     return I2dFan(system, data)
 
 
-class TestI2dFanPercentage(unittest.IsolatedAsyncioTestCase):
-    def test_mid_range(self) -> None:
+class TestI2dFanPercentage:
+    @pytest.mark.parametrize(
+        "rpm,min_rpm,max_rpm,expected",
+        [
+            ("1500", "600", "3450", 32),
+            ("600", "600", "3450", 0),
+            ("3450", "600", "3450", 100),
+            ("4000", "600", "3450", 100),
+            ("100", "600", "3450", 0),
+        ],
+        ids=["mid-range", "at-min", "at-max", "above-max", "below-min"],
+    )
+    def test_percentage(
+        self, rpm: str, min_rpm: str, max_rpm: str, expected: int
+    ) -> None:
         fan = _make_fan_with_data(
             {
-                "customspeedrpm": "1500",
-                "globalrpmmin": "600",
-                "globalrpmmax": "3450",
+                "customspeedrpm": rpm,
+                "globalrpmmin": min_rpm,
+                "globalrpmmax": max_rpm,
             }
         )
-        assert fan.percentage == 32  # (1500-600)/(3450-600)*100 = 31.57 → 32
-
-    def test_at_min(self) -> None:
-        fan = _make_fan_with_data(
-            {
-                "customspeedrpm": "600",
-                "globalrpmmin": "600",
-                "globalrpmmax": "3450",
-            }
-        )
-        assert fan.percentage == 0
-
-    def test_at_max(self) -> None:
-        fan = _make_fan_with_data(
-            {
-                "customspeedrpm": "3450",
-                "globalrpmmin": "600",
-                "globalrpmmax": "3450",
-            }
-        )
-        assert fan.percentage == 100
+        assert fan.percentage == expected
 
     def test_none_when_rpm_missing(self) -> None:
         fan = _make_fan_with_data(
@@ -216,26 +72,6 @@ class TestI2dFanPercentage(unittest.IsolatedAsyncioTestCase):
         )
         assert fan.percentage == 0
 
-    def test_clamped_to_100_when_rpm_above_max(self) -> None:
-        fan = _make_fan_with_data(
-            {
-                "customspeedrpm": "4000",
-                "globalrpmmin": "600",
-                "globalrpmmax": "3450",
-            }
-        )
-        assert fan.percentage == 100
-
-    def test_clamped_to_0_when_rpm_below_min(self) -> None:
-        fan = _make_fan_with_data(
-            {
-                "customspeedrpm": "100",
-                "globalrpmmin": "600",
-                "globalrpmmax": "3450",
-            }
-        )
-        assert fan.percentage == 0
-
 
 def _make_sensor(
     data: dict,
@@ -243,12 +79,11 @@ def _make_sensor(
     label: str = "Motor Speed",
     unit: str = "RPM",
 ) -> I2dSensor:
-    system = MagicMock()
-    system.serial = "ABC123"
+    system = create_autospec(I2dSystem, instance=True)
     return I2dSensor(system, data, key=key, label=label, unit=unit)
 
 
-class TestI2dSensor(unittest.IsolatedAsyncioTestCase):
+class TestI2dSensor:
     def test_name(self):
         s = _make_sensor({"speed": "1500"})
         assert s.name == "speed"
@@ -312,8 +147,7 @@ class TestI2dSensor(unittest.IsolatedAsyncioTestCase):
 
 
 def _make_number(data: dict, **kwargs) -> I2dNumber:
-    system = MagicMock()
-    system.serial = "ABC123"
+    system = create_autospec(I2dSystem, instance=True)
     defaults = dict(
         key="quickcleanrpm",
         label="Quick Clean RPM",
@@ -325,7 +159,7 @@ def _make_number(data: dict, **kwargs) -> I2dNumber:
     return I2dNumber(system, data, **defaults)
 
 
-class TestI2dNumber(unittest.IsolatedAsyncioTestCase):
+class TestI2dNumber:
     def test_name(self):
         num = _make_number({"quickcleanrpm": "3000"})
         assert num.name == "quickcleanrpm"
@@ -416,27 +250,25 @@ class TestI2dNumber(unittest.IsolatedAsyncioTestCase):
             "/quickcleanrpm/write", "value=3000"
         )
 
-    async def test_set_value_below_min_raises(self):
+    @pytest.mark.parametrize(
+        "value,should_raise",
+        [
+            (599.0, True),
+            (3451.0, True),
+            (600.0, False),
+            (3450.0, False),
+        ],
+        ids=["below-min", "above-max", "at-min", "at-max"],
+    )
+    async def test_set_value_bounds(self, value: float, should_raise: bool):
         num = _make_number({})
-        with pytest.raises(AqualinkInvalidParameterException):
-            await num.set_value(599.0)
-
-    async def test_set_value_above_max_raises(self):
-        num = _make_number({})
-        with pytest.raises(AqualinkInvalidParameterException):
-            await num.set_value(3451.0)
-
-    async def test_set_value_at_min_ok(self):
-        num = _make_number({})
-        num.system.send_control_command = async_returns(MagicMock())
-        await num.set_value(600.0)
-        num.system.send_control_command.assert_awaited_once()
-
-    async def test_set_value_at_max_ok(self):
-        num = _make_number({})
-        num.system.send_control_command = async_returns(MagicMock())
-        await num.set_value(3450.0)
-        num.system.send_control_command.assert_awaited_once()
+        if should_raise:
+            with pytest.raises(AqualinkInvalidParameterException):
+                await num.set_value(value)
+        else:
+            num.system.send_control_command = async_returns(MagicMock())
+            await num.set_value(value)
+            num.system.send_control_command.assert_awaited_once()
 
     async def test_set_value_not_multiple_of_step_raises(self):
         num = _make_number({"quickcleanrpm": "3000"}, step=300.0)
@@ -489,12 +321,11 @@ def _make_switch(
     key: str = "freezeprotectenable",
     label: str = "Freeze Protection",
 ) -> I2dSwitch:
-    system = MagicMock()
-    system.serial = "ABC123"
+    system = create_autospec(I2dSystem, instance=True)
     return I2dSwitch(system, data, key=key, label=label)
 
 
-class TestI2dSwitch(unittest.IsolatedAsyncioTestCase):
+class TestI2dSwitch:
     def test_name(self):
         sw = _make_switch({"freezeprotectenable": "1"})
         assert sw.name == "freezeprotectenable"
@@ -503,25 +334,19 @@ class TestI2dSwitch(unittest.IsolatedAsyncioTestCase):
         sw = _make_switch({"freezeprotectenable": "1"})
         assert sw.label == "Freeze Protection"
 
-    def test_is_on_when_one(self):
-        sw = _make_switch({"freezeprotectenable": "1"})
-        assert sw.is_on is True
-
-    def test_is_on_when_zero(self):
-        sw = _make_switch({"freezeprotectenable": "0"})
-        assert sw.is_on is False
-
-    def test_is_on_when_missing(self):
-        sw = _make_switch({})
-        assert sw.is_on is False
-
-    def test_state_on(self):
-        sw = _make_switch({"freezeprotectenable": "1"})
-        assert sw.state == "on"
-
-    def test_state_off(self):
-        sw = _make_switch({"freezeprotectenable": "0"})
-        assert sw.state == "off"
+    @pytest.mark.parametrize(
+        "data,expected_is_on,expected_state",
+        [
+            ({"freezeprotectenable": "1"}, True, "on"),
+            ({"freezeprotectenable": "0"}, False, "off"),
+            ({}, False, "off"),
+        ],
+        ids=["on", "off", "missing"],
+    )
+    def test_state(self, data: dict, expected_is_on: bool, expected_state: str):
+        sw = _make_switch(data)
+        assert sw.is_on is expected_is_on
+        assert sw.state == expected_state
 
     def test_manufacturer(self):
         sw = _make_switch({})
@@ -562,41 +387,48 @@ class TestI2dSwitch(unittest.IsolatedAsyncioTestCase):
         sw.system._apply_write_response.assert_called_once_with(mock_resp)
 
 
-class TestI2dFan(unittest.IsolatedAsyncioTestCase):
+class TestI2dFan:
     def _make_fan(self, data: dict):
         from iaqualink.systems.i2d.device import I2dFan
 
-        system = MagicMock()
-        system.serial = "ABC123"
+        system = create_autospec(I2dSystem, instance=True)
         return I2dFan(system, {"name": "ABC123", **data})
 
-    async def test_turn_on_when_off_sends_custom_opmode(self):
-        pump = self._make_fan({"runstate": "off", "opmode": "2"})
+    @pytest.mark.parametrize(
+        "runstate,opmode,action,expected_value",
+        [
+            ("off", "2", "turn_on", "1"),
+            ("on", "1", "turn_on", None),
+            ("on", "1", "turn_off", "2"),
+            ("off", "2", "turn_off", None),
+        ],
+        ids=["on-when-off", "on-noop", "off-when-on", "off-noop"],
+    )
+    async def test_state_transition(
+        self,
+        runstate: str,
+        opmode: str,
+        action: str,
+        expected_value: str | None,
+    ):
+        pump = self._make_fan({"runstate": runstate, "opmode": opmode})
         pump.system.send_control_command = async_returns(MagicMock())
-        await pump.turn_on()
-        pump.system.send_control_command.assert_awaited_once_with(
-            "/opmode/write", "value=1"
-        )
+        await getattr(pump, action)()
+        if expected_value is not None:
+            pump.system.send_control_command.assert_awaited_once_with(
+                "/opmode/write", f"value={expected_value}"
+            )
+        else:
+            pump.system.send_control_command.assert_not_awaited()
 
-    async def test_turn_on_when_already_on_does_nothing(self):
-        pump = self._make_fan({"runstate": "on", "opmode": "1"})
-        pump.system.send_control_command = async_returns(MagicMock())
-        await pump.turn_on()
-        pump.system.send_control_command.assert_not_awaited()
+    def test_preset_modes_list(self):
+        pump = self._make_fan({"opmode": "1"})
+        assert "CUSTOM" in pump.preset_modes
+        assert "QUICK_CLEAN" not in pump.preset_modes
 
-    async def test_turn_off_when_on_sends_stop_opmode(self):
-        pump = self._make_fan({"runstate": "on", "opmode": "1"})
-        pump.system.send_control_command = async_returns(MagicMock())
-        await pump.turn_off()
-        pump.system.send_control_command.assert_awaited_once_with(
-            "/opmode/write", "value=2"
-        )
-
-    async def test_turn_off_when_already_off_does_nothing(self):
-        pump = self._make_fan({"runstate": "off", "opmode": "2"})
-        pump.system.send_control_command = async_returns(MagicMock())
-        await pump.turn_off()
-        pump.system.send_control_command.assert_not_awaited()
+    def test_preset_mode_for_external_mode(self):
+        pump = self._make_fan({"opmode": "1"})
+        assert pump.preset_mode == "CUSTOM"
 
     def test_preset_mode_for_internal_mode_readable(self):
         from iaqualink.systems.i2d.device import I2dOpMode
@@ -658,7 +490,7 @@ class TestI2dFan(unittest.IsolatedAsyncioTestCase):
         pump.system._apply_write_response.assert_called_once_with(mock_resp)
 
 
-class TestI2dBinaryState(unittest.TestCase):
+class TestI2dBinaryState:
     def test_on_value(self):
         from iaqualink.systems.i2d.device import I2dBinaryState
 
@@ -670,14 +502,14 @@ class TestI2dBinaryState(unittest.TestCase):
         assert I2dBinaryState.OFF == "0"
 
 
-class TestI2dNumberConstructorValidation(unittest.TestCase):
+class TestI2dNumberConstructorValidation:
     def test_missing_both_min_raises(self):
-        system = MagicMock()
+        system = create_autospec(I2dSystem, instance=True)
         with pytest.raises(ValueError):
             I2dNumber(system, {}, key="x", label="X", max_value=100.0)
 
     def test_missing_both_max_raises(self):
-        system = MagicMock()
+        system = create_autospec(I2dSystem, instance=True)
         with pytest.raises(ValueError):
             I2dNumber(system, {}, key="x", label="X", min_value=0.0)
 
@@ -687,12 +519,11 @@ def _make_binary_sensor(
     key: str = "freezeprotectstatus",
     label: str = "Freeze Protect Status",
 ) -> I2dBinarySensor:
-    system = MagicMock()
-    system.serial = "ABC123"
+    system = create_autospec(I2dSystem, instance=True)
     return I2dBinarySensor(system, data, key=key, label=label)
 
 
-class TestI2dBinarySensor(unittest.TestCase):
+class TestI2dBinarySensor:
     def test_name(self):
         s = _make_binary_sensor({"freezeprotectstatus": "0"})
         assert s.name == "freezeprotectstatus"
@@ -701,17 +532,18 @@ class TestI2dBinarySensor(unittest.TestCase):
         s = _make_binary_sensor({"freezeprotectstatus": "0"})
         assert s.label == "Freeze Protect Status"
 
-    def test_is_on_when_one(self):
-        s = _make_binary_sensor({"freezeprotectstatus": "1"})
-        assert s.is_on is True
-
-    def test_is_on_when_zero(self):
-        s = _make_binary_sensor({"freezeprotectstatus": "0"})
-        assert s.is_on is False
-
-    def test_is_on_when_missing(self):
-        s = _make_binary_sensor({})
-        assert s.is_on is False
+    @pytest.mark.parametrize(
+        "data,expected",
+        [
+            ({"freezeprotectstatus": "1"}, True),
+            ({"freezeprotectstatus": "0"}, False),
+            ({}, False),
+        ],
+        ids=["on", "off", "missing"],
+    )
+    def test_is_on(self, data: dict, expected: bool):
+        s = _make_binary_sensor(data)
+        assert s.is_on is expected
 
     def test_manufacturer(self):
         s = _make_binary_sensor({})

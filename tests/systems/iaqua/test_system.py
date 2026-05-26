@@ -21,11 +21,10 @@ from iaqualink.systems.iaqua.system import (
     IaquaSystem,
 )
 
-from ...base import dotstar, resp_200
-from ...base_test_system import TestBaseSystem
+from ...conftest import TestBase, dotstar, resp_200
 
 
-class TestIaquaSystem(TestBaseSystem):
+class TestIaquaSystem(TestBase):
     def setUp(self) -> None:
         super().setUp()
 
@@ -49,7 +48,11 @@ class TestIaquaSystem(TestBaseSystem):
     def _set_online(self, _response: object) -> None:
         self.sut.status = SystemStatus.ONLINE
 
-    async def test_refresh_success(self) -> None:
+    @respx.mock
+    async def test_refresh_success(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
         with (
             patch.object(
                 self.sut, "_parse_home_response", side_effect=self._set_online
@@ -57,7 +60,9 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            await super().test_refresh_success()
+            await self.sut.refresh()
+        assert len(respx_mock.calls) > 0
+        assert self.sut.status is SystemStatus.ONLINE
 
     @respx.mock
     async def test_refresh_offline(
@@ -77,14 +82,11 @@ class TestIaquaSystem(TestBaseSystem):
             await self.sut.refresh()
         assert self.sut.status is SystemStatus.OFFLINE
 
-    async def test_refresh_throttled(self) -> None:
-        with patch.object(self.sut, "_send_home_screen_request") as mock_req:
-            mock_req.side_effect = AqualinkServiceThrottledException
-            with pytest.raises(AqualinkServiceThrottledException):
-                await self.sut.refresh()
-        assert self.sut.status is SystemStatus.UNKNOWN
-
-    async def test_get_devices_needs_update(self) -> None:
+    @respx.mock
+    async def test_get_devices_needs_update(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        respx_mock.route(dotstar).mock(resp_200)
         with (
             patch.object(
                 self.sut, "_parse_home_response", side_effect=self._set_online
@@ -92,7 +94,8 @@ class TestIaquaSystem(TestBaseSystem):
             patch.object(self.sut, "_parse_devices_response"),
             patch.object(self.sut, "_parse_onetouch_response"),
         ):
-            await super().test_get_devices_needs_update()
+            await self.sut.get_devices()
+        assert len(respx_mock.calls) > 0
 
     async def test_parse_devices_offline(self) -> None:
         message = {

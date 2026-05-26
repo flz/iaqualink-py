@@ -24,8 +24,7 @@ from iaqualink.exception import (
 from iaqualink.system import UnsupportedSystem
 from iaqualink.utils.redact import redact_kwargs, redact_url
 
-from .base import TestBase
-from .common import async_noop, async_raises
+from .conftest import TestBase, async_noop, async_raises
 
 LOGIN_DATA = {
     "id": "id",

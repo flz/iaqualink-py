@@ -1,16 +1,56 @@
 from __future__ import annotations
 
 import json
+import unittest
 from enum import Enum
 from functools import cache
 from pathlib import Path
-from unittest.mock import MagicMock
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
+from respx.patterns import M
 
 import iaqualink.device as _dev
 from iaqualink.client import AqualinkClient
 from iaqualink.device import AqualinkDevice
+
+# ---------------------------------------------------------------------------
+# Shared test infrastructure (formerly base.py + common.py)
+# ---------------------------------------------------------------------------
+
+dotstar = M(host__regex=".*")
+resp_200 = httpx.Response(status_code=200, json={})
+
+
+class TestBase(unittest.IsolatedAsyncioTestCase):
+    __test__ = False
+
+    def __init_subclass__(cls) -> None:
+        if cls.__name__.startswith("TestBase"):
+            cls.__test__ = False
+        else:
+            cls.__test__ = True
+        return super().__init_subclass__()
+
+    def setUp(self) -> None:
+        super().setUp()
+
+        self.client = AqualinkClient("foo", "bar")
+        self.addAsyncCleanup(self.client.close)
+
+
+async_noop = AsyncMock(return_value=None)
+
+
+def async_returns(x: Any) -> AsyncMock:
+    return AsyncMock(return_value=x)
+
+
+def async_raises(x: Any) -> AsyncMock:
+    return AsyncMock(side_effect=x)
+
 
 # Abstract base classes whose @property definitions constitute the HA-facing
 # public API. Introspected at test time — no production code annotation needed.
@@ -53,7 +93,13 @@ def client() -> AqualinkClient:
 
 
 def load_fixture(system: str, endpoint: str) -> dict:
-    path = Path(__file__).parent / "fixtures" / system / f"{endpoint}.json"
+    path = (
+        Path(__file__).parent
+        / "systems"
+        / system
+        / "fixtures"
+        / f"{endpoint}.json"
+    )
     return json.loads(path.read_text())
 
 
