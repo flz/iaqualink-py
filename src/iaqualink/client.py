@@ -133,6 +133,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.app_client_id = ""
         self.country = ""
         self._refresh_lock = asyncio.Lock()
 
@@ -157,6 +158,7 @@ class AqualinkClient:
             user_id=self.user_id,
             id_token=self.id_token,
             refresh_token=self.refresh_token,
+            app_client_id=self.app_client_id,
         )
 
     @auth_state.setter
@@ -171,6 +173,7 @@ class AqualinkClient:
         self.user_id = state.user_id
         self.id_token = state.id_token
         self.refresh_token = state.refresh_token
+        self.app_client_id = state.app_client_id
         self._logged = True
 
     async def close(self) -> None:
@@ -346,6 +349,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.app_client_id = ""
         self.country = ""
         self._logged = False
 
@@ -363,6 +367,8 @@ class AqualinkClient:
         self.refresh_token = data["userPoolOAuth"].get(
             "RefreshToken", refresh_token_fallback
         )
+        cognito = data.get("cognitoPool") or {}
+        self.app_client_id = cognito.get("appClientId", "")
         self.country = (data.get("country") or "us").lower()
         self._logged = True
 
