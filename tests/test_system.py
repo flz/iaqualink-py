@@ -22,6 +22,9 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
     def test_vr_registered_as_system(self) -> None:
         assert "vr" in AqualinkSystem.subclasses
 
+    def test_vortrax_registered_as_system(self) -> None:
+        assert "vortrax" in AqualinkSystem.subclasses
+
     def test_repr(self) -> None:
         aqualink = MagicMock()
         data = {
