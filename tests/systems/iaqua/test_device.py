@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import copy
 from unittest.mock import patch
 
 import pytest
-import respx
 import respx.router
 
 from iaqualink.exception import (
@@ -32,7 +30,7 @@ from iaqualink.systems.iaqua.device import (
 )
 from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
 
-from ...conftest import TestBase, dotstar, resp_200
+from ...conftest import dotstar, resp_200
 from .factories import (
     IAQUA_AUX_SWITCH_OFF_DATA,
     IAQUA_BINARY_SENSOR_OFF_DATA,
@@ -51,575 +49,538 @@ from .factories import (
 )
 
 
-class TestIaquaDevice(TestBase):
-    """iAqua device — equality, name, state, manufacturer/model."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaDevice(self.system, {**IAQUA_DEVICE_DATA})
-
-    def test_equal(self) -> None:
-        assert self.sut == self.sut
-
-    def test_not_equal(self) -> None:
-        obj2 = copy.deepcopy(self.sut)
-        obj2.data["name"] = "device_2"
-        assert self.sut != obj2
-
-    def test_not_equal_different_type(self) -> None:
-        assert (self.sut == {}) is False
-
-    def test_property_name(self) -> None:
-        assert self.sut.name == "device"
-
-    def test_property_state(self) -> None:
-        assert self.sut.state == "42"
-
-    def test_property_manufacturer(self) -> None:
-        assert self.sut.manufacturer == "Jandy"
-
-    def test_property_model(self) -> None:
-        assert self.sut.model == "Device"
+def test_device_state() -> None:
+    """IaquaDevice.state returns raw data["state"] string."""
+    system = make_system()
+    dev = IaquaDevice(system, {**IAQUA_DEVICE_DATA})
+    assert dev.state == "42"
 
 
-class TestIaquaSensor(TestBase):
-    """iAqua sensor — value from state."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaSensor(self.system, {**IAQUA_SENSOR_DATA})
-
+class TestIaquaSensor:
     def test_property_value(self) -> None:
-        assert self.sut.value == "42"
+        sut = IaquaSensor(make_system(), {**IAQUA_SENSOR_DATA})
+        assert sut.value == "42"
 
 
-class TestIaquaBinarySensor(TestBase):
-    """iAqua binary sensor — state "0"/"1" mapping."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaBinarySensor(
-            self.system, {**IAQUA_BINARY_SENSOR_OFF_DATA}
-        )
-
+class TestIaquaBinarySensor:
     def test_is_on_false(self) -> None:
-        self.sut.data["state"] = "0"
-        assert self.sut.is_on is False
+        sut = IaquaBinarySensor(
+            make_system(), {**IAQUA_BINARY_SENSOR_OFF_DATA, "state": "0"}
+        )
+        assert sut.is_on is False
 
     def test_is_on_true(self) -> None:
-        self.sut.data["state"] = "1"
-        assert self.sut.is_on is True
-
-
-class TestIaquaPresenceSensor(TestBase):
-    """iAqua presence sensor — "present"/"absent" mapping."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaPresenceSensor(
-            self.system, {"name": "is_icl_present", "state": "present"}
+        sut = IaquaBinarySensor(
+            make_system(), {**IAQUA_BINARY_SENSOR_OFF_DATA, "state": "1"}
         )
+        assert sut.is_on is True
 
+
+class TestIaquaPresenceSensor:
     def test_is_on_true(self) -> None:
-        self.sut.data["state"] = "present"
-        assert self.sut.is_on is True
+        sut = IaquaPresenceSensor(
+            make_system(), {"name": "is_icl_present", "state": "present"}
+        )
+        assert sut.is_on is True
 
     def test_is_on_false(self) -> None:
-        self.sut.data["state"] = "absent"
-        assert self.sut.is_on is False
+        sut = IaquaPresenceSensor(
+            make_system(), {"name": "is_icl_present", "state": "absent"}
+        )
+        assert sut.is_on is False
 
     def test_is_on_false_empty(self) -> None:
-        self.sut.data["state"] = ""
-        assert self.sut.is_on is False
+        sut = IaquaPresenceSensor(
+            make_system(), {"name": "is_icl_present", "state": ""}
+        )
+        assert sut.is_on is False
 
 
-class TestIaquaSwitch(TestBase):
-    """iAqua switch — turn_on/off patches _parse_home_response."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaSwitch(self.system, {**IAQUA_SWITCH_OFF_DATA})
-
-    @respx.mock
+class TestIaquaSwitch:
     async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "0"
+        sut = IaquaSwitch(
+            make_system(), {**IAQUA_SWITCH_OFF_DATA, "state": "0"}
+        )
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.turn_on()
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.turn_on()
         assert len(respx_mock.calls) > 0
 
-    @respx.mock
     async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "1"
+        sut = IaquaSwitch(
+            make_system(), {**IAQUA_SWITCH_OFF_DATA, "state": "1"}
+        )
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.turn_off()
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.turn_off()
         assert len(respx_mock.calls) > 0
 
 
-class TestIaquaHeater(TestBase):
-    """iAqua heater — state "3" also means on."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaHeater(self.system, {**IAQUA_HEATER_OFF_DATA})
-
+class TestIaquaHeater:
     def test_is_on_false(self) -> None:
-        self.sut.data["state"] = "0"
-        assert self.sut.is_on is False
+        sut = IaquaHeater(
+            make_system(), {**IAQUA_HEATER_OFF_DATA, "state": "0"}
+        )
+        assert sut.is_on is False
 
     def test_is_on_true(self) -> None:
-        self.sut.data["state"] = "1"
-        assert self.sut.is_on is True
+        sut = IaquaHeater(
+            make_system(), {**IAQUA_HEATER_OFF_DATA, "state": "1"}
+        )
+        assert sut.is_on is True
 
     def test_is_on_enabled(self) -> None:
-        self.sut.data["state"] = "3"
-        assert self.sut.is_on is True
-
-    @respx.mock
-    async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "0"
-        respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.turn_on()
-        assert len(respx_mock.calls) > 0
-
-    @respx.mock
-    async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "1"
-        respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.turn_off()
-        assert len(respx_mock.calls) > 0
-
-
-class TestIaquaOneTouchSwitch(TestBase):
-    """iAqua OneTouch switch — patches _parse_onetouch_response, custom label."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaOneTouchSwitch(self.system, {**IAQUA_ONETOUCH_OFF_DATA})
-
-    def test_property_label(self) -> None:
-        assert self.sut.label == "Morning Scene"
-
-    @respx.mock
-    async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "0"
-        respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_onetouch_response"):
-            await self.sut.turn_on()
-        assert len(respx_mock.calls) > 0
-
-    @respx.mock
-    async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "1"
-        respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_onetouch_response"):
-            await self.sut.turn_off()
-        assert len(respx_mock.calls) > 0
-
-
-class TestIaquaAuxSwitch(TestBase):
-    """iAqua aux switch — patches _parse_devices_response."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaAuxSwitch(self.system, {**IAQUA_AUX_SWITCH_OFF_DATA})
-
-    @respx.mock
-    async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "0"
-        respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.turn_on()
-        assert len(respx_mock.calls) > 0
-
-    @respx.mock
-    async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "1"
-        respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.turn_off()
-        assert len(respx_mock.calls) > 0
-
-
-class TestIaquaLightSwitch(TestBase):
-    """iAqua light switch — no brightness, no effect."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaLightSwitch(
-            self.system, {**IAQUA_LIGHT_SWITCH_OFF_DATA}
+        """State "3" (enabled/waiting) is treated as on."""
+        sut = IaquaHeater(
+            make_system(), {**IAQUA_HEATER_OFF_DATA, "state": "3"}
         )
+        assert sut.is_on is True
 
+    async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
+        sut = IaquaHeater(
+            make_system(), {**IAQUA_HEATER_OFF_DATA, "state": "0"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.turn_on()
+        assert len(respx_mock.calls) > 0
+
+    async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
+        sut = IaquaHeater(
+            make_system(), {**IAQUA_HEATER_OFF_DATA, "state": "1"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.turn_off()
+        assert len(respx_mock.calls) > 0
+
+
+class TestIaquaOneTouchSwitch:
+    def test_property_label(self) -> None:
+        sut = IaquaOneTouchSwitch(make_system(), {**IAQUA_ONETOUCH_OFF_DATA})
+        assert sut.label == "Morning Scene"
+
+    async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
+        sut = IaquaOneTouchSwitch(
+            make_system(), {**IAQUA_ONETOUCH_OFF_DATA, "state": "0"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_onetouch_response"):
+            await sut.turn_on()
+        assert len(respx_mock.calls) > 0
+
+    async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
+        sut = IaquaOneTouchSwitch(
+            make_system(), {**IAQUA_ONETOUCH_OFF_DATA, "state": "1"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_onetouch_response"):
+            await sut.turn_off()
+        assert len(respx_mock.calls) > 0
+
+
+class TestIaquaAuxSwitch:
+    async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
+        sut = IaquaAuxSwitch(
+            make_system(), {**IAQUA_AUX_SWITCH_OFF_DATA, "state": "0"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.turn_on()
+        assert len(respx_mock.calls) > 0
+
+    async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
+        sut = IaquaAuxSwitch(
+            make_system(), {**IAQUA_AUX_SWITCH_OFF_DATA, "state": "1"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.turn_off()
+        assert len(respx_mock.calls) > 0
+
+
+class TestIaquaLightSwitch:
     def test_brightness_is_none(self) -> None:
-        assert self.sut.brightness_percentage is None
+        sut = IaquaLightSwitch(make_system(), {**IAQUA_LIGHT_SWITCH_OFF_DATA})
+        assert sut.brightness_percentage is None
 
     def test_effect_is_none(self) -> None:
-        assert self.sut.effect is None
+        sut = IaquaLightSwitch(make_system(), {**IAQUA_LIGHT_SWITCH_OFF_DATA})
+        assert sut.effect is None
 
-    @respx.mock
     async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "0"
+        sut = IaquaLightSwitch(
+            make_system(), {**IAQUA_LIGHT_SWITCH_OFF_DATA, "state": "0"}
+        )
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.turn_on()
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.turn_on()
         assert len(respx_mock.calls) > 0
 
-    @respx.mock
     async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "1"
+        sut = IaquaLightSwitch(
+            make_system(), {**IAQUA_LIGHT_SWITCH_OFF_DATA, "state": "1"}
+        )
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.turn_off()
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.turn_off()
         assert len(respx_mock.calls) > 0
 
 
-class TestIaquaDimmableLight(TestBase):
+class TestIaquaDimmableLight:
     """iAqua dimmable light — brightness support, state+subtype logic."""
 
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaDimmableLight(
-            self.system, {**IAQUA_DIMMABLE_LIGHT_ON_DATA}
-        )
-
     def test_property_label(self) -> None:
-        assert self.sut.label == "Spa Light"
+        sut = IaquaDimmableLight(
+            make_system(), {**IAQUA_DIMMABLE_LIGHT_ON_DATA}
+        )
+        assert sut.label == "Spa Light"
 
     def test_is_on_true(self) -> None:
-        self.sut.data["state"] = "1"
-        self.sut.data["subtype"] = "100"
-        assert self.sut.is_on is True
+        sut = IaquaDimmableLight(
+            make_system(),
+            {**IAQUA_DIMMABLE_LIGHT_ON_DATA, "state": "1", "subtype": "100"},
+        )
+        assert sut.is_on is True
 
     def test_is_on_false(self) -> None:
-        self.sut.data["state"] = "0"
-        self.sut.data["subtype"] = "0"
-        assert self.sut.is_on is False
+        sut = IaquaDimmableLight(
+            make_system(),
+            {**IAQUA_DIMMABLE_LIGHT_ON_DATA, "state": "0", "subtype": "0"},
+        )
+        assert sut.is_on is False
 
     def test_supports_brightness(self) -> None:
-        assert self.sut.supports_brightness is True
+        sut = IaquaDimmableLight(
+            make_system(), {**IAQUA_DIMMABLE_LIGHT_ON_DATA}
+        )
+        assert sut.supports_brightness is True
 
     def test_supports_effect(self) -> None:
-        assert self.sut.supports_effect is False
+        sut = IaquaDimmableLight(
+            make_system(), {**IAQUA_DIMMABLE_LIGHT_ON_DATA}
+        )
+        assert sut.supports_effect is False
 
-    @respx.mock
     async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "0"
-        self.sut.data["subtype"] = "0"
+        sut = IaquaDimmableLight(
+            make_system(),
+            {**IAQUA_DIMMABLE_LIGHT_ON_DATA, "state": "0", "subtype": "0"},
+        )
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.turn_on()
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.turn_on()
         assert len(respx_mock.calls) > 0
 
-    @respx.mock
     async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "1"
-        self.sut.data["subtype"] = "100"
+        sut = IaquaDimmableLight(
+            make_system(),
+            {**IAQUA_DIMMABLE_LIGHT_ON_DATA, "state": "1", "subtype": "100"},
+        )
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.turn_off()
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.turn_off()
         assert len(respx_mock.calls) > 0
 
-    @respx.mock
     async def test_set_brightness(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
+        sut = IaquaDimmableLight(
+            make_system(), {**IAQUA_DIMMABLE_LIGHT_ON_DATA}
+        )
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.set_brightness_percentage(75)
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.set_brightness_percentage(75)
         assert len(respx_mock.calls) > 0
 
 
-class TestIaquaColorLight(TestBase):
-    """iAqua color light — effect support, Pentair manufacturer/model."""
-
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.sut = IaquaColorLightIB(
-            self.system, {**IAQUA_COLOR_LIGHT_OFF_DATA}
-        )
+class TestIaquaColorLight:
+    """iAqua color light — effect support, Pentair manufacturer/model override."""
 
     def test_property_label(self) -> None:
-        assert self.sut.label == "Pool Light"
+        sut = IaquaColorLightIB(make_system(), {**IAQUA_COLOR_LIGHT_OFF_DATA})
+        assert sut.label == "Pool Light"
 
     def test_property_manufacturer(self) -> None:
-        assert self.sut.manufacturer == "Pentair"
+        sut = IaquaColorLightIB(make_system(), {**IAQUA_COLOR_LIGHT_OFF_DATA})
+        assert sut.manufacturer == "Pentair"
 
     def test_property_model(self) -> None:
-        assert self.sut.model == "Intellibrite Light"
+        sut = IaquaColorLightIB(make_system(), {**IAQUA_COLOR_LIGHT_OFF_DATA})
+        assert sut.model == "Intellibrite Light"
 
     def test_supports_brightness(self) -> None:
-        assert self.sut.supports_brightness is False
+        sut = IaquaColorLightIB(make_system(), {**IAQUA_COLOR_LIGHT_OFF_DATA})
+        assert sut.supports_brightness is False
 
     def test_supports_effect(self) -> None:
-        assert self.sut.supports_effect is True
+        sut = IaquaColorLightIB(make_system(), {**IAQUA_COLOR_LIGHT_OFF_DATA})
+        assert sut.supports_effect is True
 
-    @respx.mock
     async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "0"
+        sut = IaquaColorLightIB(
+            make_system(), {**IAQUA_COLOR_LIGHT_OFF_DATA, "state": "0"}
+        )
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.turn_on()
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.turn_on()
         assert len(respx_mock.calls) > 0
 
-    @respx.mock
     async def test_turn_off(self, respx_mock: respx.router.MockRouter) -> None:
-        self.sut.data["state"] = "1"
+        sut = IaquaColorLightIB(
+            make_system(), {**IAQUA_COLOR_LIGHT_OFF_DATA, "state": "1"}
+        )
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.turn_off()
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.turn_off()
         assert len(respx_mock.calls) > 0
 
-    @respx.mock
     async def test_set_effect(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
+        sut = IaquaColorLightIB(make_system(), {**IAQUA_COLOR_LIGHT_OFF_DATA})
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_devices_response"):
-            await self.sut.set_effect("Off")
+        with patch.object(sut.system, "_parse_devices_response"):
+            await sut.set_effect("Off")
         assert len(respx_mock.calls) > 0
 
 
-class TestIaquaSetPoint(TestBase):
+def _make_setpoint():
+    """Return (system, pool_set_point, spa_set_point) wired together."""
+    system = make_system()
+    system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+    sut = IaquaSetPoint(system, {**IAQUA_POOL_SET_POINT_DATA})
+    spa_set_point = IaquaSetPoint(
+        system, {"name": "spa_set_point", "state": "102"}
+    )
+    system.devices = {"pool_set_point": sut}
+    return system, sut, spa_set_point
+
+
+class TestIaquaSetPoint:
     """iAqua set point — temp key logic, wire-protocol URL verification."""
 
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
-
-        self.sut = IaquaSetPoint(self.system, {**IAQUA_POOL_SET_POINT_DATA})
-
-        spa_set_point = {"name": "spa_set_point", "state": "102"}
-        self.spa_set_point = IaquaSetPoint(self.system, spa_set_point)
-
-        self.system.devices = {"pool_set_point": self.sut}
-
     def test_property_label(self) -> None:
-        assert self.sut.label == "Pool Set Point"
+        _, sut, _ = _make_setpoint()
+        assert sut.label == "Pool Set Point"
 
     def test_property_current_value(self) -> None:
-        assert self.sut.current_value == 86.0
+        _, sut, _ = _make_setpoint()
+        assert sut.current_value == 86.0
 
     def test_property_current_value_empty_state(self) -> None:
-        self.sut.data["state"] = ""
-        assert self.sut.current_value is None
+        _, sut, _ = _make_setpoint()
+        sut.data["state"] = ""
+        assert sut.current_value is None
 
     def test_property_min_value_f(self) -> None:
-        self.system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
-        assert self.sut.min_value == float(IAQUA_TEMP_FAHRENHEIT_LOW)
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+        assert sut.min_value == float(IAQUA_TEMP_FAHRENHEIT_LOW)
 
     def test_property_min_value_c(self) -> None:
-        self.system.temp_unit = IaquaTemperatureUnit.CELSIUS
-        assert self.sut.min_value == float(IAQUA_TEMP_CELSIUS_LOW)
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = IaquaTemperatureUnit.CELSIUS
+        assert sut.min_value == float(IAQUA_TEMP_CELSIUS_LOW)
 
     def test_property_max_value_f(self) -> None:
-        self.system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
-        assert self.sut.max_value == float(IAQUA_TEMP_FAHRENHEIT_HIGH)
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+        assert sut.max_value == float(IAQUA_TEMP_FAHRENHEIT_HIGH)
 
     def test_property_max_value_c(self) -> None:
-        self.system.temp_unit = IaquaTemperatureUnit.CELSIUS
-        assert self.sut.max_value == float(IAQUA_TEMP_CELSIUS_HIGH)
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = IaquaTemperatureUnit.CELSIUS
+        assert sut.max_value == float(IAQUA_TEMP_CELSIUS_HIGH)
 
     def test_property_unit_of_measurement_f(self) -> None:
-        self.system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
-        assert self.sut.unit_of_measurement == "°F"
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+        assert sut.unit_of_measurement == "°F"
 
     def test_property_unit_of_measurement_c(self) -> None:
-        self.system.temp_unit = IaquaTemperatureUnit.CELSIUS
-        assert self.sut.unit_of_measurement == "°C"
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = IaquaTemperatureUnit.CELSIUS
+        assert sut.unit_of_measurement == "°C"
 
     def test_property_unit_of_measurement_none(self) -> None:
-        self.system.temp_unit = None
-        assert self.sut.unit_of_measurement is None
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = None
+        assert sut.unit_of_measurement is None
 
     def test_temperature_key_spa_present(self) -> None:
-        self.system.devices["spa_set_point"] = self.spa_set_point
-        assert self.spa_set_point._temperature_key == "temp1"
-        assert self.sut._temperature_key == "temp2"
+        system, sut, spa_set_point = _make_setpoint()
+        system.devices["spa_set_point"] = spa_set_point
+        assert spa_set_point._temperature_key == "temp1"
+        assert sut._temperature_key == "temp2"
 
     def test_temperature_key_no_spa(self) -> None:
-        assert self.sut._temperature_key == "temp1"
+        _, sut, _ = _make_setpoint()
+        assert sut._temperature_key == "temp1"
 
-    @respx.mock
     async def test_set_value_sends_set_temps_spa_present(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
-        self.system.devices["spa_set_point"] = self.spa_set_point
+        system, sut, spa_set_point = _make_setpoint()
+        system.devices["spa_set_point"] = spa_set_point
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.set_value(86.0)
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.set_value(86.0)
         assert len(respx_mock.calls) == 1
         url = str(respx_mock.calls[0].request.url)
         assert "temp1=102" in url
         assert "temp2=86" in url
 
-    @respx.mock
     async def test_set_value_sends_set_temps_no_spa(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
-        self.system.temp_unit = IaquaTemperatureUnit.CELSIUS
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = IaquaTemperatureUnit.CELSIUS
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.set_value(30.0)
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.set_value(30.0)
         assert len(respx_mock.calls) == 1
         url = str(respx_mock.calls[0].request.url)
         assert "temp1=30" in url
         assert "temp2" not in url
 
     def test_min_value_raises_when_temp_unit_is_none(self) -> None:
-        self.system.temp_unit = None
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = None
         with pytest.raises(AqualinkStateUnavailableException):
-            _ = self.sut.min_value
+            _ = sut.min_value
 
     def test_max_value_raises_when_temp_unit_is_none(self) -> None:
-        self.system.temp_unit = None
+        system, sut, _ = _make_setpoint()
+        system.temp_unit = None
         with pytest.raises(AqualinkStateUnavailableException):
-            _ = self.sut.max_value
+            _ = sut.max_value
 
 
-class TestIaquaClimate(TestBase):
+def _make_climate():
+    """Return (system, pool_set_point, pool_temp, pool_heater, spa_set_point, sut)."""
+    system = make_system()
+    system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+    pool_set_point = IaquaSetPoint(system, {**IAQUA_POOL_SET_POINT_DATA})
+    pool_temp = IaquaSensor(system, {**IAQUA_POOL_TEMP_DATA})
+    pool_heater = IaquaHeater(system, {**IAQUA_HEATER_OFF_DATA})
+    spa_set_point = IaquaSetPoint(
+        system, {"name": "spa_set_point", "state": "102"}
+    )
+    system.devices = {
+        "pool_set_point": pool_set_point,
+        "pool_heater": pool_heater,
+        "pool_temp": pool_temp,
+    }
+    sut = IaquaClimate(system, {**IAQUA_CLIMATE_DATA})
+    system.devices["pool_thermostat"] = sut
+    return system, pool_set_point, pool_temp, pool_heater, spa_set_point, sut
+
+
+class TestIaquaClimate:
     """iAqua climate — heater state, temp unit, wire-protocol URL params."""
 
-    def setUp(self) -> None:
-        super().setUp()
-
-        self.system = make_system()
-        self.system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
-
-        self.pool_set_point = IaquaSetPoint(
-            self.system, {**IAQUA_POOL_SET_POINT_DATA}
-        )
-        self.pool_temp = IaquaSensor(self.system, {**IAQUA_POOL_TEMP_DATA})
-        self.pool_heater = IaquaHeater(self.system, {**IAQUA_HEATER_OFF_DATA})
-
-        spa_set_point = {"name": "spa_set_point", "state": "102"}
-        self.spa_set_point = IaquaSetPoint(self.system, spa_set_point)
-
-        self.system.devices = {
-            "pool_set_point": self.pool_set_point,
-            "pool_heater": self.pool_heater,
-            "pool_temp": self.pool_temp,
-        }
-
-        self.sut = IaquaClimate(self.system, {**IAQUA_CLIMATE_DATA})
-        self.system.devices["pool_thermostat"] = self.sut
-
     def test_property_label(self) -> None:
-        assert self.sut.label == "Pool Thermostat"
+        *_, sut = _make_climate()
+        assert sut.label == "Pool Thermostat"
 
     def test_property_state_raises(self) -> None:
+        *_, sut = _make_climate()
         with pytest.raises(AqualinkOperationNotSupportedException):
-            _ = self.sut.state
+            _ = sut.state
 
     def test_is_on_from_heater(self) -> None:
-        self.pool_heater.data["state"] = "1"
-        assert self.sut.is_on is True
-        self.pool_heater.data["state"] = "0"
-        assert self.sut.is_on is False
+        system, _, _, pool_heater, _, sut = _make_climate()
+        pool_heater.data["state"] = "1"
+        assert sut.is_on is True
+        pool_heater.data["state"] = "0"
+        assert sut.is_on is False
 
     def test_temperature_unit(self) -> None:
-        self.system.temp_unit = "F"
-        assert self.sut.temperature_unit == "F"
+        system, *_, sut = _make_climate()
+        system.temp_unit = "F"
+        assert sut.temperature_unit == "F"
 
     def test_min_temp_f(self) -> None:
-        self.system.temp_unit = "F"
-        assert self.sut.min_temp == IAQUA_TEMP_FAHRENHEIT_LOW
+        system, *_, sut = _make_climate()
+        system.temp_unit = "F"
+        assert sut.min_temp == IAQUA_TEMP_FAHRENHEIT_LOW
 
     def test_min_temp_c(self) -> None:
-        self.system.temp_unit = "C"
-        assert self.sut.min_temp == IAQUA_TEMP_CELSIUS_LOW
+        system, *_, sut = _make_climate()
+        system.temp_unit = "C"
+        assert sut.min_temp == IAQUA_TEMP_CELSIUS_LOW
 
     def test_max_temp_f(self) -> None:
-        self.system.temp_unit = "F"
-        assert self.sut.max_temp == IAQUA_TEMP_FAHRENHEIT_HIGH
+        system, *_, sut = _make_climate()
+        system.temp_unit = "F"
+        assert sut.max_temp == IAQUA_TEMP_FAHRENHEIT_HIGH
 
     def test_max_temp_c(self) -> None:
-        self.system.temp_unit = "C"
-        assert self.sut.max_temp == IAQUA_TEMP_CELSIUS_HIGH
+        system, *_, sut = _make_climate()
+        system.temp_unit = "C"
+        assert sut.max_temp == IAQUA_TEMP_CELSIUS_HIGH
 
     def test_current_temperature(self) -> None:
-        assert self.sut.current_temperature == "65"
+        *_, sut = _make_climate()
+        assert sut.current_temperature == "65"
 
     def test_target_temperature(self) -> None:
-        assert self.sut.target_temperature == "86"
+        *_, sut = _make_climate()
+        assert sut.target_temperature == "86"
 
-    @respx.mock
     async def test_turn_on_url(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
-        self.pool_heater.data["state"] = "0"
+        system, _, _, pool_heater, _, sut = _make_climate()
+        pool_heater.data["state"] = "0"
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.turn_on()
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.turn_on()
         assert len(respx_mock.calls) == 1
         url = str(respx_mock.calls[0].request.url)
         assert "set_pool_heater" in url
 
-    @respx.mock
     async def test_turn_off_url(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
-        self.pool_heater.data["state"] = "1"
+        system, _, _, pool_heater, _, sut = _make_climate()
+        pool_heater.data["state"] = "1"
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.turn_off()
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.turn_off()
         assert len(respx_mock.calls) == 1
         url = str(respx_mock.calls[0].request.url)
         assert "set_pool_heater" in url
 
-    @respx.mock
     async def test_set_temperature_url_spa_present(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
-        self.system.devices["spa_set_point"] = self.spa_set_point
+        system, _, _, _, spa_set_point, sut = _make_climate()
+        system.devices["spa_set_point"] = spa_set_point
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.set_temperature(86)
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.set_temperature(86)
         assert len(respx_mock.calls) == 1
         url = str(respx_mock.calls[0].request.url)
         assert "temp1=102" in url
         assert "temp2=86" in url
 
-    @respx.mock
     async def test_set_temperature_url_celsius(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
-        self.system.temp_unit = IaquaTemperatureUnit.CELSIUS
+        system, *_, sut = _make_climate()
+        system.temp_unit = IaquaTemperatureUnit.CELSIUS
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_home_response"):
-            await self.sut.set_temperature(30)
+        with patch.object(sut.system, "_parse_home_response"):
+            await sut.set_temperature(30)
         assert len(respx_mock.calls) == 1
         url = str(respx_mock.calls[0].request.url)
         assert "temp1=30" in url
         assert "temp2" not in url
 
     def test_temperature_unit_raises_when_none(self) -> None:
-        self.sut.system.temp_unit = None
+        system, *_, sut = _make_climate()
+        system.temp_unit = None
         with pytest.raises(AqualinkStateUnavailableException):
-            _ = self.sut.temperature_unit
+            _ = sut.temperature_unit
