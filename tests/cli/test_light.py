@@ -179,7 +179,9 @@ def test_set_rgbw_succeeds(tmp_path: Path) -> None:
             "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
         }
     )
-    result, _ = invoke_with_jar(tmp_path, "set-rgbw", "light", "255", "0", "128")
+    result, _ = invoke_with_jar(
+        tmp_path, "set-rgbw", "light", "255", "0", "128"
+    )
     assert result.exit_code == 0
     assert "(255, 0, 128, 0)" in result.stdout
     light.set_rgbw.assert_awaited_once_with(255, 0, 128, 0)
