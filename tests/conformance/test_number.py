@@ -88,9 +88,7 @@ async def test_set_value_above_max(
 
 def test_from_data(number_fixture: NumberFixture) -> None:
     if number_fixture.expected_class is not None:
-        assert isinstance(
-            number_fixture.device, number_fixture.expected_class
-        )
+        assert isinstance(number_fixture.device, number_fixture.expected_class)
 
 
 # ---------------------------------------------------------------------------

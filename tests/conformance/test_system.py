@@ -15,9 +15,10 @@ from iaqualink.exception import (
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
 )
-from iaqualink.system import AqualinkSystem, SystemStatus
+from iaqualink.system import SystemStatus
 
-from .conftest import dotstar as _dotstar, resp_200 as _resp_200
+from .conftest import dotstar as _dotstar
+from .conftest import resp_200 as _resp_200
 from .fixtures import SystemFixture
 
 if TYPE_CHECKING:
@@ -44,9 +45,7 @@ def test_repr(system_fixture: SystemFixture) -> None:
 
 def test_from_data(system_fixture: SystemFixture) -> None:
     if system_fixture.expected_class is not None:
-        assert isinstance(
-            system_fixture.system, system_fixture.expected_class
-        )
+        assert isinstance(system_fixture.system, system_fixture.expected_class)
 
 
 async def test_refresh_success(
@@ -57,7 +56,10 @@ async def test_refresh_success(
     await system_fixture.system.refresh()
     assert len(respx_mock.calls) > 0
     if system_fixture.expected_online_status is not None:
-        assert system_fixture.system.status is system_fixture.expected_online_status
+        assert (
+            system_fixture.system.status
+            is system_fixture.expected_online_status
+        )
 
 
 async def test_refresh_service_exception(
@@ -95,8 +97,12 @@ async def test_refresh_retries_after_401(
 ) -> None:
     """First request returns 401, reauth succeeds, retry returns 200."""
     resp_401 = httpx.Response(status_code=401)
-    resp_ok = httpx.Response(status_code=200, json=system_fixture.refresh_response)
-    respx_mock.route(_dotstar).mock(side_effect=[resp_401, resp_ok, resp_ok, resp_ok])
+    resp_ok = httpx.Response(
+        status_code=200, json=system_fixture.refresh_response
+    )
+    respx_mock.route(_dotstar).mock(
+        side_effect=[resp_401, resp_ok, resp_ok, resp_ok]
+    )
 
     with patch.object(
         system_fixture.system.aqualink,
@@ -107,7 +113,10 @@ async def test_refresh_retries_after_401(
 
     mock_refresh.assert_awaited_once()
     if system_fixture.expected_online_status is not None:
-        assert system_fixture.system.status is system_fixture.expected_online_status
+        assert (
+            system_fixture.system.status
+            is system_fixture.expected_online_status
+        )
 
 
 async def test_refresh_retries_only_once_on_repeated_401(

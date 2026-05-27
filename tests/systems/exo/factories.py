@@ -31,7 +31,12 @@ from ...conformance.fixtures import (
 
 EXO_SYSTEM_DATA: dict = {"serial_number": "SN123456", "device_type": "exo"}
 EXO_DEVICE_DATA: dict = {"name": "Test Device", "state": "42"}
-EXO_SENSOR_DATA: dict = {"name": "sns_1", "sensor_type": "Foo", "value": 42, "state": 1}
+EXO_SENSOR_DATA: dict = {
+    "name": "sns_1",
+    "sensor_type": "Foo",
+    "value": 42,
+    "state": 1,
+}
 EXO_ATTRIBUTE_SENSOR_DATA: dict = {"name": "foo_bar", "state": 42}
 EXO_FILTER_PUMP_ON_DATA: dict = {"name": "filter_pump", "type": 1, "state": 1}
 EXO_HEATING_ON_DATA: dict = {
@@ -61,13 +66,16 @@ def make_system() -> ExoSystem:
 
 def _exo_device() -> DeviceFixture:
     system = make_system()
-    return DeviceFixture(device=ExoDevice(system, {**EXO_DEVICE_DATA}), expected_class=ExoDevice)
+    return DeviceFixture(
+        device=ExoDevice(system, {**EXO_DEVICE_DATA}), expected_class=ExoDevice
+    )
 
 
 def _exo_sensor_device() -> DeviceFixture:
     system = make_system()
     return DeviceFixture(
-        device=ExoDevice.from_data(system, {**EXO_SENSOR_DATA}), expected_class=ExoSensor
+        device=ExoDevice.from_data(system, {**EXO_SENSOR_DATA}),
+        expected_class=ExoSensor,
     )
 
 
@@ -93,7 +101,8 @@ exo_device_factories: list[tuple[str, callable]] = [
 def _exo_sensor() -> SensorFixture:
     system = make_system()
     return SensorFixture(
-        device=ExoDevice.from_data(system, {**EXO_SENSOR_DATA}), expected_class=ExoSensor
+        device=ExoDevice.from_data(system, {**EXO_SENSOR_DATA}),
+        expected_class=ExoSensor,
     )
 
 
@@ -171,8 +180,12 @@ def _exo_climate() -> ClimateFixture:
 
     water_temp_dev = ExoDevice.from_data(system, {**EXO_WATER_TEMP_DATA})
 
-    device_on = cast(ExoClimate, ExoDevice.from_data(system, {**EXO_HEATING_ON_DATA}))
-    device_off = cast(ExoClimate, ExoDevice.from_data(system, pool_set_point_off))
+    device_on = cast(
+        ExoClimate, ExoDevice.from_data(system, {**EXO_HEATING_ON_DATA})
+    )
+    device_off = cast(
+        ExoClimate, ExoDevice.from_data(system, pool_set_point_off)
+    )
 
     system.devices = {
         "heating": device_on,
@@ -209,7 +222,9 @@ def _exo_system() -> SystemFixture:
         system=system,
         expected_class=ExoSystem,
         expected_online_status=SystemStatus.CONNECTED,
-        refresh_response={"state": {"reported": {"aws": {"status": "connected"}}}},
+        refresh_response={
+            "state": {"reported": {"aws": {"status": "connected"}}}
+        },
     )
 
 

@@ -96,14 +96,16 @@ def make_system() -> IaquaSystem:
 def _iaqua_device() -> DeviceFixture:
     system = make_system()
     return DeviceFixture(
-        device=IaquaDevice(system, {**IAQUA_DEVICE_DATA}), expected_class=IaquaDevice
+        device=IaquaDevice(system, {**IAQUA_DEVICE_DATA}),
+        expected_class=IaquaDevice,
     )
 
 
 def _iaqua_sensor_device() -> DeviceFixture:
     system = make_system()
     return DeviceFixture(
-        device=IaquaSensor(system, {**IAQUA_SENSOR_DATA}), expected_class=IaquaSensor
+        device=IaquaSensor(system, {**IAQUA_SENSOR_DATA}),
+        expected_class=IaquaSensor,
     )
 
 
@@ -129,7 +131,8 @@ iaqua_device_factories: list[tuple[str, callable]] = [
 def _iaqua_sensor() -> SensorFixture:
     system = make_system()
     return SensorFixture(
-        device=IaquaSensor(system, {**IAQUA_SENSOR_DATA}), expected_class=IaquaSensor
+        device=IaquaSensor(system, {**IAQUA_SENSOR_DATA}),
+        expected_class=IaquaSensor,
     )
 
 
@@ -311,7 +314,9 @@ def _iaqua_climate() -> ClimateFixture:
     system_off.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
     system_off._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]
 
-    pool_set_point_off_dev = IaquaSetPoint(system_off, {**IAQUA_POOL_SET_POINT_DATA})
+    pool_set_point_off_dev = IaquaSetPoint(
+        system_off, {**IAQUA_POOL_SET_POINT_DATA}
+    )
     pool_temp_off_dev = IaquaSensor(system_off, {**IAQUA_POOL_TEMP_DATA})
     pool_heater_off_dev = IaquaHeater(system_off, {**IAQUA_HEATER_OFF_DATA})
 

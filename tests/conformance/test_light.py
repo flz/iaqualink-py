@@ -153,6 +153,4 @@ async def test_set_effect_invalid_amaranth(
 
 def test_from_data(light_fixture: LightFixture) -> None:
     if light_fixture.expected_class is not None:
-        assert isinstance(
-            light_fixture.device_on, light_fixture.expected_class
-        )
+        assert isinstance(light_fixture.device_on, light_fixture.expected_class)

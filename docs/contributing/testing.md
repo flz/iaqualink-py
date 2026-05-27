@@ -24,9 +24,6 @@ tests/conformance/
 ├── __init__.py
 ├── conftest.py              # Aggregates factories, exposes parametrized fixtures
 ├── fixtures.py              # Dataclass definitions (DeviceFixture, SwitchFixture, etc.)
-├── _factories_exo.py        # EXO factory functions
-├── _factories_i2d.py        # I2D factory functions
-├── _factories_iaqua.py      # iAqua factory functions
 ├── test_device.py           # Tests AqualinkDevice contract
 ├── test_sensor.py           # Tests AqualinkSensor contract
 ├── test_binary_sensor.py    # Tests AqualinkBinarySensor contract
@@ -36,6 +33,14 @@ tests/conformance/
 ├── test_number.py           # Tests AqualinkNumber contract
 ├── test_fan.py              # Tests AqualinkFan contract
 └── test_system.py           # Tests AqualinkSystem contract
+
+tests/systems/<name>/
+├── __init__.py
+├── factories.py             # Factory functions for conformance fixtures
+├── fixtures/                # JSON fixture files for HTTP mock responses
+├── test_device.py
+├── test_system.py
+└── test_parsing.py          # (optional)
 ```
 
 ### Fixture Dataclasses
@@ -55,7 +60,7 @@ For devices with on/off states, provide two instances. For stateless devices (se
 
 ### Factory Functions
 
-Each system provides factory functions in `_factories_<system>.py`. A factory constructs a fixture dataclass with realistic data:
+Each system provides factory functions in `tests/systems/<name>/factories.py`. A factory constructs a fixture dataclass with realistic data:
 
 ```python
 def _exo_aux_switch() -> SwitchFixture:
@@ -83,13 +88,13 @@ The `conftest.py` aggregates these lists and exposes parametrized fixtures that 
 
 ### Adding a New System to Conformance Tests
 
-1. Create `tests/conformance/_factories_newsystem.py`
+1. Create `tests/systems/newsystem/factories.py`
 2. Write factory functions for each device type your system implements
 3. Export factory lists (e.g., `newsystem_device_factories`, `newsystem_switch_factories`)
 4. Import and register in `tests/conformance/conftest.py`:
 
 ```python
-from ._factories_newsystem import (
+from ..systems.newsystem.factories import (
     newsystem_device_factories,
     newsystem_switch_factories,
     newsystem_system_factories,
@@ -132,10 +137,10 @@ tests/systems/newsystem/
 
 ### Testing Patterns
 
-System-specific tests use `unittest.IsolatedAsyncioTestCase` with `TestBase` (`tests/base.py`) for shared `self.client` setup:
+System-specific tests use `unittest.IsolatedAsyncioTestCase` with `TestBase` (from `tests/conftest.py`) for shared `self.client` setup:
 
 ```python
-from ...base import TestBase, dotstar, resp_200
+from ...conftest import TestBase, dotstar, resp_200
 
 class TestNewSwitch(TestBase):
     def setUp(self) -> None:
@@ -153,7 +158,7 @@ class TestNewSwitch(TestBase):
         assert "switch_1=on" in url
 ```
 
-These tests are standalone — they do **not** inherit from shared base test classes. Conformance tests handle the abstract contract; system tests focus on wire-protocol correctness.
+Conformance tests handle the abstract contract; system-specific tests focus on wire-protocol correctness.
 
 ### HTTP Mocking
 
@@ -190,7 +195,7 @@ System-specific tests inherit from `unittest.IsolatedAsyncioTestCase`, which han
 
 ### Checklist
 
-- [ ] Create `tests/conformance/_factories_newsystem.py` with factories for every device type
+- [ ] Create `tests/systems/newsystem/factories.py` with factories for every device type
 - [ ] Register factories in `tests/conformance/conftest.py`
 - [ ] Create `tests/systems/newsystem/` directory with `__init__.py`
 - [ ] Add `test_system.py` with standalone tests for refresh, parsing, and status transitions
@@ -207,4 +212,4 @@ When adding a new base device type to `device.py`:
 1. Add a fixture dataclass in `tests/conformance/fixtures.py`
 2. Add a conformance test module `tests/conformance/test_newdevice.py`
 3. Add a parametrized fixture in `tests/conformance/conftest.py`
-4. Register factories in each system's `_factories_*.py` that implements the type
+4. Register factories in each system's `factories.py` that implements the type

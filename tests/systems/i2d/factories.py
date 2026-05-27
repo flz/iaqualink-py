@@ -45,7 +45,11 @@ def _i2d_sensor_device() -> DeviceFixture:
     system = make_system()
     return DeviceFixture(
         device=I2dSensor(
-            system, {"speed": "1500"}, key="speed", label="Motor Speed", unit="RPM"
+            system,
+            {"speed": "1500"},
+            key="speed",
+            label="Motor Speed",
+            unit="RPM",
         ),
         expected_class=I2dSensor,
     )
@@ -92,7 +96,11 @@ def _i2d_sensor() -> SensorFixture:
     system = make_system()
     return SensorFixture(
         device=I2dSensor(
-            system, {"speed": "1500"}, key="speed", label="Motor Speed", unit="RPM"
+            system,
+            {"speed": "1500"},
+            key="speed",
+            label="Motor Speed",
+            unit="RPM",
         ),
         expected_class=I2dSensor,
     )
@@ -113,10 +121,16 @@ def _i2d_binary_sensor() -> BinarySensorFixture:
     data_off: dict = {"freezeprotectstatus": "0"}
     return BinarySensorFixture(
         device_on=I2dBinarySensor(
-            system, data_on, key="freezeprotectstatus", label="Freeze Protect Status"
+            system,
+            data_on,
+            key="freezeprotectstatus",
+            label="Freeze Protect Status",
         ),
         device_off=I2dBinarySensor(
-            system, data_off, key="freezeprotectstatus", label="Freeze Protect Status"
+            system,
+            data_off,
+            key="freezeprotectstatus",
+            label="Freeze Protect Status",
         ),
         expected_class=I2dBinarySensor,
     )
@@ -137,10 +151,16 @@ def _i2d_switch() -> SwitchFixture:
     data_off: dict = {"freezeprotectenable": "0"}
     return SwitchFixture(
         device_on=I2dSwitch(
-            system, data_on, key="freezeprotectenable", label="Freeze Protection"
+            system,
+            data_on,
+            key="freezeprotectenable",
+            label="Freeze Protection",
         ),
         device_off=I2dSwitch(
-            system, data_off, key="freezeprotectenable", label="Freeze Protection"
+            system,
+            data_off,
+            key="freezeprotectenable",
+            label="Freeze Protection",
         ),
         has_noop_guard=False,
         expected_class=I2dSwitch,

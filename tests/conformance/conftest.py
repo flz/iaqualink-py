@@ -11,25 +11,14 @@ from typing import Callable
 
 import pytest
 
-from ..conftest import dotstar, resp_200  # noqa: F401 — re-exported for test modules
-
-from .fixtures import (
-    BinarySensorFixture,
-    ClimateFixture,
-    DeviceFixture,
-    FanFixture,
-    LightFixture,
-    NumberFixture,
-    SensorFixture,
-    SwitchFixture,
-    SystemFixture,
+from ..conftest import (  # noqa: F401 — re-exported for test modules
+    dotstar,
+    resp_200,
 )
-
 
 # ---------------------------------------------------------------------------
 # System factory imports — each returns lists of (id, factory) tuples
 # ---------------------------------------------------------------------------
-
 from ..systems.exo.factories import (
     exo_climate_factories,
     exo_device_factories,
@@ -55,6 +44,17 @@ from ..systems.iaqua.factories import (
     iaqua_sensor_factories,
     iaqua_switch_factories,
     iaqua_system_factories,
+)
+from .fixtures import (
+    BinarySensorFixture,
+    ClimateFixture,
+    DeviceFixture,
+    FanFixture,
+    LightFixture,
+    NumberFixture,
+    SensorFixture,
+    SwitchFixture,
+    SystemFixture,
 )
 
 
@@ -175,4 +175,3 @@ _system_ids, _system_factories = _collect(
 @pytest.fixture(params=_system_factories, ids=_system_ids)
 def system_fixture(request: pytest.FixtureRequest) -> SystemFixture:
     return request.param()
-

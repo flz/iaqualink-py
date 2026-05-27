@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import copy
-
 import respx
 import respx.router
 
