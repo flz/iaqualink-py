@@ -214,26 +214,24 @@ class AqualinkSystem:
 **Structure:**
 ```
 tests/
-├── base.py
+├── conftest.py               # Shared helpers: TestBase, dotstar, resp_200
 ├── test_client.py
-├── test_system.py
-├── test_device.py
 ├── utils/
 │   ├── test_crypto.py
 │   └── test_redact.py
 ├── conformance/
 │   ├── conftest.py           # Aggregates factories, parametrized fixtures
 │   ├── fixtures.py           # Fixture dataclasses (SwitchFixture, etc.)
-│   ├── _factories_*.py       # Per-system factory functions
 │   └── test_*.py             # Conformance tests per device/system type
 └── systems/
     ├── iaqua/
+    │   ├── factories.py      # Factory functions for conformance fixtures
+    │   ├── fixtures/         # JSON HTTP mock responses
     │   └── test_*.py         # Wire-protocol and parsing tests
     ├── exo/
-    │   └── ...
+    │   └── ...               # Same structure as iaqua/
     └── i2d/
-        ├── test_system.py        # System/parsing/commands
-        └── test_device.py        # Device class unit tests
+        └── ...               # Same structure as iaqua/
 ```
 
 Mock HTTP fixtures live alongside the test file in the same `tests/systems/<system>/` directory.
