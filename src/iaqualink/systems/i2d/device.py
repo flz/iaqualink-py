@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import StrEnum, unique
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from iaqualink.device import (
     AqualinkBinarySensor,
@@ -315,15 +315,17 @@ class I2dNumber(I2dDevice, AqualinkNumber):
     def min_value(self) -> float:
         if self._min_key is not None:
             return float(self.data[self._min_key])
-        assert self._min_value is not None
-        return self._min_value
+        # Constructor ensures _min_value is not None when _min_key is None.
+        # cast() because ty doesn't narrow across the branch above.
+        return cast(float, self._min_value)
 
     @property
     def max_value(self) -> float:
         if self._max_key is not None:
             return float(self.data[self._max_key])
-        assert self._max_value is not None
-        return self._max_value
+        # Constructor ensures _max_value is not None when _max_key is None.
+        # cast() because ty doesn't narrow across the branch above.
+        return cast(float, self._max_value)
 
     @property
     def step(self) -> float:
