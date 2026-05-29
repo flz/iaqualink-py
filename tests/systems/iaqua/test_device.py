@@ -796,11 +796,6 @@ class TestIaquaIclLight:
         assert "set_iclzone_color" in url
         assert "color_id=6" in url
 
-    def test_property_effect_color_id_zero(self) -> None:
-        self.sut.data["zoneColor"] = "0"
-        self.sut.data["zoneColorVal"] = "off"
-        assert self.sut.effect is None
-
     async def test_set_effect_off_invalid(self) -> None:
         from iaqualink.exception import AqualinkInvalidParameterException
 

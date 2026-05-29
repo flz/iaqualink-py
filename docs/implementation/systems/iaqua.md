@@ -169,7 +169,7 @@ After write commands that return the full `icl_info_list` shape (`onoff_iclzone`
 | `brightness_percentage` | `dim_level` | `int`, 0–100; `None` if field absent |
 | `effect` | `zoneColorVal` | Human-readable name string; `None` if empty |
 | `_color_id` | `zoneColor` | Integer 0–16; internal — not part of `AqualinkLight` API |
-| `rgbw` | `red_val`, `green_val`, `blue_val`, `white_val` | 4-tuple; returns `None` on parse error |
+| `rgbw` | `red_val`, `green_val`, `blue_val`, `white_val` | 4-tuple; defaults to `(0, 0, 0, 0)` if fields absent |
 
 ### Operations
 

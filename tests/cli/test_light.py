@@ -184,7 +184,7 @@ def test_set_rgbw_succeeds(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert "(255, 0, 128, 0)" in result.stdout
-    light.set_rgbw.assert_awaited_once_with(255, 0, 128, 0)
+    light.set_rgbw.assert_awaited_once_with(255, 0, 128, 0)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
 
 
 def test_set_rgbw_succeeds_with_white(tmp_path: Path) -> None:
@@ -199,7 +199,7 @@ def test_set_rgbw_succeeds_with_white(tmp_path: Path) -> None:
     )
     assert result.exit_code == 0
     assert "(100, 150, 200, 50)" in result.stdout
-    light.set_rgbw.assert_awaited_once_with(100, 150, 200, 50)
+    light.set_rgbw.assert_awaited_once_with(100, 150, 200, 50)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
 
 
 def test_set_rgbw_fails_on_non_light(tmp_path: Path) -> None:

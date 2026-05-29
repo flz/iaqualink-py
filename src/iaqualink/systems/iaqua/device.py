@@ -510,7 +510,7 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
     @property
     def brightness_percentage(self) -> int | None:
         dim_level = self.data.get("dim_level")
-        if dim_level is not None:
+        if dim_level:
             return int(dim_level)
         return None
 
@@ -529,16 +529,16 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
     @property
     def _color_id(self) -> int | None:
         color = self.data.get("zoneColor")
-        if color is not None:
+        if color:
             return int(color)
         return None
 
     @property
     def rgbw(self) -> tuple[int, int, int, int]:
-        r = int(self.data.get("red_val", 0))
-        g = int(self.data.get("green_val", 0))
-        b = int(self.data.get("blue_val", 0))
-        w = int(self.data.get("white_val", 0))
+        r = int(self.data.get("red_val") or 0)
+        g = int(self.data.get("green_val") or 0)
+        b = int(self.data.get("blue_val") or 0)
+        w = int(self.data.get("white_val") or 0)
         return (r, g, b, w)
 
     async def turn_on(self) -> None:

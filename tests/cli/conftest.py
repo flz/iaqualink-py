@@ -217,6 +217,7 @@ def make_light(
     m.supports_effect = supports_effect
     m.effect = effect
     m.effect_list = effect_list
+    m.supports_rgbw = False
     return m
 
 
