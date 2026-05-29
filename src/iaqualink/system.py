@@ -6,7 +6,7 @@ import enum
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, Type, cast
 
 from iaqualink.exception import (
     AqualinkServiceException,
@@ -39,7 +39,7 @@ class SystemStatus(enum.Enum):
 
 
 class AqualinkSystem(ABC):
-    subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
+    subclasses: ClassVar[dict[str, Type[AqualinkSystem]]] = {}
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
@@ -51,7 +51,7 @@ class AqualinkSystem(ABC):
     def __init_subclass__(cls) -> None:
         super().__init_subclass__()
         if hasattr(cls, "NAME"):
-            cls.subclasses[cls.NAME] = cls
+            cls.subclasses[cast(str, cls.NAME)] = cls
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]

@@ -315,13 +315,15 @@ class I2dNumber(I2dDevice, AqualinkNumber):
     def min_value(self) -> float:
         if self._min_key is not None:
             return float(self.data[self._min_key])
-        return self._min_value  # type: ignore[return-value]
+        assert self._min_value is not None
+        return self._min_value
 
     @property
     def max_value(self) -> float:
         if self._max_key is not None:
             return float(self.data[self._max_key])
-        return self._max_value  # type: ignore[return-value]
+        assert self._max_value is not None
+        return self._max_value
 
     @property
     def step(self) -> float:
