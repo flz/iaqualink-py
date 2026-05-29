@@ -117,6 +117,33 @@ class TestVortraxSystem(TestBase):
         assert "returning" in self.system.devices
         assert "model_number" in self.system.devices
 
+    @respx.mock
+    async def test_inherited_robot_device_is_vrrobot(self) -> None:
+        # VortraxSystem reuses VrSystem's parser, so it inherits the VrRobot
+        # HA-vacuum device with no vortrax-specific code (T31).
+        from iaqualink.device import AqualinkRobot, AqualinkRobotActivity
+        from iaqualink.systems.vr.device import VrRobot
+
+        respx.get(f"{VR_DEVICES_URL}/SN42/shadow").mock(
+            return_value=httpx.Response(200, json=SHADOW_RESPONSE)
+        )
+        await self.system.refresh()
+        robot = self.system.devices["robot"]
+        assert isinstance(robot, VrRobot)
+        assert isinstance(robot, AqualinkRobot)
+        assert robot.activity is AqualinkRobotActivity.CLEANING
+
+    @respx.mock
+    async def test_product_number_is_diagnostic(self) -> None:
+        respx.get(f"{VR_DEVICES_URL}/SN42/shadow").mock(
+            return_value=httpx.Response(200, json=SHADOW_RESPONSE)
+        )
+        await self.system.refresh()
+        assert (
+            self.system.devices["product_number"].entity_category
+            == "diagnostic"
+        )
+
     async def test_start_cleaning_uses_vortrax_namespace(self) -> None:
         from iaqualink.systems.vr import system as vr_sys_mod
 
