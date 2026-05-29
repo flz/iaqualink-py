@@ -78,6 +78,15 @@ class TestCyclonextSystem(TestBase):
         assert "model_number" in self.system.devices
         # time_remaining_sec is derived; should be present.
         assert "time_remaining_sec" in self.system.devices
+        # HA-vacuum-style robot device (T31).
+        from iaqualink.device import AqualinkRobot, AqualinkRobotActivity
+        from iaqualink.systems.cyclonext.device import CyclonextRobot
+
+        robot = self.system.devices["robot"]
+        assert isinstance(robot, CyclonextRobot)
+        assert isinstance(robot, AqualinkRobot)
+        # SHADOW_RESPONSE mode == 1 -> cleaning.
+        assert robot.activity is AqualinkRobotActivity.CLEANING
 
     @respx.mock
     async def test_refresh_missing_robot_sets_offline(self) -> None:

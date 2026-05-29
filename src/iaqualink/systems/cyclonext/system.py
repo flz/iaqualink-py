@@ -148,6 +148,12 @@ class CyclonextSystem(AqualinkSystem):
                 "state": 0 if mode == 0 else 1,
             }
 
+        # HA-vacuum-style robot device; reads live runtime off _robot_state.
+        devices["robot"] = {
+            "name": "robot",
+            "state": mode if mode is not None else 0,
+        }
+
         # Derived: cycle time remaining (seconds). None when unknown.
         remaining = self._compute_time_remaining_seconds(robot)
         if remaining is not None:
