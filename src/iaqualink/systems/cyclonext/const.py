@@ -60,7 +60,7 @@ CYCLE_DURATION_KEY: Final[dict[int, str]] = {
     CYCLE_FLOOR_AND_WALLS: "deepTim",
 }
 
-# Increment unit for runtime extension (mirrors `stepperAdjTime`).
+# Increment unit (minutes) for runtime extension of the wire `stepper` field.
 RUNTIME_EXTENSION_STEP_MIN: Final = 15
 
 # Direction — Remote screen (mode=2).

@@ -107,7 +107,7 @@ Earlier code used the name `MODE_PAUSE`. Mode 2 is actually the Remote-control s
 
 ### `RUNTIME_EXTENSION_STEP_MIN = 15`
 
-Runtime extension steps mirror the vendor app's `stepperAdjTime` increment of 15 minutes. The `set_runtime_extension()` method validates that the supplied value is a non-negative multiple of 15.
+Runtime extension adjusts the wire `stepper` field in 15-minute increments. The `set_runtime_extension()` method validates that the supplied value is a non-negative multiple of 15.
 
 ### Equipment state wrapped in `"robot.1"` key
 
