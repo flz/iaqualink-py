@@ -88,8 +88,33 @@ class TestCyclobatSystem(TestBase):
         assert "battery_percentage" in self.system.devices
         assert self.system.devices["battery_percentage"].data["state"] == 87
         assert "running" in self.system.devices
+        # Robot device exposed as an HA-vacuum-style AqualinkRobot.
+        from iaqualink.device import AqualinkRobot, AqualinkRobotActivity
+        from iaqualink.systems.cyclobat.device import CyclobatRobot
+
+        robot = self.system.devices["robot"]
+        assert isinstance(robot, CyclobatRobot)
+        assert isinstance(robot, AqualinkRobot)
+        # SHADOW_RESPONSE main.state == 1 -> cleaning.
+        assert robot.activity is AqualinkRobotActivity.CLEANING
         assert self.system.devices["running"].data["state"] == 1
         assert "model_number" in self.system.devices
+
+    @respx.mock
+    async def test_v23_total_runtime_is_minutes_not_hours(self) -> None:
+        # V23: stats.totRunTime is MINUTES; the key must be unit-neutral,
+        # not `total_hours` (which implies a different unit). backprop §B2.
+        respx.get(f"{CYCLOBAT_DEVICES_URL}/SN42/shadow").mock(
+            return_value=httpx.Response(200, json=SHADOW_RESPONSE)
+        )
+        await self.system.refresh()
+        assert "total_runtime" in self.system.devices
+        assert "total_hours" not in self.system.devices
+        runtime = self.system.devices["total_runtime"]
+        assert runtime.unit_of_measurement == "min"
+        assert runtime.device_class == "duration"
+        assert runtime.state_class == "total_increasing"
+        assert runtime.native_value == 1234
 
     @respx.mock
     async def test_refresh_missing_robot_sets_offline(self) -> None:

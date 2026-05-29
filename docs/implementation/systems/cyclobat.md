@@ -61,7 +61,7 @@ Source sub-objects are flattened into underscored key names.
 | `battery_cycles` | `battery.cycles` | `CyclobatSensor` |
 | `battery_warning_code` | `battery.warning.code` | `CyclobatSensor` |
 | `battery_version` | `battery.vr` | `CyclobatSensor` |
-| `total_hours` | `stats.totRunTime` | `CyclobatSensor` |
+| `total_runtime` | `stats.totRunTime` | `CyclobatSensor` |
 | `diagnostic_code` | `stats.diagnostic` | `CyclobatSensor` |
 | `temperature` | `stats.tmp` | `CyclobatSensor` |
 | `last_error_code` | `stats.lastError.code` | `CyclobatSensor` |

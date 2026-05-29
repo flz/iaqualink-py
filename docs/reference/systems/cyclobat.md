@@ -103,7 +103,7 @@ The Python implementation reads `state.reported.equipment.robot`.
 
 | Field | Type | Description |
 |---|---|---|
-| `totRunTime` | integer | Total run time (hours) |
+| `totRunTime` | integer | Total run time (minutes) |
 | `diagnostic` | integer | Diagnostic code |
 | `tmp` | integer | Temperature |
 | `lastError.code` | integer | Last error code |

@@ -19,7 +19,7 @@ from iaqualink.systems.cyclobat.const import (
     CYCLOBAT_STATE_RETURNING,
 )
 from iaqualink.systems.cyclobat.device import CyclobatDevice
-from iaqualink.systems.cyclobat.ws import send_set_ctrl
+from iaqualink.systems.cyclobat.ws import send_set_ctrl, send_set_mode
 from iaqualink.utils.redact import mask_serial
 
 if TYPE_CHECKING:
@@ -110,7 +110,7 @@ class CyclobatSystem(AqualinkSystem):
 
         # Stats.
         for src_key, target_key in (
-            ("totRunTime", "total_hours"),
+            ("totRunTime", "total_runtime"),
             ("diagnostic", "diagnostic_code"),
             ("tmp", "temperature"),
         ):
@@ -195,6 +195,13 @@ class CyclobatSystem(AqualinkSystem):
                 "state": int(state_value == CYCLOBAT_STATE_RETURNING),
             }
 
+        # HA-vacuum-style robot device. Reads live runtime off _robot_state;
+        # the snapshot here just carries raw main.state for repr/eq.
+        devices["robot"] = {
+            "name": "robot",
+            "state": state_value if state_value is not None else 0,
+        }
+
         # Time remaining.
         remaining = self._compute_time_remaining_seconds(
             main, cycles, last_cycle
@@ -244,3 +251,6 @@ class CyclobatSystem(AqualinkSystem):
 
     async def return_to_base(self) -> None:
         await send_set_ctrl(self.aqualink, self.serial, CYCLOBAT_CTRL_RETURN)
+
+    async def set_cleaning_mode(self, mode: int) -> None:
+        await send_set_mode(self.aqualink, self.serial, mode)

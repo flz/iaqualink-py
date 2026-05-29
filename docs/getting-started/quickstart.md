@@ -166,7 +166,7 @@ All keys are read-only `CyclobatSensor` unless noted.
 | `battery_cycles` | Total charge cycle count |
 | `battery_warning_code` | Battery warning code (0 = none) |
 | `battery_version` | Battery firmware version |
-| `total_hours` | Lifetime total run time (hours) |
+| `total_runtime` | Lifetime total run time (minutes) |
 | `diagnostic_code` | Diagnostic code |
 | `temperature` | Robot temperature reading |
 | `last_error_code` | Last recorded error code |
