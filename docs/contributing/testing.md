@@ -90,18 +90,11 @@ The `conftest.py` aggregates these lists and exposes parametrized fixtures that 
 
 1. Create `tests/systems/newsystem/factories.py`
 2. Write factory functions for each device type your system implements
-3. Export factory lists (e.g., `newsystem_device_factories`, `newsystem_switch_factories`)
-4. Import and register in `tests/conformance/conftest.py`:
+3. Export factory lists using the naming convention `<system>_<type>_factories`
+   (e.g., `newsystem_device_factories`, `newsystem_switch_factories`)
 
-```python
-from ..systems.newsystem.factories import (
-    newsystem_device_factories,
-    newsystem_switch_factories,
-    newsystem_system_factories,
-)
-```
-
-Then add them to the `_collect()` calls in the relevant `@pytest.fixture` functions.
+The conftest auto-discovers these lists by scanning `tests/systems/*/factories.py`
+for attributes matching `<system>_<type>_factories` — no changes to `conftest.py` needed.
 
 ### SystemFixture and refresh_response
 
@@ -137,23 +130,22 @@ tests/systems/newsystem/
 
 ### Testing Patterns
 
-System-specific tests use `unittest.IsolatedAsyncioTestCase` with `TestBase` (from `tests/conftest.py`) for shared `self.client` setup:
+System-specific tests use plain pytest classes with per-test factory helpers:
 
 ```python
-from ...conftest import TestBase, dotstar, resp_200
+from ...conftest import dotstar, resp_200
 
-class TestNewSwitch(TestBase):
-    def setUp(self) -> None:
-        super().setUp()
-        data = {"serial_number": "SN123", "device_type": "newsystem"}
-        self.system = NewSystem(self.client, data=data)
-        self.sut = NewSwitch(self.system, {"name": "switch_1", "state": "0"})
+def _make_switch():
+    system = NewSystem(AqualinkClient("foo", "bar"), {"serial_number": "SN123", ...})
+    sut = NewSwitch(system, {"name": "switch_1", "state": "0"})
+    return system, sut
 
-    @respx.mock
+class TestNewSwitch:
     async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
+        _, sut = _make_switch()
         respx_mock.route(dotstar).mock(resp_200)
-        with patch.object(self.sut.system, "_parse_response"):
-            await self.sut.turn_on()
+        with patch.object(sut.system, "_parse_response"):
+            await sut.turn_on()
         url = str(respx_mock.calls[0].request.url)
         assert "switch_1=on" in url
 ```
@@ -162,9 +154,7 @@ Conformance tests handle the abstract contract; system-specific tests focus on w
 
 ### HTTP Mocking
 
-All tests use `respx` for HTTP mocking. Two patterns:
-
-**Conformance tests** use the `respx_mock` pytest fixture (injected automatically):
+All tests use `respx` for HTTP mocking via the `respx_mock` pytest fixture (injected automatically):
 
 ```python
 async def test_turn_on(
@@ -175,28 +165,15 @@ async def test_turn_on(
     assert len(respx_mock.calls) > 0
 ```
 
-**System-specific tests** use the `@respx.mock` decorator on `IsolatedAsyncioTestCase` methods:
-
-```python
-@respx.mock
-async def test_turn_on(self, respx_mock: respx.router.MockRouter) -> None:
-    respx_mock.route(dotstar).mock(resp_200)
-    await self.sut.turn_on()
-    self.respx_calls = copy.copy(respx_mock.calls)
-```
-
 ### Async Test Execution
 
 The project uses `pytest-asyncio` with `asyncio_mode = "auto"` — async test functions are collected automatically without needing `@pytest.mark.asyncio`.
-
-System-specific tests inherit from `unittest.IsolatedAsyncioTestCase`, which handles async lifecycle independently.
 
 ## Adding Tests for a New System
 
 ### Checklist
 
-- [ ] Create `tests/systems/newsystem/factories.py` with factories for every device type
-- [ ] Register factories in `tests/conformance/conftest.py`
+- [ ] Create `tests/systems/newsystem/factories.py` with factories for every device type (auto-discovered by conftest)
 - [ ] Create `tests/systems/newsystem/` directory with `__init__.py`
 - [ ] Add `test_system.py` with standalone tests for refresh, parsing, and status transitions
 - [ ] Add `test_device.py` with standalone tests for each device class

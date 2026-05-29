@@ -132,6 +132,16 @@ def test_property_supports_percentage(fan_fixture: FanFixture) -> None:
     assert isinstance(fan_fixture.device.supports_percentage, bool)
 
 
+def test_property_percentage(fan_fixture: FanFixture) -> None:
+    if fan_fixture.device.supports_percentage:
+        assert fan_fixture.device.percentage is None or isinstance(
+            fan_fixture.device.percentage, float
+        )
+    else:
+        with pytest.raises(AqualinkOperationNotSupportedException):
+            _ = fan_fixture.device.percentage
+
+
 async def test_set_percentage_0(
     fan_fixture: FanFixture, respx_mock: respx.router.MockRouter
 ) -> None:

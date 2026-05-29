@@ -162,7 +162,7 @@ def _i2d_switch() -> SwitchFixture:
             key="freezeprotectenable",
             label="Freeze Protection",
         ),
-        has_noop_guard=False,
+        has_noop_guard=False,  # i2d write endpoint has no idempotency guard
         expected_class=I2dSwitch,
     )
 

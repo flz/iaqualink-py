@@ -43,6 +43,18 @@ def test_repr(system_fixture: SystemFixture) -> None:
     assert system_fixture.system.serial in r
 
 
+def test_property_status_translated(system_fixture: SystemFixture) -> None:
+    assert isinstance(system_fixture.system.status_translated, str)
+
+
+def test_property_devices(system_fixture: SystemFixture) -> None:
+    assert isinstance(system_fixture.system.devices, dict)
+
+
+def test_property_supported(system_fixture: SystemFixture) -> None:
+    assert isinstance(system_fixture.system.supported, bool)
+
+
 def test_from_data(system_fixture: SystemFixture) -> None:
     if system_fixture.expected_class is not None:
         assert isinstance(system_fixture.system, system_fixture.expected_class)

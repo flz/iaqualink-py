@@ -76,6 +76,7 @@ class ClimateFixture:
     device_off: AqualinkClimate
     has_noop_guard: bool = True
     supports_fahrenheit: bool = True
+    """True if the system supports Fahrenheit (tests min/max_temp in °F are skipped when False)."""
     expected_class: type | None = None
 
 

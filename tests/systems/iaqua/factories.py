@@ -254,6 +254,7 @@ def _iaqua_color_light() -> LightFixture:
     return LightFixture(
         device_on=IaquaColorLightIB(system, data_on),
         device_off=IaquaColorLightIB(system, data_off),
+        expected_class=IaquaColorLightIB,
     )
 
 

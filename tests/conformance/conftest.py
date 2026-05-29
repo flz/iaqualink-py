@@ -3,10 +3,17 @@
 Aggregates fixture factories from all system modules and exposes them as
 parametrized pytest fixtures. Each system provides factory functions that
 return fixture dataclasses.
+
+Convention: ``tests/systems/<name>/factories.py`` must export lists named
+``<name>_<type>_factories`` (e.g. ``iaqua_switch_factories``) containing
+``(id_string, factory_callable)`` tuples. The conftest discovers them
+automatically — no manual import needed when adding a new system.
 """
 
 from __future__ import annotations
 
+import importlib
+import pathlib
 from typing import Callable
 
 import pytest
@@ -14,36 +21,6 @@ import pytest
 from ..conftest import (  # noqa: F401 — re-exported for test modules
     dotstar,
     resp_200,
-)
-
-# ---------------------------------------------------------------------------
-# System factory imports — each returns lists of (id, factory) tuples
-# ---------------------------------------------------------------------------
-from ..systems.exo.factories import (
-    exo_climate_factories,
-    exo_device_factories,
-    exo_sensor_factories,
-    exo_switch_factories,
-    exo_system_factories,
-)
-from ..systems.i2d.factories import (
-    i2d_binary_sensor_factories,
-    i2d_device_factories,
-    i2d_fan_factories,
-    i2d_number_factories,
-    i2d_sensor_factories,
-    i2d_switch_factories,
-    i2d_system_factories,
-)
-from ..systems.iaqua.factories import (
-    iaqua_binary_sensor_factories,
-    iaqua_climate_factories,
-    iaqua_device_factories,
-    iaqua_light_factories,
-    iaqua_number_factories,
-    iaqua_sensor_factories,
-    iaqua_switch_factories,
-    iaqua_system_factories,
 )
 from .fixtures import (
     BinarySensorFixture,
@@ -57,28 +34,41 @@ from .fixtures import (
     SystemFixture,
 )
 
+_FIXTURE_TYPES = (
+    "device",
+    "sensor",
+    "binary_sensor",
+    "switch",
+    "light",
+    "climate",
+    "number",
+    "fan",
+    "system",
+)
 
-def _collect(
-    *sources: list[tuple[str, Callable]],
-) -> tuple[list[str], list[Callable]]:
-    ids = []
-    factories = []
-    for source in sources:
-        for id_, factory in source:
+_systems_root = pathlib.Path(__file__).parent.parent / "systems"
+
+
+def _discover_factories(fixture_type: str) -> tuple[list[str], list[Callable]]:
+    """Scan all ``tests/systems/*/factories.py`` for ``<system>_<type>_factories``."""
+    ids: list[str] = []
+    factories: list[Callable] = []
+    for pkg in sorted(_systems_root.iterdir()):
+        if not pkg.is_dir() or not (pkg / "factories.py").exists():
+            continue
+        mod = importlib.import_module(f"tests.systems.{pkg.name}.factories")
+        attr = f"{pkg.name}_{fixture_type}_factories"
+        for id_, factory in getattr(mod, attr, []):
             ids.append(id_)
             factories.append(factory)
     return ids, factories
 
 
 # ---------------------------------------------------------------------------
-# Parametrized fixtures
+# Parametrized fixtures — one per fixture type
 # ---------------------------------------------------------------------------
 
-_device_ids, _device_factories = _collect(
-    exo_device_factories,
-    i2d_device_factories,
-    iaqua_device_factories,
-)
+_device_ids, _device_factories = _discover_factories("device")
 
 
 @pytest.fixture(params=_device_factories, ids=_device_ids)
@@ -86,11 +76,7 @@ def device_fixture(request: pytest.FixtureRequest) -> DeviceFixture:
     return request.param()
 
 
-_sensor_ids, _sensor_factories = _collect(
-    exo_sensor_factories,
-    i2d_sensor_factories,
-    iaqua_sensor_factories,
-)
+_sensor_ids, _sensor_factories = _discover_factories("sensor")
 
 
 @pytest.fixture(params=_sensor_factories, ids=_sensor_ids)
@@ -98,9 +84,8 @@ def sensor_fixture(request: pytest.FixtureRequest) -> SensorFixture:
     return request.param()
 
 
-_binary_sensor_ids, _binary_sensor_factories = _collect(
-    i2d_binary_sensor_factories,
-    iaqua_binary_sensor_factories,
+_binary_sensor_ids, _binary_sensor_factories = _discover_factories(
+    "binary_sensor"
 )
 
 
@@ -111,11 +96,7 @@ def binary_sensor_fixture(
     return request.param()
 
 
-_switch_ids, _switch_factories = _collect(
-    exo_switch_factories,
-    i2d_switch_factories,
-    iaqua_switch_factories,
-)
+_switch_ids, _switch_factories = _discover_factories("switch")
 
 
 @pytest.fixture(params=_switch_factories, ids=_switch_ids)
@@ -123,9 +104,7 @@ def switch_fixture(request: pytest.FixtureRequest) -> SwitchFixture:
     return request.param()
 
 
-_light_ids, _light_factories = _collect(
-    iaqua_light_factories,
-)
+_light_ids, _light_factories = _discover_factories("light")
 
 
 @pytest.fixture(params=_light_factories, ids=_light_ids)
@@ -133,10 +112,7 @@ def light_fixture(request: pytest.FixtureRequest) -> LightFixture:
     return request.param()
 
 
-_climate_ids, _climate_factories = _collect(
-    exo_climate_factories,
-    iaqua_climate_factories,
-)
+_climate_ids, _climate_factories = _discover_factories("climate")
 
 
 @pytest.fixture(params=_climate_factories, ids=_climate_ids)
@@ -144,10 +120,7 @@ def climate_fixture(request: pytest.FixtureRequest) -> ClimateFixture:
     return request.param()
 
 
-_number_ids, _number_factories = _collect(
-    i2d_number_factories,
-    iaqua_number_factories,
-)
+_number_ids, _number_factories = _discover_factories("number")
 
 
 @pytest.fixture(params=_number_factories, ids=_number_ids)
@@ -155,9 +128,7 @@ def number_fixture(request: pytest.FixtureRequest) -> NumberFixture:
     return request.param()
 
 
-_fan_ids, _fan_factories = _collect(
-    i2d_fan_factories,
-)
+_fan_ids, _fan_factories = _discover_factories("fan")
 
 
 @pytest.fixture(params=_fan_factories, ids=_fan_ids)
@@ -165,11 +136,7 @@ def fan_fixture(request: pytest.FixtureRequest) -> FanFixture:
     return request.param()
 
 
-_system_ids, _system_factories = _collect(
-    exo_system_factories,
-    i2d_system_factories,
-    iaqua_system_factories,
-)
+_system_ids, _system_factories = _discover_factories("system")
 
 
 @pytest.fixture(params=_system_factories, ids=_system_ids)

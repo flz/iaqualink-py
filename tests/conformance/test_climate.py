@@ -158,6 +158,16 @@ async def test_set_temperature_invalid_above_max(
     assert len(respx_mock.calls) == 0
 
 
+async def test_set_temperature_invalid_below_min(
+    climate_fixture: ClimateFixture, respx_mock: respx.router.MockRouter
+) -> None:
+    respx_mock.route(dotstar).mock(resp_200)
+    min_t = climate_fixture.device_on.min_temp
+    with pytest.raises(AqualinkInvalidParameterException):
+        await climate_fixture.device_on.set_temperature(min_t - 100)
+    assert len(respx_mock.calls) == 0
+
+
 def test_from_data(climate_fixture: ClimateFixture) -> None:
     if climate_fixture.expected_class is not None:
         assert isinstance(

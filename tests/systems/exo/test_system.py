@@ -3,18 +3,13 @@ from __future__ import annotations
 import copy
 from unittest.mock import MagicMock, patch
 
-import httpx
 import pytest
-import respx
-import respx.router
 
+from iaqualink.client import AqualinkClient
 from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.exo.system import ExoSystem
-
-from ...conftest import TestBase, dotstar
 
 SAMPLE_DATA = {
     "state": {
@@ -167,117 +162,99 @@ SAMPLE_DATA = {
 }
 
 
-class TestExoSystem(TestBase):
-    def setUp(self) -> None:
-        super().setUp()
+def _make_exo_system() -> tuple[AqualinkClient, AqualinkSystem]:
+    client = AqualinkClient("foo", "bar")
+    data = {
+        "id": 1,
+        "serial_number": "ABCDEFG",
+        "device_type": "exo",
+        "name": "Pool",
+    }
+    sut = AqualinkSystem.from_data(client, data=data)
+    return client, sut
 
-        data = {
-            "id": 1,
-            "serial_number": "ABCDEFG",
-            "device_type": "exo",
-            "name": "Pool",
-        }
-        self.sut = AqualinkSystem.from_data(self.client, data=data)
-        self.sut_class = ExoSystem
 
-    @respx.mock
-    async def test_refresh_success(
-        self, respx_mock: respx.router.MockRouter
-    ) -> None:
-        respx_mock.route(dotstar).mock(httpx.Response(200, json=SAMPLE_DATA))
-        await self.sut.refresh()
-        assert len(respx_mock.calls) > 0
-        assert self.sut.status is SystemStatus.CONNECTED
-        self.respx_calls = copy.copy(respx_mock.calls)
+def _make_shadow_response(aws_status: str | None) -> MagicMock:
+    data = copy.deepcopy(SAMPLE_DATA)
+    if aws_status is None:
+        del data["state"]["reported"]["aws"]
+    else:
+        data["state"]["reported"]["aws"]["status"] = aws_status
+    response = MagicMock()
+    response.json.return_value = data
+    return response
 
-    @respx.mock
-    async def test_get_devices_needs_update(
-        self, respx_mock: respx.router.MockRouter
-    ) -> None:
-        def _set_online(_response):
-            self.sut.status = SystemStatus.ONLINE
 
-        respx_mock.route(dotstar).mock(httpx.Response(200, json=SAMPLE_DATA))
-        with patch.object(
-            self.sut, "_parse_shadow_response", side_effect=_set_online
-        ):
-            await self.sut.get_devices()
-        assert len(respx_mock.calls) > 0
-
-    def _make_shadow_response(self, aws_status: str | None) -> MagicMock:
-        import copy as _copy
-
-        data = _copy.deepcopy(SAMPLE_DATA)
-        if aws_status is None:
-            del data["state"]["reported"]["aws"]
-        else:
-            data["state"]["reported"]["aws"]["status"] = aws_status
-        response = MagicMock()
-        response.json.return_value = data
-        return response
-
+class TestExoSystem:
     def test_parse_shadow_absent_aws_status(self) -> None:
-        response = self._make_shadow_response(None)
-        self.sut._parse_shadow_response(response)
-        assert self.sut.status is SystemStatus.UNKNOWN
+        _, sut = _make_exo_system()
+        response = _make_shadow_response(None)
+        sut._parse_shadow_response(response)
+        assert sut.status is SystemStatus.UNKNOWN
 
     def test_parse_shadow_empty_aws_status(self) -> None:
-        response = self._make_shadow_response("")
-        self.sut._parse_shadow_response(response)
-        assert self.sut.status is SystemStatus.UNKNOWN
+        _, sut = _make_exo_system()
+        response = _make_shadow_response("")
+        sut._parse_shadow_response(response)
+        assert sut.status is SystemStatus.UNKNOWN
 
     def test_parse_shadow_disconnected(self) -> None:
-        response = self._make_shadow_response("disconnected")
-        self.sut._parse_shadow_response(response)
-        assert self.sut.status is SystemStatus.DISCONNECTED
+        _, sut = _make_exo_system()
+        response = _make_shadow_response("disconnected")
+        sut._parse_shadow_response(response)
+        assert sut.status is SystemStatus.DISCONNECTED
 
     def test_parse_shadow_service(self) -> None:
-        response = self._make_shadow_response("service")
-        self.sut._parse_shadow_response(response)
-        assert self.sut.status is SystemStatus.SERVICE
+        _, sut = _make_exo_system()
+        response = _make_shadow_response("service")
+        sut._parse_shadow_response(response)
+        assert sut.status is SystemStatus.SERVICE
 
     def test_parse_shadow_firmware_update(self) -> None:
-        response = self._make_shadow_response("firmware_update")
-        self.sut._parse_shadow_response(response)
-        assert self.sut.status is SystemStatus.FIRMWARE_UPDATE
+        _, sut = _make_exo_system()
+        response = _make_shadow_response("firmware_update")
+        sut._parse_shadow_response(response)
+        assert sut.status is SystemStatus.FIRMWARE_UPDATE
 
     def test_parse_shadow_unknown_string(self) -> None:
-        response = self._make_shadow_response("something_unknown")
-        self.sut._parse_shadow_response(response)
-        assert self.sut.status is SystemStatus.UNKNOWN
+        _, sut = _make_exo_system()
+        response = _make_shadow_response("something_unknown")
+        sut._parse_shadow_response(response)
+        assert sut.status is SystemStatus.UNKNOWN
 
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request(self, mock_request) -> None:
+        _, sut = _make_exo_system()
         mock_request.return_value.status_code = 200
-
-        await self.sut.send_reported_state_request()
+        await sut.send_reported_state_request()
 
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request_unauthorized(
         self, mock_request
     ) -> None:
+        _, sut = _make_exo_system()
         mock_request.return_value.status_code = 401
-
         with pytest.raises(AqualinkServiceUnauthorizedException):
-            await self.sut.send_reported_state_request()
+            await sut.send_reported_state_request()
 
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request_retries_after_refresh(
         self, mock_request
     ) -> None:
+        client, sut = _make_exo_system()
         mock_request.side_effect = [
             MagicMock(status_code=401),
             MagicMock(status_code=200),
         ]
-        self.client.id_token = "old-id-token"
+        client.id_token = "old-id-token"
 
         async def fake_refresh() -> None:
-            self.client.id_token = "new-id-token"
+            client.id_token = "new-id-token"
 
         with patch.object(
-            self.client, "_refresh_auth", side_effect=fake_refresh
+            client, "_refresh_auth", side_effect=fake_refresh
         ) as mock_refresh:
-            await self.sut.send_reported_state_request()
+            await sut.send_reported_state_request()
 
         retry_headers = mock_request.call_args_list[1][1]["headers"]
 
@@ -288,6 +265,7 @@ class TestExoSystem(TestBase):
     async def test_reported_state_request_refreshes_only_once_on_repeated_401(
         self, mock_request
     ) -> None:
+        client, sut = _make_exo_system()
         mock_request.side_effect = [
             MagicMock(status_code=401),
             MagicMock(status_code=401),
@@ -295,10 +273,10 @@ class TestExoSystem(TestBase):
 
         with (
             patch.object(
-                self.client, "_refresh_auth", return_value=None
+                client, "_refresh_auth", return_value=None
             ) as mock_refresh,
             pytest.raises(AqualinkServiceUnauthorizedException),
         ):
-            await self.sut.send_reported_state_request()
+            await sut.send_reported_state_request()
 
         mock_refresh.assert_awaited_once()

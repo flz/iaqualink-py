@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import unittest
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -83,10 +82,7 @@ OFFLINE_DATA = {
 _SYSTEM_DATA = {"id": 1, "serial_number": "ABC123", "device_type": "i2d"}
 
 
-class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
-        pass
-
+class TestI2dSystem:
     def test_from_data_i2d(self):
         aqualink = MagicMock()
         r = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
