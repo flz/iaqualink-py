@@ -42,6 +42,9 @@ class I2dRobotSystem(AqualinkSystem):
 
     def __init__(self, aqualink: AqualinkClient, data: Payload) -> None:
         super().__init__(aqualink, data)
+        # Last parsed robot state, read live by the AqualinkRobot device.
+        self._state_code: int | None = None
+        self._error_code: int = 0
 
     @property
     def _url(self) -> str:
@@ -96,6 +99,9 @@ class I2dRobotSystem(AqualinkSystem):
             LOGGER.debug("Bad i2d_robot status hex: %s", exc)
             raise _AqualinkOfflineSignal from exc
 
+        self._state_code = status.state_code
+        self._error_code = status.error_code
+
         devices: dict[str, dict[str, Any]] = {
             "state_code": {"name": "state_code", "state": status.state_code},
             "state": {"name": "state", "state": status.state_label},
@@ -122,6 +128,7 @@ class I2dRobotSystem(AqualinkSystem):
                 "name": "running",
                 "state": int(status.state_code in _ACTIVE_STATE_CODES),
             },
+            "robot": {"name": "robot", "state": status.state_code},
         }
         model_number = self.data.get("id")
         if model_number is not None:

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 from iaqualink.device import AqualinkBinarySensor, AqualinkSensor
 from iaqualink.systems.i2d_robot.device import (
@@ -150,3 +150,150 @@ class TestI2dFromData(unittest.IsolatedAsyncioTestCase):
             system, {"name": "time_remaining_min", "state": 25}
         )
         assert isinstance(device, I2dSensor)
+
+
+# ── I2dRobot (HA vacuum) ─────────────────────────────────────────────────────
+
+
+def _robot(state_code=0x01, error_code=0):
+    from iaqualink.systems.i2d_robot.device import I2dRobot
+
+    system = MagicMock()
+    system.serial = "SN1"
+    system._state_code = state_code
+    system._error_code = error_code
+    return I2dRobot(system, {"name": "robot", "state": state_code})
+
+
+class TestI2dRobot(unittest.TestCase):
+    def test_from_data_robot_is_robot(self):
+        from iaqualink.device import AqualinkRobot
+        from iaqualink.systems.i2d_robot.device import I2dRobot
+
+        system = MagicMock()
+        system.serial = "SN1"
+        dev = I2dDevice.from_data(system, {"name": "robot", "state": 4})
+        self.assertIsInstance(dev, I2dRobot)
+        self.assertIsInstance(dev, AqualinkRobot)
+
+    def test_activity_cleaning(self):
+        from iaqualink.device import AqualinkRobotActivity as A
+
+        self.assertIs(_robot(0x02).activity, A.CLEANING)
+        self.assertIs(_robot(0x04).activity, A.CLEANING)
+
+    def test_activity_paused(self):
+        from iaqualink.device import AqualinkRobotActivity as A
+
+        self.assertIs(_robot(0x0C).activity, A.PAUSED)
+
+    def test_activity_docked(self):
+        from iaqualink.device import AqualinkRobotActivity as A
+
+        self.assertIs(_robot(0x01).activity, A.DOCKED)
+
+    def test_activity_finished_is_idle(self):
+        from iaqualink.device import AqualinkRobotActivity as A
+
+        self.assertIs(_robot(0x03).activity, A.IDLE)
+
+    def test_activity_error_state(self):
+        from iaqualink.device import AqualinkRobotActivity as A
+
+        self.assertIs(_robot(0x0D).activity, A.ERROR)
+
+    def test_activity_error_code_overrides(self):
+        from iaqualink.device import AqualinkRobotActivity as A
+
+        self.assertIs(_robot(0x04, error_code=7).activity, A.ERROR)
+
+    def test_capabilities(self):
+        r = _robot()
+        self.assertTrue(r.supports_start)
+        self.assertTrue(r.supports_stop)
+        self.assertTrue(r.supports_return)
+        self.assertFalse(r.supports_pause)
+        self.assertFalse(r.supports_fan_speed)
+        self.assertFalse(r.supports_clean_spot)
+        self.assertFalse(r.supports_locate)
+
+    def test_no_fan_speed(self):
+        r = _robot()
+        self.assertIsNone(r.fan_speed)
+        self.assertIsNone(r.fan_speed_list)
+
+
+class TestI2dRobotCommands(unittest.IsolatedAsyncioTestCase):
+    async def test_start_delegates(self):
+        r = _robot()
+        r.system.start_cleaning = AsyncMock()
+        await r.start()
+        r.system.start_cleaning.assert_awaited_once_with()
+
+    async def test_stop_delegates(self):
+        r = _robot()
+        r.system.stop_cleaning = AsyncMock()
+        await r.stop()
+        r.system.stop_cleaning.assert_awaited_once_with()
+
+    async def test_return_delegates(self):
+        r = _robot()
+        r.system.return_to_base = AsyncMock()
+        await r.return_to_base()
+        r.system.return_to_base.assert_awaited_once_with()
+
+
+# ── i2d sensor HA metadata ───────────────────────────────────────────────────
+
+
+def _sensor(name, state):
+    system = MagicMock()
+    system.serial = "SN1"
+    return I2dDevice.from_data(system, {"name": name, "state": state})
+
+
+class TestI2dSensorMetadata(unittest.TestCase):
+    def test_time_remaining_min(self):
+        s = _sensor("time_remaining_min", "20")
+        self.assertEqual(s.device_class, "duration")
+        self.assertEqual(s.unit_of_measurement, "min")
+        self.assertEqual(s.state_class, "measurement")
+        self.assertEqual(s.native_value, 20)
+
+    def test_total_hours(self):
+        s = _sensor("total_hours", "120")
+        self.assertEqual(s.device_class, "duration")
+        self.assertEqual(s.unit_of_measurement, "h")
+        self.assertEqual(s.state_class, "total_increasing")
+        self.assertEqual(s.native_value, 120)
+
+    def test_error_code_numeric_diagnostic(self):
+        s = _sensor("error_code", "0")
+        self.assertEqual(s.native_value, 0)
+        self.assertEqual(s.entity_category, "diagnostic")
+
+    def test_identifiers_and_codes_diagnostic(self):
+        for n in (
+            "hardware_id",
+            "firmware_id",
+            "model_number",
+            "state_code",
+            "mode_code",
+            "uptime_minutes",
+        ):
+            self.assertEqual(_sensor(n, "x").entity_category, "diagnostic")
+
+    def test_mode_label_stays_primary(self):
+        s = _sensor("mode", "quick_clean_floor_only_standard")
+        self.assertIsNone(s.entity_category)
+        self.assertEqual(s.native_value, "quick_clean_floor_only_standard")
+
+
+class TestI2dBinarySensorMetadata(unittest.TestCase):
+    def test_running_device_class_diagnostic(self):
+        s = _sensor("running", 1)
+        self.assertEqual(s.device_class, "running")
+        self.assertEqual(s.entity_category, "diagnostic")
+
+    def test_canister_full_problem(self):
+        self.assertEqual(_sensor("canister_full", 1).device_class, "problem")
