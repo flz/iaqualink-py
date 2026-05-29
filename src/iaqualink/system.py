@@ -39,7 +39,10 @@ class SystemStatus(enum.Enum):
 
 
 class AqualinkSystem(ABC):
-    subclasses: ClassVar[dict[str, type[AqualinkSystem]]] = {}
+    NAME: ClassVar[str]  # must be set by each concrete subclass
+    subclasses: ClassVar[
+        dict[str, type[AqualinkSystem]]  # ty:ignore[invalid-type-form]
+    ] = {}
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         self.aqualink = aqualink
