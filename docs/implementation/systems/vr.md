@@ -105,7 +105,7 @@ The duration for `time_remaining_sec` is looked up by the **ordinal index** of `
 
 ### Auto-pause before remote control
 
-The vendor protocol requires the robot to be in `state == 2` (paused) before accepting `setRemoteSteering` frames. `VrSystem` tracks remote mode via a `_remote_control_active` flag and automatically issues a `pause_cleaning()` call before the first remote command if the robot is not already paused.
+The vendor protocol requires the robot to be in `state == 2` (paused) before accepting `setRemoteSteeringControl` frames. `VrSystem` tracks remote mode via a `_remote_control_active` flag and automatically issues a `pause_cleaning()` call before the first remote command if the robot is not already paused.
 
 ## Deltas vs Protocol Reference
 

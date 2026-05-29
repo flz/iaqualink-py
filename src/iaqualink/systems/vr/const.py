@@ -56,5 +56,5 @@ REMOTE_BACKWARD: Final = 2
 REMOTE_ROTATE_RIGHT: Final = 3
 REMOTE_ROTATE_LEFT: Final = 4
 
-# Runtime extension increment (mirrors stepperAdjTime).
+# Increment unit (minutes) for runtime extension of the wire `stepper` field.
 RUNTIME_EXTENSION_STEP_MIN: Final = 15

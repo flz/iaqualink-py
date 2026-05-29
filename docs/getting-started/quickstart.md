@@ -322,7 +322,7 @@ VR systems (`device_type: "vr"`) represent Zodiac variable-speed robot pool clea
 ### API Overview
 
 - **Reads** — `system.refresh()` fetches the robot shadow (`GET /devices/v1/{serial}/shadow`) and updates all devices atomically.
-- **Writes** — Commands send a WebSocket frame to `wss://prod-socket.zodiac-io.com/devices` with action `setCleanerState` (or `setRemoteSteering` for remote control) and namespace `vr`.
+- **Writes** — Commands send a WebSocket frame to `wss://prod-socket.zodiac-io.com/devices` with action `setCleanerState` (or `setRemoteSteeringControl` for remote control) and namespace `vr`.
 
 ### System Status
 
