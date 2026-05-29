@@ -108,6 +108,7 @@ exclude_lines = [
 ignore_missing_imports = true
 
 [tool.ty]
+# Check scope is explicit in the pre-commit hook: uv run ty check src/
 
 [tool.pytest.ini_options]
 filterwarnings = [
