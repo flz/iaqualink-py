@@ -32,6 +32,7 @@ SHADOW_RESPONSE = {
             "equipment": {
                 "robot": {
                     "state": 1,
+                    "errorState": 0,
                     "prCyc": 1,
                     "stepper": 30,
                     "cycleStartTime": 1000,
@@ -79,6 +80,20 @@ class TestVrSystem(TestBase):
         assert self.system.devices["model_number"].data["state"] == 1
         # Derived time_remaining_sec present
         assert "time_remaining_sec" in self.system.devices
+        # HA-vacuum-style robot device (T31).
+        from iaqualink.device import AqualinkRobot, AqualinkRobotActivity
+        from iaqualink.systems.vr.device import VrRobot
+
+        robot = self.system.devices["robot"]
+        assert isinstance(robot, VrRobot)
+        assert isinstance(robot, AqualinkRobot)
+        # SHADOW_RESPONSE state == 1 -> cleaning.
+        assert robot.activity is AqualinkRobotActivity.CLEANING
+        # Error scalar surfaced as snake_case error_state -> VrErrorSensor.
+        from iaqualink.systems.vr.device import VrErrorSensor
+
+        assert "errorState" not in self.system.devices
+        assert isinstance(self.system.devices["error_state"], VrErrorSensor)
 
     @respx.mock
     async def test_refresh_missing_robot_sets_offline(self) -> None:

@@ -91,11 +91,21 @@ class VrSystem(AqualinkSystem):
 
         devices: dict[str, dict[str, Any]] = {}
 
-        # Scalar robot attributes -> attribute sensors.
+        # Scalar robot attributes -> attribute sensors. errorState is surfaced
+        # below under the snake_case `error_state` key (VrErrorSensor).
         for key, value in robot.items():
-            if isinstance(value, (dict, list)):
+            if isinstance(value, (dict, list)) or key == "errorState":
                 continue
             devices[key] = {"name": key, "state": value}
+
+        # Robot error state -> dedicated snake_case sensor (VrErrorSensor).
+        if "errorState" in robot and not isinstance(
+            robot["errorState"], (dict, list)
+        ):
+            devices["error_state"] = {
+                "name": "error_state",
+                "state": robot["errorState"],
+            }
 
         # Optional water-temp sensor (sns_1).
         sensors = robot.get("sensors") or {}
@@ -123,6 +133,12 @@ class VrSystem(AqualinkSystem):
                 "name": "returning",
                 "state": int(robot_state == VR_STATE_RETURNING),
             }
+
+        # HA-vacuum-style robot device; reads live runtime off _robot_state.
+        devices["robot"] = {
+            "name": "robot",
+            "state": robot_state if robot_state is not None else 0,
+        }
 
         # Derived: cycle time remaining (seconds). None when unknown.
         remaining = self._compute_time_remaining_seconds(robot)
