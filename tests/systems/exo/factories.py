@@ -231,3 +231,9 @@ def _exo_system() -> SystemFixture:
 exo_system_factories: list[tuple[str, callable]] = [
     ("exo-system", _exo_system),
 ]
+
+# EXO does not implement these device types.
+exo_binary_sensor_factories: list[tuple[str, callable]] = []
+exo_light_factories: list[tuple[str, callable]] = []
+exo_number_factories: list[tuple[str, callable]] = []
+exo_fan_factories: list[tuple[str, callable]] = []

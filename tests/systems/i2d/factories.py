@@ -209,14 +209,17 @@ i2d_number_factories: list[tuple[str, callable]] = [
 
 def _i2d_fan() -> FanFixture:
     system = make_system()
-    data: dict = {
+    base: dict = {
         "name": "ABC123",
-        "runstate": "off",
         "opmode": "2",
         "globalrpmmin": "600",
         "globalrpmmax": "3450",
     }
-    return FanFixture(device=I2dFan(system, data), expected_class=I2dFan)
+    return FanFixture(
+        device_on=I2dFan(system, {**base, "runstate": "on"}),
+        device_off=I2dFan(system, {**base, "runstate": "off"}),
+        expected_class=I2dFan,
+    )
 
 
 i2d_fan_factories: list[tuple[str, callable]] = [
@@ -242,3 +245,7 @@ def _i2d_system() -> SystemFixture:
 i2d_system_factories: list[tuple[str, callable]] = [
     ("i2d-system", _i2d_system),
 ]
+
+# i2d does not implement these device types.
+i2d_light_factories: list[tuple[str, callable]] = []
+i2d_climate_factories: list[tuple[str, callable]] = []

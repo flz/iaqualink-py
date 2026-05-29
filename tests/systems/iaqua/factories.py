@@ -8,7 +8,12 @@ from iaqualink.systems.iaqua.device import (
     IaquaAuxSwitch,
     IaquaBinarySensor,
     IaquaClimate,
+    IaquaColorLightCL,
+    IaquaColorLightHU,
     IaquaColorLightIB,
+    IaquaColorLightJC,
+    IaquaColorLightJL,
+    IaquaColorLightSL,
     IaquaDevice,
     IaquaDimmableLight,
     IaquaHeater,
@@ -246,22 +251,53 @@ def _iaqua_dimmable_light() -> LightFixture:
     )
 
 
-def _iaqua_color_light() -> LightFixture:
+def _iaqua_color_light_factory(
+    subtype: str,
+    cls: type,
+) -> LightFixture:
     system = make_system()
     system._parse_devices_response = lambda *a, **kw: None  # type: ignore[method-assign]
-    data_on = {**IAQUA_COLOR_LIGHT_OFF_DATA, "state": "1"}
-    data_off = {**IAQUA_COLOR_LIGHT_OFF_DATA}
+    base = {**IAQUA_COLOR_LIGHT_OFF_DATA, "subtype": subtype}
     return LightFixture(
-        device_on=IaquaColorLightIB(system, data_on),
-        device_off=IaquaColorLightIB(system, data_off),
-        expected_class=IaquaColorLightIB,
+        device_on=cls(system, {**base, "state": "1"}),
+        device_off=cls(system, {**base}),
+        expected_class=cls,
     )
+
+
+def _iaqua_color_light_jc() -> LightFixture:
+    return _iaqua_color_light_factory("1", IaquaColorLightJC)
+
+
+def _iaqua_color_light_sl() -> LightFixture:
+    return _iaqua_color_light_factory("2", IaquaColorLightSL)
+
+
+def _iaqua_color_light_cl() -> LightFixture:
+    return _iaqua_color_light_factory("3", IaquaColorLightCL)
+
+
+def _iaqua_color_light_jl() -> LightFixture:
+    return _iaqua_color_light_factory("4", IaquaColorLightJL)
+
+
+def _iaqua_color_light_ib() -> LightFixture:
+    return _iaqua_color_light_factory("5", IaquaColorLightIB)
+
+
+def _iaqua_color_light_hu() -> LightFixture:
+    return _iaqua_color_light_factory("6", IaquaColorLightHU)
 
 
 iaqua_light_factories: list[tuple[str, callable]] = [
     ("iaqua-light-switch", _iaqua_light_switch),
     ("iaqua-dimmable-light", _iaqua_dimmable_light),
-    ("iaqua-color-light", _iaqua_color_light),
+    ("iaqua-color-light-jc", _iaqua_color_light_jc),
+    ("iaqua-color-light-sl", _iaqua_color_light_sl),
+    ("iaqua-color-light-cl", _iaqua_color_light_cl),
+    ("iaqua-color-light-jl", _iaqua_color_light_jl),
+    ("iaqua-color-light-ib", _iaqua_color_light_ib),
+    ("iaqua-color-light-hu", _iaqua_color_light_hu),
 ]
 
 # ---------------------------------------------------------------------------
@@ -381,3 +417,6 @@ def _iaqua_system() -> SystemFixture:
 iaqua_system_factories: list[tuple[str, callable]] = [
     ("iaqua-system", _iaqua_system),
 ]
+
+# iaqua does not implement this device type.
+iaqua_fan_factories: list[tuple[str, callable]] = []

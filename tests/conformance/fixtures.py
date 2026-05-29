@@ -92,7 +92,8 @@ class NumberFixture:
 class FanFixture:
     """Fixture for AqualinkFan conformance tests."""
 
-    device: AqualinkFan
+    device_on: AqualinkFan
+    device_off: AqualinkFan
     expected_class: type | None = None
 
 

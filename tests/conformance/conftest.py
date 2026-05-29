@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import importlib
 import pathlib
+import warnings
 from typing import Callable
 
 import pytest
@@ -50,7 +51,12 @@ _systems_root = pathlib.Path(__file__).parent.parent / "systems"
 
 
 def _discover_factories(fixture_type: str) -> tuple[list[str], list[Callable]]:
-    """Scan all ``tests/systems/*/factories.py`` for ``<system>_<type>_factories``."""
+    """Scan all ``tests/systems/*/factories.py`` for ``<system>_<type>_factories``.
+
+    Each factories.py must explicitly declare every fixture type list, even if
+    empty (``exo_light_factories: list = []``). A missing attribute is a likely
+    typo and triggers a warning at collection time.
+    """
     ids: list[str] = []
     factories: list[Callable] = []
     for pkg in sorted(_systems_root.iterdir()):
@@ -58,7 +64,15 @@ def _discover_factories(fixture_type: str) -> tuple[list[str], list[Callable]]:
             continue
         mod = importlib.import_module(f"tests.systems.{pkg.name}.factories")
         attr = f"{pkg.name}_{fixture_type}_factories"
-        for id_, factory in getattr(mod, attr, []):
+        factory_list = getattr(mod, attr, None)
+        if factory_list is None:
+            warnings.warn(
+                f"{mod.__name__} is missing '{attr}'. "
+                "Add an empty list if this device type is not supported.",
+                stacklevel=2,
+            )
+            continue
+        for id_, factory in factory_list:
             ids.append(id_)
             factories.append(factory)
     return ids, factories
