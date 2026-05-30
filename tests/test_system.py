@@ -9,6 +9,11 @@ from iaqualink.client import AqualinkClient
 from iaqualink.system import AqualinkSystem, UnsupportedSystem
 
 
+class _ConcreteSystem(AqualinkSystem):
+    async def _refresh(self) -> None:
+        pass
+
+
 class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         pass
@@ -33,10 +38,10 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
             "device_type": "iaqua",
             "name": "foo",
         }
-        system = AqualinkSystem(aqualink, data)
+        system = _ConcreteSystem(aqualink, data)
         assert (
             repr(system)
-            == f"AqualinkSystem(name='foo', serial='ABCDEFG', data={data})"
+            == f"_ConcreteSystem(name='foo', serial='ABCDEFG', data={data})"
         )
 
     def test_from_data_iaqua(self) -> None:
@@ -54,7 +59,7 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
     async def test_get_devices_needs_update(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
         aqualink = AqualinkClient("user", "pass")
-        system = AqualinkSystem(aqualink, data)
+        system = _ConcreteSystem(aqualink, data)
         system.devices = None
 
         with patch.object(system, "refresh") as mock_refresh:
@@ -64,20 +69,19 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
     async def test_get_devices(self) -> None:
         data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
         aqualink = AqualinkClient("user", "pass")
-        system = AqualinkSystem(aqualink, data)
+        system = _ConcreteSystem(aqualink, data)
         system.devices = {"foo": "bar"}
 
         with patch.object(system, "refresh") as mock_refresh:
             await system.get_devices()
             mock_refresh.assert_not_called()
 
-    async def test_refresh_not_implemented(self) -> None:
-        data = {"id": 1, "serial_number": "ABCDEFG", "device_type": "fake"}
-        aqualink = AqualinkClient("user", "pass")
-        system = AqualinkSystem(aqualink, data)
+    def test_subclass_without_refresh_raises_on_instantiation(self) -> None:
+        class IncompleteSystem(AqualinkSystem):
+            pass
 
-        with pytest.raises(NotImplementedError):
-            await system.refresh()
+        with pytest.raises(TypeError):
+            IncompleteSystem(MagicMock(), {})
 
 
 class TestUnsupportedSystem(unittest.IsolatedAsyncioTestCase):
