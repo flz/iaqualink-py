@@ -135,6 +135,43 @@ class TestAqualinkClient(TestBase):
 
         assert AqualinkAuthState.from_dict(auth_state.to_dict()) == auth_state
 
+    def test_auth_state_app_client_id_default_empty(self) -> None:
+        state = AqualinkAuthState(
+            username="u",
+            client_id="c",
+            authentication_token="t",
+            user_id="1",
+            id_token="i",
+            refresh_token="r",
+        )
+        assert state.app_client_id == ""
+
+    def test_auth_state_from_dict_tolerates_missing_app_client_id(self) -> None:
+        raw = {
+            "username": "u",
+            "client_id": "c",
+            "authentication_token": "t",
+            "user_id": "1",
+            "id_token": "i",
+            "refresh_token": "r",
+        }
+        state = AqualinkAuthState.from_dict(raw)
+        assert state.app_client_id == ""
+
+    def test_auth_state_from_dict_round_trip_with_app_client_id(self) -> None:
+        raw = {
+            "username": "u",
+            "client_id": "c",
+            "authentication_token": "t",
+            "user_id": "1",
+            "id_token": "i",
+            "refresh_token": "r",
+            "app_client_id": "abc123",
+        }
+        state = AqualinkAuthState.from_dict(raw)
+        assert state.app_client_id == "abc123"
+        assert state.to_dict()["app_client_id"] == "abc123"
+
     async def test_auth_state_setter(self) -> None:
         auth_state = AqualinkAuthState(
             username="restored-user",
@@ -590,6 +627,44 @@ class TestAqualinkClient(TestBase):
         assert not isinstance(
             exc_info.value, AqualinkServiceUnauthorizedException
         )
+
+    @patch("httpx.AsyncClient.request")
+    async def test_login_captures_app_client_id(self, mock_request) -> None:
+        data = {
+            **LOGIN_DATA,
+            "cognitoPool": {"appClientId": "client-xyz"},
+        }
+        mock_request.return_value = _make_resp(200, data)
+
+        await self.client.login()
+
+        assert self.client.app_client_id == "client-xyz"
+
+    @patch("httpx.AsyncClient.request")
+    async def test_login_app_client_id_defaults_empty_when_missing(
+        self, mock_request
+    ) -> None:
+        mock_request.return_value = _make_resp(200, LOGIN_DATA)
+
+        await self.client.login()
+
+        assert self.client.app_client_id == ""
+
+    async def test_auth_state_round_trip_includes_app_client_id(self) -> None:
+        state = AqualinkAuthState(
+            username="foo",
+            client_id="c",
+            authentication_token="t",
+            user_id="1",
+            id_token="i",
+            refresh_token="r",
+            app_client_id="abc",
+        )
+        self.client.auth_state = state
+
+        assert self.client.app_client_id == "abc"
+        assert self.client.auth_state is not None
+        assert self.client.auth_state.app_client_id == "abc"
 
     @patch("httpx.AsyncClient.request")
     async def test_refresh_retains_existing_token_when_none_returned(

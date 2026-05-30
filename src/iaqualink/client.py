@@ -43,9 +43,13 @@ if TYPE_CHECKING:
     from types import TracebackType
 
 for module_name in (
+    "iaqualink.systems.cyclobat.system",
+    "iaqualink.systems.cyclonext.system",
     "iaqualink.systems.exo.system",
     "iaqualink.systems.i2d.system",
     "iaqualink.systems.iaqua.system",
+    "iaqualink.systems.vr.system",
+    "iaqualink.systems.vortrax.system",
 ):
     importlib.import_module(module_name)
 
@@ -65,6 +69,7 @@ class AqualinkAuthState:
     user_id: str
     id_token: str
     refresh_token: str
+    app_client_id: str = ""
 
     def to_dict(self) -> dict[str, str]:
         return asdict(self)
@@ -88,7 +93,10 @@ class AqualinkAuthState:
                 )
             values[field_name] = value
 
-        return cls(**values)
+        app_client_id = data.get("app_client_id", "")
+        if not isinstance(app_client_id, str):
+            app_client_id = ""
+        return cls(app_client_id=app_client_id, **values)
 
     def __repr__(self) -> str:
         parts = ", ".join(
@@ -129,6 +137,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.app_client_id = ""
         self.country = ""
         self._refresh_lock = asyncio.Lock()
 
@@ -153,6 +162,7 @@ class AqualinkClient:
             user_id=self.user_id,
             id_token=self.id_token,
             refresh_token=self.refresh_token,
+            app_client_id=self.app_client_id,
         )
 
     @auth_state.setter
@@ -167,6 +177,7 @@ class AqualinkClient:
         self.user_id = state.user_id
         self.id_token = state.id_token
         self.refresh_token = state.refresh_token
+        self.app_client_id = state.app_client_id
         self._logged = True
 
     async def close(self) -> None:
@@ -342,6 +353,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.app_client_id = ""
         self.country = ""
         self._logged = False
 
@@ -359,6 +371,8 @@ class AqualinkClient:
         self.refresh_token = data["userPoolOAuth"].get(
             "RefreshToken", refresh_token_fallback
         )
+        cognito = data.get("cognitoPool") or {}
+        self.app_client_id = cognito.get("appClientId", "")
         self.country = (data.get("country") or "us").lower()
         self._logged = True
 
