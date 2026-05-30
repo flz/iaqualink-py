@@ -23,6 +23,7 @@ from iaqualink.device import (
     AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
+    AqualinkRobot,
     AqualinkSensor,
     AqualinkSwitch,
 )
@@ -257,6 +258,7 @@ _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
     (AqualinkLight, "💡", "Lights"),
     (AqualinkSwitch, "⚡", "Switches"),
     (AqualinkFan, "⚙️", "Fans"),
+    (AqualinkRobot, "🤖", "Vacuums"),
     (AqualinkNumber, "🔢", "Numbers"),
     (AqualinkBinarySensor, "📊", "Sensors"),
     (AqualinkSensor, "📊", "Sensors"),
