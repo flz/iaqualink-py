@@ -6,7 +6,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Annotated, Any, NoReturn
+from typing import Annotated, Any, NoReturn, cast
 
 import typer
 import yaml
@@ -1221,11 +1221,21 @@ async def _robot_status(
         _exit_with_error(f"Could not refresh {system.serial}: {exc}")
 
     devices = system.devices
-    mode_value = devices["mode"].value if "mode" in devices else "?"
-    cycle_value = devices["cycle"].value if "cycle" in devices else "?"
+    mode_value = (
+        cast(AqualinkSensor, devices["mode"]).value
+        if "mode" in devices
+        else "?"
+    )
+    cycle_value = (
+        cast(AqualinkSensor, devices["cycle"]).value
+        if "cycle" in devices
+        else "?"
+    )
     remaining = devices.get("time_remaining_sec")
     remaining_str = (
-        "n/a" if remaining is None else _format_seconds(int(remaining.value))
+        "n/a"
+        if remaining is None
+        else _format_seconds(int(cast(AqualinkSensor, remaining).value))
     )
 
     try:
@@ -1245,9 +1255,10 @@ async def _robot_status(
         f"  remaining : {remaining_str}",
     ]
     if "model_number" in devices:
-        lines.append(f"  model     : {devices['model_number'].value}")
+        model = cast(AqualinkSensor, devices["model_number"]).value
+        lines.append(f"  model     : {model}")
     if "totRunTime" in devices:
-        total_min = int(devices["totRunTime"].value)
+        total_min = int(cast(AqualinkSensor, devices["totRunTime"]).value)
         lines.append(f"  total run : {total_min // 60}h {total_min % 60}m")
     return "\n".join(lines)
 
