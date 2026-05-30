@@ -7,6 +7,8 @@ __all__ = [
     "AqualinkFan",
     "AqualinkLight",
     "AqualinkNumber",
+    "AqualinkRobot",
+    "AqualinkRobotActivity",
     "AqualinkSensor",
     "AqualinkSwitch",
 ]
@@ -14,7 +16,7 @@ __all__ = [
 import logging
 import math
 from abc import ABC, abstractmethod
-from enum import Enum
+from enum import Enum, StrEnum
 from typing import TYPE_CHECKING, Any
 
 from iaqualink.exception import (
@@ -75,6 +77,11 @@ class AqualinkDevice(ABC):
     def model(self) -> str:
         """Device model name."""
 
+    @property
+    def entity_category(self) -> str | None:
+        """HA EntityCategory ("config"/"diagnostic"), or None for primary."""
+        return None
+
 
 class AqualinkSensor(AqualinkDevice):
     """Read-only sensor. Maps to HA SensorEntity."""
@@ -102,6 +109,21 @@ class AqualinkSensor(AqualinkDevice):
     def unit_of_measurement(self) -> str | None:
         return None
 
+    @property
+    def device_class(self) -> str | None:
+        """HA SensorDeviceClass value (e.g. "battery"), or None."""
+        return None
+
+    @property
+    def state_class(self) -> str | None:
+        """HA SensorStateClass value (e.g. "measurement"), or None."""
+        return None
+
+    @property
+    def native_value(self) -> float | int | str | None:
+        """Typed reading for HA. Defaults to the raw string `value`."""
+        return self.value
+
 
 class AqualinkBinarySensor(AqualinkDevice):
     """Read-only binary sensor. Maps to HA BinarySensorEntity."""
@@ -110,6 +132,11 @@ class AqualinkBinarySensor(AqualinkDevice):
     @abstractmethod
     def is_on(self) -> bool:
         """True if the sensor is active/on."""
+
+    @property
+    def device_class(self) -> str | None:
+        """HA BinarySensorDeviceClass value (e.g. "running"), or None."""
+        return None
 
 
 class AqualinkSwitch(AqualinkDevice):
@@ -408,3 +435,156 @@ class AqualinkFan(AqualinkDevice):
         if preset_mode not in self.preset_modes:
             raise AqualinkInvalidParameterException(preset_mode)
         await self._set_preset_mode(preset_mode)
+
+
+class AqualinkRobotActivity(StrEnum):
+    """Operational state of a robot cleaner.
+
+    Mirrors Home Assistant's ``homeassistant.components.vacuum.VacuumActivity``
+    so concrete robots map onto the HA vacuum entity without translation.
+    """
+
+    CLEANING = "cleaning"
+    DOCKED = "docked"
+    IDLE = "idle"
+    PAUSED = "paused"
+    RETURNING = "returning"
+    ERROR = "error"
+
+
+class AqualinkRobot(AqualinkDevice):
+    """Pool cleaning robot. Maps to HA VacuumEntity.
+
+    The mandatory ``activity`` property maps to ``VacuumActivity``. Each
+    optional capability is gated by a ``supports_*`` property mirroring HA's
+    ``VacuumEntityFeature`` flags, in the same style as ``AqualinkLight``:
+    the public command validates and dispatches to a private ``_*`` hook that
+    concrete robots override; unsupported commands raise
+    ``AqualinkOperationNotSupportedException``.
+
+    HA bridge — an HA ``vacuum.py`` wraps each command in its ``async_``
+    counterpart (this library uses plain sync names and stays standalone)::
+
+        start          -> async_start
+        stop           -> async_stop
+        pause          -> async_pause
+        return_to_base -> async_return_to_base
+        clean_spot     -> async_clean_spot
+        locate         -> async_locate
+        set_fan_speed  -> async_set_fan_speed
+    """
+
+    # ── Required overrides ──────────────────────────────────────────────────
+
+    @property
+    @abstractmethod
+    def activity(self) -> AqualinkRobotActivity:
+        """Current operational state (maps to HA VacuumActivity)."""
+
+    # ── Override per supported capability (HA VacuumEntityFeature) ───────────
+
+    @property
+    def supports_start(self) -> bool:
+        return False
+
+    async def start(self) -> None:
+        """Begin cleaning."""
+        if not self.supports_start:
+            raise AqualinkOperationNotSupportedException
+        await self._start()
+
+    async def _start(self) -> None:
+        raise NotImplementedError
+
+    @property
+    def supports_stop(self) -> bool:
+        return False
+
+    async def stop(self) -> None:
+        """Stop without returning to the dock."""
+        if not self.supports_stop:
+            raise AqualinkOperationNotSupportedException
+        await self._stop()
+
+    async def _stop(self) -> None:
+        raise NotImplementedError
+
+    @property
+    def supports_pause(self) -> bool:
+        return False
+
+    async def pause(self) -> None:
+        """Pause the current cycle."""
+        if not self.supports_pause:
+            raise AqualinkOperationNotSupportedException
+        await self._pause()
+
+    async def _pause(self) -> None:
+        raise NotImplementedError
+
+    @property
+    def supports_return(self) -> bool:
+        return False
+
+    async def return_to_base(self) -> None:
+        """Return to the dock/charger."""
+        if not self.supports_return:
+            raise AqualinkOperationNotSupportedException
+        await self._return_to_base()
+
+    async def _return_to_base(self) -> None:
+        raise NotImplementedError
+
+    @property
+    def supports_clean_spot(self) -> bool:
+        return False
+
+    async def clean_spot(self) -> None:
+        """Perform a spot clean."""
+        if not self.supports_clean_spot:
+            raise AqualinkOperationNotSupportedException
+        await self._clean_spot()
+
+    async def _clean_spot(self) -> None:
+        raise NotImplementedError
+
+    @property
+    def supports_locate(self) -> bool:
+        return False
+
+    async def locate(self) -> None:
+        """Locate the robot (audible/visual signal)."""
+        if not self.supports_locate:
+            raise AqualinkOperationNotSupportedException
+        await self._locate()
+
+    async def _locate(self) -> None:
+        raise NotImplementedError
+
+    # ── Override if fan speed (cleaning mode) is supported ───────────────────
+
+    @property
+    def fan_speed(self) -> str | None:
+        return None
+
+    @property
+    def fan_speed_list(self) -> list[str] | None:
+        return None
+
+    @property
+    def supports_fan_speed(self) -> bool:
+        return self.fan_speed_list is not None
+
+    async def set_fan_speed(self, fan_speed: str) -> None:
+        """Select a fan speed / cleaning mode by name."""
+        if not self.supports_fan_speed:
+            raise AqualinkOperationNotSupportedException
+        fan_speed_list = self.fan_speed_list
+        if fan_speed_list is not None and fan_speed not in fan_speed_list:
+            raise AqualinkInvalidParameterException(
+                f"{fan_speed!r} isn't a valid fan speed."
+            )
+        await self._set_fan_speed(fan_speed)
+
+    async def _set_fan_speed(self, fan_speed: str) -> None:
+        raise NotImplementedError
