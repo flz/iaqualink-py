@@ -23,6 +23,7 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
 ]
 dependencies = [
     "httpx[http2]>=0.27.0",
@@ -48,6 +49,7 @@ iaqualink = "iaqualink.cli:main"
 dev = [
     "prek>=0.4.0",
     "mypy>=1.15.0",
+    "ty>=0.0.35",
     "ruff>=0.11.2",
     "types-PyYAML>=6.0.12.20250915",
     "iaqualink[cli]",
@@ -107,6 +109,9 @@ exclude_lines = [
 
 [tool.mypy]
 ignore_missing_imports = true
+
+[tool.ty]
+# Check scope is explicit in the pre-commit hook: uv run ty check src/
 
 [tool.pytest.ini_options]
 filterwarnings = [
