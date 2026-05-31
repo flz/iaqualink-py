@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock, patch
 
 import httpx
@@ -20,9 +19,6 @@ from iaqualink.system import SystemStatus
 from .conftest import dotstar as _dotstar
 from .conftest import resp_200 as _resp_200
 from .fixtures import SystemFixture
-
-if TYPE_CHECKING:
-    pass
 
 
 def test_property_name(system_fixture: SystemFixture) -> None:

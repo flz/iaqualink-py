@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 import respx
 import respx.router
 
@@ -35,11 +34,12 @@ async def test_turn_on(
 async def test_turn_on_noop(
     switch_fixture: SwitchFixture, respx_mock: respx.router.MockRouter
 ) -> None:
-    if not switch_fixture.has_noop_guard:
-        pytest.skip("system does not implement noop guard")
     respx_mock.route(dotstar).mock(resp_200)
     await switch_fixture.device_on.turn_on()
-    assert len(respx_mock.calls) == 0
+    if switch_fixture.has_noop_guard:
+        assert len(respx_mock.calls) == 0
+    else:
+        assert len(respx_mock.calls) > 0
 
 
 async def test_turn_off(
@@ -53,11 +53,12 @@ async def test_turn_off(
 async def test_turn_off_noop(
     switch_fixture: SwitchFixture, respx_mock: respx.router.MockRouter
 ) -> None:
-    if not switch_fixture.has_noop_guard:
-        pytest.skip("system does not implement noop guard")
     respx_mock.route(dotstar).mock(resp_200)
     await switch_fixture.device_off.turn_off()
-    assert len(respx_mock.calls) == 0
+    if switch_fixture.has_noop_guard:
+        assert len(respx_mock.calls) == 0
+    else:
+        assert len(respx_mock.calls) > 0
 
 
 def test_from_data(switch_fixture: SwitchFixture) -> None:

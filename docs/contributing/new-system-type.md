@@ -74,11 +74,11 @@ from iaqualink.systems import newsystem  # noqa: F401
 
 Follow the structure described in [Writing Tests](testing.md). Required:
 
-1. **Conformance factories** — create `tests/systems/newsystem/factories.py` with factories for each device type, register in `tests/conformance/conftest.py`
+1. **Conformance factories** — create `tests/systems/newsystem/factories.py` with factories for each device type (auto-discovered by conftest)
 2. **System-specific tests** — create `tests/systems/newsystem/` with:
-   - `test_system.py` inheriting `TestBaseSystem`
-   - `test_device.py` inheriting appropriate `TestBase*` classes
-   - Wire-protocol assertions on `self.respx_calls`
+   - `test_system.py` — plain pytest class with `_make_newsystem()` helper
+   - `test_device.py` — plain pytest class with per-test helpers
+   - Wire-protocol assertions on `respx_mock.calls`
 3. Cover `_refresh()`, device parsing, and all device control paths
 
 ### 7. Update documentation

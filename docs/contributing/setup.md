@@ -53,7 +53,7 @@ uv run pytest tests/systems/iaqua/test_system.py
 uv run pytest tests/systems/iaqua/test_system.py::TestIaquaSystem::test_update
 ```
 
-Tests use `unittest.IsolatedAsyncioTestCase` and `respx` for HTTP mocking — no live network calls or real credentials needed. See [Writing Tests](testing.md) for the full test architecture and how to add tests for new systems.
+Tests use plain pytest classes with `respx` for HTTP mocking — no live network calls or real credentials needed. See [Writing Tests](testing.md) for the full test architecture and how to add tests for new systems.
 
 ## Code Quality
 

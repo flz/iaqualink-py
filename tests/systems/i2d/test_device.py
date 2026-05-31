@@ -84,48 +84,48 @@ def _make_sensor(
 
 
 class TestI2dSensor:
-    def test_name(self):
+    def test_name(self) -> None:
         s = _make_sensor({"speed": "1500"})
         assert s.name == "speed"
 
-    def test_label(self):
+    def test_label(self) -> None:
         s = _make_sensor({"speed": "1500"})
         assert s.label == "Motor Speed"
 
-    def test_value_present(self):
+    def test_value_present(self) -> None:
         s = _make_sensor({"speed": "1500"})
         assert s.value == "1500"
 
-    def test_value_missing(self):
+    def test_value_missing(self) -> None:
         s = _make_sensor({})
         assert s.value == ""
 
-    def test_unit_of_measurement(self):
+    def test_unit_of_measurement(self) -> None:
         s = _make_sensor({})
         assert s.unit_of_measurement == "RPM"
 
-    def test_manufacturer(self):
+    def test_manufacturer(self) -> None:
         s = _make_sensor({})
         assert s.manufacturer == "Zodiac"
 
-    def test_model(self):
+    def test_model(self) -> None:
         s = _make_sensor({})
         assert s.model == "iQPump"
 
-    def test_value_updates_live(self):
+    def test_value_updates_live(self) -> None:
         data: dict = {"speed": "1500"}
         s = _make_sensor(data)
         assert s.value == "1500"
         data["speed"] = "3000"
         assert s.value == "3000"
 
-    def test_path_reads_nested_value(self):
+    def test_path_reads_nested_value(self) -> None:
         data: dict = {"wifistatus": {"state": "connected", "ssid": "Home"}}
         s = _make_sensor(data, key="wifistate", label="WiFi State", unit=None)
         s._path = ("wifistatus", "state")
         assert s.value == "connected"
 
-    def test_path_updates_live(self):
+    def test_path_updates_live(self) -> None:
         data: dict = {"wifistatus": {"state": "connected"}}
         s = _make_sensor(data, key="wifistate", label="WiFi State", unit=None)
         s._path = ("wifistatus", "state")
@@ -133,13 +133,13 @@ class TestI2dSensor:
         data["wifistatus"]["state"] = "disconnected"
         assert s.value == "disconnected"
 
-    def test_path_missing_container_returns_empty(self):
+    def test_path_missing_container_returns_empty(self) -> None:
         data: dict = {}
         s = _make_sensor(data, key="wifistate", label="WiFi State", unit=None)
         s._path = ("wifistatus", "state")
         assert s.value == ""
 
-    def test_path_missing_leaf_returns_empty(self):
+    def test_path_missing_leaf_returns_empty(self) -> None:
         data: dict = {"wifistatus": {}}
         s = _make_sensor(data, key="wifistate", label="WiFi State", unit=None)
         s._path = ("wifistatus", "state")
@@ -160,39 +160,39 @@ def _make_number(data: dict, **kwargs) -> I2dNumber:
 
 
 class TestI2dNumber:
-    def test_name(self):
+    def test_name(self) -> None:
         num = _make_number({"quickcleanrpm": "3000"})
         assert num.name == "quickcleanrpm"
 
-    def test_label(self):
+    def test_label(self) -> None:
         num = _make_number({"quickcleanrpm": "3000"})
         assert num.label == "Quick Clean RPM"
 
-    def test_current_value_present(self):
+    def test_current_value_present(self) -> None:
         num = _make_number({"quickcleanrpm": "3000"})
         assert num.current_value == 3000.0
 
-    def test_current_value_missing(self):
+    def test_current_value_missing(self) -> None:
         num = _make_number({})
         assert num.current_value is None
 
-    def test_state(self):
+    def test_state(self) -> None:
         num = _make_number({"quickcleanrpm": "3000"})
         assert num.state == "3000"
 
-    def test_state_missing(self):
+    def test_state_missing(self) -> None:
         num = _make_number({})
         assert num.state == ""
 
-    def test_min_value_static(self):
+    def test_min_value_static(self) -> None:
         num = _make_number({})
         assert num.min_value == 600.0
 
-    def test_max_value_static(self):
+    def test_max_value_static(self) -> None:
         num = _make_number({})
         assert num.max_value == 3450.0
 
-    def test_min_value_from_data_key(self):
+    def test_min_value_from_data_key(self) -> None:
         num = _make_number(
             {
                 "quickcleanrpm": "3000",
@@ -204,7 +204,7 @@ class TestI2dNumber:
         )
         assert num.min_value == 800.0
 
-    def test_max_value_from_data_key(self):
+    def test_max_value_from_data_key(self) -> None:
         num = _make_number(
             {
                 "quickcleanrpm": "3000",
@@ -216,19 +216,19 @@ class TestI2dNumber:
         )
         assert num.max_value == 3200.0
 
-    def test_unit_of_measurement(self):
+    def test_unit_of_measurement(self) -> None:
         num = _make_number({})
         assert num.unit_of_measurement == "RPM"
 
-    def test_step_default(self):
+    def test_step_default(self) -> None:
         num = _make_number({})
         assert num.step == 1.0
 
-    def test_manufacturer(self):
+    def test_manufacturer(self) -> None:
         num = _make_number({})
         assert num.manufacturer == "Zodiac"
 
-    def test_model(self):
+    def test_model(self) -> None:
         num = _make_number({})
         assert num.model == "iQPump"
 
@@ -288,7 +288,7 @@ class TestI2dNumber:
         await num.set_value(1200.0)
         num.system.send_control_command.assert_awaited_once()
 
-    def test_min_max_from_shared_data_updates_live(self):
+    def test_min_max_from_shared_data_updates_live(self) -> None:
         """min/max read live from data dict — updates reflected immediately."""
         data: dict = {
             "quickcleanrpm": "3000",
@@ -326,11 +326,11 @@ def _make_switch(
 
 
 class TestI2dSwitch:
-    def test_name(self):
+    def test_name(self) -> None:
         sw = _make_switch({"freezeprotectenable": "1"})
         assert sw.name == "freezeprotectenable"
 
-    def test_label(self):
+    def test_label(self) -> None:
         sw = _make_switch({"freezeprotectenable": "1"})
         assert sw.label == "Freeze Protection"
 
@@ -343,16 +343,18 @@ class TestI2dSwitch:
         ],
         ids=["on", "off", "missing"],
     )
-    def test_state(self, data: dict, expected_is_on: bool, expected_state: str):
+    def test_state(
+        self, data: dict, expected_is_on: bool, expected_state: str
+    ) -> None:
         sw = _make_switch(data)
         assert sw.is_on is expected_is_on
         assert sw.state == expected_state
 
-    def test_manufacturer(self):
+    def test_manufacturer(self) -> None:
         sw = _make_switch({})
         assert sw.manufacturer == "Zodiac"
 
-    def test_model(self):
+    def test_model(self) -> None:
         sw = _make_switch({})
         assert sw.model == "iQPump"
 
@@ -388,7 +390,7 @@ class TestI2dSwitch:
 
 
 class TestI2dFan:
-    def _make_fan(self, data: dict):
+    def _make_fan(self, data: dict) -> I2dFan:
         from iaqualink.systems.i2d.device import I2dFan
 
         system = create_autospec(I2dSystem, instance=True)
@@ -421,23 +423,23 @@ class TestI2dFan:
         else:
             pump.system.send_control_command.assert_not_awaited()
 
-    def test_preset_modes_list(self):
+    def test_preset_modes_list(self) -> None:
         pump = self._make_fan({"opmode": "1"})
         assert "CUSTOM" in pump.preset_modes
         assert "QUICK_CLEAN" not in pump.preset_modes
 
-    def test_preset_mode_for_external_mode(self):
+    def test_preset_mode_for_external_mode(self) -> None:
         pump = self._make_fan({"opmode": "1"})
         assert pump.preset_mode == "CUSTOM"
 
-    def test_preset_mode_for_internal_mode_readable(self):
+    def test_preset_mode_for_internal_mode_readable(self) -> None:
         from iaqualink.systems.i2d.device import I2dOpMode
 
         pump = self._make_fan({"opmode": str(I2dOpMode.QUICK_CLEAN)})
         assert pump.preset_mode == "QUICK_CLEAN"
         assert "QUICK_CLEAN" not in pump.preset_modes
 
-    def test_preset_mode_when_opmode_missing(self):
+    def test_preset_mode_when_opmode_missing(self) -> None:
         pump = self._make_fan({})
         assert pump.preset_mode is None
 
@@ -491,24 +493,24 @@ class TestI2dFan:
 
 
 class TestI2dBinaryState:
-    def test_on_value(self):
+    def test_on_value(self) -> None:
         from iaqualink.systems.i2d.device import I2dBinaryState
 
         assert I2dBinaryState.ON == "1"
 
-    def test_off_value(self):
+    def test_off_value(self) -> None:
         from iaqualink.systems.i2d.device import I2dBinaryState
 
         assert I2dBinaryState.OFF == "0"
 
 
 class TestI2dNumberConstructorValidation:
-    def test_missing_both_min_raises(self):
+    def test_missing_both_min_raises(self) -> None:
         system = create_autospec(I2dSystem, instance=True)
         with pytest.raises(ValueError):
             I2dNumber(system, {}, key="x", label="X", max_value=100.0)
 
-    def test_missing_both_max_raises(self):
+    def test_missing_both_max_raises(self) -> None:
         system = create_autospec(I2dSystem, instance=True)
         with pytest.raises(ValueError):
             I2dNumber(system, {}, key="x", label="X", min_value=0.0)
@@ -524,11 +526,11 @@ def _make_binary_sensor(
 
 
 class TestI2dBinarySensor:
-    def test_name(self):
+    def test_name(self) -> None:
         s = _make_binary_sensor({"freezeprotectstatus": "0"})
         assert s.name == "freezeprotectstatus"
 
-    def test_label(self):
+    def test_label(self) -> None:
         s = _make_binary_sensor({"freezeprotectstatus": "0"})
         assert s.label == "Freeze Protect Status"
 
@@ -541,19 +543,19 @@ class TestI2dBinarySensor:
         ],
         ids=["on", "off", "missing"],
     )
-    def test_is_on(self, data: dict, expected: bool):
+    def test_is_on(self, data: dict, expected: bool) -> None:
         s = _make_binary_sensor(data)
         assert s.is_on is expected
 
-    def test_manufacturer(self):
+    def test_manufacturer(self) -> None:
         s = _make_binary_sensor({})
         assert s.manufacturer == "Zodiac"
 
-    def test_model(self):
+    def test_model(self) -> None:
         s = _make_binary_sensor({})
         assert s.model == "iQPump"
 
-    def test_state_updates_live(self):
+    def test_state_updates_live(self) -> None:
         data: dict = {"freezeprotectstatus": "0"}
         s = _make_binary_sensor(data)
         assert s.is_on is False

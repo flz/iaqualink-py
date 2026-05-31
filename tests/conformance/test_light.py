@@ -39,11 +39,12 @@ async def test_turn_on(
 async def test_turn_on_noop(
     light_fixture: LightFixture, respx_mock: respx.router.MockRouter
 ) -> None:
-    if not light_fixture.has_noop_guard:
-        pytest.skip("system does not implement noop guard")
     respx_mock.route(dotstar).mock(resp_200)
     await light_fixture.device_on.turn_on()
-    assert len(respx_mock.calls) == 0
+    if light_fixture.has_noop_guard:
+        assert len(respx_mock.calls) == 0
+    else:
+        assert len(respx_mock.calls) > 0
 
 
 async def test_turn_off(
@@ -57,11 +58,12 @@ async def test_turn_off(
 async def test_turn_off_noop(
     light_fixture: LightFixture, respx_mock: respx.router.MockRouter
 ) -> None:
-    if not light_fixture.has_noop_guard:
-        pytest.skip("system does not implement noop guard")
     respx_mock.route(dotstar).mock(resp_200)
     await light_fixture.device_off.turn_off()
-    assert len(respx_mock.calls) == 0
+    if light_fixture.has_noop_guard:
+        assert len(respx_mock.calls) == 0
+    else:
+        assert len(respx_mock.calls) > 0
 
 
 def test_property_supports_brightness(light_fixture: LightFixture) -> None:

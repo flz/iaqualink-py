@@ -6,8 +6,8 @@ return fixture dataclasses.
 
 Convention: ``tests/systems/<name>/factories.py`` must export lists named
 ``<name>_<type>_factories`` (e.g. ``iaqua_switch_factories``) containing
-``(id_string, factory_callable)`` tuples. The conftest discovers them
-automatically — no manual import needed when adding a new system.
+``(id_string, factory_callable)`` tuples (type: ``list[tuple[str, Callable[[], Any]]]``).
+The conftest discovers them automatically — no manual import needed when adding a new system.
 """
 
 from __future__ import annotations
@@ -15,7 +15,8 @@ from __future__ import annotations
 import importlib
 import pathlib
 import warnings
-from typing import Callable
+from collections.abc import Callable
+from typing import Any
 
 import pytest
 
@@ -50,7 +51,9 @@ _FIXTURE_TYPES = (
 _systems_root = pathlib.Path(__file__).parent.parent / "systems"
 
 
-def _discover_factories(fixture_type: str) -> tuple[list[str], list[Callable]]:
+def _discover_factories(
+    fixture_type: str,
+) -> tuple[list[str], list[Callable[[], Any]]]:
     """Scan all ``tests/systems/*/factories.py`` for ``<system>_<type>_factories``.
 
     Each factories.py must explicitly declare every fixture type list, even if
