@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -151,7 +151,7 @@ async def test_get_devices(
     system_fixture: SystemFixture, respx_mock: respx.router.MockRouter
 ) -> None:
     respx_mock.route(_dotstar).mock(_resp_200)
-    system_fixture.system.devices = {"foo": {}}  # type: ignore[dict-item]  # ty: ignore
+    system_fixture.system.devices = {"foo": MagicMock()}
     await system_fixture.system.get_devices()
     assert len(respx_mock.calls) == 0
 

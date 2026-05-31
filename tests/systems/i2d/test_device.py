@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, cast
-from unittest.mock import MagicMock, create_autospec
+from unittest.mock import AsyncMock, MagicMock, create_autospec
 
 import pytest
 
@@ -16,7 +16,6 @@ from iaqualink.systems.i2d.device import (
 )
 from iaqualink.systems.i2d.system import I2dSystem
 
-from ...conftest import async_returns
 from .factories import CONTRACT_SYSTEM_DATA
 
 
@@ -236,20 +235,22 @@ class TestI2dNumber:
     async def test_set_value_calls_command(self):
         num = _make_number({"quickcleanrpm": "3000"})
         mock_response = MagicMock()
-        num.system.send_control_command = async_returns(mock_response)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        mock_cmd = cast(AsyncMock, num.system.send_control_command)
+        mock_cmd.return_value = mock_response
         await num.set_value(3000.0)
-        num.system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
-            "/quickcleanrpm/write", "value=3000"
-        )
+        cast(
+            AsyncMock, num.system.send_control_command
+        ).assert_awaited_once_with("/quickcleanrpm/write", "value=3000")
 
     async def test_set_value_sends_as_int(self):
         num = _make_number({"quickcleanrpm": "3000"})
         mock_response = MagicMock()
-        num.system.send_control_command = async_returns(mock_response)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        mock_cmd = cast(AsyncMock, num.system.send_control_command)
+        mock_cmd.return_value = mock_response
         await num.set_value(3000.0)
-        num.system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
-            "/quickcleanrpm/write", "value=3000"
-        )
+        cast(
+            AsyncMock, num.system.send_control_command
+        ).assert_awaited_once_with("/quickcleanrpm/write", "value=3000")
 
     @pytest.mark.parametrize(
         "value,should_raise",
@@ -267,27 +268,25 @@ class TestI2dNumber:
             with pytest.raises(AqualinkInvalidParameterException):
                 await num.set_value(value)
         else:
-            num.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
             await num.set_value(value)
-            num.system.send_control_command.assert_awaited_once()  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+            cast(
+                AsyncMock, num.system.send_control_command
+            ).assert_awaited_once()
 
     async def test_set_value_not_multiple_of_step_raises(self):
         num = _make_number({"quickcleanrpm": "3000"}, step=300.0)
-        num.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         with pytest.raises(AqualinkInvalidParameterException):
             await num.set_value(1201.0)
 
     async def test_set_value_step_1_any_integer_ok(self):
         num = _make_number({"quickcleanrpm": "3000"}, step=1.0)
-        num.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await num.set_value(3001.0)  # any integer is a multiple of 1
-        num.system.send_control_command.assert_awaited_once()  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        cast(AsyncMock, num.system.send_control_command).assert_awaited_once()
 
     async def test_set_value_multiple_of_step_ok(self):
         num = _make_number({"quickcleanrpm": "3000"}, step=300.0)
-        num.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await num.set_value(1200.0)
-        num.system.send_control_command.assert_awaited_once()  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        cast(AsyncMock, num.system.send_control_command).assert_awaited_once()
 
     def test_min_max_from_shared_data_updates_live(self) -> None:
         """min/max read live from data dict — updates reflected immediately."""
@@ -312,9 +311,12 @@ class TestI2dNumber:
     async def test_set_value_calls_apply_write_response(self):
         num = _make_number({"quickcleanrpm": "3000"})
         mock_resp = MagicMock()
-        num.system.send_control_command = async_returns(mock_resp)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        mock_cmd = cast(AsyncMock, num.system.send_control_command)
+        mock_cmd.return_value = mock_resp
         await num.set_value(2000.0)
-        num.system._apply_write_response.assert_called_once_with(mock_resp)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        cast(
+            MagicMock, num.system._apply_write_response
+        ).assert_called_once_with(mock_resp)
 
 
 def _make_switch(
@@ -361,33 +363,37 @@ class TestI2dSwitch:
 
     async def test_turn_on_sends_command(self):
         sw = _make_switch({"freezeprotectenable": "0"})
-        sw.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await sw.turn_on()
-        sw.system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
-            "/freezeprotectenable/write", "value=1"
-        )
+        cast(
+            AsyncMock, sw.system.send_control_command
+        ).assert_awaited_once_with("/freezeprotectenable/write", "value=1")
 
     async def test_turn_off_sends_command(self):
         sw = _make_switch({"freezeprotectenable": "1"})
-        sw.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await sw.turn_off()
-        sw.system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
-            "/freezeprotectenable/write", "value=0"
-        )
+        cast(
+            AsyncMock, sw.system.send_control_command
+        ).assert_awaited_once_with("/freezeprotectenable/write", "value=0")
 
     async def test_turn_on_calls_apply_write_response(self):
         sw = _make_switch({"freezeprotectenable": "0"})
         mock_resp = MagicMock()
-        sw.system.send_control_command = async_returns(mock_resp)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        mock_cmd = cast(AsyncMock, sw.system.send_control_command)
+        mock_cmd.return_value = mock_resp
         await sw.turn_on()
-        sw.system._apply_write_response.assert_called_once_with(mock_resp)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        cast(
+            MagicMock, sw.system._apply_write_response
+        ).assert_called_once_with(mock_resp)
 
     async def test_turn_off_calls_apply_write_response(self):
         sw = _make_switch({"freezeprotectenable": "1"})
         mock_resp = MagicMock()
-        sw.system.send_control_command = async_returns(mock_resp)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        mock_cmd = cast(AsyncMock, sw.system.send_control_command)
+        mock_cmd.return_value = mock_resp
         await sw.turn_off()
-        sw.system._apply_write_response.assert_called_once_with(mock_resp)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        cast(
+            MagicMock, sw.system._apply_write_response
+        ).assert_called_once_with(mock_resp)
 
 
 class TestI2dFan:
@@ -415,14 +421,17 @@ class TestI2dFan:
         expected_value: str | None,
     ):
         pump = self._make_fan({"runstate": runstate, "opmode": opmode})
-        pump.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await getattr(pump, action)()
         if expected_value is not None:
-            pump.system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+            cast(
+                AsyncMock, pump.system.send_control_command
+            ).assert_awaited_once_with(
                 "/opmode/write", f"value={expected_value}"
             )
         else:
-            pump.system.send_control_command.assert_not_awaited()  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+            cast(
+                AsyncMock, pump.system.send_control_command
+            ).assert_not_awaited()
 
     def test_preset_modes_list(self) -> None:
         pump = self._make_fan({"opmode": "1"})
@@ -449,35 +458,35 @@ class TestI2dFan:
         pump = self._make_fan(
             {"globalrpmmin": "1050", "globalrpmmax": "3450", "productid": "0F"}
         )
-        pump.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await pump.set_percentage(0)
-        pump.system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
-            "/customspeedrpm/write", "value=1050"
-        )
+        cast(
+            AsyncMock, pump.system.send_control_command
+        ).assert_awaited_once_with("/customspeedrpm/write", "value=1050")
 
     async def test_set_percentage_rounding(self):
         # 600 + (3450-600)*33/100 = 600 + 940.5 = 1540.5 → round to nearest 25 = 1550
         pump = self._make_fan({"globalrpmmin": "600", "globalrpmmax": "3450"})
-        pump.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await pump.set_percentage(33)
-        pump.system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
-            "/customspeedrpm/write", "value=1550"
-        )
+        cast(
+            AsyncMock, pump.system.send_control_command
+        ).assert_awaited_once_with("/customspeedrpm/write", "value=1550")
 
     async def test_set_percentage_clamps_to_max(self):
         pump = self._make_fan({"globalrpmmin": "600", "globalrpmmax": "3450"})
-        pump.system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await pump.set_percentage(100)
-        pump.system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
-            "/customspeedrpm/write", "value=3450"
-        )
+        cast(
+            AsyncMock, pump.system.send_control_command
+        ).assert_awaited_once_with("/customspeedrpm/write", "value=3450")
 
     async def test_turn_on_calls_apply_write_response(self):
         pump = self._make_fan({"runstate": "off", "opmode": "2"})
         mock_resp = MagicMock()
-        pump.system.send_control_command = async_returns(mock_resp)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        mock_cmd = cast(AsyncMock, pump.system.send_control_command)
+        mock_cmd.return_value = mock_resp
         await pump.turn_on()
-        pump.system._apply_write_response.assert_called_once_with(mock_resp)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        cast(
+            MagicMock, pump.system._apply_write_response
+        ).assert_called_once_with(mock_resp)
 
     async def test_set_percentage_calls_apply_write_response(self):
         pump = self._make_fan(
@@ -488,9 +497,12 @@ class TestI2dFan:
             }
         )
         mock_resp = MagicMock()
-        pump.system.send_control_command = async_returns(mock_resp)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        mock_cmd = cast(AsyncMock, pump.system.send_control_command)
+        mock_cmd.return_value = mock_resp
         await pump.set_percentage(50)
-        pump.system._apply_write_response.assert_called_once_with(mock_resp)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        cast(
+            MagicMock, pump.system._apply_write_response
+        ).assert_called_once_with(mock_resp)
 
 
 class TestI2dBinaryState:

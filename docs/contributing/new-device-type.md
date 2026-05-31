@@ -94,4 +94,4 @@ See [Writing Tests](testing.md#adding-tests-for-a-new-device-type) for the full 
 1. Add a fixture dataclass in `tests/conformance/fixtures.py`
 2. Add a conformance test module `tests/conformance/test_newdevice.py`
 3. Add a parametrized fixture in `tests/conformance/conftest.py`
-4. Register factories in each system's `_factories_*.py` that implements the type
+4. Register factories in each system's `factories.py` that implements the type

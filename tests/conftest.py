@@ -92,7 +92,7 @@ def make_response(data: dict) -> MagicMock:
 
 
 @cache
-def _collect_snapshot_props(cls: type) -> tuple[str, ...]:
+def _collect_snapshot_props(cls: type[AqualinkDevice]) -> tuple[str, ...]:
     """Collect public @property names from API base classes, base-first.
 
     Uses vars() instead of getattr so each class's own __dict__ is inspected

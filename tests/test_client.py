@@ -393,15 +393,15 @@ class TestAqualinkClient:
 
         assert systems == {}
         retry_call = mock_request.call_args_list[3]
-        assert retry_call[0][1] == AQUALINK_DEVICES_URL  # type: ignore[index]  # ty: ignore
-        params = retry_call.kwargs["params"]  # type: ignore[attr-defined]  # ty: ignore
+        assert retry_call[0][1] == AQUALINK_DEVICES_URL  # type: ignore[index]
+        params = retry_call.kwargs["params"]  # type: ignore[attr-defined]
         assert params["user_id"] == "id"
         assert params["timestamp"] == "1000000000"
         assert params["signature"] == _expected_sig("id", "1000000000")
         # Bearer token must use the refreshed IdToken, not the original.
         new_id_token = REFRESH_RESPONSE_DATA["userPoolOAuth"]["IdToken"]
         assert (
-            retry_call.kwargs["headers"]["Authorization"]  # type: ignore[attr-defined]  # ty: ignore
+            retry_call.kwargs["headers"]["Authorization"]  # type: ignore[attr-defined]
             == f"Bearer {new_id_token}"
         )
 
