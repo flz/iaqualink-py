@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from iaqualink.client import AqualinkClient
 from iaqualink.system import AqualinkSystem
 from iaqualink.systems.iaqua.device import (
@@ -122,7 +125,7 @@ def _iaqua_binary_sensor_device() -> DeviceFixture:
     )
 
 
-iaqua_device_factories: list[tuple[str, callable]] = [
+iaqua_device_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-device", _iaqua_device),
     ("iaqua-sensor-device", _iaqua_sensor_device),
     ("iaqua-binary-sensor-device", _iaqua_binary_sensor_device),
@@ -141,7 +144,7 @@ def _iaqua_sensor() -> SensorFixture:
     )
 
 
-iaqua_sensor_factories: list[tuple[str, callable]] = [
+iaqua_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-sensor", _iaqua_sensor),
 ]
 
@@ -160,7 +163,7 @@ def _iaqua_binary_sensor() -> BinarySensorFixture:
     )
 
 
-iaqua_binary_sensor_factories: list[tuple[str, callable]] = [
+iaqua_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-binary-sensor", _iaqua_binary_sensor),
 ]
 
@@ -215,7 +218,7 @@ def _iaqua_onetouch_switch() -> SwitchFixture:
     )
 
 
-iaqua_switch_factories: list[tuple[str, callable]] = [
+iaqua_switch_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-switch", _iaqua_switch),
     ("iaqua-heater", _iaqua_heater),
     ("iaqua-aux-switch", _iaqua_aux_switch),
@@ -289,7 +292,7 @@ def _iaqua_color_light_hu() -> LightFixture:
     return _iaqua_color_light_factory("6", IaquaColorLightHU)
 
 
-iaqua_light_factories: list[tuple[str, callable]] = [
+iaqua_light_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-light-switch", _iaqua_light_switch),
     ("iaqua-dimmable-light", _iaqua_dimmable_light),
     ("iaqua-color-light-jc", _iaqua_color_light_jc),
@@ -317,7 +320,7 @@ def _iaqua_set_point() -> NumberFixture:
     return NumberFixture(device=device, expected_class=IaquaSetPoint)
 
 
-iaqua_number_factories: list[tuple[str, callable]] = [
+iaqua_number_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-set-point", _iaqua_set_point),
 ]
 
@@ -374,7 +377,7 @@ def _iaqua_climate() -> ClimateFixture:
     )
 
 
-iaqua_climate_factories: list[tuple[str, callable]] = [
+iaqua_climate_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-climate", _iaqua_climate),
 ]
 
@@ -414,9 +417,9 @@ def _iaqua_system() -> SystemFixture:
     )
 
 
-iaqua_system_factories: list[tuple[str, callable]] = [
+iaqua_system_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-system", _iaqua_system),
 ]
 
 # iaqua does not implement this device type.
-iaqua_fan_factories: list[tuple[str, callable]] = []
+iaqua_fan_factories: list[tuple[str, Callable[[], Any]]] = []

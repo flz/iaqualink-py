@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any
+
 from iaqualink.client import AqualinkClient
 from iaqualink.system import SystemStatus
 from iaqualink.systems.i2d.device import (
@@ -81,7 +84,7 @@ def _i2d_binary_sensor_device() -> DeviceFixture:
     )
 
 
-i2d_device_factories: list[tuple[str, callable]] = [
+i2d_device_factories: list[tuple[str, Callable[[], Any]]] = [
     ("i2d-sensor-device", _i2d_sensor_device),
     ("i2d-switch-device", _i2d_switch_device),
     ("i2d-binary-sensor-device", _i2d_binary_sensor_device),
@@ -106,7 +109,7 @@ def _i2d_sensor() -> SensorFixture:
     )
 
 
-i2d_sensor_factories: list[tuple[str, callable]] = [
+i2d_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
     ("i2d-sensor", _i2d_sensor),
 ]
 
@@ -136,7 +139,7 @@ def _i2d_binary_sensor() -> BinarySensorFixture:
     )
 
 
-i2d_binary_sensor_factories: list[tuple[str, callable]] = [
+i2d_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
     ("i2d-binary-sensor", _i2d_binary_sensor),
 ]
 
@@ -167,7 +170,7 @@ def _i2d_switch() -> SwitchFixture:
     )
 
 
-i2d_switch_factories: list[tuple[str, callable]] = [
+i2d_switch_factories: list[tuple[str, Callable[[], Any]]] = [
     ("i2d-switch", _i2d_switch),
 ]
 
@@ -198,7 +201,7 @@ def _i2d_number() -> NumberFixture:
     )
 
 
-i2d_number_factories: list[tuple[str, callable]] = [
+i2d_number_factories: list[tuple[str, Callable[[], Any]]] = [
     ("i2d-number", _i2d_number),
 ]
 
@@ -222,7 +225,7 @@ def _i2d_fan() -> FanFixture:
     )
 
 
-i2d_fan_factories: list[tuple[str, callable]] = [
+i2d_fan_factories: list[tuple[str, Callable[[], Any]]] = [
     ("i2d-fan", _i2d_fan),
 ]
 
@@ -242,10 +245,10 @@ def _i2d_system() -> SystemFixture:
     )
 
 
-i2d_system_factories: list[tuple[str, callable]] = [
+i2d_system_factories: list[tuple[str, Callable[[], Any]]] = [
     ("i2d-system", _i2d_system),
 ]
 
 # i2d does not implement these device types.
-i2d_light_factories: list[tuple[str, callable]] = []
-i2d_climate_factories: list[tuple[str, callable]] = []
+i2d_light_factories: list[tuple[str, Callable[[], Any]]] = []
+i2d_climate_factories: list[tuple[str, Callable[[], Any]]] = []

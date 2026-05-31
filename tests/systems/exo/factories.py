@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import cast
+from collections.abc import Callable
+from typing import Any, cast
 
 from iaqualink.client import AqualinkClient
 from iaqualink.system import AqualinkSystem, SystemStatus
@@ -87,7 +88,7 @@ def _exo_attribute_sensor_device() -> DeviceFixture:
     )
 
 
-exo_device_factories: list[tuple[str, callable]] = [
+exo_device_factories: list[tuple[str, Callable[[], Any]]] = [
     ("exo-device", _exo_device),
     ("exo-sensor-device", _exo_sensor_device),
     ("exo-attribute-sensor-device", _exo_attribute_sensor_device),
@@ -114,7 +115,7 @@ def _exo_attribute_sensor() -> SensorFixture:
     )
 
 
-exo_sensor_factories: list[tuple[str, callable]] = [
+exo_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
     ("exo-sensor", _exo_sensor),
     ("exo-attribute-sensor", _exo_attribute_sensor),
 ]
@@ -162,7 +163,7 @@ def _exo_filter_pump() -> SwitchFixture:
     )
 
 
-exo_switch_factories: list[tuple[str, callable]] = [
+exo_switch_factories: list[tuple[str, Callable[[], Any]]] = [
     ("exo-aux-switch", _exo_aux_switch),
     ("exo-attribute-switch", _exo_attribute_switch),
     ("exo-filter-pump", _exo_filter_pump),
@@ -200,7 +201,7 @@ def _exo_climate() -> ClimateFixture:
     )
 
 
-exo_climate_factories: list[tuple[str, callable]] = [
+exo_climate_factories: list[tuple[str, Callable[[], Any]]] = [
     ("exo-climate", _exo_climate),
 ]
 
@@ -228,12 +229,12 @@ def _exo_system() -> SystemFixture:
     )
 
 
-exo_system_factories: list[tuple[str, callable]] = [
+exo_system_factories: list[tuple[str, Callable[[], Any]]] = [
     ("exo-system", _exo_system),
 ]
 
 # EXO does not implement these device types.
-exo_binary_sensor_factories: list[tuple[str, callable]] = []
-exo_light_factories: list[tuple[str, callable]] = []
-exo_number_factories: list[tuple[str, callable]] = []
-exo_fan_factories: list[tuple[str, callable]] = []
+exo_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = []
+exo_light_factories: list[tuple[str, Callable[[], Any]]] = []
+exo_number_factories: list[tuple[str, Callable[[], Any]]] = []
+exo_fan_factories: list[tuple[str, Callable[[], Any]]] = []

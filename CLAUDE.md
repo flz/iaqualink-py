@@ -35,7 +35,7 @@ Key patterns:
 - `AqualinkSystem` uses `__init_subclass__` + `NAME` subclass registry; `from_data()` dispatches by `device_type`
 - `refresh()` is a template method — concrete systems implement `_refresh()`, must set `self.status` before returning
 - Session persistence via `AqualinkAuthState`; CLI uses cookie jar with atomic writes
-- Tests: `unittest.IsolatedAsyncioTestCase`, `TestBase` in `tests/conftest.py`, `respx` for HTTP mocking
+- Tests: plain pytest classes with per-test helpers, `respx` for HTTP mocking, `asyncio_mode = "auto"`
 
 ## API Reference
 

@@ -209,12 +209,12 @@ class AqualinkSystem:
 
 ## Testing Architecture
 
-**Base class:** `TestBase` in `tests/base.py` — pre-wires `AqualinkClient` and `respx` mock transport.
+**Pattern:** plain pytest classes with per-test `_make_*()` helper functions; no shared base class.
 
 **Structure:**
 ```
 tests/
-├── conftest.py               # Shared helpers: TestBase, dotstar, resp_200
+├── conftest.py               # Shared helpers: dotstar, resp_200, async_noop
 ├── test_client.py
 ├── utils/
 │   ├── test_crypto.py
