@@ -151,7 +151,7 @@ async def test_get_devices(
     system_fixture: SystemFixture, respx_mock: respx.router.MockRouter
 ) -> None:
     respx_mock.route(_dotstar).mock(_resp_200)
-    system_fixture.system.devices = {"foo": {}}
+    system_fixture.system.devices = {"foo": {}}  # type: ignore[dict-item]  # ty: ignore
     await system_fixture.system.get_devices()
     assert len(respx_mock.calls) == 0
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -18,11 +20,12 @@ from iaqualink.systems.iaqua.enums import IaquaSystemType, IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import (
     IAQUA_COMMAND_SET_ONETOUCH,
     IAQUA_SESSION_URL,
+    IaquaSystem,
 )
 
 from ...conftest import dotstar, resp_200
 
-_SYSTEM_DATA = {
+_SYSTEM_DATA: dict[str, Any] = {
     "id": 123456,
     "serial_number": "SN123456",
     "created_at": "2017-09-23T01:00:08.000Z",
@@ -38,13 +41,15 @@ _SYSTEM_DATA = {
 }
 
 
-def _make_iaqua_system() -> tuple[AqualinkClient, AqualinkSystem]:
+def _make_iaqua_system() -> tuple[AqualinkClient, IaquaSystem]:
     client = AqualinkClient("foo", "bar")
-    sut = AqualinkSystem.from_data(client, data={**_SYSTEM_DATA})
+    sut = cast(
+        IaquaSystem, AqualinkSystem.from_data(client, data={**_SYSTEM_DATA})
+    )
     return client, sut
 
 
-def _set_online_for(sut: AqualinkSystem):
+def _set_online_for(sut: AqualinkSystem) -> Callable[[object], None]:
     def _inner(_response: object) -> None:
         sut.status = SystemStatus.ONLINE
 

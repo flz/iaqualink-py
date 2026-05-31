@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from iaqualink.client import AqualinkClient
 from iaqualink.system import SystemStatus
@@ -36,7 +36,7 @@ CONTRACT_SYSTEM_DATA: dict = {
 
 def make_system() -> I2dSystem:
     client = AqualinkClient("foo", "bar")
-    return I2dSystem.from_data(client, CONTRACT_SYSTEM_DATA)
+    return cast(I2dSystem, I2dSystem.from_data(client, CONTRACT_SYSTEM_DATA))
 
 
 # ---------------------------------------------------------------------------

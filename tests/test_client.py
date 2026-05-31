@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import httpx
@@ -43,7 +44,7 @@ LOGIN_DATA_WITH_REFRESH = {
     },
 }
 
-REFRESH_RESPONSE_DATA = {
+REFRESH_RESPONSE_DATA: dict[str, Any] = {
     "id": "id",
     "authentication_token": "new-token",
     "session_id": "new-session-id",
@@ -58,7 +59,7 @@ def _make_client() -> AqualinkClient:
     return AqualinkClient("foo", "bar")
 
 
-def _make_resp(status: int, data: dict | None = None) -> MagicMock:
+def _make_resp(status: int, data: dict | list | None = None) -> MagicMock:
     r = MagicMock()
     r.status_code = status
     r.reason_phrase = httpx.codes.get_reason_phrase(status)
@@ -392,15 +393,15 @@ class TestAqualinkClient:
 
         assert systems == {}
         retry_call = mock_request.call_args_list[3]
-        assert retry_call[0][1] == AQUALINK_DEVICES_URL
-        params = retry_call.kwargs["params"]
+        assert retry_call[0][1] == AQUALINK_DEVICES_URL  # type: ignore[index]  # ty: ignore
+        params = retry_call.kwargs["params"]  # type: ignore[attr-defined]  # ty: ignore
         assert params["user_id"] == "id"
         assert params["timestamp"] == "1000000000"
         assert params["signature"] == _expected_sig("id", "1000000000")
         # Bearer token must use the refreshed IdToken, not the original.
         new_id_token = REFRESH_RESPONSE_DATA["userPoolOAuth"]["IdToken"]
         assert (
-            retry_call.kwargs["headers"]["Authorization"]
+            retry_call.kwargs["headers"]["Authorization"]  # type: ignore[attr-defined]  # ty: ignore
             == f"Bearer {new_id_token}"
         )
 

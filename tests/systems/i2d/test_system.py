@@ -94,14 +94,14 @@ class TestI2dSystem:
         system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
-        system.send_control_command = async_returns(response)
+        system.send_control_command = async_returns(response)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await system.refresh()
         assert system.status is SystemStatus.CONNECTED
 
     async def test_refresh_service_exception(self):
         aqualink = MagicMock()
         system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_raises(AqualinkServiceException)
+        system.send_control_command = async_raises(AqualinkServiceException)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         with pytest.raises(AqualinkServiceException):
             await system.refresh()
         assert system.status is SystemStatus.DISCONNECTED
@@ -111,7 +111,7 @@ class TestI2dSystem:
         system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
         response = MagicMock()
         response.json.return_value = OFFLINE_DATA
-        system.send_control_command = async_returns(response)
+        system.send_control_command = async_returns(response)  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         await system.refresh()
         assert system.status is SystemStatus.OFFLINE
 
@@ -131,12 +131,15 @@ class TestI2dSystem:
     def test_parse_alldata_response_relay_absent(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        alldata = {k: v for k, v in SAMPLE_DATA["alldata"].items()}
+        alldata = {
+            k: v
+            for k, v in SAMPLE_DATA["alldata"].items()  # ty: ignore
+        }
         alldata.pop("relayK1Rpm", None)
         alldata.pop("relayK2Rpm", None)
         response = MagicMock()
         response.json.return_value = {"alldata": alldata}
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         assert "relayK1Rpm" not in system.devices
         assert "relayK2Rpm" not in system.devices
 
@@ -152,12 +155,12 @@ class TestI2dSystem:
 
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         first_pump = system.devices["ABC123"]
         first_qc = system.devices["quickcleanrpm"]
         first_sw = system.devices["freezeprotectenable"]
 
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         assert system.devices["ABC123"] is first_pump
         assert system.devices["quickcleanrpm"] is first_qc
         assert system.devices["freezeprotectenable"] is first_sw
@@ -174,7 +177,7 @@ class TestI2dSystem:
 
         response = MagicMock()
         response.json.return_value = OFFLINE_DATA
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         assert system.status is SystemStatus.OFFLINE
 
     @patch("httpx.AsyncClient.request")
@@ -191,7 +194,7 @@ class TestI2dSystem:
         mock_request.return_value.status_code = 500
         mock_request.return_value.json = MagicMock(return_value=OFFLINE_DATA)
         with pytest.raises(_AqualinkOfflineSignal):
-            await system.send_control_command("/alldata/read")
+            await system.send_control_command("/alldata/read")  # ty: ignore
 
     def test_parse_alldata_response_service_opmode(self):
         aqualink = MagicMock()
@@ -203,12 +206,12 @@ class TestI2dSystem:
         }
         system = I2dSystem.from_data(aqualink, data)
         service_data = {
-            "alldata": {**SAMPLE_DATA["alldata"], "opmode": "5"},
+            "alldata": {**SAMPLE_DATA["alldata"], "opmode": "5"},  # ty: ignore
             "requestID": "x",
         }
         response = MagicMock()
         response.json.return_value = service_data
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         assert system.status is SystemStatus.SERVICE
 
     def test_parse_alldata_response_firmware_update(self):
@@ -221,7 +224,9 @@ class TestI2dSystem:
         }
         system = I2dSystem.from_data(aqualink, data)
         alldata_no_opmode = {
-            k: v for k, v in SAMPLE_DATA["alldata"].items() if k != "opmode"
+            k: v
+            for k, v in SAMPLE_DATA["alldata"].items()  # ty: ignore
+            if k != "opmode"  # ty: ignore
         }
         fw_data = {
             "alldata": {**alldata_no_opmode, "updateprogress": "50/100"},
@@ -229,7 +234,7 @@ class TestI2dSystem:
         }
         response = MagicMock()
         response.json.return_value = fw_data
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         assert system.status is SystemStatus.FIRMWARE_UPDATE
 
     def test_parse_alldata_response_unknown_no_opmode_no_progress(self):
@@ -242,7 +247,9 @@ class TestI2dSystem:
         }
         system = I2dSystem.from_data(aqualink, data)
         alldata_no_opmode = {
-            k: v for k, v in SAMPLE_DATA["alldata"].items() if k != "opmode"
+            k: v
+            for k, v in SAMPLE_DATA["alldata"].items()  # ty: ignore
+            if k != "opmode"  # ty: ignore
         }
         unknown_data = {
             "alldata": {**alldata_no_opmode, "updateprogress": "0/0"},
@@ -250,7 +257,7 @@ class TestI2dSystem:
         }
         response = MagicMock()
         response.json.return_value = unknown_data
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         assert system.status is SystemStatus.UNKNOWN
 
     @patch("httpx.AsyncClient.request")
@@ -261,7 +268,9 @@ class TestI2dSystem:
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
 
         mock_request.return_value.status_code = 200
-        await system.send_control_command("/opmode/write", "value=1")
+        await system.send_control_command(  # ty:ignore[unresolved-attribute]
+            "/opmode/write", "value=1"
+        )  # ty: ignore
 
         assert mock_request.called
         call_kwargs = mock_request.call_args
@@ -281,7 +290,7 @@ class TestI2dSystem:
         mock_request.return_value.status_code = 401
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
-            await system.send_control_command("/alldata/read")
+            await system.send_control_command("/alldata/read")  # ty: ignore
 
     def _make_system_with_devices(self):
         aqualink = MagicMock()
@@ -294,7 +303,7 @@ class TestI2dSystem:
         system = I2dSystem.from_data(aqualink, data)
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         return system
 
     def _write_response(self, key: str, value: str) -> MagicMock:
@@ -345,7 +354,9 @@ class TestI2dSystem:
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
         r = self._write_response("opmode", "1")
-        system._apply_write_response(r)  # no error; serial not in devices yet
+        system._apply_write_response(  # ty: ignore
+            r
+        )  # no error; serial not in devices yet  # ty: ignore
 
     def test_apply_write_response_noop_on_invalid_json(self):
         system = self._make_system_with_devices()
@@ -374,10 +385,14 @@ class TestI2dSystem:
         system = I2dSystem.from_data(aqualink, data)
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         pump = system.devices["ABC123"]
-        assert pump.supports_presets is True
-        assert set(pump.preset_modes) == {"SCHEDULE", "CUSTOM", "STOP"}
+        assert pump.supports_presets is True  # ty: ignore
+        assert set(pump.preset_modes) == {  # ty: ignore
+            "SCHEDULE",
+            "CUSTOM",
+            "STOP",
+        }  # ty: ignore
 
     def test_pump_current_preset(self):
         aqualink = MagicMock()
@@ -391,23 +406,24 @@ class TestI2dSystem:
         system = I2dSystem.from_data(aqualink, data)
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA  # opmode=0 → SCHEDULE
-        system._parse_alldata_response(response)
+        system._parse_alldata_response(response)  # ty: ignore
         pump = system.devices["ABC123"]
-        assert pump.preset_mode == "SCHEDULE"
+        assert pump.preset_mode == "SCHEDULE"  # ty: ignore
 
     async def test_pump_set_preset_valid(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
-        system._parse_alldata_response = MagicMock()
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        system._parse_alldata_response = MagicMock()  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         # Directly construct a pump to test set_preset
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
-            system, {"name": "ABC123", "opmode": "0", "runstate": "on"}
+            system,  # ty: ignore
+            {"name": "ABC123", "opmode": "0", "runstate": "on"},  # ty: ignore
         )
         await pump.set_preset_mode("STOP")
-        system.send_control_command.assert_awaited_once_with(
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
             "/opmode/write", "value=2"
         )
 
@@ -416,7 +432,7 @@ class TestI2dSystem:
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
         from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dFan(system, {"name": "ABC123", "opmode": "0"})
+        pump = I2dFan(system, {"name": "ABC123", "opmode": "0"})  # ty: ignore
         with pytest.raises(AqualinkInvalidParameterException):
             await pump.set_preset_mode("QUICK_CLEAN")
 
@@ -425,7 +441,7 @@ class TestI2dSystem:
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
         from iaqualink.systems.i2d.device import I2dFan
 
-        pump = I2dFan(system, {"name": "ABC123", "opmode": "0"})
+        pump = I2dFan(system, {"name": "ABC123", "opmode": "0"})  # ty: ignore
         with pytest.raises(AqualinkInvalidParameterException):
             await pump.set_preset_mode("BOGUS")
 
@@ -435,7 +451,7 @@ class TestI2dSystem:
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
-            system,
+            system,  # ty: ignore
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         assert pump.supports_percentage is True
@@ -443,30 +459,30 @@ class TestI2dSystem:
     async def test_set_speed_percentage_0_gives_rpm_min(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
-            system,
+            system,  # ty: ignore
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         await pump.set_percentage(0)
-        system.send_control_command.assert_awaited_once_with(
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
             "/customspeedrpm/write", "value=600"
         )
 
     async def test_set_speed_percentage_100_gives_rpm_max(self):
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
-            system,
+            system,  # ty: ignore
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         await pump.set_percentage(100)
-        system.send_control_command.assert_awaited_once_with(
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
             "/customspeedrpm/write", "value=3450"
         )
 
@@ -474,15 +490,15 @@ class TestI2dSystem:
         # 600 + (3450-600)*0.5 = 2025 — already multiple of 25
         aqualink = MagicMock()
         system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
-            system,
+            system,  # ty: ignore
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         await pump.set_percentage(50)
-        system.send_control_command.assert_awaited_once_with(
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
             "/customspeedrpm/write", "value=2025"
         )
 
@@ -492,7 +508,7 @@ class TestI2dSystem:
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
-            system,
+            system,  # ty: ignore
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         with pytest.raises(AqualinkInvalidParameterException):

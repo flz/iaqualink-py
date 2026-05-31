@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -10,6 +11,7 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
+from iaqualink.systems.exo.system import ExoSystem
 
 SAMPLE_DATA = {
     "state": {
@@ -162,20 +164,20 @@ SAMPLE_DATA = {
 }
 
 
-def _make_exo_system() -> tuple[AqualinkClient, AqualinkSystem]:
+def _make_exo_system() -> tuple[AqualinkClient, ExoSystem]:
     client = AqualinkClient("foo", "bar")
-    data = {
+    data: dict[str, Any] = {
         "id": 1,
         "serial_number": "ABCDEFG",
         "device_type": "exo",
         "name": "Pool",
     }
-    sut = AqualinkSystem.from_data(client, data=data)
+    sut = cast(ExoSystem, AqualinkSystem.from_data(client, data=data))
     return client, sut
 
 
 def _make_shadow_response(aws_status: str | None) -> MagicMock:
-    data = copy.deepcopy(SAMPLE_DATA)
+    data: dict[str, Any] = copy.deepcopy(SAMPLE_DATA)
     if aws_status is None:
         del data["state"]["reported"]["aws"]
     else:

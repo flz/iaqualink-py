@@ -146,7 +146,7 @@ def _make_number_for_template(
             calls.append(value)
 
     n = _N()
-    n._calls = calls  # type: ignore[attr-defined]
+    n._calls = calls  # type: ignore[attr-defined]  # ty: ignore
     return n
 
 
@@ -159,69 +159,69 @@ def _make_number_for_template(
 async def test_set_value_template_at_min_valid() -> None:
     n = _make_number_for_template(0.0, 100.0, step=25.0)
     await n.set_value(0.0)
-    assert n._calls == [0.0]  # type: ignore[attr-defined]
+    assert n._calls == [0.0]  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_at_max_valid() -> None:
     n = _make_number_for_template(0.0, 100.0, step=25.0)
     await n.set_value(100.0)
-    assert n._calls == [100.0]  # type: ignore[attr-defined]
+    assert n._calls == [100.0]  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_in_range_on_step_valid() -> None:
     n = _make_number_for_template(0.0, 3450.0, step=25.0)
     await n.set_value(1500.0)
-    assert n._calls == [1500.0]  # type: ignore[attr-defined]
+    assert n._calls == [1500.0]  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_below_min_raises() -> None:
     n = _make_number_for_template(600.0, 3450.0, step=25.0)
     with pytest.raises(AqualinkInvalidParameterException):
         await n.set_value(575.0)
-    assert n._calls == []  # type: ignore[attr-defined]
+    assert n._calls == []  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_above_max_raises() -> None:
     n = _make_number_for_template(600.0, 3450.0, step=25.0)
     with pytest.raises(AqualinkInvalidParameterException):
         await n.set_value(3475.0)
-    assert n._calls == []  # type: ignore[attr-defined]
+    assert n._calls == []  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_not_on_step_raises() -> None:
     n = _make_number_for_template(0.0, 3450.0, step=25.0)
     with pytest.raises(AqualinkInvalidParameterException):
         await n.set_value(1501.0)
-    assert n._calls == []  # type: ignore[attr-defined]
+    assert n._calls == []  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_fractional_step_valid() -> None:
     n = _make_number_for_template(0.0, 10.0, step=0.5)
     await n.set_value(1.5)
-    assert n._calls == [1.5]  # type: ignore[attr-defined]
+    assert n._calls == [1.5]  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_fractional_step_off_raises() -> None:
     n = _make_number_for_template(0.0, 10.0, step=0.5)
     with pytest.raises(AqualinkInvalidParameterException):
         await n.set_value(1.3)
-    assert n._calls == []  # type: ignore[attr-defined]
+    assert n._calls == []  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_step_one_any_integer_valid() -> None:
     n = _make_number_for_template(0.0, 100.0, step=1.0)
     await n.set_value(37.0)
-    assert n._calls == [37.0]  # type: ignore[attr-defined]
+    assert n._calls == [37.0]  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_min_not_at_zero_on_step_valid() -> None:
     n = _make_number_for_template(600.0, 3450.0, step=25.0)
     await n.set_value(625.0)
-    assert n._calls == [625.0]  # type: ignore[attr-defined]
+    assert n._calls == [625.0]  # type: ignore[attr-defined]  # ty: ignore
 
 
 async def test_set_value_template_min_not_at_zero_off_step_raises() -> None:
     n = _make_number_for_template(600.0, 3450.0, step=25.0)
     with pytest.raises(AqualinkInvalidParameterException):
         await n.set_value(613.0)
-    assert n._calls == []  # type: ignore[attr-defined]
+    assert n._calls == []  # type: ignore[attr-defined]  # ty: ignore

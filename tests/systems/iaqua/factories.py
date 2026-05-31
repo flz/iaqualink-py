@@ -174,7 +174,7 @@ iaqua_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
 
 def _iaqua_switch() -> SwitchFixture:
     system = make_system()
-    system._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
     data_on = {**IAQUA_SWITCH_OFF_DATA, "state": "1"}
     return SwitchFixture(
         device_on=IaquaSwitch(system, data_on),
@@ -185,7 +185,7 @@ def _iaqua_switch() -> SwitchFixture:
 
 def _iaqua_heater() -> SwitchFixture:
     system = make_system()
-    system._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
     data_on = {**IAQUA_HEATER_OFF_DATA, "state": "1"}
     return SwitchFixture(
         device_on=IaquaHeater(system, data_on),
@@ -196,7 +196,7 @@ def _iaqua_heater() -> SwitchFixture:
 
 def _iaqua_aux_switch() -> SwitchFixture:
     system = make_system()
-    system._parse_devices_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system._parse_devices_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
     data_on = {**IAQUA_AUX_SWITCH_OFF_DATA, "state": "1"}
     data_off = {**IAQUA_AUX_SWITCH_OFF_DATA}
     return SwitchFixture(
@@ -208,7 +208,7 @@ def _iaqua_aux_switch() -> SwitchFixture:
 
 def _iaqua_onetouch_switch() -> SwitchFixture:
     system = make_system()
-    system._parse_onetouch_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system._parse_onetouch_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
     data_on = {**IAQUA_ONETOUCH_OFF_DATA, "state": "1"}
     data_off = {**IAQUA_ONETOUCH_OFF_DATA}
     return SwitchFixture(
@@ -232,7 +232,7 @@ iaqua_switch_factories: list[tuple[str, Callable[[], Any]]] = [
 
 def _iaqua_light_switch() -> LightFixture:
     system = make_system()
-    system._parse_devices_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system._parse_devices_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
     data_on = {**IAQUA_LIGHT_SWITCH_OFF_DATA, "state": "1"}
     data_off = {**IAQUA_LIGHT_SWITCH_OFF_DATA}
     return LightFixture(
@@ -244,7 +244,7 @@ def _iaqua_light_switch() -> LightFixture:
 
 def _iaqua_dimmable_light() -> LightFixture:
     system = make_system()
-    system._parse_devices_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system._parse_devices_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
     data_on = {**IAQUA_DIMMABLE_LIGHT_ON_DATA}
     data_off = {**IAQUA_DIMMABLE_LIGHT_ON_DATA, "state": "0", "subtype": "0"}
     return LightFixture(
@@ -259,7 +259,7 @@ def _iaqua_color_light_factory(
     cls: type,
 ) -> LightFixture:
     system = make_system()
-    system._parse_devices_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system._parse_devices_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
     base = {**IAQUA_COLOR_LIGHT_OFF_DATA, "subtype": subtype}
     return LightFixture(
         device_on=cls(system, {**base, "state": "1"}),
@@ -311,7 +311,7 @@ iaqua_light_factories: list[tuple[str, Callable[[], Any]]] = [
 def _iaqua_set_point() -> NumberFixture:
     system = make_system()
     system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
-    system._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
 
     pool_set_point = {**IAQUA_POOL_SET_POINT_DATA}
     device = IaquaSetPoint(system, pool_set_point)
@@ -332,7 +332,7 @@ iaqua_number_factories: list[tuple[str, Callable[[], Any]]] = [
 def _iaqua_climate() -> ClimateFixture:
     system = make_system()
     system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
-    system._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
 
     pool_set_point_dev = IaquaSetPoint(system, {**IAQUA_POOL_SET_POINT_DATA})
     pool_temp_dev = IaquaSensor(system, {**IAQUA_POOL_TEMP_DATA})
@@ -352,7 +352,7 @@ def _iaqua_climate() -> ClimateFixture:
     # For device_off, separate system with heater off
     system_off = make_system()
     system_off.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
-    system_off._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]
+    system_off._parse_home_response = lambda *a, **kw: None  # type: ignore[method-assign]  # ty: ignore
 
     pool_set_point_off_dev = IaquaSetPoint(
         system_off, {**IAQUA_POOL_SET_POINT_DATA}
@@ -388,7 +388,7 @@ iaqua_climate_factories: list[tuple[str, Callable[[], Any]]] = [
 
 def _iaqua_system() -> SystemFixture:
     client = AqualinkClient("foo", "bar")
-    data = {
+    data: dict[str, Any] = {
         "id": 123456,
         "serial_number": "SN123456",
         "created_at": "2017-09-23T01:00:08.000Z",

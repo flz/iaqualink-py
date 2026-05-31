@@ -108,8 +108,13 @@ exclude_lines = [
 [tool.mypy]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+# Test helpers don't need complete annotations; keep error checks active.
+disallow_untyped_defs = false
+
 [tool.ty]
-# Check scope is explicit in the pre-commit hook: uv run ty check src/
+# Check scope is explicit in the pre-commit hook: uv run ty check src/ tests/
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -122,4 +127,4 @@ filterwarnings = [
 iaqualink = { workspace = true }
 
 [tool.ty.src]
-include = ["src"]
+include = ["src", "tests"]

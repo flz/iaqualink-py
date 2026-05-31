@@ -129,7 +129,7 @@ def snapshot_devices(
             "type": type(dev).__name__,
             **{
                 p: _serialize(getattr(dev, p))
-                for p in _collect_snapshot_props(type(dev))
+                for p in _collect_snapshot_props(type(dev))  # type: ignore[arg-type]
             },
         }
         for name, dev in devices.items()

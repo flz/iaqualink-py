@@ -152,8 +152,8 @@ def test_render_device_tree_unsupported_system() -> None:
 
 def test_list_systems_shows_unsupported_note(tmp_path: Path) -> None:
     cookie_jar = tmp_path / "session.json"
-    FakeClient.systems_factory = staticmethod(
-        lambda: {"SN001": make_unsupported_system()}
+    FakeClient.systems_factory = staticmethod(  # ty: ignore
+        lambda: {"SN001": make_unsupported_system()}  # type: ignore[dict-item]
     )
 
     result = CliRunner().invoke(

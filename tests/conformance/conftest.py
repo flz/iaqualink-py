@@ -61,7 +61,7 @@ def _discover_factories(
     typo and triggers a warning at collection time.
     """
     ids: list[str] = []
-    factories: list[Callable] = []
+    factories: list[Callable[[], Any]] = []
     for pkg in sorted(_systems_root.iterdir()):
         if not pkg.is_dir() or not (pkg / "factories.py").exists():
             continue

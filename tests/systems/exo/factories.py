@@ -6,6 +6,7 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from iaqualink.client import AqualinkClient
+from iaqualink.device import AqualinkSensor, AqualinkSwitch
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.exo.device import (
     ExoAttributeSensor,
@@ -30,24 +31,31 @@ from ...conformance.fixtures import (
 # Shared test data constants
 # ---------------------------------------------------------------------------
 
-EXO_SYSTEM_DATA: dict = {"serial_number": "SN123456", "device_type": "exo"}
-EXO_DEVICE_DATA: dict = {"name": "Test Device", "state": "42"}
-EXO_SENSOR_DATA: dict = {
+EXO_SYSTEM_DATA: dict[str, Any] = {
+    "serial_number": "SN123456",
+    "device_type": "exo",
+}
+EXO_DEVICE_DATA: dict[str, Any] = {"name": "Test Device", "state": "42"}
+EXO_SENSOR_DATA: dict[str, Any] = {
     "name": "sns_1",
     "sensor_type": "Foo",
     "value": 42,
     "state": 1,
 }
-EXO_ATTRIBUTE_SENSOR_DATA: dict = {"name": "foo_bar", "state": 42}
-EXO_FILTER_PUMP_ON_DATA: dict = {"name": "filter_pump", "type": 1, "state": 1}
-EXO_HEATING_ON_DATA: dict = {
+EXO_ATTRIBUTE_SENSOR_DATA: dict[str, Any] = {"name": "foo_bar", "state": 42}
+EXO_FILTER_PUMP_ON_DATA: dict[str, Any] = {
+    "name": "filter_pump",
+    "type": 1,
+    "state": 1,
+}
+EXO_HEATING_ON_DATA: dict[str, Any] = {
     "name": "heating",
     "enabled": 1,
     "sp": 20,
     "sp_min": 1,
     "sp_max": 40,
 }
-EXO_WATER_TEMP_DATA: dict = {
+EXO_WATER_TEMP_DATA: dict[str, Any] = {
     "name": "sns_3",
     "sensor_type": "Water Temp",
     "state": 1,
@@ -102,7 +110,9 @@ exo_device_factories: list[tuple[str, Callable[[], Any]]] = [
 def _exo_sensor() -> SensorFixture:
     system = make_system()
     return SensorFixture(
-        device=ExoDevice.from_data(system, {**EXO_SENSOR_DATA}),
+        device=cast(
+            AqualinkSensor, ExoDevice.from_data(system, {**EXO_SENSOR_DATA})
+        ),
         expected_class=ExoSensor,
     )
 
@@ -110,7 +120,10 @@ def _exo_sensor() -> SensorFixture:
 def _exo_attribute_sensor() -> SensorFixture:
     system = make_system()
     return SensorFixture(
-        device=ExoDevice.from_data(system, {**EXO_ATTRIBUTE_SENSOR_DATA}),
+        device=cast(
+            AqualinkSensor,
+            ExoDevice.from_data(system, {**EXO_ATTRIBUTE_SENSOR_DATA}),
+        ),
         expected_class=ExoAttributeSensor,
     )
 
@@ -127,38 +140,41 @@ exo_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
 
 def _exo_aux_switch() -> SwitchFixture:
     system = make_system()
-    data_on = {
+    data_on: dict[str, Any] = {
         "name": "aux_1",
         "type": "Foo",
         "mode": "mode",
         "light": 0,
         "state": 1,
     }
-    data_off = {**data_on, "state": 0}
+    data_off: dict[str, Any] = {**data_on, "state": 0}
     return SwitchFixture(
-        device_on=ExoDevice.from_data(system, data_on),
-        device_off=ExoDevice.from_data(system, data_off),
+        device_on=cast(AqualinkSwitch, ExoDevice.from_data(system, data_on)),
+        device_off=cast(AqualinkSwitch, ExoDevice.from_data(system, data_off)),
         expected_class=ExoAuxSwitch,
     )
 
 
 def _exo_attribute_switch() -> SwitchFixture:
     system = make_system()
-    data_on = {"name": "boost", "state": 1}
-    data_off = {"name": "boost", "state": 0}
+    data_on: dict[str, Any] = {"name": "boost", "state": 1}
+    data_off: dict[str, Any] = {"name": "boost", "state": 0}
     return SwitchFixture(
-        device_on=ExoDevice.from_data(system, data_on),
-        device_off=ExoDevice.from_data(system, data_off),
+        device_on=cast(AqualinkSwitch, ExoDevice.from_data(system, data_on)),
+        device_off=cast(AqualinkSwitch, ExoDevice.from_data(system, data_off)),
         expected_class=ExoAttributeSwitch,
     )
 
 
 def _exo_filter_pump() -> SwitchFixture:
     system = make_system()
-    data_off = {**EXO_FILTER_PUMP_ON_DATA, "state": 0}
+    data_off: dict[str, Any] = {**EXO_FILTER_PUMP_ON_DATA, "state": 0}
     return SwitchFixture(
-        device_on=ExoDevice.from_data(system, {**EXO_FILTER_PUMP_ON_DATA}),
-        device_off=ExoDevice.from_data(system, data_off),
+        device_on=cast(
+            AqualinkSwitch,
+            ExoDevice.from_data(system, {**EXO_FILTER_PUMP_ON_DATA}),
+        ),
+        device_off=cast(AqualinkSwitch, ExoDevice.from_data(system, data_off)),
         expected_class=ExoFilterPump,
     )
 
@@ -185,7 +201,8 @@ def _exo_climate() -> ClimateFixture:
         ExoClimate, ExoDevice.from_data(system, {**EXO_HEATING_ON_DATA})
     )
     device_off = cast(
-        ExoClimate, ExoDevice.from_data(system, pool_set_point_off)
+        ExoClimate,
+        ExoDevice.from_data(system, pool_set_point_off),  # ty: ignore
     )
 
     system.devices = {
@@ -212,7 +229,7 @@ exo_climate_factories: list[tuple[str, Callable[[], Any]]] = [
 
 def _exo_system() -> SystemFixture:
     client = AqualinkClient("foo", "bar")
-    data = {
+    data: dict[str, Any] = {
         "id": 1,
         "serial_number": "ABCDEFG",
         "device_type": "exo",
