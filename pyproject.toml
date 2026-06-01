@@ -55,6 +55,7 @@ test = [
     "coverage[toml]>=7.7.1",
     "PyYAML>=6.0.2",
     "pytest>=8.3.5",
+    "pytest-asyncio>=0.25.0",
     "pytest-cov>=6.0.0",
     "pytest-icdiff>=0.9",
     "pytest-sugar>=1.0.0",
@@ -107,10 +108,16 @@ exclude_lines = [
 [tool.mypy]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+# Test helpers don't need complete annotations; keep error checks active.
+disallow_untyped_defs = false
+
 [tool.ty]
-# Check scope is explicit in the pre-commit hook: uv run ty check src/
+# Check scope is explicit in the pre-commit hook: uv run ty check src/ tests/
 
 [tool.pytest.ini_options]
+asyncio_mode = "auto"
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning",
@@ -118,3 +125,6 @@ filterwarnings = [
 
 [tool.uv.sources]
 iaqualink = { workspace = true }
+
+[tool.ty.src]
+include = ["src", "tests"]

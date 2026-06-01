@@ -72,10 +72,14 @@ from iaqualink.systems import newsystem  # noqa: F401
 
 ### 6. Add tests
 
-Follow the existing structure in `tests/systems/`. Required:
-- Subclass `base_test_system.py` and `base_test_device.py` abstract test cases
-- Add JSON fixtures alongside your test files in `tests/systems/newsystem/`
-- Cover `_refresh()`, device parsing, and all device types
+Follow the structure described in [Writing Tests](testing.md). Required:
+
+1. **Conformance factories** — create `tests/systems/newsystem/factories.py` with factories for each device type (auto-discovered by conftest)
+2. **System-specific tests** — create `tests/systems/newsystem/` with:
+   - `test_system.py` — plain pytest class with `_make_newsystem()` helper
+   - `test_device.py` — plain pytest class with per-test helpers
+   - Wire-protocol assertions on `respx_mock.calls`
+3. Cover `_refresh()`, device parsing, and all device control paths
 
 ### 7. Update documentation
 

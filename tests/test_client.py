@@ -3,11 +3,12 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import httpx
 import pytest
-import respx
+import respx.router
 
 from iaqualink.client import AqualinkAuthState, AqualinkClient
 from iaqualink.const import (
@@ -24,8 +25,7 @@ from iaqualink.exception import (
 from iaqualink.system import UnsupportedSystem
 from iaqualink.utils.redact import redact_kwargs, redact_url
 
-from .base import TestBase
-from .common import async_noop, async_raises
+from .conftest import async_noop, async_raises
 
 LOGIN_DATA = {
     "id": "id",
@@ -44,7 +44,7 @@ LOGIN_DATA_WITH_REFRESH = {
     },
 }
 
-REFRESH_RESPONSE_DATA = {
+REFRESH_RESPONSE_DATA: dict[str, Any] = {
     "id": "id",
     "authentication_token": "new-token",
     "session_id": "new-session-id",
@@ -55,7 +55,11 @@ REFRESH_RESPONSE_DATA = {
 }
 
 
-def _make_resp(status: int, data: dict | None = None) -> MagicMock:
+def _make_client() -> AqualinkClient:
+    return AqualinkClient("foo", "bar")
+
+
+def _make_resp(status: int, data: dict | list | None = None) -> MagicMock:
     r = MagicMock()
     r.status_code = status
     r.reason_phrase = httpx.codes.get_reason_phrase(status)
@@ -74,33 +78,34 @@ def _expected_sig(user_id: str, timestamp: str) -> str:
     ).hexdigest()
 
 
-class TestAqualinkClient(TestBase):
-    def setUp(self) -> None:
-        super().setUp()
-
+class TestAqualinkClient:
     @patch.object(AqualinkClient, "login")
     async def test_context_manager(self, mock_login) -> None:
+        client = _make_client()
         mock_login.return_value = async_noop
 
-        async with self.client:
+        async with client:
             pass
 
     @patch.object(AqualinkClient, "login")
     async def test_context_manager_login_exception(self, mock_login) -> None:
+        client = _make_client()
         mock_login.side_effect = async_raises(AqualinkServiceException)
 
         with pytest.raises(AqualinkServiceException):
-            async with self.client:
+            async with client:
                 pass
 
     async def test_auth_state_when_not_logged_in(self) -> None:
-        assert self.client.auth_state is None
+        client = _make_client()
+        assert client.auth_state is None
 
     @patch("httpx.AsyncClient.request")
     async def test_auth_state_when_logged_in(self, mock_request) -> None:
+        client = _make_client()
         mock_request.return_value = _make_resp(200, LOGIN_DATA_WITH_REFRESH)
 
-        await self.client.login()
+        await client.login()
 
         expected = AqualinkAuthState(
             username="foo",
@@ -111,13 +116,14 @@ class TestAqualinkClient(TestBase):
             refresh_token="userPoolOAuth:RefreshToken",
         )
 
-        assert self.client.auth_state == expected
+        assert client.auth_state == expected
 
     async def test_auth_state_setter_accepts_none(self) -> None:
-        self.client.auth_state = None
+        client = _make_client()
+        client.auth_state = None
 
-        assert self.client.logged is False
-        assert self.client.auth_state is None
+        assert client.logged is False
+        assert client.auth_state is None
 
     def test_auth_state_from_dict_requires_all_fields(self) -> None:
         with pytest.raises(ValueError):
@@ -136,6 +142,7 @@ class TestAqualinkClient(TestBase):
         assert AqualinkAuthState.from_dict(auth_state.to_dict()) == auth_state
 
     async def test_auth_state_setter(self) -> None:
+        client = _make_client()
         auth_state = AqualinkAuthState(
             username="restored-user",
             client_id="restored-session-id",
@@ -144,13 +151,14 @@ class TestAqualinkClient(TestBase):
             id_token="restored-id-token",
             refresh_token="restored-refresh-token",
         )
-        self.client.auth_state = auth_state
+        client.auth_state = auth_state
 
-        assert self.client.logged is True
-        assert self.client.auth_state == auth_state
+        assert client.logged is True
+        assert client.auth_state == auth_state
 
     async def test_auth_state_setter_clears_client(self) -> None:
-        self.client.auth_state = AqualinkAuthState(
+        client = _make_client()
+        client.auth_state = AqualinkAuthState(
             username="restored-user",
             client_id="restored-session-id",
             authentication_token="restored-token",
@@ -159,13 +167,14 @@ class TestAqualinkClient(TestBase):
             refresh_token="restored-refresh-token",
         )
 
-        self.client.auth_state = None
+        client.auth_state = None
 
-        assert self.client.logged is False
-        assert self.client.auth_state is None
+        assert client.logged is False
+        assert client.auth_state is None
 
     async def test_context_manager_refreshes_when_auth_restored(self) -> None:
-        self.client.auth_state = AqualinkAuthState(
+        client = _make_client()
+        client.auth_state = AqualinkAuthState(
             username="restored-user",
             client_id="restored-session-id",
             authentication_token="restored-token",
@@ -175,13 +184,13 @@ class TestAqualinkClient(TestBase):
         )
 
         with (
-            patch.object(self.client, "login") as mock_login,
+            patch.object(client, "login") as mock_login,
             patch.object(
-                self.client, "_refresh_auth", return_value=None
+                client, "_refresh_auth", return_value=None
             ) as mock_refresh,
         ):
             mock_refresh.return_value = async_noop
-            async with self.client:
+            async with client:
                 pass
 
         mock_login.assert_not_called()
@@ -198,43 +207,47 @@ class TestAqualinkClient(TestBase):
 
     @patch("httpx.AsyncClient.request")
     async def test_login_success(self, mock_request) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
 
-        assert self.client.logged is False
+        assert client.logged is False
 
-        await self.client.login()
+        await client.login()
 
-        assert self.client.logged is True
+        assert client.logged is True
 
     @patch("httpx.AsyncClient.request")
     async def test_login_sets_country_lowercased(self, mock_request) -> None:
+        client = _make_client()
         data = {**LOGIN_DATA, "country": "FR"}
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=data)
 
-        await self.client.login()
+        await client.login()
 
-        assert self.client.country == "fr"
+        assert client.country == "fr"
 
     @patch("httpx.AsyncClient.request")
     async def test_login_defaults_country_to_us_when_absent(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
 
-        await self.client.login()
+        await client.login()
 
-        assert self.client.country == "us"
+        assert client.country == "us"
 
     @patch("httpx.AsyncClient.request")
     async def test_send_request_uses_default_timeout(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 200
 
-        await self.client.send_request("https://example.com")
+        await client.send_request("https://example.com")
 
         assert (
             mock_request.call_args.kwargs["timeout"] == DEFAULT_REQUEST_TIMEOUT
@@ -244,84 +257,91 @@ class TestAqualinkClient(TestBase):
     async def test_send_request_preserves_explicit_timeout(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 200
 
-        await self.client.send_request("https://example.com", timeout=3.0)
+        await client.send_request("https://example.com", timeout=3.0)
 
         assert mock_request.call_args.kwargs["timeout"] == 3.0
 
     @patch("httpx.AsyncClient.request")
     async def test_login_failed(self, mock_request) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 401
 
-        assert self.client.logged is False
+        assert client.logged is False
 
         with pytest.raises(AqualinkServiceException):
-            await self.client.login()
+            await client.login()
 
-        assert self.client.logged is False
+        assert client.logged is False
 
     @patch("httpx.AsyncClient.request")
     async def test_login_does_not_retry_unauthorized(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 401
 
         with (
             pytest.raises(AqualinkServiceException),
-            patch.object(self.client, "_refresh_auth") as mock_refresh,
+            patch.object(client, "_refresh_auth") as mock_refresh,
         ):
-            await self.client.login()
+            await client.login()
 
         mock_refresh.assert_not_called()
         assert mock_request.call_count == 1
 
     @patch("httpx.AsyncClient.request")
     async def test_login_exception(self, mock_request) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 500
 
-        assert self.client.logged is False
+        assert client.logged is False
 
         with pytest.raises(AqualinkServiceException):
-            await self.client.login()
+            await client.login()
 
-        assert self.client.logged is False
+        assert client.logged is False
 
     @patch("httpx.AsyncClient.request")
     async def test_login_fails_when_id_token_empty(self, mock_request) -> None:
+        client = _make_client()
         data = {**LOGIN_DATA, "userPoolOAuth": {"IdToken": ""}}
         mock_request.return_value = _make_resp(200, data)
 
         with pytest.raises(AqualinkServiceException):
-            await self.client.login()
+            await client.login()
 
-        assert self.client.logged is False
+        assert client.logged is False
 
     @patch("httpx.AsyncClient.request")
     async def test_unexpectedly_logged_out(self, mock_request) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
 
-        await self.client.login()
+        await client.login()
 
-        assert self.client.logged is True
+        assert client.logged is True
 
         mock_request.return_value.status_code = 401
         mock_request.return_value.json = MagicMock(return_value={})
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
-            await self.client.get_systems()
+            await client.get_systems()
 
-        assert self.client.logged is False
+        assert client.logged is False
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request_system_unsupported(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
 
-        await self.client.login()
+        await client.login()
 
         mock_request.return_value.status_code = 200
         mock_request.return_value.json.return_value = [
@@ -331,16 +351,17 @@ class TestAqualinkClient(TestBase):
             }
         ]
 
-        systems = await self.client.get_systems()
+        systems = await client.get_systems()
         assert len(systems) == 1
         assert isinstance(next(iter(systems.values())), UnsupportedSystem)
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request(self, mock_request) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 200
         mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
 
-        await self.client.login()
+        await client.login()
 
         mock_request.return_value.status_code = 200
         mock_request.return_value.json.return_value = [
@@ -350,7 +371,7 @@ class TestAqualinkClient(TestBase):
             }
         ]
 
-        systems = await self.client.get_systems()
+        systems = await client.get_systems()
         assert len(systems) == 1
 
     @patch("iaqualink.client.time.time")
@@ -358,6 +379,7 @@ class TestAqualinkClient(TestBase):
     async def test_systems_request_retries_after_refresh(
         self, mock_request, mock_time
     ) -> None:
+        client = _make_client()
         mock_time.return_value = 1_000_000_000
         mock_request.side_effect = [
             _make_resp(200, LOGIN_DATA_WITH_REFRESH),
@@ -366,20 +388,20 @@ class TestAqualinkClient(TestBase):
             _make_resp(200, []),
         ]
 
-        await self.client.login()
-        systems = await self.client.get_systems()
+        await client.login()
+        systems = await client.get_systems()
 
         assert systems == {}
         retry_call = mock_request.call_args_list[3]
-        assert retry_call[0][1] == AQUALINK_DEVICES_URL
-        params = retry_call.kwargs["params"]
+        assert retry_call[0][1] == AQUALINK_DEVICES_URL  # type: ignore[index]
+        params = retry_call.kwargs["params"]  # type: ignore[attr-defined]
         assert params["user_id"] == "id"
         assert params["timestamp"] == "1000000000"
         assert params["signature"] == _expected_sig("id", "1000000000")
         # Bearer token must use the refreshed IdToken, not the original.
         new_id_token = REFRESH_RESPONSE_DATA["userPoolOAuth"]["IdToken"]
         assert (
-            retry_call.kwargs["headers"]["Authorization"]
+            retry_call.kwargs["headers"]["Authorization"]  # type: ignore[attr-defined]
             == f"Bearer {new_id_token}"
         )
 
@@ -388,14 +410,15 @@ class TestAqualinkClient(TestBase):
     async def test_systems_request_v2_params_and_headers(
         self, mock_request, mock_time
     ) -> None:
+        client = _make_client()
         mock_time.return_value = 1_234_567_890
         mock_request.side_effect = [
             _make_resp(200, LOGIN_DATA_WITH_REFRESH),
             _make_resp(200, []),
         ]
 
-        await self.client.login()
-        await self.client.get_systems()
+        await client.login()
+        await client.get_systems()
 
         systems_call = mock_request.call_args_list[1]
         params = systems_call.kwargs["params"]
@@ -412,20 +435,21 @@ class TestAqualinkClient(TestBase):
     async def test_systems_request_repeated_401_refreshes_only_once(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.side_effect = [
             _make_resp(401),
             _make_resp(401),
         ]
-        self.client._logged = True
-        self.client.refresh_token = "refresh-token"
+        client._logged = True
+        client.refresh_token = "refresh-token"
 
         with (
             patch.object(
-                self.client, "_refresh_auth", return_value=None
+                client, "_refresh_auth", return_value=None
             ) as mock_refresh,
             pytest.raises(AqualinkServiceUnauthorizedException),
         ):
-            await self.client._send_systems_request()
+            await client._send_systems_request()
 
         mock_refresh.assert_awaited_once()
 
@@ -433,26 +457,30 @@ class TestAqualinkClient(TestBase):
     async def test_systems_request_404_maps_to_unauthorized(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 404
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
-            await self.client.get_systems()
+            await client.get_systems()
 
-    @respx.mock
-    async def test_429_raises_throttled_immediately(self) -> None:
-        respx.get("https://example.com").mock(
+    async def test_429_raises_throttled_immediately(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        client = _make_client()
+        respx_mock.get("https://example.com").mock(
             return_value=httpx.Response(
                 status_code=httpx.codes.TOO_MANY_REQUESTS
             )
         )
 
         with pytest.raises(AqualinkServiceThrottledException):
-            await self.client.send_request("https://example.com")
+            await client.send_request("https://example.com")
 
     @patch("httpx.AsyncClient.request")
     async def test_transport_error_raises_service_exception(
         self, mock_request
     ) -> None:
+        client = _make_client()
         for exc in (
             httpx.ReadTimeout("timed out"),
             httpx.ConnectTimeout("timed out"),
@@ -463,34 +491,37 @@ class TestAqualinkClient(TestBase):
         ):
             mock_request.side_effect = exc
             with pytest.raises(AqualinkServiceException):
-                await self.client.send_request("https://example.com")
+                await client.send_request("https://example.com")
 
     @patch("httpx.AsyncClient.request")
     async def test_500_not_retried(self, mock_request) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = (
             httpx.codes.INTERNAL_SERVER_ERROR
         )
         mock_request.return_value.reason_phrase = "Internal Server Error"
 
         with pytest.raises(AqualinkServiceException):
-            await self.client.send_request("https://example.com")
+            await client.send_request("https://example.com")
 
         assert mock_request.call_count == 1
 
     @patch("httpx.AsyncClient.request")
     async def test_401_not_retried(self, mock_request) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = httpx.codes.UNAUTHORIZED
 
         with pytest.raises(AqualinkServiceUnauthorizedException):
-            await self.client.send_request("https://example.com")
+            await client.send_request("https://example.com")
 
         assert mock_request.call_count == 1
 
     async def test_refresh_auth_concurrent_calls_only_refresh_once(
         self,
     ) -> None:
-        self.client.refresh_token = "refresh-token"
-        self.client._logged = False
+        client = _make_client()
+        client.refresh_token = "refresh-token"
+        client._logged = False
 
         started = asyncio.Event()
         release = asyncio.Event()
@@ -501,21 +532,21 @@ class TestAqualinkClient(TestBase):
             return _make_resp(200, REFRESH_RESPONSE_DATA)
 
         with patch.object(
-            self.client,
+            client,
             "_send_refresh_request",
             side_effect=fake_send_refresh_request,
         ) as mock_refresh:
-            first = asyncio.create_task(self.client._refresh_auth())
+            first = asyncio.create_task(client._refresh_auth())
             await started.wait()
-            second = asyncio.create_task(self.client._refresh_auth())
+            second = asyncio.create_task(client._refresh_auth())
 
             release.set()
             await asyncio.gather(first, second)
 
         mock_refresh.assert_awaited_once()
-        assert self.client.logged is True
+        assert client.logged is True
         assert (
-            self.client.authentication_token
+            client.authentication_token
             == REFRESH_RESPONSE_DATA["authentication_token"]
         )
 
@@ -523,14 +554,15 @@ class TestAqualinkClient(TestBase):
     async def test_refresh_request_does_not_retry_unauthorized(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.return_value.status_code = 401
-        self.client.refresh_token = "refresh-token"
+        client.refresh_token = "refresh-token"
 
         with (
             pytest.raises(AqualinkServiceUnauthorizedException),
-            patch.object(self.client, "login") as mock_login,
+            patch.object(client, "login") as mock_login,
         ):
-            await self.client._send_refresh_request()
+            await client._send_refresh_request()
 
         mock_login.assert_not_called()
         assert mock_request.call_count == 1
@@ -539,26 +571,28 @@ class TestAqualinkClient(TestBase):
     async def test_refresh_throttled_propagates_from_send_request(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.side_effect = [
             _make_resp(200, LOGIN_DATA_WITH_REFRESH),
             _make_resp(401),
         ]
 
-        await self.client.login()
+        await client.login()
         with (
             patch.object(
-                self.client,
+                client,
                 "_refresh_auth",
                 side_effect=AqualinkServiceThrottledException("Rate limited"),
             ),
             pytest.raises(AqualinkServiceThrottledException),
         ):
-            await self.client._send_systems_request()
+            await client._send_systems_request()
 
     @patch("httpx.AsyncClient.request")
     async def test_401_without_refresh_token_falls_back_to_login(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.side_effect = [
             _make_resp(200, LOGIN_DATA),  # login — no RefreshToken in response
             _make_resp(401),
@@ -566,8 +600,8 @@ class TestAqualinkClient(TestBase):
             _make_resp(200, []),
         ]
 
-        await self.client.login()
-        response = await self.client._send_systems_request()
+        await client.login()
+        response = await client._send_systems_request()
 
         assert response.status_code == httpx.codes.OK
         assert mock_request.call_count == 4
@@ -576,16 +610,17 @@ class TestAqualinkClient(TestBase):
     async def test_systems_request_500_after_refresh_raises_service_exception(
         self, mock_request
     ) -> None:
+        client = _make_client()
         mock_request.side_effect = [
             _make_resp(401),
             _make_resp(500),
         ]
 
         with (
-            patch.object(self.client, "_refresh_auth", return_value=None),
+            patch.object(client, "_refresh_auth", return_value=None),
             pytest.raises(AqualinkServiceException) as exc_info,
         ):
-            await self.client._send_systems_request()
+            await client._send_systems_request()
 
         assert not isinstance(
             exc_info.value, AqualinkServiceUnauthorizedException
@@ -595,6 +630,7 @@ class TestAqualinkClient(TestBase):
     async def test_refresh_retains_existing_token_when_none_returned(
         self, mock_request
     ) -> None:
+        client = _make_client()
         # If the refresh response omits RefreshToken, keep the existing one.
         refresh_no_new_token = {
             "id": "id",
@@ -609,14 +645,14 @@ class TestAqualinkClient(TestBase):
             _make_resp(200, {}),
         ]
 
-        await self.client.login()
-        original_refresh_token = self.client.refresh_token
-        await self.client._send_systems_request()
+        await client.login()
+        original_refresh_token = client.refresh_token
+        await client._send_systems_request()
 
-        assert self.client.refresh_token == original_refresh_token
+        assert client.refresh_token == original_refresh_token
 
 
-class TestRedactUrl(TestBase):
+class TestRedactUrl:
     def test_redacts_password_in_query(self) -> None:
         url = "https://example.com/login?email=user&password=s3cr3t"
         assert (
@@ -652,7 +688,7 @@ class TestRedactUrl(TestBase):
         assert "command=get_home" in result
 
 
-class TestRedactKwargs(TestBase):
+class TestRedactKwargs:
     def test_redacts_password_in_json(self) -> None:
         kwargs = {"json": {"email": "user@example.com", "password": "s3cr3t"}}
         result = redact_kwargs(kwargs)
@@ -710,33 +746,37 @@ class TestRedactKwargs(TestBase):
         assert result["json"] == "not-a-dict"
 
 
-class TestLogRedactUrl(TestBase):
+class TestLogRedactUrl:
     def test_masks_registered_serial_in_url_path(self) -> None:
-        self.client._log_serials = {"TESTSERIAL1"}
+        client = _make_client()
+        client._log_serials = {"TESTSERIAL1"}
         url = "https://r-api.iaqualink.net/v2/devices/TESTSERIAL1/control.json"
-        result = self.client._log_redact_url(url)
+        result = client._log_redact_url(url)
         assert "TESTSERIAL1" not in result
         assert "***" + "TESTSERIAL1"[-3:] in result
 
     def test_unregistered_serial_not_redacted(self) -> None:
-        self.client._log_serials = {"TESTSERIAL1"}
+        client = _make_client()
+        client._log_serials = {"TESTSERIAL1"}
         url = "https://r-api.iaqualink.net/v2/devices/TESTDEVICE2/control.json"
-        result = self.client._log_redact_url(url)
+        result = client._log_redact_url(url)
         assert "TESTDEVICE2" in result
 
     def test_query_param_redaction_still_applied(self) -> None:
+        client = _make_client()
         url = "https://example.com/api?signature=abc&command=get_home"
-        result = self.client._log_redact_url(url)
+        result = client._log_redact_url(url)
         assert "signature=***" in result
         assert "command=get_home" in result
 
     def test_empty_serials_set(self) -> None:
+        client = _make_client()
         url = "https://r-api.iaqualink.net/v2/devices/TESTSERIAL1/shadow"
-        result = self.client._log_redact_url(url)
+        result = client._log_redact_url(url)
         assert "TESTSERIAL1" in result
 
 
-class TestAqualinkAuthStateRepr(TestBase):
+class TestAqualinkAuthStateRepr:
     def test_repr_masks_tokens(self) -> None:
         state = AqualinkAuthState(
             username="user@example.com",

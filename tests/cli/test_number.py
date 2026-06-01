@@ -84,7 +84,7 @@ def test_set_value_non_number_exits(tmp_path: Path) -> None:
 
 def test_set_value_out_of_range_exits(tmp_path: Path) -> None:
     number = make_number("RPM", 1500.0, max_value=3450.0, unit="RPM")
-    number.set_value.side_effect = AqualinkInvalidParameterException(
+    number.set_value.side_effect = AqualinkInvalidParameterException(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
         "9999.0 is out of range (0.0-3450.0)."
     )
     FakeClient.systems_factory = staticmethod(

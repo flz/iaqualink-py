@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import unittest
-from unittest.mock import MagicMock, patch
+from typing import Any, cast
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -10,20 +10,18 @@ from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
     AqualinkInvalidParameterException,
     AqualinkServiceException,
-    AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.i2d.device import I2dOpMode
 from iaqualink.systems.i2d.system import I2dSystem
 
-from ...base_test_system import TestBaseSystem
-from ...common import async_raises, async_returns
+from ...conftest import async_returns
 
 # Values captured from a real iQPump device. Some period/timer fields fall
 # outside the step-aligned write ranges — read values are not required to
 # satisfy write constraints.
-SAMPLE_DATA = {
+SAMPLE_DATA: dict[str, Any] = {
     "alldata": {
         "motordata": {
             "speed": "1500",
@@ -85,42 +83,7 @@ OFFLINE_DATA = {
 _SYSTEM_DATA = {"id": 1, "serial_number": "ABC123", "device_type": "i2d"}
 
 
-_CONTRACT_DATA = {
-    "id": 1,
-    "serial_number": "ABC123",
-    "name": "Pool Pump",
-    "device_type": "i2d",
-}
-
-
-class TestI2dSystemContract(TestBaseSystem):
-    """Verifies I2dSystem satisfies the AqualinkSystem API contract."""
-
-    def setUp(self) -> None:
-        super().setUp()
-        self.sut = I2dSystem.from_data(self.client, _CONTRACT_DATA)
-        self.sut_class = I2dSystem
-
-    def _set_online(self, _response: object) -> None:
-        self.sut.status = SystemStatus.ONLINE
-
-    async def test_refresh_success(self) -> None:
-        with patch.object(
-            self.sut, "_parse_alldata_response", side_effect=self._set_online
-        ):
-            await super().test_refresh_success()
-
-    async def test_get_devices_needs_update(self) -> None:
-        with patch.object(
-            self.sut, "_parse_alldata_response", side_effect=self._set_online
-        ):
-            await super().test_get_devices_needs_update()
-
-
-class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
-    def setUp(self) -> None:
-        pass
-
+class TestI2dSystem:
     def test_from_data_i2d(self):
         aqualink = MagicMock()
         r = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
@@ -129,28 +92,42 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
 
     async def test_refresh_connected(self):
         aqualink = MagicMock()
-        system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(
+            I2dSystem, AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
+        )
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
-        system.send_control_command = async_returns(response)
-        await system.refresh()
+        with patch.object(
+            system, "send_control_command", new=AsyncMock(return_value=response)
+        ):
+            await system.refresh()
         assert system.status is SystemStatus.CONNECTED
 
     async def test_refresh_service_exception(self):
         aqualink = MagicMock()
-        system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_raises(AqualinkServiceException)
-        with pytest.raises(AqualinkServiceException):
-            await system.refresh()
+        system = cast(
+            I2dSystem, AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
+        )
+        with patch.object(
+            system,
+            "send_control_command",
+            new=AsyncMock(side_effect=AqualinkServiceException),
+        ):
+            with pytest.raises(AqualinkServiceException):
+                await system.refresh()
         assert system.status is SystemStatus.DISCONNECTED
 
     async def test_refresh_offline_body(self):
         aqualink = MagicMock()
-        system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(
+            I2dSystem, AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
+        )
         response = MagicMock()
         response.json.return_value = OFFLINE_DATA
-        system.send_control_command = async_returns(response)
-        await system.refresh()
+        with patch.object(
+            system, "send_control_command", new=AsyncMock(return_value=response)
+        ):
+            await system.refresh()
         assert system.status is SystemStatus.OFFLINE
 
     @patch("httpx.AsyncClient.request")
@@ -160,25 +137,15 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         aqualink = AqualinkClient("user", "pass")
         aqualink.authentication_token = "tok"
         aqualink.user_id = "42"
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
         mock_request.return_value.status_code = 500
         mock_request.return_value.json = MagicMock(return_value=OFFLINE_DATA)
         await system.refresh()  # must not raise
         assert system.status is SystemStatus.OFFLINE
 
-    async def test_refresh_throttled(self):
-        aqualink = MagicMock()
-        system = AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_raises(
-            AqualinkServiceThrottledException
-        )
-        with pytest.raises(AqualinkServiceThrottledException):
-            await system.refresh()
-        assert system.status is SystemStatus.UNKNOWN
-
     def test_parse_alldata_response_relay_absent(self):
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
         alldata = {k: v for k, v in SAMPLE_DATA["alldata"].items()}
         alldata.pop("relayK1Rpm", None)
         alldata.pop("relayK2Rpm", None)
@@ -196,7 +163,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             "name": "Pool Pump",
             "device_type": "i2d",
         }
-        system = I2dSystem.from_data(aqualink, data)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, data))
 
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
@@ -218,7 +185,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             "name": "Pool Pump",
             "device_type": "i2d",
         }
-        system = I2dSystem.from_data(aqualink, data)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, data))
 
         response = MagicMock()
         response.json.return_value = OFFLINE_DATA
@@ -235,7 +202,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         aqualink = AqualinkClient("user", "pass")
         aqualink.authentication_token = "tok"
         aqualink.user_id = "42"
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
         mock_request.return_value.status_code = 500
         mock_request.return_value.json = MagicMock(return_value=OFFLINE_DATA)
         with pytest.raises(_AqualinkOfflineSignal):
@@ -249,7 +216,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             "name": "Pool Pump",
             "device_type": "i2d",
         }
-        system = I2dSystem.from_data(aqualink, data)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, data))
         service_data = {
             "alldata": {**SAMPLE_DATA["alldata"], "opmode": "5"},
             "requestID": "x",
@@ -267,7 +234,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             "name": "Pool Pump",
             "device_type": "i2d",
         }
-        system = I2dSystem.from_data(aqualink, data)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, data))
         alldata_no_opmode = {
             k: v for k, v in SAMPLE_DATA["alldata"].items() if k != "opmode"
         }
@@ -288,7 +255,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             "name": "Pool Pump",
             "device_type": "i2d",
         }
-        system = I2dSystem.from_data(aqualink, data)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, data))
         alldata_no_opmode = {
             k: v for k, v in SAMPLE_DATA["alldata"].items() if k != "opmode"
         }
@@ -306,7 +273,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
         aqualink = AqualinkClient("user", "pass")
         aqualink.authentication_token = "tok123"
         aqualink.user_id = "42"
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
 
         mock_request.return_value.status_code = 200
         await system.send_control_command("/opmode/write", "value=1")
@@ -324,7 +291,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
     @patch("httpx.AsyncClient.request")
     async def test_send_control_command_unauthorized(self, mock_request):
         aqualink = AqualinkClient("user", "pass")
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
 
         mock_request.return_value.status_code = 401
 
@@ -339,7 +306,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             "name": "Pool Pump",
             "device_type": "i2d",
         }
-        system = I2dSystem.from_data(aqualink, data)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, data))
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
         system._parse_alldata_response(response)
@@ -391,7 +358,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
 
     def test_apply_write_response_noop_before_devices_populated(self):
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
         r = self._write_response("opmode", "1")
         system._apply_write_response(r)  # no error; serial not in devices yet
 
@@ -419,13 +386,17 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             "name": "Pool Pump",
             "device_type": "i2d",
         }
-        system = I2dSystem.from_data(aqualink, data)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, data))
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA
         system._parse_alldata_response(response)
         pump = system.devices["ABC123"]
-        assert pump.supports_presets is True
-        assert set(pump.preset_modes) == {"SCHEDULE", "CUSTOM", "STOP"}
+        assert pump.supports_presets is True  # ty: ignore
+        assert set(pump.preset_modes) == {  # ty: ignore
+            "SCHEDULE",
+            "CUSTOM",
+            "STOP",
+        }
 
     def test_pump_current_preset(self):
         aqualink = MagicMock()
@@ -436,32 +407,33 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             "name": "Pool Pump",
             "device_type": "i2d",
         }
-        system = I2dSystem.from_data(aqualink, data)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, data))
         response = MagicMock()
         response.json.return_value = SAMPLE_DATA  # opmode=0 → SCHEDULE
         system._parse_alldata_response(response)
         pump = system.devices["ABC123"]
-        assert pump.preset_mode == "SCHEDULE"
+        assert pump.preset_mode == "SCHEDULE"  # ty: ignore
 
     async def test_pump_set_preset_valid(self):
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
-        system._parse_alldata_response = MagicMock()
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        system._parse_alldata_response = MagicMock()  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         # Directly construct a pump to test set_preset
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
-            system, {"name": "ABC123", "opmode": "0", "runstate": "on"}
+            system,
+            {"name": "ABC123", "opmode": "0", "runstate": "on"},
         )
         await pump.set_preset_mode("STOP")
-        system.send_control_command.assert_awaited_once_with(
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
             "/opmode/write", "value=2"
         )
 
     async def test_pump_set_preset_invalid_raises(self):
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(system, {"name": "ABC123", "opmode": "0"})
@@ -470,7 +442,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
 
     async def test_pump_set_preset_unknown_raises(self):
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(system, {"name": "ABC123", "opmode": "0"})
@@ -479,7 +451,7 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
 
     def test_pump_supports_set_speed_percentage(self):
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
@@ -490,8 +462,8 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
 
     async def test_set_speed_percentage_0_gives_rpm_min(self):
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
@@ -499,14 +471,14 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         await pump.set_percentage(0)
-        system.send_control_command.assert_awaited_once_with(
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
             "/customspeedrpm/write", "value=600"
         )
 
     async def test_set_speed_percentage_100_gives_rpm_max(self):
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
@@ -514,15 +486,15 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         await pump.set_percentage(100)
-        system.send_control_command.assert_awaited_once_with(
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
             "/customspeedrpm/write", "value=3450"
         )
 
     async def test_set_speed_percentage_50_rounded(self):
         # 600 + (3450-600)*0.5 = 2025 — already multiple of 25
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
-        system.send_control_command = async_returns(MagicMock())
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
@@ -530,13 +502,13 @@ class TestI2dSystem(unittest.IsolatedAsyncioTestCase):
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         await pump.set_percentage(50)
-        system.send_control_command.assert_awaited_once_with(
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
             "/customspeedrpm/write", "value=2025"
         )
 
     async def test_set_speed_percentage_out_of_range_raises(self):
         aqualink = MagicMock()
-        system = I2dSystem.from_data(aqualink, _SYSTEM_DATA)
+        system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
