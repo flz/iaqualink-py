@@ -105,9 +105,3 @@ class SystemFixture:
     expected_class: type | None = None
     expected_online_status: SystemStatus | None = None
     refresh_response: dict = field(default_factory=dict)
-    refresh_internal_method: str | None = None
-    """Name of the internal method called during refresh (for throttle/401 tests)."""
-    request_method: str | None = None
-    """Name of a request method to test retry-once-on-401 behavior."""
-    request_method_args: tuple[object, ...] = ()
-    """Positional args for the request method."""

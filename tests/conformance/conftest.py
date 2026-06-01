@@ -36,18 +36,6 @@ from .fixtures import (
     SystemFixture,
 )
 
-_FIXTURE_TYPES = (
-    "device",
-    "sensor",
-    "binary_sensor",
-    "switch",
-    "light",
-    "climate",
-    "number",
-    "fan",
-    "system",
-)
-
 _systems_root = pathlib.Path(__file__).parent.parent / "systems"
 
 
