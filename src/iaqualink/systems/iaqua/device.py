@@ -457,6 +457,7 @@ ICL_CUSTOM_COLOR_NAME = "Custom Color"
 
 # index 0 = off, index 16 = custom RGBW — neither is a selectable preset
 ICL_EFFECTS = {
+    "Off": 0,
     "Alpine White": 1,
     "Sky Blue": 2,
     "Cobalt Blue": 3,

@@ -184,6 +184,7 @@
       'brightness_percentage': 100,
       'effect': None,
       'effect_list': list([
+        'Off',
         'Alpine White',
         'Sky Blue',
         'Cobalt Blue',
@@ -355,6 +356,7 @@
       'brightness_percentage': 100,
       'effect': 'Cobalt Blue',
       'effect_list': list([
+        'Off',
         'Alpine White',
         'Sky Blue',
         'Cobalt Blue',
@@ -385,6 +387,7 @@
       'brightness_percentage': 75,
       'effect': 'Spring Green',
       'effect_list': list([
+        'Off',
         'Alpine White',
         'Sky Blue',
         'Cobalt Blue',

@@ -796,12 +796,17 @@ class TestIaquaIclLight:
         assert "set_iclzone_color" in url
         assert "color_id=6" in url
 
-    async def test_set_effect_off_invalid(self) -> None:
-        from iaqualink.exception import AqualinkInvalidParameterException
-
+    async def test_set_effect_off(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
         sut = _make_icl_light()
-        with pytest.raises(AqualinkInvalidParameterException):
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_icl_info_response"):
             await sut.set_effect("Off")
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "set_iclzone_color" in url
+        assert "color_id=0" in url
 
     async def test_set_effect_invalid_amaranth(self) -> None:
         from iaqualink.exception import AqualinkInvalidParameterException
