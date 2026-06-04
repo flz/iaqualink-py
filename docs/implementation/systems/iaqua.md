@@ -196,6 +196,10 @@ Zone state is read from `icl_info_list` embedded in the `get_devices` response r
 
 `icl_set_brightness` uses `set_iclzone_color`, not `set_iclzone_dim`. The app uses `set_iclzone_color` for both color selection and brightness-only changes; `set_iclzone_dim` exists in the app source but is not called from any observed app UI path.
 
+#### ICL brightness step validation: 5% increments
+
+The API accepts any integer in 0–100 for `dim_level`. The implementation rejects non-multiples of 5 because the app only exposes 5% increments in its UI (0, 5, 10, …, 100). This is an app-level constraint, not a wire-level one.
+
 ### Deltas vs Protocol Reference (ICL)
 
 | # | Reference behaviour | Python implementation |
