@@ -290,7 +290,7 @@ Each element of `icl_info_list`:
 | `zoneStatus` | string | Zone on/off status string |
 | `zoneColor` | integer | Active colour preset index |
 | `zoneColorVal` | string | Active colour preset name |
-| `dim_level` | integer | Dimming level (0–100, multiples of 5) |
+| `dim_level` | integer | Dimming level (0–100) |
 | `red_val` | integer | Custom colour red component |
 | `green_val` | integer | Custom colour green component |
 | `blue_val` | integer | Custom colour blue component |
@@ -315,7 +315,7 @@ Set the colour preset for an ICL zone.
 |---|---|
 | `zone_id` | Zone identifier (integer) |
 | `color_id` | Colour preset index (integer, optional — omit to preserve current colour) |
-| `dim_level` | Dimming level (integer, 0–100, multiples of 5) |
+| `dim_level` | Dimming level (integer, 0–100) |
 
 **Response:** Same shape as `get_icl_info`.
 
@@ -328,7 +328,7 @@ Set the dimming level for an ICL zone.
 | Extra param | Value |
 |---|---|
 | `zone_id` | Zone identifier (integer) |
-| `dim_level` | Dimming level (integer, 0–100, multiples of 5) |
+| `dim_level` | Dimming level (integer, 0–100) |
 
 **Response:** Same shape as `get_icl_info`.
 

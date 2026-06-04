@@ -551,6 +551,7 @@ class IaquaIclLight(IaquaDevice, AqualinkLight):
             await self.system.icl_zone_on_off(self._zone_id, turn_on=False)
 
     async def _set_brightness_percentage(self, brightness: int) -> None:
+        # The API accepts any 0–100 value, but the app only exposes multiples of 5.
         if brightness % 5 != 0:
             msg = f"{brightness}% isn't a valid ICL brightness (must be a multiple of 5)."
             raise AqualinkInvalidParameterException(msg)
