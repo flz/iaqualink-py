@@ -770,6 +770,15 @@ class TestIaquaIclLight:
         with pytest.raises(AqualinkInvalidParameterException):
             await sut.set_brightness_percentage(101)
 
+    async def test_set_brightness_percentage_invalid_non_multiple_of_5(
+        self,
+    ) -> None:
+        from iaqualink.exception import AqualinkInvalidParameterException
+
+        sut = _make_icl_light()
+        with pytest.raises(AqualinkInvalidParameterException):
+            await sut.set_brightness_percentage(89)
+
     async def test_set_effect_by_id_4(
         self, respx_mock: respx.router.MockRouter
     ) -> None:

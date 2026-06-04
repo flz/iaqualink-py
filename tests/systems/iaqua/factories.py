@@ -311,7 +311,6 @@ def _iaqua_icl_light() -> LightFixture:
     return LightFixture(
         device_on=IaquaIclLight(system, data_on),
         device_off=IaquaIclLight(system, data_off),
-        has_brightness_step_validation=False,
         expected_class=IaquaIclLight,
     )
 
