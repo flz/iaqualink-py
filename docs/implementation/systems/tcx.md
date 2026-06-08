@@ -9,7 +9,7 @@ Implementation details for the TCX system (`device_type: "tcx"`). For the wire-l
 | `device_type` | `tcx` |
 | API host | `prod.zodiac-io.com` |
 | Authentication | JWT `IdToken` (Bearer) |
-| Update call | Main shadow fetch (`GET /devices/v2/{serial}/shadow`) |
+| Update call | Main shadow (`GET /devices/v2/{serial}/shadow`) + active sub-shadows |
 | State updates | Desired/reported state pattern (`POST /devices/v2/{serial}/shadow`) |
 | Python class | `TcxSystem` in `src/iaqualink/systems/tcx/system.py` |
 
@@ -44,7 +44,7 @@ Status is derived from two fields in `state.reported`:
 
 ## Device Inventory
 
-Devices are discovered from the main shadow `state.reported` object on each `_refresh()` call. All sub-object keys are expected dynamically — new keys are silently ignored.
+### From main shadow (`state.reported`)
 
 | Shadow key | Python class | Base type | Notes |
 |---|---|---|---|
@@ -57,6 +57,22 @@ Devices are discovered from the main shadow `state.reported` object on each `_re
 | `swc0` | `TcxChlorinatorBoost` | `AqualinkSwitch` | Exposes boost on/off only |
 | `solar` | `TcxSolarSensor` | `AqualinkSensor` | Solar temperature |
 
+### From sub-shadows
+
+Sub-shadows are fetched concurrently after the main shadow on each `_refresh()` call. Presence is discovered from `state.reported.equipment` keys.
+
+| Sub-shadow | Action | New devices |
+|---|---|---|
+| `_filt` | Merges `state.reported` into `filt0` device data | None (enriches existing) |
+| `_ecm` | Merges `state.reported` into `ecm0` device data | None (enriches existing) |
+| `_fea` | Discovers feature circuits | `TcxFeatureCircuit` (one per `feaCircuit[N]` key) |
+| `_zig` | Discovers ZigBee devices | `TcxZigbeeSwitch` (one per device in `zig` dict) |
+| `_sched` | Fetched but not parsed | None |
+| `_pib0` | Fetched but not parsed | None |
+| `_scene` | Fetched but not parsed | None |
+
+Sub-shadow failures are isolated — a failed fetch for one suffix does not abort others. The failure is logged at WARNING level and the refresh continues.
+
 ## Design Decisions
 
 ### REST polling only (no WebSocket or MQTT)
@@ -65,17 +81,17 @@ The reference app uses WebSocket (server default) or MQTT for real-time push. Th
 
 This matches the EXO precedent and avoids persistent connection management.
 
-### Shadow URL version
+### Shadow URL versions
 
-TCX main shadow uses `/devices/v2/` (spec §Shadow Endpoints). Sub-shadows use `/devices/v1/` with suffixed serial. The Python implementation currently fetches only the main shadow; sub-shadow support is deferred.
+TCX main shadow reads use `/devices/v2/` (spec §Shadow Endpoints). Sub-shadow reads use `/devices/v1/` with the suffixed serial. All writes (main and sub-shadow) use `/devices/v2/`.
 
-### Sub-shadows deferred
+### Concurrent sub-shadow fetch
 
-The TCX protocol splits state across up to 7 sub-shadows (`_filt`, `_ecm`, `_sched`, `_pib0`, `_fea`, `_zig`, `_scene`). The initial implementation reads only the main shadow. The main shadow contains enough state for the primary device inventory (filter pump, VSP, aux, heater, SWC, water temp). Sub-shadow support can be added incrementally.
+Sub-shadows are fetched with `asyncio.gather(..., return_exceptions=True)`. Each failure is logged individually rather than aborting the whole refresh. This tolerates temporary sub-shadow unavailability without marking the system offline.
 
 ### HMAC signature on shadow GET
 
-The reference spec notes `?signature={sig}` on shadow GET requests. The signing key and exact parameter list are not confirmed from the wire. The initial implementation omits the signature. If the endpoint rejects unsigned requests, the signature scheme can be added without a protocol change.
+The reference spec notes `?signature={sig}` on shadow GET requests. The signing key and exact parameter list are not confirmed from the wire. The implementation omits the signature. If the endpoint rejects unsigned requests, the signature scheme can be added without a protocol change.
 
 ### Temperature unit
 
@@ -98,6 +114,7 @@ The SWC chlorinator is modelled as a boost on/off switch (`TcxChlorinatorBoost`)
 | # | Delta | Reason |
 |---|---|---|
 | 1 | Shadow GET omits `?signature={sig}` | Signing params unknown; endpoint may not require it |
-| 2 | Sub-shadows not fetched | Deferred; main shadow sufficient for initial device inventory |
-| 3 | SWC exposes boost only | Richer SWC surface (output %, salinity, mode) is future work |
-| 4 | Heater bounds hardcoded | Shadow bounds field presence not confirmed |
+| 2 | SWC exposes boost only | Richer SWC surface (output %, salinity, mode) is future work |
+| 3 | Heater bounds hardcoded | Shadow bounds field presence not confirmed |
+| 4 | ZigBee write payload shape unverified | `set_zigbee_state` posts `{"zig": {addr: {"st": N}}}`; not confirmed from wire traffic |
+| 5 | `_sched`, `_pib0`, `_scene` fetched but not parsed | Schema not confirmed; no device mapping defined yet |

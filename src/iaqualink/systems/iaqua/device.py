@@ -571,7 +571,7 @@ class IaquaSetPoint(IaquaDevice, AqualinkNumber):
     def current_value(self) -> float | None:
         try:
             return float(self.state)
-        except (ValueError, KeyError):
+        except (ValueError, KeyError):  # fmt: skip
             return None
 
     @property

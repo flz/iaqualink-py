@@ -66,6 +66,10 @@ class TcxDevice(AqualinkDevice):
             return TcxChlorinatorBoost(system, data)
         if name == "solar":
             return TcxSolarSensor(system, data)
+        if name.startswith("feaCircuit") and name[10:].isdigit():
+            return TcxFeatureCircuit(system, data)
+        if name.startswith("zig_"):
+            return TcxZigbeeSwitch(system, data)
 
         return TcxGenericSensor(system, data)
 
@@ -160,6 +164,10 @@ class TcxVariableSpeedPump(TcxDevice, AqualinkFan):
     def label(self) -> str:
         fr = self.data.get("fr")
         return str(fr) if fr else "Variable Speed Pump"
+
+    @property
+    def is_on(self) -> bool:
+        return self.data.get("st") == 1
 
     @property
     def supports_presets(self) -> bool:
@@ -278,3 +286,48 @@ class TcxChlorinatorBoost(TcxDevice, AqualinkSwitch):
     async def turn_off(self) -> None:
         if self.is_on:
             await self.system.set_swc_boost(False)
+
+
+class TcxFeatureCircuit(TcxDevice, AqualinkSwitch):
+    @property
+    def label(self) -> str:
+        fr = self.data.get("fr")
+        if fr:
+            return str(fr)
+        idx = self.name[len("feaCircuit") :]
+        return f"Feature Circuit {idx}"
+
+    @property
+    def is_on(self) -> bool:
+        return self.data.get("st") == 1
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self.system.set_feature_circuit_state(self.name, 1)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self.system.set_feature_circuit_state(self.name, 0)
+
+
+class TcxZigbeeSwitch(TcxDevice, AqualinkSwitch):
+    @property
+    def label(self) -> str:
+        fr = self.data.get("fr")
+        if fr:
+            return str(fr)
+        return self.name.replace("zig_", "ZigBee ")
+
+    @property
+    def is_on(self) -> bool:
+        return self.data.get("st") == 1
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            addr = str(self.data.get("addr", self.name[4:]))
+            await self.system.set_zigbee_state(addr, 1)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            addr = str(self.data.get("addr", self.name[4:]))
+            await self.system.set_zigbee_state(addr, 0)
