@@ -1,0 +1,209 @@
+# serializer version: 1
+# name: test_parse_main_plus_fea_sub_shadow
+  dict({
+    'TspBdy0': dict({
+      'label': 'Pool',
+      'type': 'TcxGenericSensor',
+      'unit_of_measurement': None,
+      'value': '82',
+      'value_translated': None,
+    }),
+    'air': dict({
+      'label': 'Air Temperature',
+      'type': 'TcxAirSensor',
+      'unit_of_measurement': None,
+      'value': '72',
+      'value_translated': None,
+    }),
+    'aux0': dict({
+      'is_on': False,
+      'label': 'Waterfall',
+      'type': 'TcxAuxSwitch',
+    }),
+    'ecm0': dict({
+      'is_on': True,
+      'label': 'Variable Speed Pump',
+      'percentage': 69,
+      'preset_mode': None,
+      'preset_modes': list([
+        'Low',
+        'Med',
+        'High',
+      ]),
+      'type': 'TcxVariableSpeedPump',
+    }),
+    'feaCircuit0': dict({
+      'is_on': False,
+      'label': 'Spa Jets',
+      'type': 'TcxFeatureCircuit',
+    }),
+    'feaCircuit1': dict({
+      'is_on': True,
+      'label': 'Spa Light',
+      'type': 'TcxFeatureCircuit',
+    }),
+    'filt0': dict({
+      'is_on': True,
+      'label': 'Filter Pump',
+      'type': 'TcxFilterPump',
+    }),
+    'lvh1': dict({
+      'label': 'Lvh1',
+      'type': 'TcxGenericSensor',
+      'unit_of_measurement': None,
+      'value': '',
+      'value_translated': None,
+    }),
+    'solar': dict({
+      'label': 'Solar Panel',
+      'type': 'TcxSolarSensor',
+      'unit_of_measurement': None,
+      'value': '105',
+      'value_translated': None,
+    }),
+    'swc0': dict({
+      'is_on': False,
+      'label': 'Salt Chlorinator',
+      'type': 'TcxChlorinatorBoost',
+    }),
+    'water': dict({
+      'label': 'Pool Water',
+      'type': 'TcxWaterSensor',
+      'unit_of_measurement': None,
+      'value': '82',
+      'value_translated': None,
+    }),
+  })
+# ---
+# name: test_parse_main_plus_filt_sub_shadow
+  dict({
+    'TspBdy0': dict({
+      'label': 'Pool',
+      'type': 'TcxGenericSensor',
+      'unit_of_measurement': None,
+      'value': '82',
+      'value_translated': None,
+    }),
+    'air': dict({
+      'label': 'Air Temperature',
+      'type': 'TcxAirSensor',
+      'unit_of_measurement': None,
+      'value': '72',
+      'value_translated': None,
+    }),
+    'aux0': dict({
+      'is_on': False,
+      'label': 'Waterfall',
+      'type': 'TcxAuxSwitch',
+    }),
+    'ecm0': dict({
+      'is_on': True,
+      'label': 'Variable Speed Pump',
+      'percentage': 69,
+      'preset_mode': None,
+      'preset_modes': list([
+        'Low',
+        'Med',
+        'High',
+      ]),
+      'type': 'TcxVariableSpeedPump',
+    }),
+    'filt0': dict({
+      'is_on': True,
+      'label': 'Filter Pump',
+      'type': 'TcxFilterPump',
+    }),
+    'lvh1': dict({
+      'label': 'Lvh1',
+      'type': 'TcxGenericSensor',
+      'unit_of_measurement': None,
+      'value': '',
+      'value_translated': None,
+    }),
+    'solar': dict({
+      'label': 'Solar Panel',
+      'type': 'TcxSolarSensor',
+      'unit_of_measurement': None,
+      'value': '105',
+      'value_translated': None,
+    }),
+    'swc0': dict({
+      'is_on': False,
+      'label': 'Salt Chlorinator',
+      'type': 'TcxChlorinatorBoost',
+    }),
+    'water': dict({
+      'label': 'Pool Water',
+      'type': 'TcxWaterSensor',
+      'unit_of_measurement': None,
+      'value': '82',
+      'value_translated': None,
+    }),
+  })
+# ---
+# name: test_parse_main_shadow
+  dict({
+    'TspBdy0': dict({
+      'label': 'Pool',
+      'type': 'TcxGenericSensor',
+      'unit_of_measurement': None,
+      'value': '82',
+      'value_translated': None,
+    }),
+    'air': dict({
+      'label': 'Air Temperature',
+      'type': 'TcxAirSensor',
+      'unit_of_measurement': None,
+      'value': '72',
+      'value_translated': None,
+    }),
+    'aux0': dict({
+      'is_on': False,
+      'label': 'Waterfall',
+      'type': 'TcxAuxSwitch',
+    }),
+    'ecm0': dict({
+      'is_on': True,
+      'label': 'Variable Speed Pump',
+      'percentage': 69,
+      'preset_mode': None,
+      'preset_modes': list([
+        'Low',
+        'Med',
+        'High',
+      ]),
+      'type': 'TcxVariableSpeedPump',
+    }),
+    'filt0': dict({
+      'is_on': True,
+      'label': 'Filter Pump',
+      'type': 'TcxFilterPump',
+    }),
+    'lvh1': dict({
+      'label': 'Lvh1',
+      'type': 'TcxGenericSensor',
+      'unit_of_measurement': None,
+      'value': '',
+      'value_translated': None,
+    }),
+    'solar': dict({
+      'label': 'Solar Panel',
+      'type': 'TcxSolarSensor',
+      'unit_of_measurement': None,
+      'value': '105',
+      'value_translated': None,
+    }),
+    'swc0': dict({
+      'is_on': False,
+      'label': 'Salt Chlorinator',
+      'type': 'TcxChlorinatorBoost',
+    }),
+    'water': dict({
+      'label': 'Pool Water',
+      'type': 'TcxWaterSensor',
+      'unit_of_measurement': None,
+      'value': '82',
+      'value_translated': None,
+    }),
+  })
+# ---

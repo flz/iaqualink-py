@@ -1,0 +1,120 @@
+{
+  "state": {
+    "reported": {
+      "sn": "ABCDEFG",
+      "model": "TCX-1",
+      "deviceType": "tcx",
+      "firmwareVersion": "1.0.0",
+      "systemType": 1,
+      "systemMode": 0,
+      "tempSetting": 1,
+      "aws": {
+        "status": "connected",
+        "timestamp": 123
+      },
+      "airTemp": 72,
+      "airSnsr": "ok",
+      "water": {
+        "value": 82,
+        "us": 1,
+        "fr": "Pool Water",
+        "en": 1,
+        "cp": false,
+        "zn": [0]
+      },
+      "filt0": {
+        "sp": 2700,
+        "st": 1,
+        "en": 1,
+        "mn": 1000,
+        "mx": 3450,
+        "cp": false,
+        "ap": "FILTER",
+        "et": "PUMP",
+        "fr": "Filter Pump",
+        "zn": [0]
+      },
+      "ecm0": {
+        "cmdSpd": 2700,
+        "reqSpd": 2700,
+        "manSpd": 0,
+        "minSpd": 1000,
+        "maxSpd": 3450,
+        "frzSpd": 1200,
+        "prmSpd": 3450,
+        "prmDur": 300,
+        "qcSpd": 3450,
+        "qcDur": 60,
+        "spdList": [
+          {"name": "Low", "spd": 1000},
+          {"name": "Med", "spd": 2000},
+          {"name": "High", "spd": 3450}
+        ],
+        "st": 1,
+        "en": 1,
+        "model": "VSP-100",
+        "cp": false,
+        "et": "VSP",
+        "fr": "Variable Speed Pump",
+        "zn": [0]
+      },
+      "aux0": {
+        "st": 0,
+        "en": 1,
+        "app": "WF",
+        "et": "WL",
+        "fr": "Waterfall",
+        "fp": false,
+        "cp": false,
+        "zn": [0]
+      },
+      "TspBdy0": {
+        "waterTempSet": 88,
+        "solarTempSet": 100,
+        "heatEnabled": false,
+        "heatPriority": 0,
+        "heatAvailable": 1,
+        "gasEn": true,
+        "solarEn": false,
+        "status": 0,
+        "value": 82,
+        "name": "Pool",
+        "type": 0,
+        "zone": 0
+      },
+      "lvh1": {
+        "en": 0,
+        "app": "HEAT"
+      },
+      "swc0": {
+        "outputPcnt": 50,
+        "stdPoolPcnt": 50,
+        "lowPoolPcnt": 25,
+        "boost": 0,
+        "boostDur": 24,
+        "boostTime": 0,
+        "swcMode": 0,
+        "salinity": 3200,
+        "en": 1,
+        "st": 1,
+        "fr": "Salt Chlorinator",
+        "zn": [0]
+      },
+      "solar": {
+        "value": 105,
+        "us": 1,
+        "en": 0,
+        "fr": "Solar Panel",
+        "zn": [0]
+      },
+      "equipment": {
+        "filt": {"present": true},
+        "ecm": {"present": true},
+        "fea": {"present": true},
+        "swc": {"present": true}
+      }
+    }
+  },
+  "timestamp": 123,
+  "version": 1
+}
