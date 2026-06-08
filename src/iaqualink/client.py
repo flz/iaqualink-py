@@ -59,6 +59,7 @@ for module_name in (
     "iaqualink.systems.exo.system",
     "iaqualink.systems.i2d.system",
     "iaqualink.systems.iaqua.system",
+    "iaqualink.systems.tcx.system",
 ):
     importlib.import_module(module_name)
 
