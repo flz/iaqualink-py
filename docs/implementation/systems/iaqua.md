@@ -209,7 +209,7 @@ The API accepts any integer in 0–100 for `dim_level`. The implementation rejec
 | 3 | Absent zones excluded from display | ✓ Filtered at parse time; absent zones are never added to `self.devices` |
 | 4 | Brightness via `set_iclzone_color` | ✓ Matches; `set_iclzone_dim` not used |
 | 5 | `define_iclzone_customcolor` returns a narrower response (no `icl_info_list`) | ✓ Handled by `_parse_icl_custom_color_response` |
-| 6 | Color preset index 16 = custom RGBW mode (not a named preset) | ✓ `ICL_EFFECTS` covers indices 1–15 only; index 0 ("off") and index 16 not exposed as effects |
+| 6 | Color preset index 16 = custom RGBW mode (not a named preset) | ✓ `ICL_EFFECTS` covers indices 0–15; index 16 not exposed as a named effect — use `set_rgbw()` instead |
 
 ## See Also
 

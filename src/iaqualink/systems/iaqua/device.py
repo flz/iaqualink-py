@@ -455,7 +455,7 @@ class IaquaSetPoint(IaquaDevice, AqualinkNumber):
 ICL_CUSTOM_COLOR_ID = 16
 ICL_CUSTOM_COLOR_NAME = "Custom Color"
 
-# index 0 = off, index 16 = custom RGBW — neither is a selectable preset
+# index 16 = custom RGBW — not a named effect (use set_rgbw() instead)
 ICL_EFFECTS = {
     "Off": 0,
     "Alpine White": 1,
