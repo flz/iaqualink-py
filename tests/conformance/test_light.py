@@ -114,6 +114,11 @@ async def test_set_brightness_percentage_invalid_89(
             await light_fixture.device_on.set_brightness_percentage(89)
         return
 
+    if not light_fixture.has_brightness_step_validation:
+        pytest.skip(
+            "Device accepts any 0–100% value; step validation not enforced"
+        )
+
     respx_mock.route(dotstar).mock(resp_200)
     with pytest.raises(AqualinkInvalidParameterException):
         await light_fixture.device_on.set_brightness_percentage(89)

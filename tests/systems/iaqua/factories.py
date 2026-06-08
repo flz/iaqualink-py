@@ -20,6 +20,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaDevice,
     IaquaDimmableLight,
     IaquaHeater,
+    IaquaIclLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
     IaquaSensor,
@@ -292,6 +293,28 @@ def _iaqua_color_light_hu() -> LightFixture:
     return _iaqua_color_light_factory("6", IaquaColorLightHU)
 
 
+def _iaqua_icl_light() -> LightFixture:
+    system = make_system()
+    data_on: dict = {
+        "zoneId": "1",
+        "zoneName": "Pool Light",
+        "zoneStatus": "on",
+        "zoneColor": "6",
+        "zoneColorVal": "Emerald Green",
+        "dim_level": "100",
+        "red_val": "255",
+        "green_val": "128",
+        "blue_val": "64",
+        "white_val": "0",
+    }
+    data_off = {**data_on, "zoneStatus": "off"}
+    return LightFixture(
+        device_on=IaquaIclLight(system, data_on),
+        device_off=IaquaIclLight(system, data_off),
+        expected_class=IaquaIclLight,
+    )
+
+
 iaqua_light_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-light-switch", _iaqua_light_switch),
     ("iaqua-dimmable-light", _iaqua_dimmable_light),
@@ -301,6 +324,7 @@ iaqua_light_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-color-light-jl", _iaqua_color_light_jl),
     ("iaqua-color-light-ib", _iaqua_color_light_ib),
     ("iaqua-color-light-hu", _iaqua_color_light_hu),
+    ("iaqua-icl-light", _iaqua_icl_light),
 ]
 
 # ---------------------------------------------------------------------------

@@ -61,6 +61,7 @@ _SNAPSHOT_EXCLUDE = frozenset(
         "supports_turn_off",
         "supports_brightness",
         "supports_effect",
+        "supports_rgbw",
         "supports_presets",
         "supports_percentage",
         "max_temp",

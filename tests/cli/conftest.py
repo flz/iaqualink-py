@@ -20,6 +20,7 @@ from iaqualink.device import (
     AqualinkSwitch,
 )
 from iaqualink.system import SystemStatus, UnsupportedSystem
+from iaqualink.systems.iaqua.device import IaquaIclLight
 
 cli_module = importlib.import_module("iaqualink.cli.app")
 app = cli_module.app
@@ -216,6 +217,15 @@ def make_light(
     m.supports_effect = supports_effect
     m.effect = effect
     m.effect_list = effect_list
+    m.supports_rgbw = False
+    return m
+
+
+def make_rgbw_light(label: str = "ICL Light") -> IaquaIclLight:
+    m = create_autospec(IaquaIclLight, instance=True)
+    m.label = m.name = label
+    m.rgbw = (0, 0, 0, 0)
+    m.supports_rgbw = True
     return m
 
 

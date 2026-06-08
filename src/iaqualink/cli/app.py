@@ -824,6 +824,41 @@ async def _set_effect(
     return t
 
 
+async def _set_rgbw(
+    credentials: Credentials,
+    system_selector: str | None,
+    device_selector: str,
+    red: int,
+    green: int,
+    blue: int,
+    white: int,
+    cookie_jar: Path,
+) -> Text:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_system(systems, system_selector)
+    devices = await _load_devices_for_system(system)
+    device_name, device = _resolve_device(devices, device_selector)
+
+    if not isinstance(device, AqualinkLight):
+        _exit_with_error(f"Device {device_name!r} is not a light.")
+
+    if not device.supports_rgbw:
+        _exit_with_error(
+            f"Device {device_name!r} does not support RGBW control."
+        )
+
+    await device.set_rgbw(red, green, blue, white)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append("Set RGBW of ")
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    t.append(f" to ({red}, {green}, {blue}, {white}) on ")
+    t.append_text(_format_system_line(system))
+    return t
+
+
 @app.callback()
 def callback(
     debug: Annotated[
@@ -991,6 +1026,37 @@ def set_effect(
     credentials = _resolve_credentials(username, password, config)
     _console.print(
         _run_async(_set_effect(credentials, system, device, effect, cookie_jar))
+    )
+
+
+@app.command("set-rgbw")
+def set_rgbw(
+    device: DeviceArgument,
+    red: Annotated[
+        int, typer.Argument(help="Red value (0-255).", min=0, max=255)
+    ],
+    green: Annotated[
+        int, typer.Argument(help="Green value (0-255).", min=0, max=255)
+    ],
+    blue: Annotated[
+        int, typer.Argument(help="Blue value (0-255).", min=0, max=255)
+    ],
+    white: Annotated[
+        int, typer.Argument(help="White value (0-255).", min=0, max=255)
+    ] = 0,
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    _console.print(
+        _run_async(
+            _set_rgbw(
+                credentials, system, device, red, green, blue, white, cookie_jar
+            )
+        )
     )
 
 

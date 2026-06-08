@@ -65,6 +65,8 @@ class LightFixture:
     device_on: AqualinkLight
     device_off: AqualinkLight
     has_noop_guard: bool = True
+    has_brightness_step_validation: bool = True
+    """True if the device rejects non-step brightness values (e.g. 89%); False if any 0–100 value is valid."""
     expected_class: type | None = None
 
 
