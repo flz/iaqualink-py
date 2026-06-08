@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
     from iaqualink.typing import Payload
 
 TCX_SHADOW_URL = "https://prod.zodiac-io.com/devices/v2"
+TCX_SUB_SHADOW_READ_URL = "https://prod.zodiac-io.com/devices/v1"
 
 # Sub-shadow suffixes that may exist for a given device.
 # Presence is signalled by state.reported.equipment.<key>.
@@ -78,6 +80,16 @@ class TcxSystem(AqualinkSystem):
 
         return await self._send_with_reauth_retry(do_request)
 
+    async def _send_sub_shadow_read_request(
+        self, suffix: str
+    ) -> httpx.Response:
+        async def do_request() -> httpx.Response:
+            url = f"{TCX_SUB_SHADOW_READ_URL}/{self.serial}{suffix}/shadow"
+            headers = {"Authorization": self.aqualink.id_token}
+            return await self.aqualink.send_request(url, headers=headers)
+
+        return await self._send_with_reauth_retry(do_request)
+
     async def send_reported_state_request(self) -> httpx.Response:
         return await self._send_shadow_request(self.serial)
 
@@ -88,11 +100,45 @@ class TcxSystem(AqualinkSystem):
             self.serial, method="post", json={"state": {"desired": state}}
         )
 
+    async def send_sub_shadow_desired_state_request(
+        self, suffix: str, state: dict[str, Any]
+    ) -> httpx.Response:
+        return await self._send_shadow_request(
+            f"{self.serial}{suffix}",
+            method="post",
+            json={"state": {"desired": state}},
+        )
+
     async def _refresh(self) -> None:
         r = await self.send_reported_state_request()
-        self._parse_shadow_response(r)
+        reported = self._parse_shadow_response(r)
 
-    def _parse_shadow_response(self, response: httpx.Response) -> None:
+        suffixes = self._active_sub_shadow_suffixes(reported)
+        if suffixes:
+            sub_responses = await asyncio.gather(
+                *[self._send_sub_shadow_read_request(s) for s in suffixes],
+                return_exceptions=True,
+            )
+            for suffix, resp in zip(suffixes, sub_responses):
+                if isinstance(resp, BaseException):
+                    LOGGER.warning(
+                        "TCX sub-shadow %s fetch failed for %s: %s",
+                        suffix,
+                        mask_serial(self.serial),
+                        resp,
+                    )
+                    continue
+                self._parse_sub_shadow_response(suffix, resp)
+
+    def _active_sub_shadow_suffixes(
+        self, reported: dict[str, Any]
+    ) -> list[str]:
+        equipment = reported.get("equipment", {})
+        return [s for k, s in _SUB_SHADOW_SUFFIX_MAP.items() if k in equipment]
+
+    def _parse_shadow_response(
+        self, response: httpx.Response
+    ) -> dict[str, Any]:
         data = response.json()
         LOGGER.debug("TCX shadow body: %s", redact_value(data))
 
@@ -111,15 +157,57 @@ class TcxSystem(AqualinkSystem):
         )
 
         self._update_devices(reported)
+        return reported
+
+    def _parse_sub_shadow_response(
+        self, suffix: str, response: httpx.Response
+    ) -> None:
+        data = response.json()
+        LOGGER.debug("TCX sub-shadow %s body: %s", suffix, redact_value(data))
+        reported = data.get("state", {}).get("reported", {})
+
+        if suffix == "_filt":
+            self._merge_device_data("filt0", reported)
+        elif suffix == "_ecm":
+            self._merge_device_data("ecm0", reported)
+        elif suffix == "_fea":
+            self._parse_fea_sub_shadow(reported)
+        elif suffix == "_zig":
+            self._parse_zig_sub_shadow(reported)
+        # _sched, _pib0, _scene: fetched but schema not confirmed; not surfaced
+
+    def _merge_device_data(self, key: str, reported: dict[str, Any]) -> None:
+        if key in self.devices:
+            self.devices[key].data.update(reported)
+
+    def _parse_fea_sub_shadow(self, reported: dict[str, Any]) -> None:
+        candidates: dict[str, dict[str, Any]] = {}
+        for k, v in reported.items():
+            if (
+                k.startswith("feaCircuit")
+                and k[10:].isdigit()
+                and isinstance(v, dict)
+            ):
+                candidates[k] = {"name": k, **v}
+        self._upsert_devices(candidates)
+
+    def _parse_zig_sub_shadow(self, reported: dict[str, Any]) -> None:
+        zig = reported.get("zig", {})
+        if not isinstance(zig, dict):
+            return
+        candidates: dict[str, dict[str, Any]] = {}
+        for addr, v in zig.items():
+            if isinstance(v, dict):
+                key = f"zig_{addr}"
+                candidates[key] = {"name": key, "addr": addr, **v}
+        self._upsert_devices(candidates)
 
     def _update_devices(self, reported: dict[str, Any]) -> None:
         candidates: dict[str, dict[str, Any]] = {}
 
-        # Water temperature sensor
         if "water" in reported:
             candidates["water"] = {"name": "water", **reported["water"]}
 
-        # Air temperature sensor
         if "airTemp" in reported:
             candidates["air"] = {
                 "name": "air",
@@ -127,15 +215,12 @@ class TcxSystem(AqualinkSystem):
                 "snsr": reported.get("airSnsr"),
             }
 
-        # Filtration pump
         if "filt0" in reported:
             candidates["filt0"] = {"name": "filt0", **reported["filt0"]}
 
-        # Variable speed pump
         if "ecm0" in reported:
             candidates["ecm0"] = {"name": "ecm0", **reported["ecm0"]}
 
-        # Auxiliary relays — aux0..auxN (only aux0 known from spec; discover dynamically)
         for key, val in reported.items():
             if (
                 key.startswith("aux")
@@ -144,22 +229,18 @@ class TcxSystem(AqualinkSystem):
             ):
                 candidates[key] = {"name": key, **val}
 
-        # Heater / temperature set-point body 0 (uppercase T — wire-level invariant)
         if "TspBdy0" in reported:
             candidates["TspBdy0"] = {
                 "name": "TspBdy0",
                 **reported["TspBdy0"],
             }
 
-        # Heater tile state (drives is_heating flag)
         if "lvh1" in reported:
             candidates["lvh1"] = {"name": "lvh1", **reported["lvh1"]}
 
-        # Salt water chlorinator
         if "swc0" in reported:
             candidates["swc0"] = {"name": "swc0", **reported["swc0"]}
 
-        # Solar sensor
         if "solar" in reported:
             candidates["solar"] = {"name": "solar", **reported["solar"]}
 
@@ -169,6 +250,9 @@ class TcxSystem(AqualinkSystem):
             len(candidates),
         )
 
+        self._upsert_devices(candidates)
+
+    def _upsert_devices(self, candidates: dict[str, dict[str, Any]]) -> None:
         for key, attrs in candidates.items():
             if key in self.devices:
                 for dk, dv in attrs.items():
@@ -207,5 +291,17 @@ class TcxSystem(AqualinkSystem):
     async def set_vsp_speed(self, speed_rpm: int) -> None:
         r = await self.send_desired_state_request(
             {"ecm0": {"cmdSpd": speed_rpm}}
+        )
+        r.raise_for_status()
+
+    async def set_feature_circuit_state(self, name: str, state: int) -> None:
+        r = await self.send_sub_shadow_desired_state_request(
+            "_fea", {name: {"st": state}}
+        )
+        r.raise_for_status()
+
+    async def set_zigbee_state(self, addr: str, state: int) -> None:
+        r = await self.send_sub_shadow_desired_state_request(
+            "_zig", {"zig": {addr: {"st": state}}}
         )
         r.raise_for_status()
