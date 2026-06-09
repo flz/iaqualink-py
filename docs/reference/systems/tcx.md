@@ -470,6 +470,17 @@ The `state.reported` object contains 42 top-level fields representing the full d
 | `asAux` | string | Associated aux |
 | `zn` | array\<long\> | Zone assignment |
 
+### `spdList` Element (Speed Preset)
+
+Elements of `ecm0.spdList`:
+
+| JSON key | Type | Description |
+|---|---|---|
+| `speed` | long | Preset speed (RPM) |
+| `name` | string | Preset name |
+| `app` | string | Application type |
+| `ar` | long | Auto-run flag |
+
 ### `TspBdy0` (Heater / Temperature Set-Point Body 0)
 
 Note: JSON key uses uppercase `T`.
@@ -504,6 +515,14 @@ Drives the heater home-screen tile:
 |---|---|---|
 | `en` | long | Heater state — see table above |
 | `app` | string | `"HEAT"` (heater configured) or `"OFF"` |
+| `st` | long | Current status |
+| `cd` | long | Countdown timer |
+| `cl` | boolean | Cool pool |
+| `cp` | boolean | Cool pool flag |
+| `et` | string | Equipment type |
+| `fr` | string | Friendly name |
+| `model` | string | Heater model identifier |
+| `zn` | array\<long\> | Zone assignment |
 
 ### `solar`
 
@@ -573,6 +592,114 @@ Note: JSON key includes trailing `0`.
 | `cp` | boolean | Cool pool |
 | `zn` | array\<integer\> | Zone assignment |
 
+### `pib0` (PIB Board)
+
+| JSON key | Type | Description |
+|---|---|---|
+| `sn` | string | PIB serial number |
+| `vr` | string | PIB firmware version |
+| `pibConfig` | long | PIB configuration flags |
+| `app` | object | App metadata |
+
+### `jva1` / `jva2` (JVA Valve Actuators)
+
+Both `jva1` and `jva2` share the same schema:
+
+| JSON key | Type | Description |
+|---|---|---|
+| `st` | long | State: `0` = off, `1` = on |
+| `en` | long | Enabled |
+| `pc` | long | Position counter |
+| `app` | string | Application type |
+| `cp` | boolean | Cool pool |
+| `et` | string | Equipment type |
+| `fr` | string | Friendly name |
+| `rs` | string | Reset string |
+| `zn` | array\<long\> | Zone assignment |
+
+### `fcr0` (Freeze Control Relay) / `fcSolar` (Solar Freeze Control)
+
+Both share the same schema:
+
+| JSON key | Type | Description |
+|---|---|---|
+| `st` | integer | State: `0` = off, `1` = on |
+| `en` | integer | Enabled |
+| `sp` | integer | Set point |
+| `ar` | integer | Auto-run flag |
+| `app` | string | Application type |
+| `asAux` | string | Associated aux |
+| `cp` | boolean | Cool pool |
+| `et` | string | Equipment type |
+| `fp` | boolean | Freeze protect active |
+| `fr` | string | Friendly name |
+| `jv` | string | JVA association |
+| `rs` | string | Reset string |
+| `zn` | array\<integer\> | Zone assignment |
+
+### `auxz0` (Auxiliary Zone Config)
+
+| JSON key | Type | Description |
+|---|---|---|
+| `st` | long | State |
+| `en` | long | Enabled |
+| `ty` | long | Type code |
+| `app` | string | Application type |
+| `cm` | long | Config mode |
+| `cp` | boolean | Cool pool |
+| `currClr` | integer | Current color index |
+| `dl` | long | Dimmer level |
+| `ei` | string | Equipment identifier |
+| `em` | long | (reserved) |
+| `et` | string | Equipment type |
+| `fp` | boolean | Freeze protect |
+| `fr` | string | Friendly name |
+| `lockClr` | integer | Locked color index |
+| `man` | string | Manual mode |
+| `model` | string | Model identifier |
+| `ni` | string | Network identifier |
+| `present` | long | Present flag |
+| `rstClr` | integer | Reset/default color |
+| `statClr` | integer | Color status |
+| `svdClr` | integer | Saved color |
+| `sy` | long | (reserved) |
+| `ty` | long | Type code |
+| `zn` | array\<long\> | Zone assignment |
+
+### `zig` (ZigBee Hub Info — main shadow)
+
+The `zig` key in the main shadow contains hub-level ZigBee info (not per-device):
+
+| JSON key | Type | Description |
+|---|---|---|
+| `st` | long | Hub state |
+| `op` | long | Operating mode |
+| `ty` | string | Hub type |
+| `euid` | string | Extended unique identifier |
+| `ai` | string | Additional info |
+| `bt` | string | Bluetooth info |
+| `fw` | string | Firmware version |
+
+Individual ZigBee device state is in the `_zig` sub-shadow.
+
+### `hubAir` (Hub Air Sensor)
+
+| JSON key | Type | Description |
+|---|---|---|
+| `value` | integer | Air temperature reading |
+| `us` | integer | Sensor status |
+
+### `sl` Element (Schedule Slot)
+
+Elements of `filt0.sl`:
+
+| JSON key | Type | Description |
+|---|---|---|
+| `sn` | string | Slot name |
+| `ss` | long | Schedule state/type |
+| `ap` | string | Application type |
+| `ar` | long | Auto-run flag |
+
 ### `equipment`
 
 Indicates which sub-shadow documents exist for this device:
@@ -592,14 +719,14 @@ Indicates which sub-shadow documents exist for this device:
 
 | JSON key | Type | Description |
 |---|---|---|
-| `address` | string | Street address |
-| `city` | string | City |
-| `country` | string | Country |
-| `latitude` | double | GPS latitude |
-| `longitude` | double | GPS longitude |
-| `name` | string | Site name |
-| `postalCode` | string | Postal code |
-| `state` | string | State/Province |
+| `latitude` | string | GPS latitude |
+| `longitude` | string | GPS longitude |
+| `timeZone` | string | Timezone ID |
+| `time_zone` | string | Timezone ID (alternate key) |
+| `localUTC` | long | Local UTC offset |
+| `daylightSaving` | boolean | Daylight saving enabled |
+| `daylight_savings` | integer | Daylight saving offset value |
+| `daylightSavingActive` | boolean | Daylight saving currently active |
 
 ### `aws`
 
@@ -607,6 +734,8 @@ Indicates which sub-shadow documents exist for this device:
 |---|---|---|
 | `status` | string | `"connected"` or `"disconnected"` |
 | `timestamp` | long | Last connection state change timestamp |
+| `session_id` | string | AWS IoT session ID |
+| `versionNumber` | long | Shadow version number |
 
 ---
 
@@ -721,12 +850,17 @@ Combined status derived from `aws.status` and `systemMode`:
 | 1 | `TspBdy0` JSON key uses uppercase `T` — case-sensitive |
 | 2 | `Bluetooth` JSON key uses uppercase `B` — case-sensitive |
 | 3 | `swc0` key includes trailing `0` — not just `swc` |
-| 4 | Main shadow uses `/devices/v2/`; sub-shadows use `/devices/v1/` |
-| 5 | HMAC signature required on shadow GET requests |
+| 4 | Main shadow GET uses `/devices/v2/`; sub-shadow GETs use `/devices/v1/` |
+| 5 | HMAC signature required on shadow GET requests (`?signature={sig}`) |
 | 6 | WebSocket is the default transport; MQTT is enabled by server-side flag |
 | 7 | BLE payloads omit the `{"state":{"desired":}}` wrapper — only the inner object is sent |
 | 8 | `water.us` overloads sensor status with pump-off detection — not a pure temperature field |
 | 9 | `systemMode` JSON key maps to service mode semantics (not to be confused with pool/spa mode) |
+| 10 | WebSocket connection path is `/devices` (full URL: `wss://prod-socket.zodiac-io.com/devices`) |
+| 11 | Reference app writes sub-shadows to `/devices/v1/{serial}_{suffix}/shadow` with a full state body; AWS shadow desired-state pattern (`/devices/v2/`) may also work server-side |
+| 12 | `spdList` entries use field `speed` for the RPM value (not `spd`) |
+| 13 | `site` in the shadow contains timezone and location fields; address/city/country fields are not part of the shadow document (they may appear on the `/devices/v2/{serial}/site` endpoint) |
+| 14 | `aws.session_id` wire key uses underscore (`session_id`), not camelCase |
 
 ---
 
@@ -737,13 +871,10 @@ Combined status derived from `aws.status` and `systemMode`:
 | 1 | `valveMode` numeric values — exact mapping to pool/spa/spillover positions not confirmed from wire traffic |
 | 2 | `systemType` enum values — code-level meaning not confirmed |
 | 3 | `heatPriority` and `heatAvailable` value ranges — not confirmed |
-| 4 | Full `spdList` element schema — speed preset object fields not fully documented |
-| 5 | `equipment` sub-object field values — presence indicators not fully characterized |
-| 6 | WebSocket `{path}` suffix in connection URL — exact path string not confirmed |
-| 7 | Whether sub-shadow writes use `/devices/v1/` or `/devices/v2/` |
-| 8 | `auxz0` full schema — zone configuration fields not characterized |
-| 9 | `jva1`/`jva2` schemas — valve actuator state fields not characterized |
-| 10 | Schedule slot (`sl`) element schema within `filt0` |
+| 4 | `equipment` sub-object field values — presence indicators beyond key presence not characterized |
+| 5 | `feaCircuit` element schema (from `_fea` sub-shadow) — reference app model is empty; fields discovered dynamically |
+| 6 | ZigBee per-device schema within `_zig` sub-shadow — `addr→{st, fr, ...}` shape not confirmed from wire |
+| 7 | `ecm` sub-shadow URL (`tcx_ecm_shadow`) absent from production config — may not be fetched by reference app in production |
 
 ---
 
