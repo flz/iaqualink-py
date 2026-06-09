@@ -12,9 +12,9 @@
       "qcSpd": 3450,
       "qcDur": 60,
       "spdList": [
-        {"name": "Low", "spd": 1000},
-        {"name": "Med", "spd": 2000},
-        {"name": "High", "spd": 3450}
+        {"name": "Low", "speed": 1000},
+        {"name": "Med", "speed": 2000},
+        {"name": "High", "speed": 3450}
       ],
       "st": 1,
       "en": 1,

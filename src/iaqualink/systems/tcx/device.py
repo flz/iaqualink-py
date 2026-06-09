@@ -186,14 +186,14 @@ class TcxVariableSpeedPump(TcxDevice, AqualinkFan):
         if cmd_spd is None:
             return None
         for entry in self._spd_list():
-            if entry.get("spd") == cmd_spd:
+            if entry.get("speed") == cmd_spd:
                 return str(entry["name"])
         return None
 
     async def _set_preset_mode(self, preset_mode: str) -> None:
         for entry in self._spd_list():
             if str(entry["name"]) == preset_mode:
-                await self.system.set_vsp_speed(int(entry["spd"]))
+                await self.system.set_vsp_speed(int(entry["speed"]))
                 return
 
     @property
