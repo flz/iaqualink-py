@@ -18,7 +18,11 @@ from iaqualink.exception import (
     AqualinkOperationNotSupportedException,
     AqualinkStateUnavailableException,
 )
-from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
+from iaqualink.systems.iaqua.enums import (
+    IaquaBoostControl,
+    IaquaBoostMode,
+    IaquaTemperatureUnit,
+)
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import IaquaSystem
@@ -136,6 +140,18 @@ class IaquaOneTouchSwitch(IaquaSwitch):
     # state, so the inherited turn_on/turn_off guards are correct as-is.
     async def _toggle(self) -> None:
         await self.system.set_onetouch(self.data["name"])
+
+
+class IaquaSwcBoostSwitch(IaquaSwitch):
+    async def _toggle(self) -> None:
+        if self.is_on:
+            await self.system.control_swc_boost(IaquaBoostControl.STOP)
+        else:
+            await self.system.control_swc_boost(
+                IaquaBoostControl.START,
+                boosthrs=24,
+                boostmode=IaquaBoostMode.POOL,
+            )
 
 
 class IaquaHeater(IaquaSwitch):
@@ -452,6 +468,30 @@ class IaquaSetPoint(IaquaDevice, AqualinkNumber):
         await self.system.set_temps({self._temperature_key: str(int(value))})
 
 
+class IaquaSwcSetPoint(IaquaDevice, AqualinkNumber):
+    @property
+    def current_value(self) -> float | None:
+        return float(self.state) if self.state else None
+
+    @property
+    def min_value(self) -> float:
+        return 0.0
+
+    @property
+    def max_value(self) -> float:
+        return 100.0
+
+    async def _set_value(self, value: float) -> None:
+        is_pool = self.name == "swc_pool_set_point"
+        other_key = "swc_spa_set_point" if is_pool else "swc_pool_set_point"
+        other_dev = self.system.devices.get(other_key)
+        other_state = other_dev.data.get("state") if other_dev else None
+        other_sp = int(other_state) if other_state else int(value)
+        pool_sp = int(value) if is_pool else other_sp
+        spa_sp = other_sp if is_pool else int(value)
+        await self.system.set_swc_config(pool_sp, spa_sp)
+
+
 ICL_CUSTOM_COLOR_ID = 16
 ICL_CUSTOM_COLOR_NAME = "Custom Color"
 
@@ -666,6 +706,13 @@ _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
     "spa_set_point": IaquaSetPoint,
     "pool_set_point": IaquaSetPoint,
     "relay_count": IaquaSensor,
+    "swc_set_point": IaquaSensor,
+    "swc_boost": IaquaSwcBoostSwitch,
+    "swc_low": IaquaBinarySensor,
+    "swc_pool_value": IaquaSensor,
+    "swc_pool_status": IaquaSensor,
+    "swc_spa_value": IaquaSensor,
+    "swc_spa_status": IaquaSensor,
 }
 
 _HOME_DEVICE_LABELS: dict[str, str] = {
@@ -688,3 +735,14 @@ _HOME_DEVICE_LABELS: dict[str, str] = {
     "pool_set_point": "Pool Set Point",
     "relay_count": "Relay Count",
 }
+
+# Devices populated from get_swc_config response: (device_key, response_field, device_class)
+_SWC_CONFIG_DEVICE_MAP: list[tuple[str, str, type[IaquaDevice]]] = [
+    ("swc_pool_set_point", "poolSWCSP", IaquaSwcSetPoint),
+    ("swc_spa_set_point", "spaSWCSP", IaquaSwcSetPoint),
+    ("swc_boost_hrs", "boostHrsVal", IaquaSensor),
+    ("swc_remaining_boost_hrs", "remainingBoostHrs", IaquaSensor),
+    ("swc_remaining_boost_mins", "remainingBoostMins", IaquaSensor),
+    ("swc_boost_mode", "boostMode", IaquaSensor),
+    ("swc_boost_dip_switch", "boostDipSwitch", IaquaBinarySensor),
+]

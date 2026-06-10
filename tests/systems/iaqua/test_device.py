@@ -29,6 +29,8 @@ from iaqualink.systems.iaqua.device import (
     IaquaPresenceSensor,
     IaquaSensor,
     IaquaSetPoint,
+    IaquaSwcBoostSwitch,
+    IaquaSwcSetPoint,
     IaquaSwitch,
     IaquaZoneStatus,
 )
@@ -48,6 +50,8 @@ from .factories import (
     IAQUA_POOL_SET_POINT_DATA,
     IAQUA_POOL_TEMP_DATA,
     IAQUA_SENSOR_DATA,
+    IAQUA_SWC_BOOST_OFF_DATA,
+    IAQUA_SWC_POOL_SET_POINT_DATA,
     IAQUA_SWITCH_OFF_DATA,
     make_system,
 )
@@ -893,3 +897,124 @@ class TestIaquaIclLight:
         assert sut.rgbw == (200, 100, 50, 25)
         assert sut._color_id == ICL_CUSTOM_COLOR_ID
         assert sut.effect is None  # color_id=16 excluded from effect
+
+
+class TestIaquaSwcSetPoint:
+    """iAqua SWC set point — pool/spa pairing, wire-protocol URL verification."""
+
+    def test_property_label(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        assert sut.label == "Swc Pool Set Point"
+
+    def test_property_current_value(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        assert sut.current_value == 50.0
+
+    def test_property_current_value_empty_state(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        sut.data["state"] = ""
+        assert sut.current_value is None
+
+    def test_property_min_value(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        assert sut.min_value == 0.0
+
+    def test_property_max_value(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        assert sut.max_value == 100.0
+
+    async def test_set_value_at_min(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_value(sut.min_value)
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "command=set_swc_config" in url
+        assert "poolswcsp=0" in url
+
+    async def test_set_value_at_max(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_value(sut.max_value)
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "command=set_swc_config" in url
+        assert "poolswcsp=100" in url
+
+    async def test_set_value_preserves_spa_setpoint(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        system = make_system()
+        sut = IaquaSwcSetPoint(system, {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        system.devices = {
+            "swc_pool_set_point": sut,
+            "swc_spa_set_point": IaquaSwcSetPoint(
+                system, {"name": "swc_spa_set_point", "state": "35"}
+            ),
+        }
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_value(70.0)
+        url = str(respx_mock.calls[0].request.url)
+        assert "poolswcsp=70" in url
+        assert "spaswcsp=35" in url
+
+    async def test_set_value_spa_preserves_pool_setpoint(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        system = make_system()
+        sut = IaquaSwcSetPoint(
+            system, {"name": "swc_spa_set_point", "state": "35"}
+        )
+        system.devices = {
+            "swc_spa_set_point": sut,
+            "swc_pool_set_point": IaquaSwcSetPoint(
+                system, {**IAQUA_SWC_POOL_SET_POINT_DATA, "state": "40"}
+            ),
+        }
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_value(70.0)
+        url = str(respx_mock.calls[0].request.url)
+        assert "poolswcsp=40" in url
+        assert "spaswcsp=70" in url
+
+
+class TestIaquaSwcBoostSwitch:
+    def test_is_on_false(self) -> None:
+        sut = IaquaSwcBoostSwitch(make_system(), {**IAQUA_SWC_BOOST_OFF_DATA})
+        assert sut.is_on is False
+
+    def test_is_on_true(self) -> None:
+        sut = IaquaSwcBoostSwitch(
+            make_system(), {**IAQUA_SWC_BOOST_OFF_DATA, "state": "1"}
+        )
+        assert sut.is_on is True
+
+    async def test_turn_on_sends_start(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcBoostSwitch(make_system(), {**IAQUA_SWC_BOOST_OFF_DATA})
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.turn_on()
+        url = str(respx_mock.calls[0].request.url)
+        assert "command=control_swc_boost" in url
+        assert "boostcontrol=start" in url
+        assert "boosthrs=24" in url
+        assert "boostmode=pool" in url
+
+    async def test_turn_off_sends_stop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcBoostSwitch(
+            make_system(), {**IAQUA_SWC_BOOST_OFF_DATA, "state": "1"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.turn_off()
+        url = str(respx_mock.calls[0].request.url)
+        assert "command=control_swc_boost" in url
+        assert "boostcontrol=stop" in url

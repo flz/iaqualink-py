@@ -25,6 +25,8 @@ from iaqualink.systems.iaqua.device import (
     IaquaOneTouchSwitch,
     IaquaSensor,
     IaquaSetPoint,
+    IaquaSwcBoostSwitch,
+    IaquaSwcSetPoint,
     IaquaSwitch,
 )
 from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
@@ -90,6 +92,11 @@ IAQUA_COLOR_LIGHT_OFF_DATA: dict = {
 IAQUA_POOL_SET_POINT_DATA: dict = {"name": "pool_set_point", "state": "86"}
 IAQUA_POOL_TEMP_DATA: dict = {"name": "pool_temp", "state": "65"}
 IAQUA_CLIMATE_DATA: dict = {"name": "pool_thermostat"}
+IAQUA_SWC_BOOST_OFF_DATA: dict = {"name": "swc_boost", "state": "0"}
+IAQUA_SWC_POOL_SET_POINT_DATA: dict = {
+    "name": "swc_pool_set_point",
+    "state": "50",
+}
 
 
 def make_system() -> IaquaSystem:
@@ -219,11 +226,22 @@ def _iaqua_onetouch_switch() -> SwitchFixture:
     )
 
 
+def _iaqua_swc_boost_switch() -> SwitchFixture:
+    system = make_system()
+    data_on = {**IAQUA_SWC_BOOST_OFF_DATA, "state": "1"}
+    return SwitchFixture(
+        device_on=IaquaSwcBoostSwitch(system, data_on),
+        device_off=IaquaSwcBoostSwitch(system, {**IAQUA_SWC_BOOST_OFF_DATA}),
+        expected_class=IaquaSwcBoostSwitch,
+    )
+
+
 iaqua_switch_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-switch", _iaqua_switch),
     ("iaqua-heater", _iaqua_heater),
     ("iaqua-aux-switch", _iaqua_aux_switch),
     ("iaqua-onetouch-switch", _iaqua_onetouch_switch),
+    ("iaqua-swc-boost-switch", _iaqua_swc_boost_switch),
 ]
 
 # ---------------------------------------------------------------------------
@@ -344,8 +362,17 @@ def _iaqua_set_point() -> NumberFixture:
     return NumberFixture(device=device, expected_class=IaquaSetPoint)
 
 
+def _iaqua_swc_set_point() -> NumberFixture:
+    system = make_system()
+    device = IaquaSwcSetPoint(system, {**IAQUA_SWC_POOL_SET_POINT_DATA})
+    system.devices = {"swc_pool_set_point": device}
+
+    return NumberFixture(device=device, expected_class=IaquaSwcSetPoint)
+
+
 iaqua_number_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-set-point", _iaqua_set_point),
+    ("iaqua-swc-set-point", _iaqua_swc_set_point),
 ]
 
 # ---------------------------------------------------------------------------

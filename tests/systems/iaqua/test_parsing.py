@@ -51,3 +51,50 @@ def test_parse_devices_icl_zones(system, snapshot: SnapshotAssertion) -> None:
         make_response(load_fixture("iaqua", "session_get_devices_icl_zones"))
     )
     assert snapshot_devices(system.devices) == snapshot
+
+
+def test_parse_swc_config(system, snapshot: SnapshotAssertion) -> None:
+    system._parse_home_response(
+        make_response(load_fixture("iaqua", "session_get_home"))
+    )
+    system._parse_devices_response(
+        make_response(load_fixture("iaqua", "session_get_devices"))
+    )
+    system._parse_swc_config_response(
+        make_response(load_fixture("iaqua", "session_get_swc_config"))
+    )
+    assert snapshot_devices(system.devices) == snapshot
+
+
+def test_parse_swc_config_boost_on(system, snapshot: SnapshotAssertion) -> None:
+    system._parse_home_response(
+        make_response(load_fixture("iaqua", "session_get_home"))
+    )
+    system._parse_devices_response(
+        make_response(load_fixture("iaqua", "session_get_devices"))
+    )
+    system._parse_swc_config_response(
+        make_response(load_fixture("iaqua", "session_get_swc_config"))
+    )
+    system._parse_swc_config_response(
+        make_response(load_fixture("iaqua", "session_control_swc_boost"))
+    )
+    assert snapshot_devices(system.devices) == snapshot
+
+
+def test_parse_swc_config_after_set(
+    system, snapshot: SnapshotAssertion
+) -> None:
+    system._parse_home_response(
+        make_response(load_fixture("iaqua", "session_get_home"))
+    )
+    system._parse_devices_response(
+        make_response(load_fixture("iaqua", "session_get_devices"))
+    )
+    system._parse_swc_config_response(
+        make_response(load_fixture("iaqua", "session_get_swc_config"))
+    )
+    system._parse_swc_config_response(
+        make_response(load_fixture("iaqua", "session_set_swc_config"))
+    )
+    assert snapshot_devices(system.devices) == snapshot
