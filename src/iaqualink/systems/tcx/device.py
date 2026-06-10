@@ -10,7 +10,7 @@ from iaqualink.device import (
     AqualinkSensor,
     AqualinkSwitch,
 )
-from iaqualink.systems.tcx.enums import WaterStatus
+from iaqualink.systems.tcx.enums import SolarStatus, WaterStatus
 
 if TYPE_CHECKING:
     from iaqualink.systems.tcx.system import TcxSystem
@@ -108,6 +108,9 @@ class TcxSolarSensor(TcxDevice, AqualinkSensor):
 
     @property
     def value(self) -> str:
+        us = self.data.get("us")
+        if us != SolarStatus.PRESENT:
+            return ""
         raw = self.data.get("value")
         return str(raw) if raw is not None else ""
 
@@ -223,8 +226,8 @@ class TcxVariableSpeedPump(TcxDevice, AqualinkFan):
 class TcxClimate(TcxDevice, AqualinkClimate):
     @property
     def label(self) -> str:
-        name = self.data.get("name_")
-        return str(name) if name else "Heater"
+        body_name = self.data.get("bodyName")
+        return str(body_name) if body_name else "Heater"
 
     @property
     def is_on(self) -> bool:
