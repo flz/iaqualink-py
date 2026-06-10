@@ -59,7 +59,7 @@ Commands `enable_disable_hpm`, `switch_hpm_mode`, and `setpoint_hpm_temp` are no
 
 #### VSP via iQ20 Session
 
-The iQ20 session endpoint hosts 14 VSP management commands (`get_vsp_names`, `get_vsp_speedauxinfo`, `get_vsp_definition`, `get_vsp_appmodelserials`, `get_unassigned_serials`, `set_vsp_name`, `set_vsp_definition`, `assign_vsp_serial`, `unassign_vsp_serial`, `enable_disable_pump_speedId`, `set_aux_speed`, `set_speed_name`, `set_speedname_value`, `enable_pump_speed_value`). None are implemented.
+The iQ20 session endpoint hosts 14 VSP management commands. Of these, `get_vsp_names`, `get_vsp_speedauxinfo`, `enable_disable_pump_speedId`, `get_vsp_appmodelserials`, and `get_master_device_list` are implemented (see [VSP Pump Control](#vsp-pump-control) below). The remaining 9 management commands (`get_vsp_definition`, `get_unassigned_serials`, `set_vsp_name`, `set_vsp_definition`, `assign_vsp_serial`, `unassign_vsp_serial`, `set_aux_speed`, `set_speed_name`, `set_speedname_value`, `enable_pump_speed_value`) are not implemented.
 
 Note: these iQ20-session VSP commands are distinct from the iQPump protocol handled by the `i2d` system. They control pumps physically wired to the iQ20 controller via the same `p-api` session endpoint.
 
@@ -73,7 +73,7 @@ Note: these iQ20-session VSP commands are distinct from the iQPump protocol hand
 
 #### Peripheral Device List
 
-`get_master_device_list` is not implemented.
+`get_master_device_list` is implemented and used during VSP pump discovery (see [VSP Pump Control](#vsp-pump-control)).
 
 ## System Status Lifecycle
 
@@ -210,6 +210,73 @@ The API accepts any integer in 0–100 for `dim_level`. The implementation rejec
 | 4 | Brightness via `set_iclzone_color` | ✓ Matches; `set_iclzone_dim` not used |
 | 5 | `define_iclzone_customcolor` returns a narrower response (no `icl_info_list`) | ✓ Handled by `_parse_icl_custom_color_response` |
 | 6 | Color preset index 16 = custom RGBW mode (not a named preset) | ✓ `ICL_EFFECTS` covers indices 0–15; index 16 not exposed as a named effect — use `set_rgbw()` instead |
+
+## VSP Pump Control
+
+### Overview
+
+Variable-speed pump support is an optional subsystem within `IaquaSystem`. It is entirely separate from the standalone Jandy iQPump (device type `i2d`). All VSP commands use the same session endpoint as the rest of the iQ20 protocol (`p-api.iaqualink.net/v2/mobile/session.json`).
+
+### Device class
+
+`IaquaPump(AqualinkFan, IaquaDevice)` — inherits device identity from `IaquaDevice` and exposes the `AqualinkFan` preset contract (suitable for a Home Assistant `fan` entity).
+
+| `AqualinkFan` property | `IaquaPump` behaviour |
+|---|---|
+| `supports_turn_on` | `True` — activates first speed preset (or `speed_id=1` if presets not yet loaded) via `enable_disable_pump_speedId` |
+| `supports_turn_off` | `True` — sends `enable_disable_pump_speedId` with `on_off_action=off` |
+| `supports_presets` | `True` after `fetch_speed()` is called; always `True` post-discovery since `fetch_speed()` runs before device enters `self.devices` |
+| `preset_modes` | Raises `AqualinkOperationNotSupportedException` if `_speed_presets` not yet populated |
+| `preset_mode` | Raises same exception if not loaded; returns `None` if no preset has `enabled == "true"` |
+| `supports_percentage` | `False` — arbitrary-RPM write not yet confirmed for iaqua VSP |
+
+### Slot ID
+
+Each VSP pump is identified by a `slot_id` (integer). This is stored in `device.data["slot_id"]` and read via `IaquaPump.slot_id`. It is set during discovery and passed to all speed commands.
+
+### Discovery flow
+
+`_refresh_vsp_pumps()` runs **once per system lifetime** (guarded by `_vsp_discovered`):
+
+1. Check `system.data.get("isVSP") == "true"` (`is_vsp` property) — skip if false.
+2. Call `get_vsp_names()` → build `pumpId → pumpName` map.
+3. Call `get_master_device_list()` → filter to `isVSP == "true"` entries; if none found, fall back to `get_vsp_appmodelserials()`.
+4. For each slot ID not already in `self.devices`: create `IaquaPump`, call `fetch_speed()` to populate `_speed_presets`, then add to `self.devices`.
+
+Called from `_refresh()` after `_parse_devices_response`, only when `is_vsp and not _vsp_discovered`. The pump is never added to `self.devices` before `_speed_presets` is populated.
+
+### Preset lifecycle
+
+```python
+# _speed_presets populated automatically during _refresh_vsp_pumps() discovery
+pump.preset_modes               # ["LO", "MED", "HI", ...]
+pump.preset_mode                # name of preset with enabled=="true", or None
+await pump.set_preset_mode("LO")  # calls enable_disable_pump_speedId; updates _speed_presets from response
+await pump.turn_off()             # calls enable_disable_pump_speedId with on_off_action=off
+await pump.fetch_speed()          # explicit refresh from get_vsp_speedauxinfo if needed
+```
+
+`_speed_presets` is populated by `fetch_speed()` during discovery. After each write (`set_preset_mode`, `turn_on`, `turn_off`), `_apply_speed_update()` merges the response `vsp_speedInfo` back into `_speed_presets` so `is_on` and `preset_mode` stay current without an extra round-trip. Callers needing a full refresh can call `fetch_speed()` explicitly.
+
+### Design decisions
+
+**`supports_presets` is `True` after `fetch_speed()`:** `IaquaPump` is always a VSP-capable device (that's why it was created). In practice `fetch_speed()` runs during discovery before the device enters `self.devices`, so by the time any external caller sees the pump `supports_presets` is already `True`. `False` is only observable if `IaquaPump` is constructed directly without calling `fetch_speed()`.
+
+**No automatic preset refresh on `_refresh()`:** `get_vsp_speedauxinfo` is an extra HTTP call per pump. The current active preset can change externally (e.g. schedule), so callers needing up-to-date preset state should call `fetch_speed()` explicitly.
+
+**`slot_id` in `data`, not constructor:** Keeps the `IaquaDevice` constructor signature uniform (`system, data`). Discovery stores `slot_id` in the data dict; `IaquaPump.slot_id` reads it with a default of `1`.
+
+**Turn on/off via `enable_disable_pump_speedId`:** `turn_on` activates the first configured speed preset (or `speed_id=1` if presets unavailable). `turn_off` sends `on_off_action=off` via `stop_vsp_pump()`. Both update `_speed_presets` via `_apply_speed_update()` from the response.
+
+### Deltas vs Protocol Reference
+
+| # | Reference spec | Current implementation |
+|---|---|---|
+| 1 | `get_master_device_list` used to enumerate VSP devices with `isVSP` flag | ✓ Called during discovery; per-device `isVSP` flag is the primary slot-ID source. Falls back to `get_vsp_appmodelserials` if master list returns no VSP devices. |
+| 2 | `get_vsp_speedauxinfo` response uses `slot` (not `slot_id`) | Parsed via `data.get("vsp_speedInfo", [])` — `slot` field not consumed |
+| 3 | `enable_disable_pump_speedId` response carries updated `vsp_speedInfo` with `status` values | ✓ Parsed by `_apply_speed_update()` after `turn_on`, `turn_off`, and `set_preset_mode` |
+| 4 | `get_vsp_names` / `get_vsp_appmodelserials` called once at discovery | ✓ Matches — guarded by `_vsp_discovered` flag |
+| 5 | Arbitrary-RPM write command exists (path observed, shape unconfirmed) | Not implemented — `supports_percentage` returns `False` |
 
 ## See Also
 

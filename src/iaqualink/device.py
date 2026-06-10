@@ -417,6 +417,8 @@ class AqualinkFan(AqualinkDevice):
     @property
     def percentage(self) -> int | None:
         """Current speed as a percentage (0–100), or None if unknown."""
+        if not self.supports_percentage:
+            raise AqualinkOperationNotSupportedException
         return None
 
     async def _set_percentage(self, percentage: int) -> None:

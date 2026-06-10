@@ -16,6 +16,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaIclLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
+    IaquaPump,
     IaquaSetPoint,
     IaquaZoneStatus,
     light_subtype_to_class,
@@ -33,8 +34,6 @@ if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.typing import Payload
 
-# v2 session endpoint (p-api); used for all get_*/set_* commands.
-# r-api hosts v1 / swc endpoints — kept here for future reference.
 IAQUA_SESSION_URL = "https://p-api.iaqualink.net/v2/mobile/session.json"
 IAQUA_SESSION_V1_URL = "https://r-api.iaqualink.net/v1/mobile/session.json"
 
@@ -56,6 +55,12 @@ IAQUA_COMMAND_SET_TEMPS = "set_temps"
 IAQUA_COMMAND_ICL_ONOFF = "onoff_iclzone"
 IAQUA_COMMAND_ICL_SET_COLOR = "set_iclzone_color"
 IAQUA_COMMAND_ICL_SET_CUSTOM_COLOR = "define_iclzone_customcolor"
+
+IAQUA_COMMAND_GET_VSP_SPEED = "get_vsp_speedauxinfo"
+IAQUA_COMMAND_SET_VSP_SPEED = "enable_disable_pump_speedId"
+IAQUA_COMMAND_GET_VSP_NAMES = "get_vsp_names"
+IAQUA_COMMAND_GET_VSP_APPMODELSERIALS = "get_vsp_appmodelserials"
+IAQUA_COMMAND_GET_MASTER_DEVICE_LIST = "get_master_device_list"
 
 LOGGER = logging.getLogger("iaqualink.systems.iaqua")
 
@@ -79,6 +84,12 @@ class IaquaSystem(AqualinkSystem):
         # Re-evaluated from the home response on every update() call.
         # None = home response not yet parsed; True/False = last home response value.
         self._onetouch_supported: bool | None = None
+        # VSP pump discovery runs once; False = not yet run.
+        self._vsp_discovered: bool = False
+
+    @property
+    def is_vsp(self) -> bool:
+        return self.data.get("isVSP") == "true"
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -90,20 +101,16 @@ class IaquaSystem(AqualinkSystem):
         command: str,
         params: Payload | None = None,
     ) -> httpx.Response:
-        if not params:
-            params = {}
-
-        params.update(
-            {
-                "actionID": "command",
-                "command": command,
-                "serial": self.serial,
-            }
-        )
+        merged = {
+            **(params or {}),
+            "actionID": "command",
+            "command": command,
+            "serial": self.serial,
+        }
 
         async def do_request() -> httpx.Response:
             request_params = {
-                **params,
+                **merged,
                 "sessionID": self.aqualink.client_id,
             }
             headers = {
@@ -147,6 +154,13 @@ class IaquaSystem(AqualinkSystem):
 
         # ICL info embedded in get_devices response as icl_info_list;
         # parsed by _parse_devices_response. get_icl_info times out on hardware.
+
+        if not self.is_vsp:
+            for key in [k for k in self.devices if k.startswith("vsp_pump_")]:
+                del self.devices[key]
+            self._vsp_discovered = False
+        elif not self._vsp_discovered:
+            await self._refresh_vsp_pumps()
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -447,3 +461,93 @@ class IaquaSystem(AqualinkSystem):
             IAQUA_COMMAND_ICL_SET_CUSTOM_COLOR, params
         )
         self._parse_icl_custom_color_response(r)
+
+    async def get_vsp_speed(self, slot_id: int = 1) -> Payload:
+        r = await self._send_session_request(
+            IAQUA_COMMAND_GET_VSP_SPEED, {"slot_id": str(slot_id)}
+        )
+        return r.json()
+
+    async def set_vsp_speed(self, speed_id: int, slot_id: int = 1) -> Payload:
+        r = await self._send_session_request(
+            IAQUA_COMMAND_SET_VSP_SPEED,
+            {
+                "slot_id": str(slot_id),
+                "speed_id": str(speed_id),
+                "on_off_action": "on",
+            },
+        )
+        return r.json()
+
+    async def stop_vsp_pump(self, slot_id: int = 1) -> Payload:
+        r = await self._send_session_request(
+            IAQUA_COMMAND_SET_VSP_SPEED,
+            {
+                "slot_id": str(slot_id),
+                "speed_id": "1",  # ignored by server when on_off_action="off"
+                "on_off_action": "off",
+            },
+        )
+        return r.json()
+
+    async def get_vsp_names(self) -> Payload:
+        r = await self._send_session_request(IAQUA_COMMAND_GET_VSP_NAMES)
+        return r.json()
+
+    async def get_vsp_appmodelserials(self) -> Payload:
+        r = await self._send_session_request(
+            IAQUA_COMMAND_GET_VSP_APPMODELSERIALS
+        )
+        return r.json()
+
+    async def get_master_device_list(self) -> Payload:
+        r = await self._send_session_request(
+            IAQUA_COMMAND_GET_MASTER_DEVICE_LIST
+        )
+        return r.json()
+
+    async def _refresh_vsp_pumps(self) -> None:
+        names_data = await self.get_vsp_names()
+        name_map: dict[int, str] = {
+            int(p["pumpId"]): str(p["pumpName"])
+            for p in names_data.get("vsp_names", [])
+        }
+
+        # Primary: master device list — per-device isVSP flag identifies slots
+        mdl_data = await self.get_master_device_list()
+        vsp_slots: list[tuple[int, str]] = [
+            (int(d["id"]), str(d.get("name", "")))
+            for d in mdl_data.get("deviceList", [])
+            if d.get("isVSP") == "true"
+        ]
+
+        # Fallback: appmodelserials when master list yields no VSP devices
+        if not vsp_slots:
+            serials_data = await self.get_vsp_appmodelserials()
+            vsp_slots = [
+                (int(p["pumpId"]), "")
+                for p in serials_data.get("vsp_app_model_serials", [])
+            ]
+
+        for pump_id, mdl_name in vsp_slots:
+            device_name = f"vsp_pump_{pump_id}"
+            if device_name in self.devices:
+                continue
+            label = name_map.get(pump_id, mdl_name or f"VSP Pump {pump_id}")
+            data: Payload = {
+                "name": device_name,
+                "state": "0",
+                "label": label,
+                "slot_id": pump_id,
+            }
+            device = IaquaPump(self, data)
+            await device.fetch_speed()
+            self.devices[device_name] = device
+            LOGGER.debug(
+                "VSP pump discovered: serial=%s slot=%d name=%r",
+                self.serial,
+                pump_id,
+                label,
+            )
+
+        self._vsp_discovered = True

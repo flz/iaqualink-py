@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import logging
 from enum import StrEnum, unique
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from iaqualink.device import (
     AqualinkBinarySensor,
     AqualinkClimate,
     AqualinkDevice,
+    AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
     AqualinkSensor,
@@ -136,6 +137,93 @@ class IaquaOneTouchSwitch(IaquaSwitch):
     # state, so the inherited turn_on/turn_off guards are correct as-is.
     async def _toggle(self) -> None:
         await self.system.set_onetouch(self.data["name"])
+
+
+class IaquaPump(AqualinkFan, IaquaDevice):
+    def __init__(self, system: IaquaSystem, data: DeviceData) -> None:
+        super().__init__(system, data)
+        self._speed_presets: list[dict[str, Any]] | None = None
+
+    @property
+    def slot_id(self) -> int:
+        return int(self.data.get("slot_id", 1))
+
+    @property
+    def supports_turn_on(self) -> bool:
+        return True
+
+    @property
+    def supports_turn_off(self) -> bool:
+        return True
+
+    @property
+    def supports_presets(self) -> bool:
+        return self._speed_presets is not None
+
+    @property
+    def supports_percentage(self) -> bool:
+        return False
+
+    @property
+    def is_on(self) -> bool:
+        if self._speed_presets is None:
+            return self.state == IaquaBinaryState.ON
+        return any(p.get("enabled") == "true" for p in self._speed_presets)
+
+    @property
+    def preset_modes(self) -> list[str]:
+        if self._speed_presets is None:
+            raise AqualinkOperationNotSupportedException
+        return [str(p["speedName"]) for p in self._speed_presets]
+
+    @property
+    def preset_mode(self) -> str | None:
+        if self._speed_presets is None:
+            raise AqualinkOperationNotSupportedException
+        for p in self._speed_presets:
+            if p.get("enabled") == "true":
+                return str(p["speedName"])
+        return None
+
+    async def _set_preset_mode(self, preset_mode: str) -> None:
+        if self._speed_presets is None:
+            raise AqualinkOperationNotSupportedException
+        for p in self._speed_presets:
+            if p["speedName"] == preset_mode:
+                result = await self.system.set_vsp_speed(
+                    int(p["speedid"]), slot_id=self.slot_id
+                )
+                self._apply_speed_update(result.get("vsp_speedInfo", []))
+                return
+        raise AqualinkOperationNotSupportedException
+
+    async def turn_on(self) -> None:
+        if self.is_on:
+            return
+        speed_id = 1
+        if self._speed_presets:
+            speed_id = int(self._speed_presets[0]["speedid"])
+        result = await self.system.set_vsp_speed(speed_id, slot_id=self.slot_id)
+        self._apply_speed_update(result.get("vsp_speedInfo", []))
+
+    async def turn_off(self) -> None:
+        if not self.is_on:
+            return
+        result = await self.system.stop_vsp_pump(self.slot_id)
+        self._apply_speed_update(result.get("vsp_speedInfo", []))
+
+    def _apply_speed_update(self, speed_info: list[dict[str, Any]]) -> None:
+        if self._speed_presets is None or not speed_info:
+            return
+        by_id = {int(p["speedId"]): p["status"] for p in speed_info}
+        for preset in self._speed_presets:
+            status = by_id.get(int(preset["speedid"]))
+            if status is not None:
+                preset["enabled"] = "true" if status == "Enabled" else "false"
+
+    async def fetch_speed(self) -> None:
+        data = await self.system.get_vsp_speed(self.slot_id)
+        self._speed_presets = data.get("vsp_speedInfo", [])
 
 
 class IaquaHeater(IaquaSwitch):
