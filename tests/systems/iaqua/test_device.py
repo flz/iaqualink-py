@@ -27,6 +27,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
     IaquaPresenceSensor,
+    IaquaPump,
     IaquaSensor,
     IaquaSetPoint,
     IaquaSwitch,
@@ -893,3 +894,195 @@ class TestIaquaIclLight:
         assert sut.rgbw == (200, 100, 50, 25)
         assert sut._color_id == ICL_CUSTOM_COLOR_ID
         assert sut.effect is None  # color_id=16 excluded from effect
+
+
+# ---------------------------------------------------------------------------
+# IaquaPump (VSP)
+# ---------------------------------------------------------------------------
+
+_VSP_SPEED_INFO = [
+    {"speedid": 1, "speedName": "MED", "speedvalue": 3000, "enabled": "false"},
+    {"speedid": 2, "speedName": "HI", "speedvalue": 3450, "enabled": "false"},
+    {
+        "speedid": 3,
+        "speedName": "POLARIS",
+        "speedvalue": 3450,
+        "enabled": "false",
+    },
+    {"speedid": 4, "speedName": "LO", "speedvalue": 1800, "enabled": "true"},
+    {"speedid": 5, "speedName": "TEMP", "speedvalue": 2000, "enabled": "false"},
+    {
+        "speedid": 6,
+        "speedName": "Temp2",
+        "speedvalue": 2250,
+        "enabled": "false",
+    },
+    {
+        "speedid": 7,
+        "speedName": "Heat Pump",
+        "speedvalue": 2750,
+        "enabled": "false",
+    },
+    {
+        "speedid": 8,
+        "speedName": "In Floor",
+        "speedvalue": 2750,
+        "enabled": "false",
+    },
+]
+
+
+def _make_pump():
+    system = make_system()
+    data = {
+        "name": "vsp_pump_1",
+        "state": "0",
+        "label": "Main Pump",
+        "slot_id": "1",
+    }
+    return system, IaquaPump(system, data)
+
+
+class TestIaquaPump:
+    def test_preset_modes_raises_before_fetch(self) -> None:
+        _, sut = _make_pump()
+        with pytest.raises(AqualinkOperationNotSupportedException):
+            _ = sut.preset_modes
+
+    def test_preset_mode_raises_before_fetch(self) -> None:
+        _, sut = _make_pump()
+        with pytest.raises(AqualinkOperationNotSupportedException):
+            _ = sut.preset_mode
+
+    def test_preset_modes_after_fetch(self) -> None:
+        _, sut = _make_pump()
+        sut._speed_presets = _VSP_SPEED_INFO  # type: ignore[assignment]
+        assert sut.preset_modes == [
+            "MED",
+            "HI",
+            "POLARIS",
+            "LO",
+            "TEMP",
+            "Temp2",
+            "Heat Pump",
+            "In Floor",
+        ]
+
+    def test_preset_mode_after_fetch(self) -> None:
+        _, sut = _make_pump()
+        sut._speed_presets = _VSP_SPEED_INFO  # type: ignore[assignment]
+        assert sut.preset_mode == "LO"
+
+    def test_preset_mode_none_when_all_disabled(self) -> None:
+        _, sut = _make_pump()
+        sut._speed_presets = [
+            {
+                "speedid": 1,
+                "speedName": "MED",
+                "speedvalue": 3000,
+                "enabled": "false",
+            },
+        ]
+        assert sut.preset_mode is None
+
+    async def test_set_preset_mode_raises_before_fetch(self) -> None:
+        _, sut = _make_pump()
+        with pytest.raises(AqualinkOperationNotSupportedException):
+            await sut.set_preset_mode("LO")
+
+    async def test_set_preset_mode_calls_system(self) -> None:
+        system, sut = _make_pump()
+        sut._speed_presets = _VSP_SPEED_INFO  # type: ignore[assignment]
+        with patch.object(system, "set_vsp_speed", return_value={}) as mock_set:
+            await sut.set_preset_mode("LO")
+        mock_set.assert_awaited_once_with(4, slot_id=1)
+
+    async def test_fetch_speed_populates_presets(self) -> None:
+        system, sut = _make_pump()
+        vsp_response = {"vsp_speedInfo": _VSP_SPEED_INFO}
+        with patch.object(system, "get_vsp_speed", return_value=vsp_response):
+            await sut.fetch_speed()
+        assert sut._speed_presets == _VSP_SPEED_INFO
+        assert sut.preset_mode == "LO"
+
+    async def test_fetch_speed_uses_slot_id_from_data(self) -> None:
+        system, sut = _make_pump()
+        sut.data["slot_id"] = 5
+        vsp_response = {"vsp_speedInfo": _VSP_SPEED_INFO}
+        with patch.object(
+            system, "get_vsp_speed", return_value=vsp_response
+        ) as mock_get:
+            await sut.fetch_speed()
+        mock_get.assert_awaited_once_with(5)
+
+    def test_apply_speed_update_noop_when_presets_none(self) -> None:
+        _, sut = _make_pump()
+        sut._speed_presets = None
+        sut._apply_speed_update([{"speedId": 1, "status": "Enabled"}])
+
+    def test_apply_speed_update_noop_when_speed_info_empty(self) -> None:
+        _, sut = _make_pump()
+        sut._speed_presets = _VSP_SPEED_INFO  # type: ignore[assignment]
+        original = [dict(p) for p in _VSP_SPEED_INFO]
+        sut._apply_speed_update([])
+        assert sut._speed_presets == original
+
+    def test_apply_speed_update_sets_enabled(self) -> None:
+        _, sut = _make_pump()
+        sut._speed_presets = [
+            {
+                "speedid": 1,
+                "speedName": "LO",
+                "speedvalue": 1800,
+                "enabled": "false",
+            },
+        ]
+        sut._apply_speed_update([{"speedId": 1, "status": "Enabled"}])
+        assert sut._speed_presets[0]["enabled"] == "true"
+
+    async def test_set_preset_mode_updates_speed_info(self) -> None:
+        system, sut = _make_pump()
+        sut._speed_presets = [
+            {
+                "speedid": 4,
+                "speedName": "LO",
+                "speedvalue": 1800,
+                "enabled": "false",
+            },
+        ]
+        speed_info = [{"speedId": 4, "status": "Enabled", "speedvalue": 1800}]
+        with patch.object(
+            system,
+            "set_vsp_speed",
+            return_value={"vsp_speedInfo": speed_info},
+        ):
+            await sut.set_preset_mode("LO")
+        assert sut._speed_presets[0]["enabled"] == "true"
+
+    async def test_set_preset_mode_uses_slot_id_from_data(self) -> None:
+        system, sut = _make_pump()
+        sut.data["slot_id"] = 5
+        sut._speed_presets = _VSP_SPEED_INFO  # type: ignore[assignment]
+        with patch.object(system, "set_vsp_speed", return_value={}) as mock_set:
+            await sut.set_preset_mode("LO")
+        mock_set.assert_awaited_once_with(4, slot_id=5)
+
+    def test_is_on_uses_preset_enabled_when_presets_loaded(self) -> None:
+        _, sut = _make_pump()
+        all_disabled = [{**p, "enabled": "false"} for p in _VSP_SPEED_INFO]
+        sut._speed_presets = all_disabled  # type: ignore[assignment]
+        assert sut.is_on is False
+        with_one_enabled = [
+            {**_VSP_SPEED_INFO[0], "enabled": "true"},
+            *_VSP_SPEED_INFO[1:],
+        ]
+        sut._speed_presets = with_one_enabled  # type: ignore[assignment]
+        assert sut.is_on is True
+
+    async def test_turn_on_with_presets_uses_first_preset_speed(self) -> None:
+        system, sut = _make_pump()
+        all_disabled = [{**p, "enabled": "false"} for p in _VSP_SPEED_INFO]
+        sut._speed_presets = all_disabled  # type: ignore[assignment]
+        with patch.object(system, "set_vsp_speed", return_value={}) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with(1, slot_id=sut.slot_id)

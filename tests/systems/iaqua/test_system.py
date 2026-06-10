@@ -15,11 +15,21 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.iaqua.device import IaquaClimate, IaquaOneTouchSwitch
+from iaqualink.systems.iaqua.device import (
+    IaquaClimate,
+    IaquaOneTouchSwitch,
+    IaquaPump,
+)
 from iaqualink.systems.iaqua.enums import IaquaSystemType, IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import (
+    IAQUA_COMMAND_GET_MASTER_DEVICE_LIST,
+    IAQUA_COMMAND_GET_VSP_APPMODELSERIALS,
+    IAQUA_COMMAND_GET_VSP_NAMES,
+    IAQUA_COMMAND_GET_VSP_SPEED,
     IAQUA_COMMAND_SET_ONETOUCH,
+    IAQUA_COMMAND_SET_VSP_SPEED,
     IAQUA_SESSION_URL,
+    IAQUA_SESSION_V1_URL,
     IaquaSystem,
 )
 
@@ -69,6 +79,14 @@ def _home_response(extra: list[dict]) -> MagicMock:
     r = MagicMock()
     r.json.return_value = message
     return r
+
+
+def _vsp_mock_response(mock_request: MagicMock) -> None:
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.reason_phrase = "OK"
+    resp.json.return_value = {}
+    mock_request.return_value = resp
 
 
 class TestIaquaSystem:
@@ -762,3 +780,349 @@ class TestIaquaSystem:
         first = sut.devices["pool_thermostat"]
         sut._parse_home_response(r)
         assert sut.devices["pool_thermostat"] is first
+
+    # --- VSP (variable speed pump) ---
+
+    @patch("httpx.AsyncClient.request")
+    async def test_get_vsp_speed_uses_session_url(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+
+        await sut.get_vsp_speed(slot_id=5)
+
+        called_url = mock_request.call_args[0][1]
+        assert called_url == IAQUA_SESSION_URL
+        assert called_url != IAQUA_SESSION_V1_URL
+
+    @patch("httpx.AsyncClient.request")
+    async def test_get_vsp_speed_params(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+
+        await sut.get_vsp_speed(slot_id=5)
+
+        params = mock_request.call_args[1]["params"]
+        assert params["command"] == IAQUA_COMMAND_GET_VSP_SPEED
+        assert params["slot_id"] == "5"
+        assert params["actionID"] == "command"
+        assert params["serial"] == sut.serial
+
+    @patch("httpx.AsyncClient.request")
+    async def test_set_vsp_speed_uses_session_url(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+
+        await sut.set_vsp_speed(speed_id=4, slot_id=5)
+
+        called_url = mock_request.call_args[0][1]
+        assert called_url == IAQUA_SESSION_URL
+
+    @patch("httpx.AsyncClient.request")
+    async def test_set_vsp_speed_params(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+
+        await sut.set_vsp_speed(speed_id=4, slot_id=5)
+
+        params = mock_request.call_args[1]["params"]
+        assert params["command"] == IAQUA_COMMAND_SET_VSP_SPEED
+        assert params["slot_id"] == "5"
+        assert params["speed_id"] == "4"
+        assert params["on_off_action"] == "on"
+        assert params["actionID"] == "command"
+        assert params["serial"] == sut.serial
+
+    @patch("httpx.AsyncClient.request")
+    async def test_vsp_request_sends_auth_headers(self, mock_request) -> None:
+        client, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+        client.id_token = "test-id-token"
+
+        await sut.get_vsp_speed(slot_id=1)
+
+        headers = mock_request.call_args[1]["headers"]
+        assert headers["Authorization"] == "Bearer test-id-token"
+        assert headers["api_key"] == AQUALINK_API_KEY
+
+    @patch("httpx.AsyncClient.request")
+    async def test_get_vsp_names_params(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+
+        await sut.get_vsp_names()
+
+        params = mock_request.call_args[1]["params"]
+        assert params["command"] == IAQUA_COMMAND_GET_VSP_NAMES
+        assert params["actionID"] == "command"
+        assert params["serial"] == sut.serial
+
+    @patch("httpx.AsyncClient.request")
+    async def test_get_vsp_appmodelserials_params(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+
+        await sut.get_vsp_appmodelserials()
+
+        params = mock_request.call_args[1]["params"]
+        assert params["command"] == IAQUA_COMMAND_GET_VSP_APPMODELSERIALS
+        assert params["actionID"] == "command"
+        assert params["serial"] == sut.serial
+
+    async def test_is_vsp_true(self) -> None:
+        _, sut = _make_iaqua_system()
+        sut.data["isVSP"] = "true"
+        assert sut.is_vsp is True
+
+    async def test_is_vsp_false(self) -> None:
+        _, sut = _make_iaqua_system()
+        assert sut.is_vsp is False
+
+    @patch("httpx.AsyncClient.request")
+    async def test_get_master_device_list_uses_session_url(
+        self, mock_request
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+
+        await sut.get_master_device_list()
+
+        called_url = mock_request.call_args[0][1]
+        assert called_url == IAQUA_SESSION_URL
+        assert called_url != IAQUA_SESSION_V1_URL
+
+    @patch("httpx.AsyncClient.request")
+    async def test_get_master_device_list_params(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+
+        await sut.get_master_device_list()
+
+        params = mock_request.call_args[1]["params"]
+        assert params["command"] == IAQUA_COMMAND_GET_MASTER_DEVICE_LIST
+        assert params["actionID"] == "command"
+        assert params["serial"] == sut.serial
+
+    async def test_refresh_vsp_pumps_creates_devices(self) -> None:
+        _, sut = _make_iaqua_system()
+        names_resp = {
+            "vsp_names": [
+                {"pumpId": 5, "pumpName": "Main Pump"},
+                {"pumpId": 6, "pumpName": "Spa Pump"},
+            ]
+        }
+        mdl_resp = {
+            "deviceList": [
+                {"id": 5, "name": "ePump 1", "isVSP": "true"},
+                {"id": 6, "name": "ePump 2", "isVSP": "true"},
+                {"id": 7, "name": "Non-VSP", "isVSP": "false"},
+            ]
+        }
+        speed_resp = {
+            "vsp_speedInfo": [
+                {
+                    "speedid": 1,
+                    "speedName": "LO",
+                    "speedvalue": 1500,
+                    "enabled": "false",
+                }
+            ]
+        }
+        with (
+            patch.object(sut, "get_vsp_names", return_value=names_resp),
+            patch.object(sut, "get_master_device_list", return_value=mdl_resp),
+            patch.object(sut, "get_vsp_speed", return_value=speed_resp),
+        ):
+            await sut._refresh_vsp_pumps()
+
+        assert "vsp_pump_5" in sut.devices
+        assert "vsp_pump_6" in sut.devices
+        assert "vsp_pump_7" not in sut.devices
+        pump5 = sut.devices["vsp_pump_5"]
+        assert isinstance(pump5, IaquaPump)
+        assert pump5.slot_id == 5
+        assert pump5.label == "Main Pump"  # from get_vsp_names, not master list
+        assert pump5._speed_presets is not None
+        assert sut._vsp_discovered is True
+
+    async def test_refresh_vsp_pumps_falls_back_to_appmodelserials(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        names_resp = {"vsp_names": [{"pumpId": 5, "pumpName": "Main Pump"}]}
+        mdl_resp = {
+            "deviceList": [{"id": 99, "name": "Other", "isVSP": "false"}]
+        }
+        serials_resp = {
+            "vsp_app_model_serials": [
+                {
+                    "pumpId": 5,
+                    "pumpSerial": "ABC",
+                    "modelName": "ePump",
+                    "modelType": 1,
+                    "appId": 1,
+                    "appName": "iAqualink",
+                }
+            ]
+        }
+        speed_resp: dict[str, list[Any]] = {"vsp_speedInfo": []}
+        with (
+            patch.object(sut, "get_vsp_names", return_value=names_resp),
+            patch.object(sut, "get_master_device_list", return_value=mdl_resp),
+            patch.object(
+                sut, "get_vsp_appmodelserials", return_value=serials_resp
+            ),
+            patch.object(sut, "get_vsp_speed", return_value=speed_resp),
+        ):
+            await sut._refresh_vsp_pumps()
+
+        assert "vsp_pump_5" in sut.devices
+        assert sut.devices["vsp_pump_5"].label == "Main Pump"
+        assert sut._vsp_discovered is True
+
+    async def test_refresh_vsp_pumps_skips_existing(self) -> None:
+        _, sut = _make_iaqua_system()
+        existing = IaquaPump(
+            sut, {"name": "vsp_pump_5", "state": "1", "slot_id": "5"}
+        )
+        sut.devices["vsp_pump_5"] = existing
+        names_resp = {"vsp_names": [{"pumpId": 5, "pumpName": "Main Pump"}]}
+        mdl_resp = {
+            "deviceList": [{"id": 5, "name": "ePump 1", "isVSP": "true"}]
+        }
+        with (
+            patch.object(sut, "get_vsp_names", return_value=names_resp),
+            patch.object(sut, "get_master_device_list", return_value=mdl_resp),
+        ):
+            await sut._refresh_vsp_pumps()
+
+        assert sut.devices["vsp_pump_5"] is existing
+
+    async def test_refresh_with_is_vsp_runs_discovery(self) -> None:
+        _, sut = _make_iaqua_system()
+        sut.data["isVSP"] = "true"
+        names_resp = {"vsp_names": [{"pumpId": 5, "pumpName": "Main Pump"}]}
+        mdl_resp = {
+            "deviceList": [{"id": 5, "name": "ePump 1", "isVSP": "true"}]
+        }
+        with (
+            patch.object(
+                sut, "_send_home_screen_request", return_value=MagicMock()
+            ),
+            patch.object(
+                sut, "_parse_home_response", side_effect=_set_online_for(sut)
+            ),
+            patch.object(
+                sut,
+                "_send_devices_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_devices_response"),
+            patch.object(
+                sut,
+                "_send_onetouch_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_onetouch_response"),
+            patch.object(sut, "get_vsp_names", return_value=names_resp),
+            patch.object(sut, "get_master_device_list", return_value=mdl_resp),
+            patch.object(
+                sut, "get_vsp_speed", return_value={"vsp_speedInfo": []}
+            ),
+        ):
+            await sut.refresh()
+
+        assert "vsp_pump_5" in sut.devices
+        assert isinstance(sut.devices["vsp_pump_5"], IaquaPump)
+        assert sut._vsp_discovered is True
+
+    async def test_vsp_devices_cleared_when_is_vsp_false(self) -> None:
+        _, sut = _make_iaqua_system()
+        sut.devices["vsp_pump_1"] = MagicMock()
+        sut._vsp_discovered = True
+        with (
+            patch.object(
+                sut, "_send_home_screen_request", return_value=MagicMock()
+            ),
+            patch.object(
+                sut, "_parse_home_response", side_effect=_set_online_for(sut)
+            ),
+            patch.object(
+                sut,
+                "_send_devices_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_devices_response"),
+            patch.object(
+                sut,
+                "_send_onetouch_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_onetouch_response"),
+        ):
+            await sut.refresh()
+
+        assert "vsp_pump_1" not in sut.devices
+        assert sut._vsp_discovered is False
+
+    async def test_refresh_vsp_pumps_empty_discovery(self) -> None:
+        _, sut = _make_iaqua_system()
+        with (
+            patch.object(sut, "get_vsp_names", return_value={"vsp_names": []}),
+            patch.object(
+                sut,
+                "get_master_device_list",
+                return_value={"deviceList": []},
+            ),
+            patch.object(
+                sut,
+                "get_vsp_appmodelserials",
+                return_value={"vsp_app_model_serials": []},
+            ),
+        ):
+            await sut._refresh_vsp_pumps()
+
+        assert not any(k.startswith("vsp_pump_") for k in sut.devices)
+        assert sut._vsp_discovered is True
+
+    @patch("httpx.AsyncClient.request")
+    async def test_stop_vsp_pump_params(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        _vsp_mock_response(mock_request)
+
+        await sut.stop_vsp_pump(slot_id=3)
+
+        params = mock_request.call_args[1]["params"]
+        assert params["command"] == IAQUA_COMMAND_SET_VSP_SPEED
+        assert params["slot_id"] == "3"
+        assert params["speed_id"] == "1"
+        assert params["on_off_action"] == "off"
+        assert params["actionID"] == "command"
+        assert params["serial"] == sut.serial
+
+    @patch("httpx.AsyncClient.request")
+    async def test_vsp_request_retries_after_reauth(self, mock_request) -> None:
+        client, sut = _make_iaqua_system()
+        auth_resp = MagicMock()
+        auth_resp.status_code = 200
+        auth_resp.json.return_value = {}
+
+        mock_request.side_effect = [
+            MagicMock(status_code=401),
+            auth_resp,
+        ]
+        client.client_id = "old-session-id"
+        client.id_token = "old-id-token"
+
+        async def fake_refresh() -> None:
+            client.client_id = "new-session-id"
+            client.id_token = "new-id-token"
+
+        with patch.object(
+            client, "_refresh_auth", side_effect=fake_refresh
+        ) as mock_refresh:
+            await sut.get_vsp_speed(slot_id=1)
+
+        retry_kwargs = mock_request.call_args_list[1][1]
+        mock_refresh.assert_awaited_once()
+        assert retry_kwargs["params"]["sessionID"] == "new-session-id"
+        assert retry_kwargs["headers"]["Authorization"] == "Bearer new-id-token"
