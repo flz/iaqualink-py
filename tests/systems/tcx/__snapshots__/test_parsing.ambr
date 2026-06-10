@@ -2,11 +2,12 @@
 # name: test_parse_main_plus_fea_sub_shadow
   dict({
     'TspBdy0': dict({
+      'current_temperature': '82',
+      'is_on': False,
       'label': 'Pool',
-      'type': 'TcxGenericSensor',
-      'unit_of_measurement': None,
-      'value': '82',
-      'value_translated': None,
+      'target_temperature': '88',
+      'temperature_unit': 'F',
+      'type': 'TcxClimate',
     }),
     'air': dict({
       'label': 'Air Temperature',
@@ -78,11 +79,12 @@
 # name: test_parse_main_plus_filt_sub_shadow
   dict({
     'TspBdy0': dict({
+      'current_temperature': '82',
+      'is_on': False,
       'label': 'Pool',
-      'type': 'TcxGenericSensor',
-      'unit_of_measurement': None,
-      'value': '82',
-      'value_translated': None,
+      'target_temperature': '88',
+      'temperature_unit': 'F',
+      'type': 'TcxClimate',
     }),
     'air': dict({
       'label': 'Air Temperature',
@@ -144,11 +146,12 @@
 # name: test_parse_main_shadow
   dict({
     'TspBdy0': dict({
+      'current_temperature': '82',
+      'is_on': False,
       'label': 'Pool',
-      'type': 'TcxGenericSensor',
-      'unit_of_measurement': None,
-      'value': '82',
-      'value_translated': None,
+      'target_temperature': '88',
+      'temperature_unit': 'F',
+      'type': 'TcxClimate',
     }),
     'air': dict({
       'label': 'Air Temperature',

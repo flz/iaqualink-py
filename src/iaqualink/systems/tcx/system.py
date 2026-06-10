@@ -230,9 +230,12 @@ class TcxSystem(AqualinkSystem):
                 candidates[key] = {"name": key, **val}
 
         if "TspBdy0" in reported:
+            # Wire `name` is the body label (e.g. "Pool"); reassign to
+            # `bodyName` so it doesn't clobber the dispatch key below.
             candidates["TspBdy0"] = {
-                "name": "TspBdy0",
                 **reported["TspBdy0"],
+                "name": "TspBdy0",
+                "bodyName": reported["TspBdy0"].get("name"),
             }
 
         if "lvh1" in reported:
