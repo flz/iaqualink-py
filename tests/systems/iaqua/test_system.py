@@ -4,6 +4,7 @@ from collections.abc import Callable
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 import respx.router
 
@@ -15,10 +16,23 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.iaqua.device import IaquaClimate, IaquaOneTouchSwitch
-from iaqualink.systems.iaqua.enums import IaquaSystemType, IaquaTemperatureUnit
+from iaqualink.systems.iaqua.device import (
+    IaquaClimate,
+    IaquaOneTouchSwitch,
+    IaquaSensor,
+    IaquaSwcBoostSwitch,
+)
+from iaqualink.systems.iaqua.enums import (
+    IaquaBoostControl,
+    IaquaBoostMode,
+    IaquaSystemType,
+    IaquaTemperatureUnit,
+)
 from iaqualink.systems.iaqua.system import (
+    IAQUA_COMMAND_CONTROL_SWC_BOOST,
+    IAQUA_COMMAND_GET_SWC_CONFIG,
     IAQUA_COMMAND_SET_ONETOUCH,
+    IAQUA_COMMAND_SET_SWC_CONFIG,
     IAQUA_SESSION_URL,
     IaquaSystem,
 )
@@ -69,6 +83,30 @@ def _home_response(extra: list[dict]) -> MagicMock:
     r = MagicMock()
     r.json.return_value = message
     return r
+
+
+_SWC_CONFIG: dict = {
+    "poolSWCSP": 60,
+    "spaSWCSP": 40,
+    "boostStatus": "",
+    "boostHrsVal": 24,
+    "remainingBoostHrs": 0,
+    "remainingBoostMins": 0,
+    "boostMode": "pool",
+    "boostDipSwitch": "on",
+}
+
+_SWC_CONFIG_BOOST_ON: dict = {**_SWC_CONFIG, "boostStatus": "on"}
+_SWC_CONFIG_BOOST_PAUSED: dict = {**_SWC_CONFIG, "boostStatus": "paused"}
+
+
+def _add_swc_devices(sut: IaquaSystem) -> None:
+    sut.devices["swc_set_point"] = IaquaSensor(
+        sut, {"name": "swc_set_point", "state": "50"}
+    )
+    sut.devices["swc_boost"] = IaquaSwcBoostSwitch(
+        sut, {"name": "swc_boost", "state": "0"}
+    )
 
 
 class TestIaquaSystem:
@@ -162,6 +200,36 @@ class TestIaquaSystem:
         sut._parse_home_response(response)
         assert sut.system_type is IaquaSystemType.POOL_ONLY
         assert sut.temp_unit is IaquaTemperatureUnit.FAHRENHEIT
+
+    async def test_parse_home_extracts_swc_info_fields(self) -> None:
+        _, sut = _make_iaqua_system()
+        r = _home_response(
+            [
+                {"swc_set_point": "50"},
+                {
+                    "swc_info": {
+                        "isswcPresent": True,
+                        "swcPoolValue": 50,
+                        "swcPoolStatus": "running",
+                        "swcSpaValue": 30,
+                        "swcSpaStatus": "standby",
+                    }
+                },
+            ]
+        )
+
+        sut._parse_home_response(r)
+        assert sut.devices["swc_pool_value"].data["state"] == "50"
+        assert sut.devices["swc_pool_status"].data["state"] == "running"
+        assert sut.devices["swc_spa_value"].data["state"] == "30"
+        assert sut.devices["swc_spa_status"].data["state"] == "standby"
+
+    async def test_parse_home_swc_info_absent_no_devices(self) -> None:
+        _, sut = _make_iaqua_system()
+        r = _home_response([])
+
+        sut._parse_home_response(r)
+        assert "swc_pool_value" not in sut.devices
 
     async def test_parse_home_sets_celsius_temp_unit(self) -> None:
         _, sut = _make_iaqua_system()
@@ -762,3 +830,190 @@ class TestIaquaSystem:
         first = sut.devices["pool_thermostat"]
         sut._parse_home_response(r)
         assert sut.devices["pool_thermostat"] is first
+
+    async def test_parse_swc_config_response_creates_pool_set_point(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        response = httpx.Response(200, json=_SWC_CONFIG)
+        sut._parse_swc_config_response(response)
+        assert sut.devices["swc_pool_set_point"].data["state"] == "60"
+
+    async def test_parse_swc_config_response_creates_spa_set_point(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        response = httpx.Response(200, json=_SWC_CONFIG)
+        sut._parse_swc_config_response(response)
+        assert sut.devices["swc_spa_set_point"].data["state"] == "40"
+
+    async def test_parse_swc_config_response_creates_boost_sensors(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        response = httpx.Response(200, json=_SWC_CONFIG)
+        sut._parse_swc_config_response(response)
+        assert sut.devices["swc_boost_hrs"].data["state"] == "24"
+        assert sut.devices["swc_remaining_boost_hrs"].data["state"] == "0"
+        assert sut.devices["swc_remaining_boost_mins"].data["state"] == "0"
+        assert sut.devices["swc_boost_mode"].data["state"] == "pool"
+
+    async def test_parse_swc_config_response_dip_switch_on(self) -> None:
+        _, sut = _make_iaqua_system()
+        response = httpx.Response(200, json=_SWC_CONFIG)
+        sut._parse_swc_config_response(response)
+        assert sut.devices["swc_boost_dip_switch"].data["state"] == "1"
+
+    async def test_parse_swc_config_response_dip_switch_off(self) -> None:
+        _, sut = _make_iaqua_system()
+        response = httpx.Response(
+            200, json={**_SWC_CONFIG, "boostDipSwitch": "off"}
+        )
+        sut._parse_swc_config_response(response)
+        assert sut.devices["swc_boost_dip_switch"].data["state"] == "0"
+
+    async def test_parse_swc_config_response_skips_absent_fields(self) -> None:
+        _, sut = _make_iaqua_system()
+        response = httpx.Response(200, json={})
+        sut._parse_swc_config_response(response)
+        assert "swc_pool_set_point" not in sut.devices
+        assert "swc_spa_set_point" not in sut.devices
+        assert "swc_boost_hrs" not in sut.devices
+
+    async def test_parse_swc_config_response_noop_without_devices(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        response = httpx.Response(200, json={})
+        sut._parse_swc_config_response(response)
+
+    async def test_parse_swc_config_response_updates_boost_off(self) -> None:
+        _, sut = _make_iaqua_system()
+        _add_swc_devices(sut)
+        response = httpx.Response(200, json=_SWC_CONFIG)
+        sut._parse_swc_config_response(response)
+        assert sut.devices["swc_boost"].data["state"] == "0"
+
+    async def test_parse_swc_config_response_updates_boost_on(self) -> None:
+        _, sut = _make_iaqua_system()
+        _add_swc_devices(sut)
+        response = httpx.Response(200, json=_SWC_CONFIG_BOOST_ON)
+        sut._parse_swc_config_response(response)
+        assert sut.devices["swc_boost"].data["state"] == "1"
+
+    async def test_parse_swc_config_response_updates_boost_paused(
+        self,
+    ) -> None:
+        """A paused boost is reported as ON so its remaining timer isn't lost."""
+        _, sut = _make_iaqua_system()
+        _add_swc_devices(sut)
+        response = httpx.Response(200, json=_SWC_CONFIG_BOOST_PAUSED)
+        sut._parse_swc_config_response(response)
+        assert sut.devices["swc_boost"].data["state"] == "1"
+
+    @respx.mock
+    async def test_set_swc_config_command_param(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_swc_config(60, 40)
+        url = str(respx_mock.calls[0].request.url)
+        assert f"command={IAQUA_COMMAND_SET_SWC_CONFIG}" in url
+        assert "poolswcsp=60" in url
+        assert "spaswcsp=40" in url
+
+    @respx.mock
+    async def test_set_swc_config_updates_devices(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        _add_swc_devices(sut)
+        respx_mock.route(dotstar).mock(httpx.Response(200, json=_SWC_CONFIG))
+        await sut.set_swc_config(60, 40)
+        assert sut.devices["swc_pool_set_point"].data["state"] == "60"
+        assert sut.devices["swc_boost"].data["state"] == "0"
+
+    @respx.mock
+    async def test_control_swc_boost_start(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.control_swc_boost(
+            IaquaBoostControl.START, boosthrs=24, boostmode=IaquaBoostMode.POOL
+        )
+        url = str(respx_mock.calls[0].request.url)
+        assert f"command={IAQUA_COMMAND_CONTROL_SWC_BOOST}" in url
+        assert "boostcontrol=start" in url
+        assert "boosthrs=24" in url
+        assert "boostmode=pool" in url
+
+    @respx.mock
+    async def test_control_swc_boost_stop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.control_swc_boost(IaquaBoostControl.STOP)
+        url = str(respx_mock.calls[0].request.url)
+        assert f"command={IAQUA_COMMAND_CONTROL_SWC_BOOST}" in url
+        assert "boostcontrol=stop" in url
+        assert "boosthrs" not in url
+        assert "boostmode" not in url
+
+    @respx.mock
+    async def test_control_swc_boost_uses_session_url(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.control_swc_boost(IaquaBoostControl.STOP)
+        assert str(respx_mock.calls[0].request.url).startswith(
+            IAQUA_SESSION_URL
+        )
+
+    @respx.mock
+    async def test_control_swc_boost_updates_devices(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        _add_swc_devices(sut)
+        respx_mock.route(dotstar).mock(
+            httpx.Response(200, json=_SWC_CONFIG_BOOST_ON)
+        )
+        await sut.control_swc_boost(
+            IaquaBoostControl.START, boosthrs=24, boostmode=IaquaBoostMode.POOL
+        )
+        assert sut.devices["swc_boost"].data["state"] == "1"
+
+    async def test_refresh_calls_get_swc_config_when_swc_present(self) -> None:
+        _, sut = _make_iaqua_system()
+        _add_swc_devices(sut)
+        with (
+            patch.object(sut, "_send_home_screen_request"),
+            patch.object(
+                sut, "_parse_home_response", side_effect=_set_online_for(sut)
+            ),
+            patch.object(sut, "_send_devices_screen_request"),
+            patch.object(sut, "_parse_devices_response"),
+            patch.object(sut, "_send_session_request") as mock_session,
+            patch.object(sut, "_parse_swc_config_response") as mock_parse,
+        ):
+            await sut._refresh()
+        mock_session.assert_called_once_with(IAQUA_COMMAND_GET_SWC_CONFIG)
+        mock_parse.assert_called_once()
+
+    async def test_refresh_skips_get_swc_config_when_no_swc(self) -> None:
+        _, sut = _make_iaqua_system()
+        with (
+            patch.object(sut, "_send_home_screen_request"),
+            patch.object(
+                sut, "_parse_home_response", side_effect=_set_online_for(sut)
+            ),
+            patch.object(sut, "_send_devices_screen_request"),
+            patch.object(sut, "_parse_devices_response"),
+            patch.object(sut, "_parse_swc_config_response") as mock_parse,
+        ):
+            await sut._refresh()
+        mock_parse.assert_not_called()
