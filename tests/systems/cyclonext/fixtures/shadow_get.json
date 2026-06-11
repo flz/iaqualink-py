@@ -1,0 +1,24 @@
+{
+  "state": {
+    "reported": {
+      "equipment": {
+        "robot": [
+          null,
+          {
+            "mode": 1,
+            "cycle": 1,
+            "cycleStartTime": 1000,
+            "stepper": 30,
+            "durations": {
+              "quickTim": 90,
+              "deepTim": 150
+            },
+            "errors": {"code": 0}
+          }
+        ]
+      },
+      "eboxData": {"sn": "EBOX42", "vr": "ebx-1.0"},
+      "vr": "cb-2.1"
+    }
+  }
+}
