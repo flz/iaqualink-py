@@ -59,9 +59,17 @@ _SENSOR_META: dict[str, _Meta] = {
 }
 
 # Sensors marked HA diagnostic: firmware/identifiers + state that merely
-# duplicates the robot's `activity`.
+# duplicates the robot's `activity`. (product_number is the vortrax subclass's
+# eboxData identifier.)
 _DIAGNOSTIC_NAMES = frozenset(
-    {"error_state", "running", "returning", "vr", "model_number"}
+    {
+        "error_state",
+        "running",
+        "returning",
+        "vr",
+        "model_number",
+        "product_number",
+    }
 )
 
 # HA BinarySensorDeviceClass by binary-sensor name.

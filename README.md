@@ -20,6 +20,7 @@
   - **Cyclobat** — Zodiac battery-powered robot cleaners (read-only sensors + start/stop/return-to-base commands over WebSocket)
   - **Cyclonext** — Zodiac wired robot cleaners with cycle scheduling, Remote control, and Lift system (shadow REST + WebSocket write)
   - **VR** — Zodiac variable-speed robot pool cleaners with cycle scheduling and Remote control (shadow REST + WebSocket write)
+  - **Vortrax** — Zodiac variable-speed chlorinator/robot (shares the vr shadow shape; WebSocket namespace 'vortrax')
 - 🌡️ **Comprehensive Device Support**
   - Temperature sensors (pool, spa, air)
   - Thermostats with adjustable set points
