@@ -44,6 +44,7 @@ if TYPE_CHECKING:
 
 for module_name in (
     "iaqualink.systems.cyclobat.system",
+    "iaqualink.systems.cyclonext.system",
     "iaqualink.systems.exo.system",
     "iaqualink.systems.i2d.system",
     "iaqualink.systems.iaqua.system",
