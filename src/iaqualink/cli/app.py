@@ -23,9 +23,9 @@ from iaqualink.device import (
     AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
-    AqualinkRobot,
     AqualinkSensor,
     AqualinkSwitch,
+    AqualinkVacuum,
 )
 from iaqualink.exception import (
     AqualinkException,
@@ -258,7 +258,7 @@ _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
     (AqualinkLight, "💡", "Lights"),
     (AqualinkSwitch, "⚡", "Switches"),
     (AqualinkFan, "⚙️", "Fans"),
-    (AqualinkRobot, "🤖", "Vacuums"),
+    (AqualinkVacuum, "🤖", "Vacuums"),
     (AqualinkNumber, "🔢", "Numbers"),
     (AqualinkBinarySensor, "📊", "Sensors"),
     (AqualinkSensor, "📊", "Sensors"),
@@ -294,7 +294,8 @@ def _format_system_line(system: AqualinkSystem) -> Text:
 
 def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
     if isinstance(device, AqualinkSensor):
-        state_str: str | None = device.value
+        value = device.value
+        state_str: str | None = None if value is None else str(value)
         translated: str | None = device.value_translated
     elif isinstance(device, AqualinkFan):
         parts: list[str] = []

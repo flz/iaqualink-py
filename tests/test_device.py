@@ -12,11 +12,11 @@ from iaqualink.device import (
     AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
-    AqualinkRobot,
-    AqualinkRobotActivity,
     AqualinkSensor,
     AqualinkSwitch,
+    AqualinkVacuum,
 )
+from iaqualink.enums import AqualinkRobotActivity
 from iaqualink.exception import (
     AqualinkInvalidParameterException,
     AqualinkOperationNotSupportedException,
@@ -519,10 +519,10 @@ class TestAqualinkNumberSetValueTemplate(unittest.IsolatedAsyncioTestCase):
         assert n._calls == []  # type: ignore[attr-defined]
 
 
-# ── AqualinkRobot ──────────────────────────────────────────────────────────
+# ── AqualinkVacuum ─────────────────────────────────────────────────────────
 
 
-class _ConcreteRobot(_ConcreteDevice, AqualinkRobot):
+class _ConcreteRobot(_ConcreteDevice, AqualinkVacuum):
     """Robot stub with no capabilities advertised (all supports_* False)."""
 
     @property
@@ -574,7 +574,7 @@ class TestAqualinkRobotActivity(unittest.TestCase):
         }
 
 
-class TestAqualinkRobot(unittest.IsolatedAsyncioTestCase):
+class TestAqualinkVacuum(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         self.robot = _ConcreteRobot(MagicMock(), {})
 
@@ -630,7 +630,7 @@ class TestAqualinkRobot(unittest.IsolatedAsyncioTestCase):
             await robot.set_fan_speed("turbo")
 
 
-# ── HA sensor metadata (device_class / state_class / native_value) ───────────
+# ── HA sensor metadata (device_class / state_class) ──────────────────────────
 
 
 class _ValuedSensor(_ConcreteDevice, AqualinkSensor):
@@ -655,8 +655,8 @@ class TestAqualinkSensorHAMetadata(unittest.TestCase):
     def test_state_class_defaults_none(self) -> None:
         assert self.s.state_class is None
 
-    def test_native_value_defaults_to_value(self) -> None:
-        assert self.s.native_value == "42"
+    def test_value_is_the_reading(self) -> None:
+        assert self.s.value == "42"
 
 
 class TestAqualinkBinarySensorHAMetadata(unittest.TestCase):

@@ -1,0 +1,48 @@
+{
+  "state": {
+    "reported": {
+      "equipment": {
+        "robot": {
+          "vr": "1.2.3",
+          "sn": "SN42",
+          "main": {
+            "state": 1,
+            "ctrl": 1,
+            "mode": 0,
+            "error": 0,
+            "cycleStartTime": 1000
+          },
+          "battery": {
+            "vr": "v1",
+            "state": 2,
+            "userChargePerc": 87,
+            "userChargeState": 1,
+            "cycles": 12,
+            "warning": {"code": 0}
+          },
+          "stats": {
+            "totRunTime": 1234,
+            "diagnostic": 0,
+            "tmp": 25,
+            "lastError": {"code": 0, "cycleNb": 5}
+          },
+          "lastCycle": {
+            "cycleNb": 5,
+            "duration": 90,
+            "mode": 1,
+            "endCycleType": 0,
+            "errorCode": 0
+          },
+          "cycles": {
+            "floorTim": {"duration": 90},
+            "floorWallsTim": {"duration": 120},
+            "smartTim": {"duration": 105},
+            "waterlineTim": {"duration": 60},
+            "firstSmartDone": true,
+            "liftPatternTim": 5
+          }
+        }
+      }
+    }
+  }
+}

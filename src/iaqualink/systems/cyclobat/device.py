@@ -14,10 +14,10 @@ from typing import TYPE_CHECKING, Any, NamedTuple
 from iaqualink.device import (
     AqualinkBinarySensor,
     AqualinkDevice,
-    AqualinkRobot,
-    AqualinkRobotActivity,
     AqualinkSensor,
+    AqualinkVacuum,
 )
+from iaqualink.enums import AqualinkRobotActivity
 from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.systems.cyclobat.const import (
     CYCLE_LABELS,
@@ -104,8 +104,15 @@ class CyclobatSensor(CyclobatDevice, AqualinkSensor):
         return _SENSOR_META.get(self.name, _Meta())
 
     @property
-    def value(self) -> str:
-        return str(self.data["state"])
+    def value(self) -> float | int | str | None:
+        raw = str(self.data["state"])
+        if not self._meta.numeric:
+            return raw
+        try:
+            num = float(raw)
+        except (TypeError, ValueError):
+            return None
+        return int(num) if num.is_integer() else num
 
     @property
     def device_class(self) -> str | None:
@@ -118,16 +125,6 @@ class CyclobatSensor(CyclobatDevice, AqualinkSensor):
     @property
     def state_class(self) -> str | None:
         return self._meta.state_class
-
-    @property
-    def native_value(self) -> float | int | str | None:
-        if not self._meta.numeric:
-            return self.value
-        try:
-            num = float(self.value)
-        except (TypeError, ValueError):
-            return None
-        return int(num) if num.is_integer() else num
 
 
 class CyclobatBinarySensor(CyclobatDevice, AqualinkBinarySensor):
@@ -147,7 +144,7 @@ class CyclobatBinarySensor(CyclobatDevice, AqualinkBinarySensor):
         return "diagnostic"
 
 
-class CyclobatRobot(CyclobatDevice, AqualinkRobot):
+class CyclobatRobot(CyclobatDevice, AqualinkVacuum):
     """Battery Zodiac cleaner exposed as an HA vacuum.
 
     Reads live runtime off ``system._robot_state["main"]`` so ``activity`` and

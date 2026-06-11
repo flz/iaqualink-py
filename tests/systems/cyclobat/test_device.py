@@ -92,7 +92,7 @@ class TestCyclobatDeviceFromData(unittest.TestCase):
         dev = CyclobatSensor(
             self.system, {"name": "battery_percentage", "state": 87}
         )
-        self.assertEqual(dev.value, "87")
+        self.assertEqual(dev.value, 87)
 
 
 # ── CyclobatRobot (HA vacuum) ────────────────────────────────────────────────
@@ -109,7 +109,7 @@ def _robot(main=None):
 
 class TestCyclobatRobot(unittest.TestCase):
     def test_from_data_robot_is_robot(self):
-        from iaqualink.device import AqualinkRobot
+        from iaqualink.device import AqualinkVacuum
         from iaqualink.systems.cyclobat.device import (
             CyclobatDevice,
             CyclobatRobot,
@@ -119,31 +119,31 @@ class TestCyclobatRobot(unittest.TestCase):
         system.serial = "SN42"
         dev = CyclobatDevice.from_data(system, {"name": "robot", "state": 1})
         self.assertIsInstance(dev, CyclobatRobot)
-        self.assertIsInstance(dev, AqualinkRobot)
+        self.assertIsInstance(dev, AqualinkVacuum)
 
     def test_activity_cleaning(self):
-        from iaqualink.device import AqualinkRobotActivity
+        from iaqualink.enums import AqualinkRobotActivity
 
         self.assertIs(
             _robot({"state": 1}).activity, AqualinkRobotActivity.CLEANING
         )
 
     def test_activity_returning(self):
-        from iaqualink.device import AqualinkRobotActivity
+        from iaqualink.enums import AqualinkRobotActivity
 
         self.assertIs(
             _robot({"state": 3}).activity, AqualinkRobotActivity.RETURNING
         )
 
     def test_activity_docked_when_stopped(self):
-        from iaqualink.device import AqualinkRobotActivity
+        from iaqualink.enums import AqualinkRobotActivity
 
         self.assertIs(
             _robot({"state": 0}).activity, AqualinkRobotActivity.DOCKED
         )
 
     def test_activity_error_overrides_state(self):
-        from iaqualink.device import AqualinkRobotActivity
+        from iaqualink.enums import AqualinkRobotActivity
 
         self.assertIs(
             _robot({"state": 1, "error": 7}).activity,
@@ -238,51 +238,50 @@ class TestCyclobatSensorMetadata(unittest.TestCase):
         self.assertEqual(s.device_class, "battery")
         self.assertEqual(s.unit_of_measurement, "%")
         self.assertEqual(s.state_class, "measurement")
-        self.assertEqual(s.native_value, 87)
-        self.assertEqual(s.value, "87")
+        self.assertEqual(s.value, 87)
 
     def test_temperature(self):
         s = _sensor("temperature", "28.5")
         self.assertEqual(s.device_class, "temperature")
         self.assertEqual(s.unit_of_measurement, "°C")
         self.assertEqual(s.state_class, "measurement")
-        self.assertEqual(s.native_value, 28.5)
+        self.assertEqual(s.value, 28.5)
 
     def test_time_remaining_sec(self):
         s = _sensor("time_remaining_sec", "600")
         self.assertEqual(s.device_class, "duration")
         self.assertEqual(s.unit_of_measurement, "s")
         self.assertEqual(s.state_class, "measurement")
-        self.assertEqual(s.native_value, 600)
+        self.assertEqual(s.value, 600)
 
     def test_cycle_duration(self):
         s = _sensor("floor_duration", "120")
         self.assertEqual(s.device_class, "duration")
         self.assertEqual(s.unit_of_measurement, "min")
-        self.assertEqual(s.native_value, 120)
+        self.assertEqual(s.value, 120)
 
     def test_total_runtime(self):
         s = _sensor("total_runtime", "4200")
         self.assertEqual(s.device_class, "duration")
         self.assertEqual(s.unit_of_measurement, "min")
         self.assertEqual(s.state_class, "total_increasing")
-        self.assertEqual(s.native_value, 4200)
+        self.assertEqual(s.value, 4200)
 
     def test_plain_sensor_has_no_metadata(self):
         s = _sensor("vr", "1.2.3")
         self.assertIsNone(s.device_class)
         self.assertIsNone(s.state_class)
         self.assertIsNone(s.unit_of_measurement)
-        self.assertEqual(s.native_value, "1.2.3")
+        self.assertEqual(s.value, "1.2.3")
 
     def test_native_value_non_numeric_meta_returns_str(self):
         # battery_state isn't in the numeric metadata set.
         s = _sensor("battery_state", "charging")
-        self.assertEqual(s.native_value, "charging")
+        self.assertEqual(s.value, "charging")
 
     def test_native_value_unparseable_returns_none(self):
         s = _sensor("battery_percentage", "n/a")
-        self.assertIsNone(s.native_value)
+        self.assertIsNone(s.value)
 
     def test_regular_sensor_no_entity_category(self):
         self.assertIsNone(_sensor("battery_percentage", "87").entity_category)
