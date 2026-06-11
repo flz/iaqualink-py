@@ -24,6 +24,9 @@ class TestAqualinkSystem(unittest.IsolatedAsyncioTestCase):
     def test_cyclonext_registered_as_system(self) -> None:
         assert "cyclonext" in AqualinkSystem.subclasses
 
+    def test_vr_registered_as_system(self) -> None:
+        assert "vr" in AqualinkSystem.subclasses
+
     def test_repr(self) -> None:
         aqualink = MagicMock()
         data = {
