@@ -301,7 +301,7 @@
       'value_translated': None,
     }),
     'total_runtime': dict({
-      'device_class': 'duration',
+      'device_class': None,
       'entity_category': None,
       'label': 'Total Runtime',
       'state_class': 'total_increasing',

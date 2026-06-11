@@ -54,7 +54,9 @@ _SENSOR_META: dict[str, _Meta] = {
     "battery_percentage": _Meta("battery", "%", _MEAS, numeric=True),
     "temperature": _Meta("temperature", "°C", _MEAS, numeric=True),
     "time_remaining_sec": _Meta(_DUR, "s", _MEAS, numeric=True),
-    "total_runtime": _Meta(_DUR, "min", "total_increasing", numeric=True),
+    # total_increasing counter: no duration device_class (HA warns on the
+    # duration + total_increasing combo); keep unit-accurate minutes.
+    "total_runtime": _Meta(None, "min", "total_increasing", numeric=True),
     "floor_duration": _Meta(_DUR, "min", _MEAS, numeric=True),
     "floor_walls_duration": _Meta(_DUR, "min", _MEAS, numeric=True),
     "smart_duration": _Meta(_DUR, "min", _MEAS, numeric=True),

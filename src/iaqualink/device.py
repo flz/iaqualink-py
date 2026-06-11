@@ -452,6 +452,10 @@ class AqualinkVacuum(AqualinkDevice):
         clean_spot     -> async_clean_spot
         locate         -> async_locate
         set_fan_speed  -> async_set_fan_speed
+
+    The ``supports_return`` capability maps to HA's ``VacuumEntityFeature``
+    flag ``RETURN_HOME`` (renamed from ``RETURN_TO_BASE``); the command itself
+    stays ``return_to_base`` to match the HA method name.
     """
 
     # ── Required overrides ──────────────────────────────────────────────────

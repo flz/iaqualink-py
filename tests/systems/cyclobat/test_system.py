@@ -76,7 +76,7 @@ class TestCyclobatSystem(TestBaseSystem):
         assert "total_hours" not in self.sut.devices
         runtime = self.sut.devices["total_runtime"]
         assert runtime.unit_of_measurement == "min"
-        assert runtime.device_class == "duration"
+        assert runtime.device_class is None
         assert runtime.state_class == "total_increasing"
         assert runtime.value == 1234
 

@@ -262,7 +262,7 @@ class TestCyclobatSensorMetadata(unittest.TestCase):
 
     def test_total_runtime(self):
         s = _sensor("total_runtime", "4200")
-        self.assertEqual(s.device_class, "duration")
+        self.assertIsNone(s.device_class)
         self.assertEqual(s.unit_of_measurement, "min")
         self.assertEqual(s.state_class, "total_increasing")
         self.assertEqual(s.value, 4200)
