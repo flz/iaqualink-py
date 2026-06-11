@@ -309,6 +309,19 @@ async with AqualinkClient('user@example.com', 'password') as client:
                 await system.start_cleaning(cycle=3)
 ```
 
+## Vortrax
+
+Vortrax systems (`device_type: "vortrax"`) inherit the entire VR API surface. Usage is identical to [VR — Variable-Speed Robot Cleaners](#vr-variable-speed-robot-cleaners) above — replace `device_type == 'vr'` with `device_type == 'vortrax'` and use the same write commands.
+
+The only difference is an extra `product_number` sensor (string) sourced from `eboxData.completeCleanerPn` in the shadow response, absent in vr shadows.
+
+```python
+await system.refresh()
+pn = system.devices.get("product_number")
+if pn:
+    print(f"Product number: {pn.value}")
+```
+
 ## Next Steps
 
 - [CLI Reference](cli.md) — command-line client for scripting and quick control
