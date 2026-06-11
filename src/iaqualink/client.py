@@ -46,6 +46,7 @@ for module_name in (
     "iaqualink.systems.cyclobat.system",
     "iaqualink.systems.exo.system",
     "iaqualink.systems.i2d.system",
+    "iaqualink.systems.i2d_robot.system",
     "iaqualink.systems.iaqua.system",
 ):
     importlib.import_module(module_name)
