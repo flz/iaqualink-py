@@ -76,6 +76,7 @@ When adding a new direct subclass of `AqualinkDevice` to `device.py`, also add a
 | `AqualinkNumber` | Numbers | |
 | `AqualinkBinarySensor` | Sensors | |
 | `AqualinkSensor` | Sensors | Entries with the same label are merged into one group |
+| `AqualinkRobot` | Vacuums | |
 
 All classes are direct subclasses of `AqualinkDevice` (flat hierarchy — no class covers another). Multiple entries can share a group label; `_group_devices` merges them.
 
