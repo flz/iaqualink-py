@@ -315,6 +315,89 @@ async with AqualinkClient('user@example.com', 'password') as client:
                 await system.start_cleaning(cycle=3)
 ```
 
+## VR — Variable-Speed Robot Cleaners
+
+VR systems (`device_type: "vr"`) represent Zodiac variable-speed robot pool cleaners. They expose read-only sensors from an HTTP shadow poll and accept start/stop, pause, return-to-base, cycle selection, runtime extension, and remote steering commands over WebSocket.
+
+### API Overview
+
+- **Reads** — `system.refresh()` fetches the robot shadow (`GET /devices/v1/{serial}/shadow`) and updates all devices atomically.
+- **Writes** — Commands send a WebSocket frame to `wss://prod-socket.zodiac-io.com/devices` with action `setCleanerState` (or `setRemoteSteeringControl` for remote control) and namespace `vr`.
+
+### System Status
+
+| `SystemStatus` | Meaning |
+|---|---|
+| `ONLINE` | Shadow fetched and `equipment.robot` is a valid dict |
+| `OFFLINE` | Shadow reachable but `equipment.robot` absent or not a dict |
+| `DISCONNECTED` | Network or HTTP error (non-401, non-429) |
+| `UNKNOWN` | HTTP 429 throttle response |
+
+### Device Inventory
+
+All keys are read-only `VrSensor` unless noted.
+
+| Device key | Description |
+|---|---|
+| `state` | Current robot state (0=stopped, 1=cleaning, 2=paused, 3=returning) |
+| `prCyc` | Active cleaning cycle (0=wall_only, 1=floor_only, 2=smart_floor_and_walls, 3=floor_and_walls) |
+| `stepper` | Runtime extension in minutes |
+| `cycleStartTime` | Unix timestamp when current cycle started |
+| `sn` | Robot serial number |
+| `vr` | Robot firmware version |
+| `temperature` | Water temperature (from `sensors.sns_1.val`) |
+| `model_number` | Model number string |
+| `running` | **BinarySensor** — `True` when `state == 1` (cleaning) |
+| `returning` | **BinarySensor** — `True` when `state == 3` (returning) |
+| `time_remaining_sec` | Estimated seconds remaining in current cycle (derived) |
+
+### Write Commands
+
+```python
+# Start a cleaning cycle (optionally specify cycle)
+await system.start_cleaning(cycle=1)  # floor_only
+
+# Pause cleaning (required state before remote control)
+await system.pause_cleaning()
+
+# Return robot to base
+await system.return_to_base()
+
+# Stop cleaning
+await system.stop_cleaning()
+
+# Extend runtime (absolute minutes)
+await system.set_runtime_extension(30)
+
+# Remote control (auto-pauses robot if not already paused)
+await system.remote_forward()
+await system.remote_stop()
+```
+
+### Full Example
+
+```python
+from iaqualink import AqualinkClient
+from iaqualink.system import SystemStatus
+
+async with AqualinkClient('user@example.com', 'password') as client:
+    systems = await client.get_systems()
+
+    for system in systems.values():
+        if system.data.get('device_type') == 'vr':
+            await system.refresh()
+
+            if system.status is SystemStatus.ONLINE:
+                devices = await system.get_devices()
+
+                running = devices.get('running')
+                state = devices.get('state')
+                print(f"Running: {running.is_on}, State: {state.value}")
+
+                # Start a floor + walls cleaning cycle
+                await system.start_cleaning(cycle=3)
+```
+
 ## Next Steps
 
 - [CLI Reference](cli.md) — command-line client for scripting and quick control
