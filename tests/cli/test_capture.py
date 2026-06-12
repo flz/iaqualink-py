@@ -8,6 +8,7 @@ from tempfile import NamedTemporaryFile
 import httpx
 
 from iaqualink.cli.capture import CaptureSession
+from iaqualink.utils.capture import build_capture_entry
 from iaqualink.utils.redact import mask_email, mask_serial, redact_dict
 
 
@@ -175,6 +176,38 @@ class TestRedactDict(unittest.TestCase):
     def test_serial_key_short_value(self) -> None:
         result = redact_dict({"serial_number": "AB"})
         assert result["serial_number"] == "***"
+
+
+class TestBuildCaptureEntry(unittest.IsolatedAsyncioTestCase):
+    async def test_auth_url_redacts_extended_keys(self) -> None:
+        request = _make_request(
+            "POST", "https://prod.zodiac-io.com/users/v1/login"
+        )
+        response = _make_response(
+            request,
+            200,
+            {"username": "florent@example.com", "state": "CA"},
+        )
+
+        entry = await build_capture_entry(response)
+
+        assert entry["response"]["body"]["state"] == "***"
+        assert "florent" not in entry["response"]["body"]["username"]
+
+    async def test_non_auth_url_keeps_state_field(self) -> None:
+        request = _make_request(
+            "GET",
+            "https://r-api.iaqualink.net/v2/devices/SERIAL/control.json",
+        )
+        response = _make_response(
+            request,
+            200,
+            {"devices_screen": [{"name": "Pool Pump", "state": "1"}]},
+        )
+
+        entry = await build_capture_entry(response)
+
+        assert entry["response"]["body"]["devices_screen"][0]["state"] == "1"
 
 
 class TestCaptureSession(unittest.IsolatedAsyncioTestCase):
