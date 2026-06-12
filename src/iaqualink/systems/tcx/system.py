@@ -4,8 +4,10 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+from iaqualink.const import AQUALINK_API_SIGNING_KEY
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.tcx.device import TcxDevice
+from iaqualink.utils.crypto import sign
 from iaqualink.utils.redact import mask_serial, redact_value
 
 if TYPE_CHECKING:
@@ -91,7 +93,13 @@ class TcxSystem(AqualinkSystem):
         return await self._send_with_reauth_retry(do_request)
 
     async def send_reported_state_request(self) -> httpx.Response:
-        return await self._send_shadow_request(self.serial)
+        signature = sign(
+            [self.serial.upper(), self.aqualink.user_id],
+            AQUALINK_API_SIGNING_KEY,
+        )
+        return await self._send_shadow_request(
+            self.serial, params={"signature": signature}
+        )
 
     async def send_desired_state_request(
         self, state: dict[str, Any]

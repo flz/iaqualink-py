@@ -7,9 +7,11 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from iaqualink.client import AqualinkClient
+from iaqualink.const import AQUALINK_API_SIGNING_KEY
 from iaqualink.exception import AqualinkServiceUnauthorizedException
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.tcx.system import TcxSystem
+from iaqualink.utils.crypto import sign
 
 SAMPLE_REPORTED: dict[str, Any] = {
     "sn": "ABCDEFG",
@@ -274,6 +276,21 @@ class TestSubShadowFetchIsolation:
         assert "feaCircuit0" in sut.devices
         # filt0 still created from main shadow
         assert "filt0" in sut.devices
+
+    @patch("httpx.AsyncClient.request")
+    async def test_reported_state_request_includes_signature(
+        self, mock_request
+    ) -> None:
+        client, sut = _make_tcx_system()
+        client.user_id = "12345"
+        mock_request.return_value = MagicMock(status_code=200)
+
+        await sut.send_reported_state_request()
+
+        params = mock_request.call_args[1]["params"]
+        assert params == {
+            "signature": sign(["ABCDEFG", "12345"], AQUALINK_API_SIGNING_KEY)
+        }
 
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request_unauthorized(

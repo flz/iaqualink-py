@@ -89,9 +89,9 @@ TCX main shadow reads use `/devices/v2/` (spec §Shadow Endpoints). Sub-shadow r
 
 Sub-shadows are fetched with `asyncio.gather(..., return_exceptions=True)`. Each failure is logged individually rather than aborting the whole refresh. This tolerates temporary sub-shadow unavailability without marking the system offline.
 
-### HMAC signature on shadow GET
+### HMAC signature on main shadow GET
 
-The reference spec notes `?signature={sig}` on shadow GET requests. The signing key and exact parameter list are not confirmed from the wire. The implementation omits the signature. If the endpoint rejects unsigned requests, the signature scheme can be added without a protocol change.
+The main shadow GET (`/devices/v2/{serial}/shadow`) requires `?signature={sig}` or the request is rejected with `400 BAD_REQUEST` (`"missing signature"`). `sig` is `sign([serial.upper(), user_id], AQUALINK_API_SIGNING_KEY)` — the same HMAC-SHA1 helper and signing key used for device discovery, with `[serial.upper(), user_id]` as the message parts. Sub-shadow GETs (`/devices/v1/`) and all writes (`POST`) do not require a signature.
 
 ### Temperature unit
 
@@ -113,8 +113,7 @@ The SWC chlorinator is modelled as a boost on/off switch (`TcxChlorinatorBoost`)
 
 | # | Delta | Reason |
 |---|---|---|
-| 1 | Shadow GET omits `?signature={sig}` | Signing params unknown; endpoint may not require it |
-| 2 | SWC exposes boost only | Richer SWC surface (output %, salinity, mode) is future work |
-| 3 | Heater bounds hardcoded | Shadow bounds field presence not confirmed |
-| 4 | ZigBee write payload shape unverified | `set_zigbee_state` posts `{"zig": {addr: {"st": N}}}`; not confirmed from wire traffic |
-| 5 | `_sched`, `_pib0`, `_scene` fetched but not parsed | Schema not confirmed; no device mapping defined yet |
+| 1 | SWC exposes boost only | Richer SWC surface (output %, salinity, mode) is future work |
+| 2 | Heater bounds hardcoded | Shadow bounds field presence not confirmed |
+| 3 | ZigBee write payload shape unverified | `set_zigbee_state` posts `{"zig": {addr: {"st": N}}}`; not confirmed from wire traffic |
+| 4 | `_sched`, `_pib0`, `_scene` fetched but not parsed | Schema not confirmed; no device mapping defined yet |
