@@ -6,15 +6,16 @@ import enum
 import logging
 from abc import ABC, abstractmethod
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from iaqualink.exception import (
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     _AqualinkOfflineSignal,
 )
+from iaqualink.utils.diagnostics import _DIAGNOSTIC_SINK
 from iaqualink.utils.reauth import send_with_reauth_retry
-from iaqualink.utils.redact import mask_serial
+from iaqualink.utils.redact import mask_serial, redact_literal, redact_value
 
 if TYPE_CHECKING:
     import httpx
@@ -112,10 +113,10 @@ class AqualinkSystem(ABC):
     def status_translated(self) -> str:
         return self.status.name.replace("_", " ").title()
 
-    async def refresh(self) -> None:
+    async def refresh(self, *, full: bool = False) -> None:
         self.status = SystemStatus.IN_PROGRESS
         try:
-            await self._refresh()
+            await self._refresh(full=full)
         except AqualinkServiceThrottledException:
             self.status = SystemStatus.UNKNOWN
             raise
@@ -132,7 +133,7 @@ class AqualinkSystem(ABC):
             )
 
     @abstractmethod
-    async def _refresh(self) -> None:
+    async def _refresh(self, *, full: bool = False) -> None:
         """Fetch and parse the latest state from the API.
 
         Called by `refresh()`, which owns the status lifecycle. Implementors
@@ -148,7 +149,61 @@ class AqualinkSystem(ABC):
         `DISCONNECTED` respectively before re-raising.
 
         **All other exceptions** propagate unchanged.
+
+        **`full`:** when `True` (used by `diagnose()`), make every
+        refresh-related API call unconditionally, even when normal polling
+        would skip some of them based on prior state (e.g. feature-detection
+        flags) or early-exit on a non-`ONLINE`/empty response. Implementations
+        that always make a single fixed call can ignore this parameter.
         """
+
+    async def diagnose(self) -> dict[str, Any]:
+        """Run a full refresh and return redacted refresh traffic + devices.
+
+        Intended for Home Assistant's diagnostics download. Captures every
+        HTTP request/response made during the refresh (redacted the same way
+        as the CLI's ``--capture`` flag) along with the resulting device list.
+        Never raises `AqualinkServiceException` — failures surface via
+        `status` and `error` instead.
+        """
+        token = _DIAGNOSTIC_SINK.set([])
+        error: str | None = None
+        try:
+            await self.refresh(full=True)
+        except AqualinkServiceException as e:
+            error = str(e)
+        finally:
+            captures = _DIAGNOSTIC_SINK.get() or []
+            _DIAGNOSTIC_SINK.reset(token)
+
+        masked_serial = mask_serial(self.serial)
+        for entry in captures:
+            entry["request"]["url"] = entry["request"]["url"].replace(
+                self.serial, masked_serial
+            )
+
+        return {
+            "system": {
+                "name": self.name,
+                "serial": masked_serial,
+                "type": self.type,
+            },
+            "status": self.status.name,
+            "error": error,
+            "refresh_calls": captures,
+            "devices": redact_literal(
+                {
+                    key: {
+                        "type": type(device).__name__,
+                        "label": device.label,
+                        "data": redact_value(device.data),
+                    }
+                    for key, device in self.devices.items()
+                },
+                self.serial,
+                masked_serial,
+            ),
+        }
 
 
 class UnsupportedSystem(AqualinkSystem):
@@ -160,10 +215,10 @@ class UnsupportedSystem(AqualinkSystem):
     def supported(self) -> bool:
         return False
 
-    async def _refresh(self) -> None:
+    async def _refresh(self, *, full: bool = False) -> None:
         pass
 
-    async def refresh(self) -> None:
+    async def refresh(self, *, full: bool = False) -> None:
         LOGGER.debug(
             "Skipping refresh for unsupported system %s (%s)",
             mask_serial(self.serial),

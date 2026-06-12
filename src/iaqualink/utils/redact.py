@@ -98,6 +98,27 @@ def redact_value(v: Any, keys_ci: frozenset[str] = REDACT_KEYS_CI) -> Any:
     return v
 
 
+def redact_literal(v: Any, literal: str, replacement: str) -> Any:
+    """Recursively replace dict keys and string values that exactly equal `literal`.
+
+    Catches serials surfaced through keys/fields that `redact_dict` doesn't
+    recognise as sensitive (e.g. i2d's shared device data uses `name` for
+    the system serial, and i2d keys its primary device dict entry by serial).
+    """
+    if isinstance(v, dict):
+        return {
+            (replacement if k == literal else k): redact_literal(
+                val, literal, replacement
+            )
+            for k, val in v.items()
+        }
+    if isinstance(v, list):
+        return [redact_literal(item, literal, replacement) for item in v]
+    if isinstance(v, str) and v == literal:
+        return replacement
+    return v
+
+
 def redact_dict(
     d: dict[str, Any], keys_ci: frozenset[str] = REDACT_KEYS_CI
 ) -> dict[str, Any]:
