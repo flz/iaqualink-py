@@ -26,6 +26,7 @@
     - Freeze protection monitoring
 - **Context Manager Support** - Automatic resource cleanup
 - **Type Safe** - Full type hints for modern Python development
+- **Diagnostics API** - `system.diagnose()` returns redacted refresh-call traffic and the resulting device list, for Home Assistant's diagnostics download
 
 ## Quick Example
 

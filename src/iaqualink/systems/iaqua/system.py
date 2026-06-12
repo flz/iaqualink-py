@@ -130,18 +130,19 @@ class IaquaSystem(AqualinkSystem):
     async def _send_onetouch_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_ONETOUCH)
 
-    async def _refresh(self) -> None:
+    async def _refresh(self, *, full: bool = False) -> None:
         # Only the home response determines system status; fetch and parse it
         # first so we can skip subsequent requests when the system is not ONLINE.
+        # `full=True` (diagnose()) forces every call regardless.
         r1 = await self._send_home_screen_request()
         self._parse_home_response(r1)
-        if self.status is not SystemStatus.ONLINE:
+        if self.status is not SystemStatus.ONLINE and not full:
             return
 
         r2 = await self._send_devices_screen_request()
         self._parse_devices_response(r2)
 
-        if self._onetouch_supported:
+        if self._onetouch_supported or full:
             r3 = await self._send_onetouch_screen_request()
             self._parse_onetouch_response(r3)
 
