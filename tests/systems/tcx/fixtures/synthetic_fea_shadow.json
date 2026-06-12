@@ -1,0 +1,22 @@
+{
+  "state": {
+    "reported": {
+      "feaCircuit0": {
+        "st": 0,
+        "en": 1,
+        "fr": "Spa Jets",
+        "ap": "ON",
+        "zn": [0]
+      },
+      "feaCircuit1": {
+        "st": 1,
+        "en": 1,
+        "fr": "Spa Light",
+        "ap": "POOL_LT",
+        "zn": [0]
+      }
+    }
+  },
+  "timestamp": 123,
+  "version": 1
+}
