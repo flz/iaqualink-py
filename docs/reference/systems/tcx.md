@@ -851,7 +851,7 @@ Combined status derived from `aws.status` and `systemMode`:
 | 2 | `Bluetooth` JSON key uses uppercase `B` — case-sensitive |
 | 3 | `swc0` key includes trailing `0` — not just `swc` |
 | 4 | Main shadow GET uses `/devices/v2/`; sub-shadow GETs use `/devices/v1/` |
-| 5 | HMAC signature required on shadow GET requests (`?signature={sig}`) |
+| 5 | HMAC signature required on main shadow GET requests (`?signature={sig}`); sub-shadow GETs and writes do not require it |
 | 6 | WebSocket is the default transport; MQTT is enabled by server-side flag |
 | 7 | BLE payloads omit the `{"state":{"desired":}}` wrapper — only the inner object is sent |
 | 8 | `water.us` overloads sensor status with pump-off detection — not a pure temperature field |
