@@ -113,6 +113,25 @@ Runtime extension adjusts the wire `stepper` field in 15-minute increments. The 
 
 Cyclonext write frames wrap their equipment payload under the literal string key `"robot.1"` (with a dot). This differs from cyclobat, which nests under `equipment.robot.main`.
 
+## WebSocket State Subscription (reduce polling)
+
+To reduce polling and match the vendor app, `CyclonextSystem` supports a persistent WebSocket state subscription over the shared `AqualinkClient.ws_connect` transport.
+
+**Protocol** (captured from the vendor app, `wss://prod-socket.zodiac-io.com/devices`):
+
+1. On connect, send an Authorization `subscribe` frame: `{"action":"subscribe","version":1,"namespace":"authorization","service":"Authorization","payload":{"userId":<id>},"target":<serial>}` (built by `iaqualink.shared.robots.build_subscribe_frame`).
+2. The cloud replies with an Authorization ack carrying the **full** reported state at `payload.robot.state.reported.equipment["robot.1"]` — applied via `_apply_reported_state`.
+3. It then streams `StateStreamer` / `StateReported` frames. `payload.state.reported` frames are **deltas** (only changed fields under `equipment["robot.1"]`) — merged into the cached robot state and re-derived via `_apply_robot_delta`. `payload.state.desired` frames are command echoes and are ignored.
+
+Note the equipment shape differs from the REST shadow: REST nests the robot as a list under `equipment.robot`; the WS stream uses the dot-keyed `equipment["robot.1"]` dict. `_extract_robot` handles both.
+
+**Behaviour:**
+
+- `_refresh()` skips the REST shadow poll only while the WS is **connected** and delivered state within `WS_STATE_FRESH_SECS`; otherwise it polls REST. A WS keepalive ping (`WS_KEEPALIVE_SECS`) surfaces a silently dropped socket so the loop raises and `_ws_connected` flips false — freshness is then immediate, avoiding stale state.
+- Lifecycle: the consumer (e.g. the HA integration) calls `start_ws_subscription()` to begin reduced polling and `stop_ws_subscription()` on teardown. `_ws_enabled` (default `True`) is a master switch. The consumer should `refresh()` once (REST) before starting the subscription so `ebox_*`/`control_box_vr` diagnostic devices are seeded (WS deltas only carry the robot subtree).
+
+**Status:** implemented from a captured session; pending live hardware verification of the delta merge across all field types. Known follow-ups (TODO): auto-reconnect with backoff (drop currently degrades to REST until the next `start_ws_subscription`), a push callback so HA can update on change instead of on poll, and cancelling the background task on `AqualinkClient.close()`.
+
 ## Deltas vs Protocol Reference
 
 None at present.
