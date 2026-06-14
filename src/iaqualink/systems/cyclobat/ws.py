@@ -12,11 +12,11 @@ __all__ = [
 
 from typing import TYPE_CHECKING, Any
 
-from iaqualink.systems._robot_ws import (
+from iaqualink.shared.robots import (
     ACTION_SET_CLEANING_MODE,
     build_set_state_frame,
     client_token,
-    send_frame,
+    send_robot_frame,
 )
 
 if TYPE_CHECKING:
@@ -45,7 +45,7 @@ async def send_set_ctrl(
     ctrl: int,
 ) -> None:
     frame = build_cyclobat_main_ctrl_frame(serial, ctrl, client_token(client))
-    await send_frame(client, frame)
+    await send_robot_frame(client, frame)
 
 
 def build_cyclobat_main_mode_frame(
@@ -71,4 +71,4 @@ async def send_set_mode(
     mode: int,
 ) -> None:
     frame = build_cyclobat_main_mode_frame(serial, mode, client_token(client))
-    await send_frame(client, frame)
+    await send_robot_frame(client, frame)

@@ -3,8 +3,9 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import json
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -873,3 +874,48 @@ class TestAqualinkAuthStateRepr:
         assert "jwt" not in r
         assert "refresh-tok" not in r
         assert "***" in r
+
+
+def _ws_cm(ws: AsyncMock) -> MagicMock:
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=ws)
+    cm.__aexit__ = AsyncMock(return_value=None)
+    return cm
+
+
+class TestAqualinkClientWebSocket:
+    async def test_send_ws_frame_sends_json_and_swallows_ack_timeout(
+        self,
+    ) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(side_effect=TimeoutError())
+        frame = {"version": 1, "action": "setCleanerState"}
+
+        with patch(
+            "iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)
+        ) as mock_connect:
+            await client.send_ws_frame("https://ws.example/devices", frame)
+
+        mock_connect.assert_called_once()
+        assert mock_connect.call_args.args[0] == "https://ws.example/devices"
+        assert mock_connect.call_args.kwargs["headers"] == {
+            "Authorization": "tok"
+        }
+        ws.send_text.assert_awaited_once_with(json.dumps(frame))
+
+    async def test_send_ws_frame_reuses_clients_httpx_instance(self) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(return_value="ack")
+
+        with patch(
+            "iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)
+        ) as mock_connect:
+            await client.send_ws_frame("https://ws.example/devices", {"a": 1})
+
+        # Second positional arg is the shared httpx client.
+        assert mock_connect.call_args.args[1] is client._get_httpx_client()
+        ws.receive_text.assert_awaited_once()

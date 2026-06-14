@@ -40,7 +40,7 @@ wss://prod-socket.zodiac-io.com/devices
 Authorization: {IdToken}
 ```
 
-Write commands are sent as JSON frames via the shared `_robot_ws` (`CyclobatWs`). The action is `setCleaningMode` with a payload targeting `equipment.robot.main.ctrl`.
+Write commands are sent as JSON frames via the shared WebSocket transport (`AqualinkClient.send_ws_frame`), with frames built by `iaqualink.shared.robots`. The action is `setCleaningMode` with a payload targeting `equipment.robot.main.ctrl`.
 
 ### Frame shape
 

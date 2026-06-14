@@ -38,7 +38,7 @@ class TestBuildCyclobatMainCtrlFrame(unittest.TestCase):
 
 
 class TestSendSetCtrl(unittest.IsolatedAsyncioTestCase):
-    async def test_send_set_ctrl_calls_send_frame_with_correct_args(
+    async def test_send_set_ctrl_calls_send_robot_frame_with_correct_args(
         self,
     ) -> None:
         import iaqualink.systems.cyclobat.ws as ws_mod
@@ -50,15 +50,15 @@ class TestSendSetCtrl(unittest.IsolatedAsyncioTestCase):
 
         captured: list[tuple[object, dict[str, Any]]] = []
 
-        async def fake_send_frame(c: object, f: dict[str, Any]) -> None:
+        async def fake_send_robot_frame(c: object, f: dict[str, Any]) -> None:
             captured.append((c, f))
 
-        original = ws_mod.send_frame
+        original = ws_mod.send_robot_frame
         try:
-            ws_mod.send_frame = cast(Any, fake_send_frame)
+            ws_mod.send_robot_frame = cast(Any, fake_send_robot_frame)
             await send_set_ctrl(client, "SN42", 1)
         finally:
-            ws_mod.send_frame = original
+            ws_mod.send_robot_frame = original
 
         self.assertEqual(len(captured), 1)
         recorded_client, recorded_frame = captured[0]

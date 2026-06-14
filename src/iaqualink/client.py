@@ -7,11 +7,17 @@ import importlib
 import json
 import logging
 import time
+from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from dataclasses import fields as dataclass_fields
 from typing import TYPE_CHECKING, Any, Self
 
 import httpx
+from httpx_ws import (
+    WebSocketDisconnect,
+    WebSocketInvalidTypeReceived,
+    aconnect_ws,
+)
 
 from iaqualink.const import (
     AQUALINK_API_KEY,
@@ -21,6 +27,7 @@ from iaqualink.const import (
     AQUALINK_REFRESH_URL,
     DEFAULT_REQUEST_TIMEOUT,
     KEEPALIVE_EXPIRY,
+    WS_ACK_TIMEOUT,
 )
 from iaqualink.exception import (
     AqualinkServiceException,
@@ -40,7 +47,10 @@ from iaqualink.utils.redact import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from types import TracebackType
+
+    from httpx_ws import AsyncWebSocketSession
 
 for module_name in (
     "iaqualink.systems.cyclobat.system",
@@ -278,6 +288,47 @@ class AqualinkClient:
                 event_hooks=self._event_hooks,
             )
         return self._client
+
+    @asynccontextmanager
+    async def ws_connect(
+        self, url: str
+    ) -> AsyncIterator[AsyncWebSocketSession]:
+        """Open an authenticated WebSocket on the shared httpx client.
+
+        Core transport reused by robot commands and future state
+        subscriptions (and by other wss-based systems such as tcx). Runs over
+        the same httpx client as REST requests, including an HA-injected one.
+        """
+        client = self._get_httpx_client()
+        headers = {"Authorization": self.id_token}
+        async with aconnect_ws(url, client, headers=headers) as ws:
+            yield ws
+
+    async def send_ws_frame(
+        self,
+        url: str,
+        frame: dict[str, Any],
+        *,
+        ack_timeout: float = WS_ACK_TIMEOUT,
+    ) -> None:
+        """Open a one-shot WS, send `frame` as JSON, best-effort wait for ack."""
+        LOGGER.debug(
+            "-> WS %s action=%s",
+            self._log_redact_url(url),
+            frame.get("action"),
+        )
+        async with self.ws_connect(url) as ws:
+            await ws.send_text(json.dumps(frame))
+            try:
+                ack = await ws.receive_text(timeout=ack_timeout)
+            except (
+                TimeoutError,
+                WebSocketDisconnect,
+                WebSocketInvalidTypeReceived,
+            ) as exc:
+                LOGGER.debug("No WS ack within %.1fs: %r", ack_timeout, exc)
+            else:
+                LOGGER.debug("WS ack received (length=%d)", len(ack))
 
     async def _send_login_request(self) -> httpx.Response:
         data = {

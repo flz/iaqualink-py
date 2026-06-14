@@ -10,7 +10,7 @@ Implementation details for cyclobat systems (`device_type: "cyclobat"` — Zodia
 | API host | `prod.zodiac-io.com` |
 | Authentication | JWT `IdToken` (bare, no `Bearer` prefix) |
 | Update call | Single shadow state fetch (`GET /devices/v1/{serial}/shadow`) |
-| Write commands | WebSocket `wss://prod-socket.zodiac-io.com/devices` via shared `_robot_ws` |
+| Write commands | WebSocket `wss://prod-socket.zodiac-io.com/devices` via `AqualinkClient.send_ws_frame` + shared `iaqualink.shared.robots` framing |
 | Python class | `CyclobatSystem` in `src/iaqualink/systems/cyclobat/system.py` |
 
 ## System Status Lifecycle
@@ -95,7 +95,7 @@ Source sub-objects are flattened into underscored key names.
 
 ## Write Path
 
-All write commands go through the shared WebSocket `_robot_ws` (`CyclobatWs`), not the shadow REST endpoint. `send_set_ctrl(ws, serial, id_token, ctrl)` builds and sends a `setCleaningMode` frame with the target `ctrl` value.
+All write commands go through the shared WebSocket transport (`AqualinkClient.send_ws_frame`, frames built by `iaqualink.shared.robots`), not the shadow REST endpoint. `send_set_ctrl(client, serial, ctrl)` builds and sends a `setCleaningMode` frame with the target `ctrl` value.
 
 | Method | ctrl value | Meaning |
 |---|---|---|
