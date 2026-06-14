@@ -72,6 +72,7 @@ _SNAPSHOT_EXCLUDE = frozenset(
         "supports_clean_spot",
         "supports_locate",
         "supports_fan_speed",
+        "supports_battery",
         "fan_speed_list",
         "max_temp",
         "min_temp",

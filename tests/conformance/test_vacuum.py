@@ -105,10 +105,14 @@ class TestAqualinkVacuum(unittest.IsolatedAsyncioTestCase):
         assert self.robot.supports_clean_spot is False
         assert self.robot.supports_locate is False
         assert self.robot.supports_fan_speed is False
+        assert self.robot.supports_battery is False
 
     def test_fan_speed_defaults(self) -> None:
         assert self.robot.fan_speed is None
         assert self.robot.fan_speed_list is None
+
+    def test_battery_level_defaults_none(self) -> None:
+        assert self.robot.battery_level is None
 
     async def test_unsupported_commands_raise_not_supported(self) -> None:
         for coro in (

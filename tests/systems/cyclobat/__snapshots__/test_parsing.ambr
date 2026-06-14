@@ -250,6 +250,7 @@
     }),
     'robot': dict({
       'activity': 'cleaning',
+      'battery_level': 87,
       'entity_category': None,
       'fan_speed': 'floor',
       'label': 'Robot',

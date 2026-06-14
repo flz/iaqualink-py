@@ -606,3 +606,19 @@ class AqualinkVacuum(AqualinkDevice):
 
     async def _set_fan_speed(self, fan_speed: str) -> None:
         raise NotImplementedError
+
+    # ── Override if a battery charge level is reported ───────────────────────
+
+    @property
+    def battery_level(self) -> int | None:
+        """Battery charge percent (0–100), or None if not reported.
+
+        HA deprecated VacuumEntity.battery_level in favour of a separate
+        battery SensorEntity; concrete robots may expose it here and/or as a
+        sibling sensor.
+        """
+        return None
+
+    @property
+    def supports_battery(self) -> bool:
+        return self.battery_level is not None

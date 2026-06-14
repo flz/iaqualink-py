@@ -54,8 +54,9 @@ _SENSOR_META: dict[str, _Meta] = {
     "battery_percentage": _Meta("battery", "%", _MEAS, numeric=True),
     "temperature": _Meta("temperature", "°C", _MEAS, numeric=True),
     "time_remaining_sec": _Meta(_DUR, "s", _MEAS, numeric=True),
-    # total_increasing counter: no duration device_class (HA warns on the
-    # duration + total_increasing combo); keep unit-accurate minutes.
+    # Lifetime odometer: total_increasing in minutes. HA permits the duration
+    # device_class with total_increasing, but we omit it so the value renders
+    # as a raw minutes counter rather than a formatted h:m duration.
     "total_runtime": _Meta(None, "min", "total_increasing", numeric=True),
     "floor_duration": _Meta(_DUR, "min", _MEAS, numeric=True),
     "floor_walls_duration": _Meta(_DUR, "min", _MEAS, numeric=True),
@@ -157,6 +158,20 @@ class CyclobatRobot(CyclobatDevice, AqualinkVacuum):
     @property
     def _main(self) -> dict[str, Any]:
         return self.system._robot_state.get("main") or {}
+
+    @property
+    def _battery(self) -> dict[str, Any]:
+        return self.system._robot_state.get("battery") or {}
+
+    @property
+    def battery_level(self) -> int | None:
+        perc = self._battery.get("userChargePerc")
+        if perc is None:
+            return None
+        try:
+            return int(perc)
+        except (TypeError, ValueError):
+            return None
 
     @property
     def activity(self) -> AqualinkRobotActivity:

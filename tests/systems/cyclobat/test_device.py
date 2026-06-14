@@ -95,9 +95,15 @@ class TestCyclobatDeviceFromData(unittest.TestCase):
 # ── CyclobatRobot (HA vacuum) ────────────────────────────────────────────────
 
 
-def _robot(main: dict[str, Any] | None = None) -> CyclobatRobot:
+def _robot(
+    main: dict[str, Any] | None = None,
+    battery: dict[str, Any] | None = None,
+) -> CyclobatRobot:
     system = make_system()
-    system._robot_state = {"main": main if main is not None else {}}
+    system._robot_state = {
+        "main": main if main is not None else {},
+        "battery": battery if battery is not None else {},
+    }
     return CyclobatRobot(system, _device_data("robot", 0))
 
 
@@ -148,6 +154,7 @@ class TestCyclobatRobot(unittest.TestCase):
         self.assertFalse(r.supports_pause)
         self.assertFalse(r.supports_clean_spot)
         self.assertFalse(r.supports_locate)
+        self.assertFalse(r.supports_battery)
 
     def test_fan_speed_reads_mode(self):
         self.assertEqual(_robot({"mode": 3}).fan_speed, "waterline")
@@ -160,6 +167,16 @@ class TestCyclobatRobot(unittest.TestCase):
             _robot().fan_speed_list,
             ["floor", "floor_and_walls", "smart", "waterline"],
         )
+
+    def test_battery_level_reads_user_charge_perc(self):
+        r = _robot(battery={"userChargePerc": 87})
+        self.assertEqual(r.battery_level, 87)
+        self.assertTrue(r.supports_battery)
+
+    def test_battery_level_none_when_absent(self):
+        r = _robot()
+        self.assertIsNone(r.battery_level)
+        self.assertFalse(r.supports_battery)
 
 
 class TestCyclobatRobotCommands(unittest.IsolatedAsyncioTestCase):
