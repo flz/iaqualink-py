@@ -238,7 +238,7 @@ def test_set_preset_saves_jar(tmp_path: Path) -> None:
 
 def test_set_preset_invalid_preset_exits(tmp_path: Path) -> None:
     pump = make_fan("VSP", supports_presets=True, presets=["Low", "High"])
-    pump.set_preset_mode.side_effect = AqualinkInvalidParameterException(
+    pump.set_preset_mode.side_effect = AqualinkInvalidParameterException(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
         "Bogus"
     )
     FakeClient.systems_factory = staticmethod(

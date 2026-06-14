@@ -10,6 +10,14 @@ iAqua systems use the iaqualink.net API.
 
 ::: iaqualink.systems.iaqua.device.IaquaDevice
 
+## IaquaIclLight
+
+::: iaqualink.systems.iaqua.device.IaquaIclLight
+
+## IaquaZoneStatus
+
+::: iaqualink.systems.iaqua.device.IaquaZoneStatus
+
 ## Characteristics
 
 ### API Endpoint
@@ -84,6 +92,10 @@ Temperature ranges:
 
 - `pool_light` - Pool light
 - `spa_light` - Spa light
+
+### ICL Lights
+
+- `icl_zone_1` through `icl_zone_4` — Per-zone RGBW LED control (IntelliCenter Light sub-system). Only present when the controller reports ICL zones as non-absent. Class: `IaquaIclLight`.
 
 ### Auxiliary Devices
 

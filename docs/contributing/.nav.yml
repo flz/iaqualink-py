@@ -1,5 +1,6 @@
 nav:
   - Development Setup: setup.md
   - Architecture: architecture.md
+  - Writing Tests: testing.md
   - New System Type: new-system-type.md
   - New Device Type: new-device-type.md

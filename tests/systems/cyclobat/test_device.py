@@ -1,40 +1,47 @@
 from __future__ import annotations
 
 import unittest
-from unittest.mock import AsyncMock, MagicMock
+from typing import Any, cast
+from unittest.mock import AsyncMock
 
-from iaqualink.device import AqualinkBinarySensor, AqualinkSensor
+from iaqualink.device import (
+    AqualinkBinarySensor,
+    AqualinkDevice,
+    AqualinkSensor,
+)
+from iaqualink.systems.cyclobat.device import (
+    CyclobatBinarySensor,
+    CyclobatDevice,
+    CyclobatRobot,
+    CyclobatSensor,
+)
+
+from .factories import make_system
+
+
+def _device_data(name: str, state: object) -> dict[str, Any]:
+    """Build raw device data; ``dict[str, Any]`` satisfies ``DeviceData``."""
+    return {"name": name, "state": state}
 
 
 class TestCyclobatDeviceFromData(unittest.TestCase):
     def setUp(self) -> None:
-        self.system = MagicMock()
-        self.system.serial = "SN42"
+        self.system = make_system()
 
-    def _from_data(self, name: str, state: object) -> object:
-        from iaqualink.systems.cyclobat.device import CyclobatDevice
-
-        return CyclobatDevice.from_data(
-            self.system, {"name": name, "state": state}
-        )
+    def _from_data(self, name: str, state: object) -> AqualinkDevice:
+        return CyclobatDevice.from_data(self.system, _device_data(name, state))
 
     # from_data routing
     def test_from_data_running_is_binary_sensor(self) -> None:
-        from iaqualink.systems.cyclobat.device import CyclobatBinarySensor
-
         dev = self._from_data("running", 1)
         self.assertIsInstance(dev, CyclobatBinarySensor)
         self.assertIsInstance(dev, AqualinkBinarySensor)
 
     def test_from_data_returning_is_binary_sensor(self) -> None:
-        from iaqualink.systems.cyclobat.device import CyclobatBinarySensor
-
         dev = self._from_data("returning", 0)
         self.assertIsInstance(dev, CyclobatBinarySensor)
 
     def test_from_data_battery_percentage_is_sensor(self) -> None:
-        from iaqualink.systems.cyclobat.device import CyclobatSensor
-
         dev = self._from_data("battery_percentage", 87)
         self.assertIsInstance(dev, CyclobatSensor)
         self.assertIsInstance(dev, AqualinkSensor)
@@ -59,38 +66,28 @@ class TestCyclobatDeviceFromData(unittest.TestCase):
 
     # model
     def test_model_binary_sensor_strips_prefix(self) -> None:
-        from iaqualink.systems.cyclobat.device import CyclobatBinarySensor
-
-        dev = CyclobatBinarySensor(self.system, {"name": "running", "state": 1})
+        dev = CyclobatBinarySensor(self.system, _device_data("running", 1))
         self.assertEqual(dev.model, "BinarySensor")
 
     def test_model_sensor_strips_prefix(self) -> None:
-        from iaqualink.systems.cyclobat.device import CyclobatSensor
-
         dev = CyclobatSensor(
-            self.system, {"name": "battery_percentage", "state": 87}
+            self.system, _device_data("battery_percentage", 87)
         )
         self.assertEqual(dev.model, "Sensor")
 
     # is_on
     def test_binary_sensor_is_on_true(self) -> None:
-        from iaqualink.systems.cyclobat.device import CyclobatBinarySensor
-
-        dev = CyclobatBinarySensor(self.system, {"name": "running", "state": 1})
+        dev = CyclobatBinarySensor(self.system, _device_data("running", 1))
         self.assertTrue(dev.is_on)
 
     def test_binary_sensor_is_on_false(self) -> None:
-        from iaqualink.systems.cyclobat.device import CyclobatBinarySensor
-
-        dev = CyclobatBinarySensor(self.system, {"name": "running", "state": 0})
+        dev = CyclobatBinarySensor(self.system, _device_data("running", 0))
         self.assertFalse(dev.is_on)
 
     # value
     def test_sensor_value_stringified(self) -> None:
-        from iaqualink.systems.cyclobat.device import CyclobatSensor
-
         dev = CyclobatSensor(
-            self.system, {"name": "battery_percentage", "state": 87}
+            self.system, _device_data("battery_percentage", 87)
         )
         self.assertEqual(dev.value, 87)
 
@@ -98,26 +95,18 @@ class TestCyclobatDeviceFromData(unittest.TestCase):
 # ── CyclobatRobot (HA vacuum) ────────────────────────────────────────────────
 
 
-def _robot(main=None):
-    from iaqualink.systems.cyclobat.device import CyclobatRobot
-
-    system = MagicMock()
-    system.serial = "SN42"
+def _robot(main: dict[str, Any] | None = None) -> CyclobatRobot:
+    system = make_system()
     system._robot_state = {"main": main if main is not None else {}}
-    return CyclobatRobot(system, {"name": "robot", "state": 0})
+    return CyclobatRobot(system, _device_data("robot", 0))
 
 
 class TestCyclobatRobot(unittest.TestCase):
     def test_from_data_robot_is_robot(self):
         from iaqualink.device import AqualinkVacuum
-        from iaqualink.systems.cyclobat.device import (
-            CyclobatDevice,
-            CyclobatRobot,
-        )
 
-        system = MagicMock()
-        system.serial = "SN42"
-        dev = CyclobatDevice.from_data(system, {"name": "robot", "state": 1})
+        system = make_system()
+        dev = CyclobatDevice.from_data(system, _device_data("robot", 1))
         self.assertIsInstance(dev, CyclobatRobot)
         self.assertIsInstance(dev, AqualinkVacuum)
 
@@ -224,12 +213,15 @@ class TestCyclobatRobotCommands(unittest.IsolatedAsyncioTestCase):
 # ── CyclobatSensor / BinarySensor HA metadata ────────────────────────────────
 
 
-def _sensor(name, state):
-    from iaqualink.systems.cyclobat.device import CyclobatDevice
-
-    system = MagicMock()
-    system.serial = "SN42"
-    return CyclobatDevice.from_data(system, {"name": name, "state": state})
+def _sensor(name: str, state: object) -> CyclobatSensor:
+    system = make_system()
+    # Routes to CyclobatSensor or CyclobatBinarySensor at runtime; cast to the
+    # sensor subclass so ty resolves the HA-metadata props the tests assert on
+    # (both subclasses share device_class/entity_category).
+    return cast(
+        CyclobatSensor,
+        CyclobatDevice.from_data(system, _device_data(name, state)),
+    )
 
 
 class TestCyclobatSensorMetadata(unittest.TestCase):

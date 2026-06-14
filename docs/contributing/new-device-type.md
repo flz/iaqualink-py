@@ -86,3 +86,12 @@ Add the new class to `src/iaqualink/__init__.py` if it should be part of the pub
 - Update the device hierarchy in `docs/contributing/architecture.md`
 - Update the `_DEVICE_GROUPS` table in `CLAUDE.md`
 - Add API docs in `docs/api/device.md` (the `:::` autodoc directive picks it up automatically)
+
+### 6. Add tests
+
+See [Writing Tests](testing.md#adding-tests-for-a-new-device-type) for the full procedure. In summary:
+
+1. Add a fixture dataclass in `tests/conformance/fixtures.py`
+2. Add a conformance test module `tests/conformance/test_newdevice.py`
+3. Add a parametrized fixture in `tests/conformance/conftest.py`
+4. Register factories in each system's `factories.py` that implements the type

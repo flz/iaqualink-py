@@ -4,13 +4,35 @@ import json
 from enum import Enum
 from functools import cache
 from pathlib import Path
-from unittest.mock import MagicMock
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
+from respx.patterns import M
 
 import iaqualink.device as _dev
 from iaqualink.client import AqualinkClient
 from iaqualink.device import AqualinkDevice
+
+# ---------------------------------------------------------------------------
+# Shared test infrastructure (formerly base.py + common.py)
+# ---------------------------------------------------------------------------
+
+dotstar = M(host__regex=".*")
+resp_200 = httpx.Response(status_code=200, json={})
+
+
+async_noop = AsyncMock(return_value=None)
+
+
+def async_returns(x: Any) -> AsyncMock:
+    return AsyncMock(return_value=x)
+
+
+def async_raises(x: Any) -> AsyncMock:
+    return AsyncMock(side_effect=x)
+
 
 # Abstract base classes whose @property definitions constitute the HA-facing
 # public API. Introspected at test time — no production code annotation needed.
@@ -24,6 +46,7 @@ _API_CLASSES = frozenset(
         _dev.AqualinkClimate,
         _dev.AqualinkNumber,
         _dev.AqualinkFan,
+        _dev.AqualinkVacuum,
     }
 )
 
@@ -39,8 +62,17 @@ _SNAPSHOT_EXCLUDE = frozenset(
         "supports_turn_off",
         "supports_brightness",
         "supports_effect",
+        "supports_rgbw",
         "supports_presets",
         "supports_percentage",
+        "supports_start",
+        "supports_stop",
+        "supports_pause",
+        "supports_return",
+        "supports_clean_spot",
+        "supports_locate",
+        "supports_fan_speed",
+        "fan_speed_list",
         "max_temp",
         "min_temp",
     }
@@ -53,7 +85,13 @@ def client() -> AqualinkClient:
 
 
 def load_fixture(system: str, endpoint: str) -> dict:
-    path = Path(__file__).parent / "fixtures" / system / f"{endpoint}.json"
+    path = (
+        Path(__file__).parent
+        / "systems"
+        / system
+        / "fixtures"
+        / f"{endpoint}.json"
+    )
     return json.loads(path.read_text())
 
 
@@ -64,7 +102,7 @@ def make_response(data: dict) -> MagicMock:
 
 
 @cache
-def _collect_snapshot_props(cls: type) -> tuple[str, ...]:
+def _collect_snapshot_props(cls: type[AqualinkDevice]) -> tuple[str, ...]:
     """Collect public @property names from API base classes, base-first.
 
     Uses vars() instead of getattr so each class's own __dict__ is inspected
@@ -101,7 +139,7 @@ def snapshot_devices(
             "type": type(dev).__name__,
             **{
                 p: _serialize(getattr(dev, p))
-                for p in _collect_snapshot_props(type(dev))
+                for p in _collect_snapshot_props(type(dev))  # type: ignore[arg-type]
             },
         }
         for name, dev in devices.items()

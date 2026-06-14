@@ -1,0 +1,59 @@
+{
+  "message": "",
+  "devices_screen": [
+    {"status": "Online"},
+    {"response": "AQU=XXXX"},
+    {"group": "1"},
+    {"aux_1": [{"state": "0"}, {"label": "Cleaner"}, {"icon": "aux_1_0.png"}, {"type": "0"}, {"subtype": "1"}]}
+  ],
+  "icl_info_list": [
+    {
+      "zoneId": 1,
+      "zoneName": "Light Zone 1",
+      "zoneStatus": "off",
+      "zoneColor": "3",
+      "zoneColorVal": "Cobalt Blue",
+      "dim_level": "100",
+      "red_val": "247",
+      "green_val": "255",
+      "blue_val": "244",
+      "white_val": "0"
+    },
+    {
+      "zoneId": 2,
+      "zoneName": "Spa Light",
+      "zoneStatus": "on",
+      "zoneColor": "5",
+      "zoneColorVal": "Spring Green",
+      "dim_level": "75",
+      "red_val": "0",
+      "green_val": "255",
+      "blue_val": "128",
+      "white_val": "0"
+    },
+    {
+      "zoneId": 3,
+      "zoneName": "Light Zone 3",
+      "zoneStatus": "absent",
+      "zoneColor": "0",
+      "zoneColorVal": "off",
+      "dim_level": "0",
+      "red_val": "255",
+      "green_val": "255",
+      "blue_val": "255",
+      "white_val": "0"
+    },
+    {
+      "zoneId": 4,
+      "zoneName": "Light Zone 4",
+      "zoneStatus": "absent",
+      "zoneColor": "0",
+      "zoneColorVal": "off",
+      "dim_level": "0",
+      "red_val": "255",
+      "green_val": "255",
+      "blue_val": "255",
+      "white_val": "0"
+    }
+  ]
+}

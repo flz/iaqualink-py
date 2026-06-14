@@ -249,7 +249,9 @@
       'type': 'CyclobatBinarySensor',
     }),
     'robot': dict({
+      'activity': 'cleaning',
       'entity_category': None,
+      'fan_speed': 'floor',
       'label': 'Robot',
       'type': 'CyclobatRobot',
     }),

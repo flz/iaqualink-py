@@ -314,10 +314,12 @@ Set the colour preset for an ICL zone.
 | Extra param | Value |
 |---|---|
 | `zone_id` | Zone identifier (integer) |
-| `color_id` | Colour preset index (integer) |
+| `color_id` | Colour preset index (integer, optional — omit to preserve current colour) |
 | `dim_level` | Dimming level (integer, 0–100) |
 
 **Response:** Same shape as `get_icl_info`.
+
+**Note:** `color_id` is optional. When omitted, the hardware preserves the zone's current colour and only adjusts brightness. The app uses this same command for both colour selection and brightness-only adjustments; `set_iclzone_dim` exists but is not exercised by any observed UI path.
 
 #### `set_iclzone_dim`
 
@@ -433,6 +435,44 @@ When an ICL is present, the `get_devices` response contains a top-level `icl_inf
 | `zoneColor` | string | Colour preset (string-encoded integer) |
 | `zoneColorVal` | string | Colour preset name |
 | `dim_level` | string | Dimming level (string-encoded integer) |
+
+### ICL Enum Wire Values
+
+#### ZoneStatus
+
+| Wire value | Meaning |
+|---|---|
+| `"on"` | Zone is on |
+| `"off"` | Zone is off |
+| `"absent"` | Zone has no assigned lights — exclude from display |
+
+Zones with `zoneStatus = "absent"` are not assigned any physical lights and should be excluded from display.
+
+#### ZoneColor (preset index)
+
+The `zoneColor` integer field and the `color_id` parameter for `set_iclzone_color` share the same index space:
+
+| Index | `zoneColorVal` string |
+|---|---|
+| 0 | `"off"` (no color / zone off) |
+| 1 | `"Alpine White"` |
+| 2 | `"Sky Blue"` |
+| 3 | `"Cobalt Blue"` |
+| 4 | `"Caribbean Blue"` |
+| 5 | `"Spring Green"` |
+| 6 | `"Emerald Green"` |
+| 7 | `"Emerald Rose"` |
+| 8 | `"Ruby Red"` |
+| 9 | `"Magenta"` |
+| 10 | `"Violet"` |
+| 11 | `"Slow Color Splash"` |
+| 12 | `"Fast Color Splash"` |
+| 13 | `"America The Beautiful"` |
+| 14 | `"Fat Tuesday"` |
+| 15 | `"Disco Tech"` |
+| 16 | `"Custom Color"` — RGBW values in `red_val`/`green_val`/`blue_val`/`white_val` |
+
+The `zoneColorVal` strings in the response are human-readable display names; they match the index above. When `zoneColor` = 16 (`"Custom Color"`), the RGBW channel fields carry the active color.
 
 ---
 

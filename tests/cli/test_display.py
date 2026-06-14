@@ -24,7 +24,7 @@ def test_group_devices_all_types() -> None:
         ("b1", make_binary_sensor("Freeze")),
         ("n1", make_sensor("Temp")),
     ]
-    groups = cli_module._group_devices(devices)
+    groups = cli_module._group_devices(devices)  # ty: ignore
     assert [label for _, label, _ in groups] == [
         "Climate",
         "Lights",

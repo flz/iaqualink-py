@@ -111,3 +111,6 @@ spec/
 
 # Version file is automatically generated
 src/iaqualink/version.py
+
+# Network capture files
+*.jsonl

@@ -22,7 +22,6 @@ repos:
       - id: mypy
         additional_dependencies:
           - types-PyYAML==6.0.12
-        exclude: ^(tests/.*)
 
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: 0.6.5
@@ -33,7 +32,7 @@ repos:
     hooks:
       - id: ty
         name: ty
-        entry: uv run ty check src/
+        entry: uv run ty check src/ tests/
         language: system
         pass_filenames: false
         types: [python]

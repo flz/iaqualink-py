@@ -11,6 +11,7 @@ from .conftest import (
     FakeSystemWithAqualink,
     invoke_with_jar,
     make_light,
+    make_rgbw_light,
     make_switch,
 )
 
@@ -37,7 +38,7 @@ def test_set_brightness_succeeds_on_dimmable_light(tmp_path: Path) -> None:
     result, _ = invoke_with_jar(tmp_path, "set-brightness", "light", "75")
     assert result.exit_code == 0
     assert "75%" in result.stdout
-    light.set_brightness_percentage.assert_called_once_with(75)
+    light.set_brightness_percentage.assert_called_once_with(75)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
 
 
 def test_set_brightness_fails_on_non_light(tmp_path: Path) -> None:
@@ -99,7 +100,7 @@ def test_set_effect_succeeds_on_color_light(tmp_path: Path) -> None:
     result, _ = invoke_with_jar(tmp_path, "set-effect", "light", "Alpine White")
     assert result.exit_code == 0
     assert "Alpine White" in result.stdout
-    light.set_effect.assert_called_once_with("Alpine White")
+    light.set_effect.assert_called_once_with("Alpine White")  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
 
 
 def test_set_effect_fails_on_non_light(tmp_path: Path) -> None:
@@ -153,7 +154,7 @@ def test_set_effect_rejects_unknown_effect_name(tmp_path: Path) -> None:
         effect="Alpine White",
         effect_list=["Alpine White", "Off"],
     )
-    light.set_effect.side_effect = AqualinkInvalidParameterException(
+    light.set_effect.side_effect = AqualinkInvalidParameterException(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
         "'Bogus' isn't a valid effect."
     )
     FakeClient.systems_factory = staticmethod(
@@ -164,3 +165,62 @@ def test_set_effect_rejects_unknown_effect_name(tmp_path: Path) -> None:
     result, _ = invoke_with_jar(tmp_path, "set-effect", "light", "Bogus")
     assert result.exit_code == 1
     assert "Bogus" in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# set-rgbw
+# ---------------------------------------------------------------------------
+
+
+def test_set_rgbw_succeeds(tmp_path: Path) -> None:
+    light = make_rgbw_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = invoke_with_jar(
+        tmp_path, "set-rgbw", "light", "255", "0", "128"
+    )
+    assert result.exit_code == 0
+    assert "(255, 0, 128, 0)" in result.stdout
+    light.set_rgbw.assert_awaited_once_with(255, 0, 128, 0)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+
+
+def test_set_rgbw_succeeds_with_white(tmp_path: Path) -> None:
+    light = make_rgbw_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = invoke_with_jar(
+        tmp_path, "set-rgbw", "light", "100", "150", "200", "50"
+    )
+    assert result.exit_code == 0
+    assert "(100, 150, 200, 50)" in result.stdout
+    light.set_rgbw.assert_awaited_once_with(100, 150, 200, 50)  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+
+
+def test_set_rgbw_fails_on_non_light(tmp_path: Path) -> None:
+    switch = make_switch("Filter", is_on=False)
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"filter": switch})
+        }
+    )
+    result, _ = invoke_with_jar(tmp_path, "set-rgbw", "filter", "255", "0", "0")
+    assert result.exit_code == 1
+    assert "is not a light" in result.stderr
+
+
+def test_set_rgbw_fails_on_non_rgbw_light(tmp_path: Path) -> None:
+    light = make_light()
+    FakeClient.systems_factory = staticmethod(
+        lambda: {
+            "SN001": FakeSystemWithAqualink("SN001", "Pool", {"light": light})
+        }
+    )
+    result, _ = invoke_with_jar(tmp_path, "set-rgbw", "light", "255", "0", "0")
+    assert result.exit_code == 1
+    assert "does not support RGBW" in result.stderr

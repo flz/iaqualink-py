@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import unittest
+from typing import Any, cast
 from unittest.mock import MagicMock
 
 from iaqualink.systems.cyclobat.ws import (
@@ -47,14 +48,14 @@ class TestSendSetCtrl(unittest.IsolatedAsyncioTestCase):
         client.authentication_token = "tok"
         client.app_client_id = "abc"
 
-        captured: list[tuple[object, object]] = []
+        captured: list[tuple[object, dict[str, Any]]] = []
 
-        async def fake_send_frame(c: object, f: object) -> None:
+        async def fake_send_frame(c: object, f: dict[str, Any]) -> None:
             captured.append((c, f))
 
         original = ws_mod.send_frame
         try:
-            ws_mod.send_frame = fake_send_frame  # type: ignore[assignment]
+            ws_mod.send_frame = cast(Any, fake_send_frame)
             await send_set_ctrl(client, "SN42", 1)
         finally:
             ws_mod.send_frame = original
@@ -63,13 +64,13 @@ class TestSendSetCtrl(unittest.IsolatedAsyncioTestCase):
         recorded_client, recorded_frame = captured[0]
         self.assertIs(recorded_client, client)
         self.assertEqual(
-            recorded_frame["payload"]["clientToken"],  # type: ignore[index]
+            recorded_frame["payload"]["clientToken"],
             "42|tok|abc",
         )
         self.assertEqual(
-            recorded_frame["payload"]["state"]["desired"]["equipment"][  # type: ignore[index]
-                "robot"
-            ]["main"]["ctrl"],
+            recorded_frame["payload"]["state"]["desired"]["equipment"]["robot"][
+                "main"
+            ]["ctrl"],
             1,
         )
 

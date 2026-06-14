@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-import copy
 import json
-from typing import cast
+from typing import Any, cast
 
 import pytest
+import respx.router
 
 from iaqualink.exception import AqualinkInvalidParameterException
 from iaqualink.systems.exo.device import (
     EXO_TEMP_CELSIUS_HIGH,
     EXO_TEMP_CELSIUS_LOW,
     ExoAttributeSensor,
-    ExoAttributeSwitch,
-    ExoAuxSwitch,
     ExoClimate,
     ExoDevice,
     ExoErrorSensor,
@@ -21,232 +19,143 @@ from iaqualink.systems.exo.device import (
     ExoSensor,
     ExoSwitch,
 )
-from iaqualink.systems.exo.system import ExoSystem
 
-from ...base_test_device import (
-    TestBaseClimate,
-    TestBaseDevice,
-    TestBaseSensor,
-    TestBaseSwitch,
+from ...conftest import dotstar, resp_200
+from .factories import (
+    EXO_ATTRIBUTE_SENSOR_DATA,
+    EXO_DEVICE_DATA,
+    EXO_FILTER_PUMP_ON_DATA,
+    EXO_HEATING_ON_DATA,
+    EXO_SENSOR_DATA,
+    EXO_WATER_TEMP_DATA,
+    make_system,
 )
 
 
-class TestExoDevice(TestBaseDevice):
-    def setUp(self) -> None:
-        super().setUp()
-
-        data = {"serial_number": "SN123456", "device_type": "exo"}
-        self.system = ExoSystem(self.client, data=data)
-
-        data = {"name": "Test Device", "state": "42"}
-        self.sut = ExoDevice(self.system, data)
-        self.sut_class = ExoDevice
-
-    def test_equal(self) -> None:
-        assert self.sut == self.sut
-
-    def test_not_equal(self) -> None:
-        obj2 = copy.deepcopy(self.sut)
-        obj2.data["name"] = "Test Device 2"
-        assert self.sut != obj2
+class TestExoDevice:
+    """EXO base device — name/state derivation from data fields."""
 
     def test_property_name(self) -> None:
-        assert self.sut.name == self.sut.data["name"]
+        sut = ExoDevice(make_system(), {**EXO_DEVICE_DATA})
+        assert sut.name == sut.data["name"]
 
     def test_property_state(self) -> None:
-        assert self.sut.state == str(self.sut.data["state"])
-
-    def test_not_equal_different_type(self) -> None:
-        assert (self.sut == {}) is False
+        sut = ExoDevice(make_system(), {**EXO_DEVICE_DATA})
+        assert sut.state == str(sut.data["state"])
 
     def test_property_manufacturer(self) -> None:
-        assert self.sut.manufacturer == "Zodiac"
+        sut = ExoDevice(make_system(), {**EXO_DEVICE_DATA})
+        assert sut.manufacturer == "Zodiac"
 
     def test_property_model(self) -> None:
-        assert self.sut.model == self.sut_class.__name__.replace("Exo", "")
+        sut = ExoDevice(make_system(), {**EXO_DEVICE_DATA})
+        assert sut.model == "Device"
 
 
-class TestExoSensor(TestExoDevice, TestBaseSensor):
-    def setUp(self) -> None:
-        super().setUp()
+class TestExoSensor:
+    """EXO sensor — name/value derivation from data."""
 
-        data = {
-            "name": "sns_1",
-            "sensor_type": "Foo",
-            "value": 42,
-            "state": 1,
-        }
-        self.sut = ExoDevice.from_data(self.system, data)
-        self.sut_class = ExoSensor
+    def test_from_data(self) -> None:
+        sut = ExoDevice.from_data(make_system(), {**EXO_SENSOR_DATA})
+        assert isinstance(sut, ExoSensor)
 
     def test_property_name(self) -> None:
-        assert self.sut.name == self.sut.data["sensor_type"].lower().replace(
-            " ", "_"
+        sut = ExoDevice.from_data(make_system(), {**EXO_SENSOR_DATA})
+        assert sut.name == sut.data["sensor_type"].lower().replace(" ", "_")
+
+    def test_property_value(self) -> None:
+        sut = cast(
+            ExoSensor, ExoDevice.from_data(make_system(), {**EXO_SENSOR_DATA})
         )
+        assert sut.value == str(sut.data["value"])
+
+
+class TestExoAttributeSensor:
+    """EXO attribute sensor — value from state field."""
+
+    def test_from_data(self) -> None:
+        sut = ExoDevice.from_data(make_system(), {**EXO_ATTRIBUTE_SENSOR_DATA})
+        assert isinstance(sut, ExoAttributeSensor)
 
     def test_property_value(self) -> None:
-        assert self.sut.value == str(self.sut.data["value"])
+        sut = cast(
+            ExoAttributeSensor,
+            ExoDevice.from_data(make_system(), {**EXO_ATTRIBUTE_SENSOR_DATA}),
+        )
+        assert sut.value == str(sut.data["state"])
 
 
-class TestExoAttributeSensor(TestExoDevice, TestBaseSensor):
-    def setUp(self) -> None:
-        super().setUp()
-
-        data = {
-            "name": "foo_bar",
-            "state": 42,
-        }
-        self.sut = ExoDevice.from_data(self.system, data)
-        self.sut_class = ExoAttributeSensor
-
-    def test_property_value(self) -> None:
-        assert self.sut.value == str(self.sut.data["state"])
+_ERROR_CODE_DATA: dict[str, Any] = {"name": "error_code", "state": 0}
+_ERROR_STATE_DATA: dict[str, Any] = {"name": "error_state", "state": 0}
 
 
-class TestExoErrorSensor(TestExoDevice, TestBaseSensor):
-    def setUp(self) -> None:
-        super().setUp()
+class TestExoErrorSensor:
+    """EXO error sensor — routing and label."""
 
-        data = {
-            "name": "error_code",
-            "state": 0,
-        }
-        self.sut = ExoDevice.from_data(self.system, data)
-        self.sut_class = ExoErrorSensor
+    def test_from_data(self) -> None:
+        sut = ExoDevice.from_data(make_system(), _ERROR_CODE_DATA)
+        assert isinstance(sut, ExoErrorSensor)
 
     def test_property_label(self) -> None:
-        assert self.sut.label == "Error Code"
+        sut = cast(
+            ExoErrorSensor, ExoDevice.from_data(make_system(), _ERROR_CODE_DATA)
+        )
+        assert sut.label == "Error Code"
 
     def test_property_value(self) -> None:
-        assert self.sut.value == "0"
+        sut = cast(
+            ExoErrorSensor, ExoDevice.from_data(make_system(), _ERROR_CODE_DATA)
+        )
+        assert sut.value == "0"
 
     def test_error_state_routing(self) -> None:
-        data = {"name": "error_state", "state": 0}
-        device = ExoDevice.from_data(self.system, data)
-        assert isinstance(device, ExoErrorSensor)
-        assert device.label == "Error State"
+        sut = ExoDevice.from_data(make_system(), _ERROR_STATE_DATA)
+        assert isinstance(sut, ExoErrorSensor)
+        assert sut.label == "Error State"
 
 
-class ExoSwitchMixin:
-    def test_property_is_on_false(self) -> None:
-        self.sut.data["state"] = 0
-        super().test_property_is_on_false()
-        assert self.sut.is_on is False
-
-    def test_property_is_on_true(self) -> None:
-        self.sut.data["state"] = 1
-        super().test_property_is_on_true()
-        assert self.sut.is_on is True
+_SWITCH_ON_DATA: dict[str, Any] = {"name": "toggle", "state": 1}
+_SWITCH_OFF_DATA: dict[str, Any] = {"name": "toggle", "state": 0}
 
 
-class TestExoSwitch(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
-    def setUp(self) -> None:
-        super().setUp()
+class TestExoSwitch:
+    """ExoSwitch is abstract — turn_on/off raises NotImplementedError."""
 
-        data = {
-            "name": "toggle",
-            "state": 0,
-        }
+    def test_is_on_true(self) -> None:
+        sut = ExoSwitch(make_system(), _SWITCH_ON_DATA)
+        assert sut.is_on is True
 
-        # ExoSwitch is an abstract class, not meant to be instantiated directly.
-        self.sut = ExoSwitch(self.system, data)
-        self.sut_class = ExoSwitch
+    def test_is_on_false(self) -> None:
+        sut = ExoSwitch(make_system(), _SWITCH_OFF_DATA)
+        assert sut.is_on is False
 
-    async def test_turn_on(self) -> None:
-        self.sut.data["state"] = 0
+    async def test_turn_on_raises(self) -> None:
+        sut = ExoSwitch(make_system(), _SWITCH_OFF_DATA)
         with pytest.raises(NotImplementedError):
-            await super().test_turn_on()
+            await sut.turn_on()
 
-    async def test_turn_on_noop(self) -> None:
-        self.sut.data["state"] = 1
-        await super().test_turn_on_noop()
-
-    async def test_turn_off(self) -> None:
-        self.sut.data["state"] = 1
+    async def test_turn_off_raises(self) -> None:
+        sut = ExoSwitch(make_system(), _SWITCH_ON_DATA)
         with pytest.raises(NotImplementedError):
-            await super().test_turn_off()
-
-    async def test_turn_off_noop(self) -> None:
-        self.sut.data["state"] = 0
-        await super().test_turn_off_noop()
+            await sut.turn_off()
 
 
-class TestExoAuxSwitch(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
-    def setUp(self) -> None:
-        super().setUp()
+class TestExoFilterPump:
+    """ExoFilterPump wire-protocol tests — verifies JSON payloads."""
 
-        data = {
-            "name": "aux_1",
-            "type": "Foo",
-            "mode": "mode",
-            "light": 0,
-            "state": 1,
-        }
-        self.sut = ExoDevice.from_data(self.system, data)
-        self.sut_class = ExoAuxSwitch
+    def test_from_data(self) -> None:
+        sut = ExoDevice.from_data(make_system(), {**EXO_FILTER_PUMP_ON_DATA})
+        assert isinstance(sut, ExoFilterPump)
 
-    async def test_turn_on(self) -> None:
-        self.sut.data["state"] = 0
-        await super().test_turn_on()
-
-    async def test_turn_on_noop(self) -> None:
-        self.sut.data["state"] = 1
-        await super().test_turn_on_noop()
-
-    async def test_turn_off(self) -> None:
-        self.sut.data["state"] = 1
-        await super().test_turn_off()
-
-    async def test_turn_off_noop(self) -> None:
-        self.sut.data["state"] = 0
-        await super().test_turn_off_noop()
-
-
-class TestExoAttributeSwitch(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
-    def setUp(self) -> None:
-        super().setUp()
-
-        data = {
-            "name": "boost",
-            "state": 1,
-        }
-        self.sut = ExoDevice.from_data(self.system, data)
-        self.sut_class = ExoAttributeSwitch
-
-    async def test_turn_on(self) -> None:
-        self.sut.data["state"] = 0
-        await super().test_turn_on()
-
-    async def test_turn_on_noop(self) -> None:
-        self.sut.data["state"] = 1
-        await super().test_turn_on_noop()
-
-    async def test_turn_off(self) -> None:
-        self.sut.data["state"] = 1
-        await super().test_turn_off()
-
-    async def test_turn_off_noop(self) -> None:
-        self.sut.data["state"] = 0
-        await super().test_turn_off_noop()
-
-
-class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
-    def setUp(self) -> None:
-        super().setUp()
-
-        data = {
-            "name": "filter_pump",
-            "type": 1,
-            "state": 1,
-        }
-        self.sut = ExoDevice.from_data(self.system, data)
-        self.sut_class = ExoFilterPump
-
-    async def test_turn_on(self) -> None:
-        self.sut.data["state"] = 0
-        await super().test_turn_on()
-        assert len(self.respx_calls) == 1
-        payload = json.loads(self.respx_calls[0].request.content)
+    async def test_turn_on_payload(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        pump_off: dict[str, Any] = {**EXO_FILTER_PUMP_ON_DATA, "state": 0}
+        sut = cast(ExoFilterPump, ExoDevice.from_data(make_system(), pump_off))
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.turn_on()
+        assert len(respx_mock.calls) == 1
+        payload = json.loads(respx_mock.calls[0].request.content)
         assert payload == {
             "state": {
                 "desired": {
@@ -255,15 +164,15 @@ class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
             }
         }
 
-    async def test_turn_on_noop(self) -> None:
-        self.sut.data["state"] = 1
-        await super().test_turn_on_noop()
-
-    async def test_turn_off(self) -> None:
-        self.sut.data["state"] = 1
-        await super().test_turn_off()
-        assert len(self.respx_calls) == 1
-        payload = json.loads(self.respx_calls[0].request.content)
+    async def test_turn_off_payload(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        pump_on: dict[str, Any] = {**EXO_FILTER_PUMP_ON_DATA, "state": 1}
+        sut = cast(ExoFilterPump, ExoDevice.from_data(make_system(), pump_on))
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.turn_off()
+        assert len(respx_mock.calls) == 1
+        payload = json.loads(respx_mock.calls[0].request.content)
         assert payload == {
             "state": {
                 "desired": {
@@ -272,157 +181,111 @@ class TestExoFilterPump(TestExoDevice, ExoSwitchMixin, TestBaseSwitch):
             }
         }
 
-    async def test_turn_off_noop(self) -> None:
-        self.sut.data["state"] = 0
-        await super().test_turn_off_noop()
+
+_HEATER_DATA: dict[str, Any] = {"name": "heater", "state": 1}
 
 
-class TestExoHeater(TestExoDevice):
-    def setUp(self) -> None:
-        super().setUp()
+class TestExoHeater:
+    """ExoHeater — from_data routing and label."""
 
-        data = {
-            "name": "heater",
-            "state": 1,
-        }
-        self.sut = ExoDevice.from_data(self.system, data)
-        self.sut_class = ExoHeater
+    def test_from_data(self) -> None:
+        sut = ExoDevice.from_data(make_system(), _HEATER_DATA)
+        assert type(sut) is ExoHeater
 
     def test_property_label(self) -> None:
-        assert self.sut.label == "Heater"
-
-    def test_property_name(self) -> None:
-        assert self.sut.name == "heater"
+        sut = ExoDevice.from_data(make_system(), _HEATER_DATA)
+        assert sut.label == "Heater"
 
     def test_property_state(self) -> None:
-        assert self.sut.state == "1"
-
-    def test_property_is_instance(self) -> None:
-        assert isinstance(self.sut, ExoHeater)
-
-    def test_from_data_heater_type(self) -> None:
-        device = ExoDevice.from_data(
-            self.system, {"name": "heater", "state": 0}
-        )
-        assert type(device) is ExoHeater
+        sut = ExoDevice.from_data(make_system(), _HEATER_DATA)
+        assert sut.state == "1"
 
 
-class TestExoClimate(TestExoDevice, TestBaseClimate):
-    def setUp(self) -> None:
-        super().setUp()
+def _make_exo_climate():
+    """Return (system, sut) for ExoClimate tests."""
+    system = make_system()
+    pool_set_point = cast(
+        ExoClimate,
+        ExoDevice.from_data(system, {**EXO_HEATING_ON_DATA}),
+    )
+    water_temp = ExoDevice.from_data(system, {**EXO_WATER_TEMP_DATA})
+    system.devices = {x.data["name"]: x for x in [pool_set_point, water_temp]}
+    return system, pool_set_point
 
-        pool_set_point = {
-            "name": "heating",
-            "enabled": 1,
-            "sp": 20,
-            "sp_min": 1,
-            "sp_max": 40,
-        }
 
-        self.pool_set_point = cast(
-            ExoClimate, ExoDevice.from_data(self.system, pool_set_point)
-        )
+class TestExoClimate:
+    """ExoClimate — temperature bounds, wire-protocol for heating commands."""
 
-        water_temp = {
-            "name": "sns_3",
-            "sensor_type": "Water Temp",
-            "state": 1,
-            "value": 16,
-        }
-        self.water_temp = ExoDevice.from_data(self.system, water_temp)
-
-        devices = [
-            self.pool_set_point,
-            self.water_temp,
-        ]
-        self.system.devices = {x.data["name"]: x for x in devices}
-
-        self.sut = self.pool_set_point
-        self.sut_class = ExoClimate
+    def test_from_data(self) -> None:
+        _, sut = _make_exo_climate()
+        assert isinstance(sut, ExoClimate)
 
     def test_property_label(self) -> None:
-        assert self.sut.label == "Heating"
-
-    def test_property_name(self) -> None:
-        assert self.sut.name == "heating"
+        _, sut = _make_exo_climate()
+        assert sut.label == "Heating"
 
     def test_property_state(self) -> None:
-        # ExoClimate.state is an internal property (set-point from data["sp"])
-        assert self.sut.state == "20"
-
-    def test_property_is_on_true(self) -> None:
-        self.sut.data["enabled"] = 1
-        super().test_property_is_on_true()
-
-    def test_property_is_on_false(self) -> None:
-        self.sut.data["enabled"] = 0
-        super().test_property_is_on_false()
+        _, sut = _make_exo_climate()
+        assert sut.state == "20"
 
     def test_property_temperature_unit(self) -> None:
-        assert self.sut.temperature_unit == "C"
+        _, sut = _make_exo_climate()
+        assert sut.temperature_unit == "C"
 
-    @pytest.mark.skip(reason="Exo doesn't support Fahrenheit")
-    def test_property_min_temp_f(self) -> None:
-        pass
+    def test_property_min_temp(self) -> None:
+        _, sut = _make_exo_climate()
+        assert sut.min_temp == EXO_TEMP_CELSIUS_LOW
 
-    def test_property_min_temp_c(self) -> None:
-        self.sut.system.temp_unit = "C"
-        super().test_property_min_temp_c()
-        assert self.sut.min_temp == EXO_TEMP_CELSIUS_LOW
-
-    @pytest.mark.skip(reason="Exo doesn't support Fahrenheit")
-    def test_property_max_temp_f(self) -> None:
-        pass
-
-    def test_property_max_temp_c(self) -> None:
-        self.sut.system.temp_unit = "C"
-        super().test_property_max_temp_c()
-        assert self.sut.max_temp == EXO_TEMP_CELSIUS_HIGH
+    def test_property_max_temp(self) -> None:
+        _, sut = _make_exo_climate()
+        assert sut.max_temp == EXO_TEMP_CELSIUS_HIGH
 
     def test_property_current_temperature(self) -> None:
-        super().test_property_current_temperature()
-        assert self.sut.current_temperature == "16"
+        _, sut = _make_exo_climate()
+        assert sut.current_temperature == "16"
 
     def test_property_target_temperature(self) -> None:
-        super().test_property_target_temperature()
-        assert self.sut.target_temperature == "20"
+        _, sut = _make_exo_climate()
+        assert sut.target_temperature == "20"
 
-    async def test_turn_on(self) -> None:
-        self.sut.data["enabled"] = 0
-        await super().test_turn_on()
-        assert len(self.respx_calls) == 1
-        content = self.respx_calls[0].request.content.decode("utf-8")
+    async def test_turn_on_payload(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_exo_climate()
+        sut.data["enabled"] = 0
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.turn_on()
+        assert len(respx_mock.calls) == 1
+        content = respx_mock.calls[0].request.content.decode("utf-8")
         assert "heating" in content
 
-    async def test_turn_on_noop(self) -> None:
-        self.sut.data["enabled"] = 1
-        await super().test_turn_on_noop()
-
-    async def test_turn_off(self) -> None:
-        self.sut.data["enabled"] = 1
-        await super().test_turn_off()
-        assert len(self.respx_calls) == 1
-        content = self.respx_calls[0].request.content.decode("utf-8")
+    async def test_turn_off_payload(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_exo_climate()
+        sut.data["enabled"] = 1
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.turn_off()
+        assert len(respx_mock.calls) == 1
+        content = respx_mock.calls[0].request.content.decode("utf-8")
         assert "heating" in content
 
-    async def test_turn_off_noop(self) -> None:
-        self.sut.data["enabled"] = 0
-        await super().test_turn_off_noop()
-
-    @pytest.mark.skip(reason="Exo doesn't support Fahrenheit")
-    async def test_set_temperature_86f(self) -> None:
-        pass
-
-    async def test_set_temperature_30c(self) -> None:
-        await super().test_set_temperature_30c()
-        assert len(self.respx_calls) == 1
-        content = self.respx_calls[0].request.content.decode("utf-8")
+    async def test_set_temperature_payload(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_exo_climate()
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_temperature(30)
+        assert len(respx_mock.calls) == 1
+        content = respx_mock.calls[0].request.content.decode("utf-8")
         assert "heating" in content
 
     async def test_set_temperature_too_low(self) -> None:
+        _, sut = _make_exo_climate()
         with pytest.raises(AqualinkInvalidParameterException):
-            await self.sut.set_temperature(0)  # below sp_min=1
+            await sut.set_temperature(0)
 
     async def test_set_temperature_too_high(self) -> None:
+        _, sut = _make_exo_climate()
         with pytest.raises(AqualinkInvalidParameterException):
-            await self.sut.set_temperature(41)  # above sp_max=40
+            await sut.set_temperature(41)

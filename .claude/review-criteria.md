@@ -72,8 +72,8 @@ This is an `asyncio`-based library. Flag any of the following:
 ## 6. Test Coverage
 
 - Every new public method that mutates state or makes a network call must have at least one test.
-- Tests use `respx` for HTTP mocking and `unittest.IsolatedAsyncioTestCase`.
-- New system types must have tests under `tests/systems/<system>/test_system.py` and `test_device.py` following the abstract base pattern in `tests/base_test_system.py` and `tests/base_test_device.py`.
+- Tests use `respx` for HTTP mocking; all tests use plain pytest classes with `asyncio_mode = "auto"`.
+- New system types must have conformance factories in `tests/systems/<system>/factories.py` and standalone tests under `tests/systems/<system>/test_system.py` and `test_device.py`.
 - Fixtures (mock responses) belong in `tests/` alongside the test file that uses them.
 - Tests must not import from `src/iaqualink` using private names (ruff SLF001 is suppressed in tests, but avoid it anyway).
 - `uv run pytest` must pass with no new failures or warnings promoted to errors.

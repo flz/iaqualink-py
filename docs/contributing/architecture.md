@@ -209,28 +209,29 @@ class AqualinkSystem:
 
 ## Testing Architecture
 
-**Base class:** `TestBase` in `tests/base.py` — pre-wires `AqualinkClient` and `respx` mock transport.
+**Pattern:** plain pytest classes with per-test `_make_*()` helper functions; no shared base class.
 
 **Structure:**
 ```
 tests/
-├── base.py
+├── conftest.py               # Shared helpers: dotstar, resp_200, async_noop
 ├── test_client.py
-├── test_system.py
-├── test_device.py
 ├── utils/
 │   ├── test_crypto.py
 │   └── test_redact.py
+├── conformance/
+│   ├── conftest.py           # Aggregates factories, parametrized fixtures
+│   ├── fixtures.py           # Fixture dataclasses (SwitchFixture, etc.)
+│   └── test_*.py             # Conformance tests per device/system type
 └── systems/
     ├── iaqua/
-    │   ├── base_test_system.py   # Abstract tests — new system types must subclass these
-    │   ├── base_test_device.py
-    │   └── test_*.py
+    │   ├── factories.py      # Factory functions for conformance fixtures
+    │   ├── fixtures/         # JSON HTTP mock responses
+    │   └── test_*.py         # Wire-protocol and parsing tests
     ├── exo/
-    │   └── ...
+    │   └── ...               # Same structure as iaqua/
     └── i2d/
-        ├── test_system.py        # System/parsing/commands
-        └── test_device.py        # Device class unit tests
+        └── ...               # Same structure as iaqua/
 ```
 
 Mock HTTP fixtures live alongside the test file in the same `tests/systems/<system>/` directory.
