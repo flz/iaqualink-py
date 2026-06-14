@@ -12,6 +12,7 @@ from iaqualink.exception import (
     AqualinkInvalidParameterException,
     _AqualinkOfflineSignal,
 )
+from iaqualink.shared.robots import RobotStateSubscription, deep_merge
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.cyclonext.const import (
     CYCLE_DURATION_KEY,
@@ -50,7 +51,7 @@ CYCLONEXT_DEVICES_URL = "https://prod.zodiac-io.com/devices/v1"
 LOGGER = logging.getLogger("iaqualink.systems.cyclonext")
 
 
-class CyclonextSystem(AqualinkSystem):
+class CyclonextSystem(RobotStateSubscription, AqualinkSystem):
     NAME = "cyclonext"
 
     def __init__(self, aqualink: AqualinkClient, data: Payload) -> None:
@@ -68,6 +69,11 @@ class CyclonextSystem(AqualinkSystem):
         return await self._send_with_reauth_retry(do_request)
 
     async def _refresh(self) -> None:
+        # Reduce polling: when the WS subscription (started by the consumer via
+        # start_ws_subscription) has delivered state recently, skip the REST
+        # shadow poll. With no live WS, this always falls through to REST.
+        if self._ws_enabled and self._ws_state_fresh():
+            return
         r = await self.send_shadow_request()
         self._parse_shadow_response(r)
         self.status = SystemStatus.ONLINE
@@ -98,16 +104,58 @@ class CyclonextSystem(AqualinkSystem):
         except (KeyError, TypeError) as exc:
             raise _AqualinkOfflineSignal from exc
 
-        robot_list = (reported.get("equipment") or {}).get("robot", [])
-        robot = next((r for r in robot_list if isinstance(r, dict)), None)
+        self._apply_reported_state(reported)
+
+    def _extract_robot(self, reported: dict[str, Any]) -> dict[str, Any] | None:
+        """Find the robot object in a `reported` payload.
+
+        The REST shadow nests it as a list under ``equipment.robot``; the WS
+        Authorization/StateStreamer payloads use the dot-keyed
+        ``equipment["robot.1"]`` dict.
+        """
+        equipment = reported.get("equipment") or {}
+        dotted = equipment.get("robot.1")
+        if isinstance(dotted, dict):
+            return dotted
+        robot_list = equipment.get("robot")
+        if isinstance(robot_list, list):
+            return next((r for r in robot_list if isinstance(r, dict)), None)
+        if isinstance(robot_list, dict):
+            return robot_list
+        return None
+
+    def _apply_reported_state(self, reported: dict[str, Any]) -> None:
+        """Apply a FULL `state.reported` payload (REST shadow or WS auth ack).
+
+        Caches the robot state and (re)builds the full device registry. WS
+        StateStreamer deltas go through `_apply_robot_delta` instead.
+        """
+        robot = self._extract_robot(reported)
         if robot is None:
             raise _AqualinkOfflineSignal
 
-        # Cache for derived computations (e.g. adjust_runtime).
+        # Cache for derived computations (e.g. adjust_runtime) and delta merge.
         self._robot_state = robot
 
-        ebox = reported.get("eboxData") or {}
+        devices: dict[str, dict[str, Any]] = {}
 
+        # Hardware identifiers from eboxData.
+        for key, value in (reported.get("eboxData") or {}).items():
+            devices[f"ebox_{key}"] = {"name": f"ebox_{key}", "state": value}
+
+        # System-level firmware (control box) lives at reported.vr.
+        if "vr" in reported:
+            devices["control_box_vr"] = {
+                "name": "control_box_vr",
+                "state": reported["vr"],
+            }
+
+        self._ingest_devices(devices)
+        self._rebuild_robot_devices()
+
+    def _rebuild_robot_devices(self) -> None:
+        """(Re)derive robot-sourced devices from the cached `_robot_state`."""
+        robot = self._robot_state
         devices: dict[str, dict[str, Any]] = {}
 
         # Scalar robot attributes → attribute sensors.
@@ -120,17 +168,6 @@ class CyclonextSystem(AqualinkSystem):
         err = robot.get("errors") or {}
         if "code" in err:
             devices["error_code"] = {"name": "error_code", "state": err["code"]}
-
-        # Hardware identifiers from eboxData.
-        for key, value in ebox.items():
-            devices[f"ebox_{key}"] = {"name": f"ebox_{key}", "state": value}
-
-        # System-level firmware (control box) lives at reported.vr.
-        if "vr" in reported:
-            devices["control_box_vr"] = {
-                "name": "control_box_vr",
-                "state": reported["vr"],
-            }
 
         # Vendor app "Model Number" maps to devices.json `id`.
         model_number = self.data.get("id")
@@ -162,11 +199,19 @@ class CyclonextSystem(AqualinkSystem):
                 "state": remaining,
             }
 
+        self._ingest_devices(devices)
+
+    def _ingest_devices(self, devices: dict[str, dict[str, Any]]) -> None:
         for k, v in devices.items():
             if k in self.devices:
                 self.devices[k].data.update(v)
             else:
                 self.devices[k] = CyclonextDevice.from_data(self, v)
+
+    def _apply_robot_delta(self, delta: dict[str, Any]) -> None:
+        """Merge a partial robot dict (WS StateStreamer) and re-derive devices."""
+        self._robot_state = deep_merge(self._robot_state, delta)
+        self._rebuild_robot_devices()
 
     # --- write commands ---------------------------------------------------
 
