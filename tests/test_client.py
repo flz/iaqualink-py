@@ -901,11 +901,14 @@ class TestAqualinkClientWebSocket:
         mock_connect.assert_called_once()
         assert mock_connect.call_args.args[0] == "https://ws.example/devices"
         assert mock_connect.call_args.kwargs["headers"] == {
-            "Authorization": "tok"
+            "Authorization": "tok",
+            "Origin": "https://ws.example",
         }
         ws.send_text.assert_awaited_once_with(json.dumps(frame))
 
-    async def test_send_ws_frame_reuses_clients_httpx_instance(self) -> None:
+    async def test_ws_uses_dedicated_http1_client_not_rest(self) -> None:
+        # V24: WS rides a dedicated HTTP/1.1 client, NOT the HTTP/2 REST client
+        # (the Upgrade is invalid over HTTP/2 → endpoint 400s).
         client = _make_client()
         client.id_token = "tok"
         ws = AsyncMock()
@@ -916,6 +919,16 @@ class TestAqualinkClientWebSocket:
         ) as mock_connect:
             await client.send_ws_frame("https://ws.example/devices", {"a": 1})
 
-        # Second positional arg is the shared httpx client.
-        assert mock_connect.call_args.args[1] is client._get_httpx_client()
+        ws_client = mock_connect.call_args.args[1]
+        assert ws_client is client._get_ws_httpx_client()
+        assert ws_client is not client._get_httpx_client()
         ws.receive_text.assert_awaited_once()
+        await client.close()
+
+    async def test_ws_client_cached_and_closed(self) -> None:
+        # V24: the dedicated WS client is reused, and close() disposes it.
+        client = _make_client()
+        first = client._get_ws_httpx_client()
+        assert client._get_ws_httpx_client() is first
+        await client.close()
+        assert client._ws_client is None

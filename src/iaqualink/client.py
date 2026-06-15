@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from dataclasses import fields as dataclass_fields
 from typing import TYPE_CHECKING, Any, Self
+from urllib.parse import urlsplit
 
 import httpx
 from httpx_ws import (
@@ -131,6 +132,8 @@ class AqualinkClient:
 
         self._event_hooks: dict[str, list] = event_hooks or {}
         self._client: httpx.AsyncClient | None = None
+        # Dedicated HTTP/1.1 client for WebSockets (see _get_ws_httpx_client).
+        self._ws_client: httpx.AsyncClient | None = None
 
         if httpx_client is None:
             self._client = None
@@ -188,6 +191,11 @@ class AqualinkClient:
         self._logged = True
 
     async def close(self) -> None:
+        # The WS client is always ours (never HA-injected), so always close it.
+        if self._ws_client is not None:
+            await self._ws_client.aclose()
+            self._ws_client = None
+
         if self._must_close_client is False:
             return
 
@@ -289,19 +297,38 @@ class AqualinkClient:
             )
         return self._client
 
+    def _get_ws_httpx_client(self) -> httpx.AsyncClient:
+        # WebSockets ride a dedicated HTTP/1.1 client: the upgrade is an
+        # HTTP/1.1 mechanism (`Connection: Upgrade`), invalid over the REST
+        # client's HTTP/2 — the endpoint rejects it with 400. Separate from the
+        # (possibly HA-injected, HTTP/2) REST client; carries no REST cookies.
+        if self._ws_client is None:
+            self._ws_client = httpx.AsyncClient(
+                http1=True,
+                http2=False,
+                limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
+            )
+        return self._ws_client
+
     @asynccontextmanager
     async def ws_connect(
         self, url: str
     ) -> AsyncIterator[AsyncWebSocketSession]:
-        """Open an authenticated WebSocket on the shared httpx client.
+        """Open an authenticated WebSocket over the dedicated HTTP/1.1 client.
 
-        Core transport reused by robot commands and future state
-        subscriptions (and by other wss-based systems such as tcx). Runs over
-        the same httpx client as REST requests, including an HA-injected one.
+        Reused by robot commands and future state subscriptions (and other
+        wss-based systems such as tcx).
         """
-        client = self._get_httpx_client()
-        headers = {"Authorization": self.id_token}
-        async with aconnect_ws(url, client, headers=headers) as ws:
+        parts = urlsplit(url)
+        headers = {
+            "Authorization": self.id_token,
+            # Match the vendor app handshake (the WAF in front of the endpoint
+            # expects an Origin matching the host).
+            "Origin": f"{parts.scheme}://{parts.netloc}",
+        }
+        async with aconnect_ws(
+            url, self._get_ws_httpx_client(), headers=headers
+        ) as ws:
             yield ws
 
     async def send_ws_frame(
