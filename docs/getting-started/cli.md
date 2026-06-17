@@ -217,6 +217,18 @@ The command validates the value against the device's configured minimum, maximum
 
 ---
 
+### `select-option`
+
+Select one of the available options on a Select device.
+
+```bash
+iaqualink select-option heatpump_mode chill
+```
+
+Available options depend on the device. Use `status` to see the current option.
+
+---
+
 ### `logout`
 
 Remove the saved session and force fresh authentication on the next command.
@@ -229,15 +241,16 @@ iaqualink logout
 
 The table below shows which commands apply to each device type.
 
-| Device type | `get` | `turn-on/off` | `set-temperature` | `set-brightness` | `set-effect` | `set-speed` | `set-preset` | `set-value` |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| Sensor | ✓ | — | — | — | — | — | — | — |
-| Binary Sensor | ✓ | — | — | — | — | — | — | — |
-| Switch | ✓ | ✓ | — | — | — | — | — | — |
-| Light | ✓ | ✓ | — | ✓ (if supported) | ✓ (if supported) | — | — | — |
-| Climate | ✓ | ✓ | ✓ | — | — | — | — | — |
-| Number | ✓ | — | — | — | — | — | — | ✓ |
-| Fan / Pump | ✓ | ✓ (if supported) | — | — | — | ✓ (if supported) | ✓ (if supported) | — |
+| Device type | `get` | `turn-on/off` | `set-temperature` | `set-brightness` | `set-effect` | `set-speed` | `set-preset` | `set-value` | `select-option` |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| Sensor | ✓ | — | — | — | — | — | — | — | — |
+| Binary Sensor | ✓ | — | — | — | — | — | — | — | — |
+| Switch | ✓ | ✓ | — | — | — | — | — | — | — |
+| Light | ✓ | ✓ | — | ✓ (if supported) | ✓ (if supported) | — | — | — | — |
+| Climate | ✓ | ✓ | ✓ | — | — | — | — | — | — |
+| Number | ✓ | — | — | — | — | — | — | ✓ | — |
+| Select | ✓ | — | — | — | — | — | — | — | ✓ |
+| Fan / Pump | ✓ | ✓ (if supported) | — | — | — | ✓ (if supported) | ✓ (if supported) | — | — |
 
 ## Multiple Systems
 

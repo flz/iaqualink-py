@@ -17,6 +17,7 @@ if TYPE_CHECKING:
         AqualinkFan,
         AqualinkLight,
         AqualinkNumber,
+        AqualinkSelect,
         AqualinkSensor,
         AqualinkSwitch,
     )
@@ -87,6 +88,14 @@ class NumberFixture:
     """Fixture for AqualinkNumber conformance tests."""
 
     device: AqualinkNumber
+    expected_class: type | None = None
+
+
+@dataclass
+class SelectFixture:
+    """Fixture for AqualinkSelect conformance tests."""
+
+    device: AqualinkSelect
     expected_class: type | None = None
 
 

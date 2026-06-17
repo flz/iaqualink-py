@@ -15,10 +15,20 @@ from iaqualink.exception import (
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.iaqua.device import IaquaClimate, IaquaOneTouchSwitch
+from iaqualink.systems.iaqua.device import (
+    IaquaClimate,
+    IaquaHeatPump,
+    IaquaHeatPumpAlertSensor,
+    IaquaHeatPumpMode,
+    IaquaOneTouchSwitch,
+    IaquaSetPoint,
+)
 from iaqualink.systems.iaqua.enums import IaquaSystemType, IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import (
+    IAQUA_COMMAND_ENABLE_DISABLE_HPM,
     IAQUA_COMMAND_SET_ONETOUCH,
+    IAQUA_COMMAND_SETPOINT_HPM_TEMP,
+    IAQUA_COMMAND_SWITCH_HPM_MODE,
     IAQUA_SESSION_URL,
     IaquaSystem,
 )
@@ -762,3 +772,244 @@ class TestIaquaSystem:
         first = sut.devices["pool_thermostat"]
         sut._parse_home_response(r)
         assert sut.devices["pool_thermostat"] is first
+
+    async def test_parse_home_creates_heatpump(self) -> None:
+        _, sut = _make_iaqua_system()
+        r = _home_response(
+            [
+                {
+                    "heatpump_info": {
+                        "isheatpumpPresent": True,
+                        "heatpumpstatus": "off",
+                        "isChillAvailable": False,
+                        "heatpumpmode": "heat",
+                        "heatpumptype": "4-wired",
+                    }
+                }
+            ]
+        )
+        sut._parse_home_response(r)
+        assert "heatpump" in sut.devices
+        assert "heatpump_status" in sut.devices
+        assert isinstance(sut.devices["heatpump"], IaquaHeatPump)
+        assert sut.devices["heatpump"].is_on is False
+        # No real choice when chill isn't available, and no alert field on
+        # the get_home shape — neither entity is created.
+        assert "heatpump_mode" not in sut.devices
+        assert "heatpump_alert" not in sut.devices
+
+    async def test_parse_home_creates_heatpump_mode_when_chill_available(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        r = _home_response(
+            [
+                {
+                    "heatpump_info": {
+                        "isheatpumpPresent": True,
+                        "heatpumpstatus": "enabled",
+                        "isChillAvailable": True,
+                        "heatpumpmode": "chill",
+                        "heatpumptype": "2-wired",
+                    }
+                }
+            ]
+        )
+        sut._parse_home_response(r)
+        assert isinstance(sut.devices["heatpump_mode"], IaquaHeatPumpMode)
+        assert sut.devices["heatpump_mode"].current_option == "chill"
+        assert isinstance(sut.devices["heatpump"], IaquaHeatPump)
+        assert sut.devices["heatpump"].is_on is True
+
+    async def test_parse_home_no_heatpump_when_info_missing(self) -> None:
+        _, sut = _make_iaqua_system()
+        r = _home_response([{"pool_set_point": "86"}])
+        sut._parse_home_response(r)
+        assert "heatpump" not in sut.devices
+
+    async def test_parse_home_heatpump_absent_removes_devices(self) -> None:
+        _, sut = _make_iaqua_system()
+        present = _home_response(
+            [
+                {
+                    "heatpump_info": {
+                        "isheatpumpPresent": True,
+                        "heatpumpstatus": "on",
+                        "isChillAvailable": True,
+                        "heatpumpmode": "heat",
+                        "heatpumptype": "2-wired",
+                    }
+                }
+            ]
+        )
+        sut._parse_home_response(present)
+        assert "heatpump" in sut.devices
+        assert "heatpump_mode" in sut.devices
+
+        absent = _home_response(
+            [{"heatpump_info": {"isheatpumpPresent": False}}]
+        )
+        sut._parse_home_response(absent)
+        assert "heatpump" not in sut.devices
+        assert "heatpump_mode" not in sut.devices
+        assert "heatpump_status" not in sut.devices
+        assert "heatpump_alert" not in sut.devices
+
+    @patch("httpx.AsyncClient.request")
+    async def test_enable_disable_hpm_on(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        mock_request.return_value.status_code = 200
+        with patch.object(sut, "_parse_hpm_command_response") as mock_parse:
+            await sut.enable_disable_hpm(True)
+
+            called_params = mock_request.call_args[1]["params"]
+            assert called_params["command"] == IAQUA_COMMAND_ENABLE_DISABLE_HPM
+            assert called_params["on_off_action"] == "on"
+            mock_parse.assert_called_once_with(mock_request.return_value)
+
+    @patch("httpx.AsyncClient.request")
+    async def test_enable_disable_hpm_off(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        mock_request.return_value.status_code = 200
+        with patch.object(sut, "_parse_hpm_command_response"):
+            await sut.enable_disable_hpm(False)
+
+            called_params = mock_request.call_args[1]["params"]
+            assert called_params["on_off_action"] == "off"
+
+    @patch("httpx.AsyncClient.request")
+    async def test_switch_hpm_mode(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        mock_request.return_value.status_code = 200
+        with patch.object(sut, "_parse_hpm_command_response") as mock_parse:
+            await sut.switch_hpm_mode("chill")
+
+            called_params = mock_request.call_args[1]["params"]
+            assert called_params["command"] == IAQUA_COMMAND_SWITCH_HPM_MODE
+            assert called_params["hpm_mode"] == "chill"
+            mock_parse.assert_called_once_with(mock_request.return_value)
+
+    @patch("httpx.AsyncClient.request")
+    async def test_setpoint_hpm_temp(self, mock_request) -> None:
+        _, sut = _make_iaqua_system()
+        mock_request.return_value.status_code = 200
+        with patch.object(sut, "_parse_hpm_command_response") as mock_parse:
+            await sut.setpoint_hpm_temp({"poolheatsetpointtemp": "84"})
+
+            called_params = mock_request.call_args[1]["params"]
+            assert called_params["command"] == IAQUA_COMMAND_SETPOINT_HPM_TEMP
+            assert called_params["poolheatsetpointtemp"] == "84"
+            mock_parse.assert_called_once_with(mock_request.return_value)
+
+    def test_upsert_heatpump_from_command_echo_shape(self) -> None:
+        _, sut = _make_iaqua_system()
+        response = MagicMock()
+        response.json.return_value = {
+            "serial": "SN123456",
+            "device_status": "online",
+            "is_error": False,
+            "isHPMPresent": True,
+            "HPMstatus": "on",
+            "HPMmode": "heat",
+            "HPMtype": "2-wired",
+            "isChillAvailable": True,
+            "poolheatSetPointTemp": 84,
+            "spaheatSetPointTemp": 96,
+            "response": "success",
+            "alert_message": "",
+            "status": "",
+        }
+        sut._parse_hpm_command_response(response)
+        assert isinstance(sut.devices["heatpump"], IaquaHeatPump)
+        assert sut.devices["heatpump"].is_on is True
+        assert isinstance(sut.devices["heatpump_mode"], IaquaHeatPumpMode)
+        assert sut.devices["heatpump_mode"].current_option == "heat"
+        # No alert in this echo (empty string) — sensor must not be created.
+        assert "heatpump_alert" not in sut.devices
+
+    def test_upsert_heatpump_alert_created_then_cleared(self) -> None:
+        _, sut = _make_iaqua_system()
+
+        def _echo(alert_message: str) -> MagicMock:
+            response = MagicMock()
+            response.json.return_value = {
+                "isHPMPresent": True,
+                "HPMstatus": "on",
+                "HPMmode": "heat",
+                "HPMtype": "2-wired",
+                "isChillAvailable": False,
+                "alert_message": alert_message,
+            }
+            return response
+
+        sut._parse_hpm_command_response(_echo("7"))
+        assert isinstance(
+            sut.devices["heatpump_alert"], IaquaHeatPumpAlertSensor
+        )
+        assert sut.devices["heatpump_alert"].value == "7"
+
+        sut._parse_hpm_command_response(_echo(""))
+        assert "heatpump_alert" not in sut.devices
+
+    def test_heatpump_is_on_true_when_status_enabled(self) -> None:
+        _, sut = _make_iaqua_system()
+        heatpump = IaquaHeatPump(sut, {"name": "heatpump", "state": "enabled"})
+        assert heatpump.is_on is True
+
+    @patch("httpx.AsyncClient.request")
+    async def test_pool_set_point_routes_to_set_temps_without_heatpump(
+        self, mock_request
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        sut.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+        mock_request.return_value.status_code = 200
+        sut.devices = {
+            "pool_set_point": IaquaSetPoint(
+                sut, {"name": "pool_set_point", "state": "84"}
+            )
+        }
+        with patch.object(sut, "_parse_home_response"):
+            await sut.devices["pool_set_point"].set_value(86)
+
+            called_params = mock_request.call_args[1]["params"]
+            assert called_params["command"] == "set_temps"
+            assert called_params["temp1"] == "86"
+
+    @patch("httpx.AsyncClient.request")
+    async def test_pool_set_point_routes_to_hpm_temp_with_heatpump(
+        self, mock_request
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        sut.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+        mock_request.return_value.status_code = 200
+        sut.devices = {
+            "pool_set_point": IaquaSetPoint(
+                sut, {"name": "pool_set_point", "state": "84"}
+            ),
+            "heatpump": IaquaHeatPump(sut, {"name": "heatpump", "state": "on"}),
+        }
+        with patch.object(sut, "_parse_hpm_command_response"):
+            await sut.devices["pool_set_point"].set_value(86)
+
+            called_params = mock_request.call_args[1]["params"]
+            assert called_params["command"] == IAQUA_COMMAND_SETPOINT_HPM_TEMP
+            assert called_params["poolheatsetpointtemp"] == "86"
+
+    @patch("httpx.AsyncClient.request")
+    async def test_pool_chill_set_point_always_routes_to_hpm_temp(
+        self, mock_request
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        sut.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+        mock_request.return_value.status_code = 200
+        sut.devices = {
+            "pool_chill_set_point": IaquaSetPoint(
+                sut, {"name": "pool_chill_set_point", "state": "78"}
+            )
+        }
+        with patch.object(sut, "_parse_hpm_command_response"):
+            await sut.devices["pool_chill_set_point"].set_value(80)
+
+            called_params = mock_request.call_args[1]["params"]
+            assert called_params["command"] == IAQUA_COMMAND_SETPOINT_HPM_TEMP
+            assert called_params["poolchillsetpointtemp"] == "80"

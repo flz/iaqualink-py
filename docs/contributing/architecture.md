@@ -74,6 +74,7 @@ AqualinkDevice (ABC)
 ├── AqualinkLight         — controllable light; maps to HA LightEntity
 ├── AqualinkClimate       — temperature control; maps to HA ClimateEntity
 ├── AqualinkNumber        — writable numeric setting; maps to HA NumberEntity
+├── AqualinkSelect        — single-choice picker; maps to HA SelectEntity
 └── AqualinkFan           — fan/pump control; maps to HA FanEntity
 ```
 

@@ -8,6 +8,7 @@ from iaqualink.device import (
     AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
+    AqualinkSelect,
     AqualinkSensor,
     AqualinkSwitch,
 )
@@ -26,6 +27,7 @@ __all__ = [
     "AqualinkFan",
     "AqualinkLight",
     "AqualinkNumber",
+    "AqualinkSelect",
     "AqualinkSensor",
     "AqualinkSwitch",
 ]
