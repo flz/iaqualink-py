@@ -903,6 +903,12 @@ class TestIaquaSystem:
 
     def test_upsert_heatpump_from_command_echo_shape(self) -> None:
         _, sut = _make_iaqua_system()
+        sut.devices["pool_set_point"] = IaquaSetPoint(
+            sut, {"name": "pool_set_point", "state": "80"}
+        )
+        sut.devices["spa_set_point"] = IaquaSetPoint(
+            sut, {"name": "spa_set_point", "state": "90"}
+        )
         response = MagicMock()
         response.json.return_value = {
             "serial": "SN123456",
@@ -926,6 +932,88 @@ class TestIaquaSystem:
         assert sut.devices["heatpump_mode"].current_option == "heat"
         # No alert in this echo (empty string) — sensor must not be created.
         assert "heatpump_alert" not in sut.devices
+        # pool_set_point/spa_set_point must be re-synced from the echo —
+        # this is the regression this fix addresses.
+        assert sut.devices["pool_set_point"].current_value == 84.0
+        assert sut.devices["spa_set_point"].current_value == 96.0
+
+    @patch("httpx.AsyncClient.request")
+    async def test_setpoint_hpm_temp_resyncs_pool_set_point(
+        self, mock_request
+    ) -> None:
+        """End-to-end reproduction of the staleness bug: writing pool_set_point
+        through the HPM path must update current_value from the echo, not
+        leave the pre-write value cached."""
+        _, sut = _make_iaqua_system()
+        sut.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+        sut.devices["pool_set_point"] = IaquaSetPoint(
+            sut, {"name": "pool_set_point", "state": "80"}
+        )
+        sut.devices["heatpump"] = IaquaHeatPump(
+            sut, {"name": "heatpump", "state": "on"}
+        )
+        mock_request.return_value.status_code = 200
+        # AsyncMock auto-creates attributes as further AsyncMocks, so a bare
+        # `.json.return_value = ...` would make response.json() itself async
+        # (response.json() is sync on real httpx.Response) — force it to a
+        # plain MagicMock instead.
+        mock_request.return_value.json = MagicMock(
+            return_value={
+                "isHPMPresent": True,
+                "HPMstatus": "on",
+                "HPMmode": "heat",
+                "HPMtype": "2-wired",
+                "isChillAvailable": False,
+                "poolheatSetPointTemp": 86,
+            }
+        )
+
+        await sut.devices["pool_set_point"].set_value(86)
+
+        assert sut.devices["pool_set_point"].current_value == 86.0
+
+    def test_upsert_heatpump_does_not_create_phantom_spa_set_point(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        sut.devices["pool_set_point"] = IaquaSetPoint(
+            sut, {"name": "pool_set_point", "state": "80"}
+        )
+        response = MagicMock()
+        response.json.return_value = {
+            "isHPMPresent": True,
+            "HPMstatus": "on",
+            "HPMmode": "heat",
+            "HPMtype": "2-wired",
+            "isChillAvailable": False,
+            "poolheatSetPointTemp": 84,
+            "spaheatSetPointTemp": 0,
+        }
+        sut._parse_hpm_command_response(response)
+        assert "spa_set_point" not in sut.devices
+
+    @patch("httpx.AsyncClient.request")
+    async def test_setpoint_hpm_temp_invalidates_pool_chill_set_point(
+        self, mock_request
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        sut.devices["pool_chill_set_point"] = IaquaSetPoint(
+            sut, {"name": "pool_chill_set_point", "state": "78"}
+        )
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json = MagicMock(
+            return_value={
+                "isHPMPresent": True,
+                "HPMstatus": "on",
+                "HPMmode": "chill",
+                "HPMtype": "2-wired",
+                "isChillAvailable": True,
+            }
+        )
+
+        await sut.setpoint_hpm_temp({"poolchillsetpointtemp": "80"})
+
+        assert sut.devices["pool_chill_set_point"].current_value is None
 
     def test_upsert_heatpump_alert_created_then_cleared(self) -> None:
         _, sut = _make_iaqua_system()

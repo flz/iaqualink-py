@@ -330,6 +330,16 @@ class IaquaSystem(AqualinkSystem):
             IAQUA_COMMAND_SETPOINT_HPM_TEMP, temps
         )
         self._parse_hpm_command_response(r)
+        # poolchillsetpointtemp is never echoed back in any HPM response
+        # (confirmed absent from reference, unlike poolheatSetPointTemp/
+        # spaheatSetPointTemp) — invalidate rather than leave the pre-write
+        # value looking current. current_value's existing ValueError/KeyError
+        # handling turns an empty state into None for free.
+        if (
+            "poolchillsetpointtemp" in temps
+            and "pool_chill_set_point" in self.devices
+        ):
+            self.devices["pool_chill_set_point"].data["state"] = ""
 
     def _parse_hpm_command_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -401,6 +411,21 @@ class IaquaSystem(AqualinkSystem):
                 )
             else:
                 self.devices.pop("heatpump_alert", None)
+
+        # poolheatSetPointTemp/spaheatSetPointTemp only appear on HPM
+        # command-echo responses, never in get_home's heatpump_info —
+        # guarded by key presence so this is a no-op on the get_home path.
+        # Only updates devices that already exist (created by
+        # _parse_home_response); never creates one here, so an echoed
+        # spaheatSetPointTemp on a pool-only system can't fabricate a
+        # phantom spa_set_point device.
+        for device_name, echo_key in (
+            ("pool_set_point", "poolheatSetPointTemp"),
+            ("spa_set_point", "spaheatSetPointTemp"),
+        ):
+            value = hp.get(echo_key)
+            if value is not None and device_name in self.devices:
+                self.devices[device_name].data["state"] = str(value)
 
     async def set_aux(self, aux: str) -> None:
         aux = IAQUA_COMMAND_SET_AUX + "_" + aux.removeprefix("aux_")
