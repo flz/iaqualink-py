@@ -180,6 +180,18 @@
       'label': 'Freeze Protection',
       'type': 'IaquaBinarySensor',
     }),
+    'heatpump': dict({
+      'is_on': False,
+      'label': 'Heat Pump',
+      'type': 'IaquaHeatPump',
+    }),
+    'heatpump_status': dict({
+      'label': 'Heat Pump Status',
+      'type': 'IaquaHeatPumpStatusSensor',
+      'unit_of_measurement': None,
+      'value': 'off',
+      'value_translated': 'OFF',
+    }),
     'icl_zone_1': dict({
       'brightness_percentage': 100,
       'effect': None,
@@ -351,6 +363,18 @@
       'is_on': False,
       'label': 'Freeze Protection',
       'type': 'IaquaBinarySensor',
+    }),
+    'heatpump': dict({
+      'is_on': False,
+      'label': 'Heat Pump',
+      'type': 'IaquaHeatPump',
+    }),
+    'heatpump_status': dict({
+      'label': 'Heat Pump Status',
+      'type': 'IaquaHeatPumpStatusSensor',
+      'unit_of_measurement': None,
+      'value': 'off',
+      'value_translated': 'OFF',
     }),
     'icl_zone_1': dict({
       'brightness_percentage': 100,
@@ -549,6 +573,18 @@
       'is_on': False,
       'label': 'Freeze Protection',
       'type': 'IaquaBinarySensor',
+    }),
+    'heatpump': dict({
+      'is_on': False,
+      'label': 'Heat Pump',
+      'type': 'IaquaHeatPump',
+    }),
+    'heatpump_status': dict({
+      'label': 'Heat Pump Status',
+      'type': 'IaquaHeatPumpStatusSensor',
+      'unit_of_measurement': None,
+      'value': 'off',
+      'value_translated': 'OFF',
     }),
     'is_icl_present': dict({
       'is_on': True,

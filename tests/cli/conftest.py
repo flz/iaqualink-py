@@ -16,6 +16,7 @@ from iaqualink.device import (
     AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
+    AqualinkSelect,
     AqualinkSensor,
     AqualinkSwitch,
 )
@@ -270,6 +271,20 @@ def make_number(
     m.min_value = min_value
     m.max_value = max_value
     m.unit_of_measurement = unit
+    return m
+
+
+def make_select(
+    label: str = "Mode",
+    current_option: str | None = "heat",
+    *,
+    options: list[str] | None = None,
+) -> AqualinkSelect:
+    m = create_autospec(AqualinkSelect, instance=True)
+    m.label = m.name = label
+    m.manufacturer = m.model = ""
+    m.current_option = current_option
+    m.options = options if options is not None else ["heat", "chill"]
     return m
 
 

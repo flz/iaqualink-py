@@ -34,6 +34,10 @@ Device classes represent individual pool equipment and sensors.
 
 ::: iaqualink.device.AqualinkNumber
 
+### AqualinkSelect
+
+::: iaqualink.device.AqualinkSelect
+
 ### AqualinkFan
 
 ::: iaqualink.device.AqualinkFan
@@ -50,6 +54,7 @@ AqualinkDevice (ABC)
 ├── AqualinkLight         — controllable light with optional brightness/effects (HA LightEntity)
 ├── AqualinkClimate       — temperature control (HA ClimateEntity)
 ├── AqualinkNumber        — writable numeric setting (HA NumberEntity)
+├── AqualinkSelect        — single-choice picker (HA SelectEntity)
 └── AqualinkFan           — fan/pump control (HA FanEntity)
 ```
 
@@ -128,6 +133,14 @@ All devices inherit these properties from `AqualinkDevice`:
 | `step` | `float` | Required step increment (default `1.0`) |
 | `unit_of_measurement` | `str \| None` | Value unit (e.g. `"RPM"`) |
 | `set_value(value)` | async | Set value (validates range and step) |
+
+## Select Properties and Methods
+
+| Member | Type | Description |
+|---|---|---|
+| `current_option` | `str \| None` | Currently selected option; `None` if unavailable |
+| `options` | `list[str]` | Valid options |
+| `select_option(option)` | async | Select one of `options` (validates membership) |
 
 ## Fan Properties and Methods
 
@@ -212,6 +225,14 @@ await spa.set_temperature(102)
 rpm = devices.get('customspeedrpm')
 print(f"RPM: {rpm.current_value} {rpm.unit_of_measurement}")
 await rpm.set_value(2000)
+```
+
+### Selects
+
+```python
+mode = devices.get('heatpump_mode')
+print(mode.options)
+await mode.select_option("chill")
 ```
 
 ### Fans (variable-speed pumps)

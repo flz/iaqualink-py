@@ -28,6 +28,7 @@ Implementation details for the iAqua system (`device_type: "iaqua"`). For the wi
 | `set_temps` | ✓ |
 | `set_onetouch_{n}` | ✓ |
 | `onoff_iclzone`, `set_iclzone_color`, `define_iclzone_customcolor` | ✓ (ICL) |
+| `enable_disable_hpm`, `switch_hpm_mode`, `setpoint_hpm_temp` | ✓ (HPM) |
 
 ### `get_home` response fields not tracked as devices
 
@@ -39,7 +40,6 @@ The following fields appear in the reference `get_home` response but are not cur
 | `swc_boost` | SWC not yet implemented |
 | `swc_low` | SWC not yet implemented |
 | `swc_info` object | SWC sub-status; not yet parsed |
-| `heatpump_info` object | HPM sub-status; not yet parsed |
 | `acl_value` | ACL sensor; not yet parsed |
 | `lockedout_message` | Informational string; not parsed |
 
@@ -50,12 +50,6 @@ The following fields appear in the reference `get_home` response but are not cur
 Commands `get_swc_config`, `set_swc_config`, and `control_swc_boost` are documented in the reference but not implemented in master. The `swc_info` nested object from `get_home` is not parsed. Implementation is in progress on a separate branch.
 
 Devices that will be exposed when implemented: `swc_set_point` (sensor), `swc_pool_set_point` (writable), `swc_spa_set_point` (writable), `swc_boost`, `swc_low`, `swc_pool_value`, `swc_pool_status`, `swc_spa_value`, `swc_spa_status`, and several boost timer/config sensors.
-
-#### Heat Pump (HPM)
-
-Commands `enable_disable_hpm`, `switch_hpm_mode`, and `setpoint_hpm_temp` are not implemented. The `heatpump_info` nested object from `get_home` is not parsed, so heat pump operational status (`heatpumpstatus`, `heatpumpmode`, `heatpumptype`) is not tracked.
-
-`pool_chill_set_point` from `get_home` is not tracked. Writing the chill set point requires `setpoint_hpm_temp` (HPM command), which is not yet implemented.
 
 #### VSP via iQ20 Session
 
@@ -210,6 +204,58 @@ The API accepts any integer in 0–100 for `dim_level`. The implementation rejec
 | 4 | Brightness via `set_iclzone_color` | ✓ Matches; `set_iclzone_dim` not used |
 | 5 | `define_iclzone_customcolor` returns a narrower response (no `icl_info_list`) | ✓ Handled by `_parse_icl_custom_color_response` |
 | 6 | Color preset index 16 = custom RGBW mode (not a named preset) | ✓ `ICL_EFFECTS` covers indices 0–15; index 16 not exposed as a named effect — use `set_rgbw()` instead |
+
+## HPM (Heat Pump) Sub-System
+
+HPM is an optional iQ20 sub-system controlling a heat pump paired with the controller — distinct from the simple relay-based `pool_heater`/`spa_heater`/`solar_heater` toggles, and distinct from the standalone AWS-IoT-shadow-based heat pump device (a different, unrelated subsystem). For the wire-level protocol see the [HPM section of the Protocol Reference](../../reference/systems/iaqua.md#heat-pump-hpm-commands).
+
+### Overview
+
+| Property | Value |
+|---|---|
+| Detection | `heatpump_info.isheatpumpPresent` in `get_home`, or `isHPMPresent` echoed by any HPM write command |
+| Python classes | `IaquaHeatPump` (switch), `IaquaHeatPumpMode` (select), `IaquaHeatPumpStatusSensor`, `IaquaHeatPumpAlertSensor` (`src/iaqualink/systems/iaqua/device.py`) |
+| Device keys | `heatpump`, `heatpump_mode`, `heatpump_status`, `heatpump_alert` |
+| Enums | `IaquaHpmMode` (`HEAT`/`CHILL`), `IaquaHpmStatus` (`OFF`/`ENABLED`/`ON`), `IaquaHpmErrorCode` (`src/iaqualink/systems/iaqua/enums.py`) |
+
+### Device Lifecycle
+
+All four devices are upserted together by `IaquaSystem._upsert_heatpump()`, fed from two different shapes of the same underlying data:
+
+- `get_home`'s `heatpump_info` object (lowercase keys: `isheatpumpPresent`, `heatpumpstatus`, `heatpumpmode`, `heatpumptype`, `isChillAvailable`) — polled on every `refresh()`.
+- The echoed response from any of the three HPM write commands (`HPMxxx`-cased keys, plus `alert_message` — see below).
+
+`heatpump` and `heatpump_status` are created whenever the heat pump is present. `heatpump_mode` is only created when `isChillAvailable` is true — there's no real choice to offer otherwise, matching the gating already used elsewhere in this system (e.g. ICL zones, OneTouch). `heatpump_alert` is only created once an HPM write-command response has actually supplied `alert_message` — that field is **not** part of `get_home`'s `heatpump_info` shape (not observed in reference there), so a freshly-discovered heat pump has no alert sensor until the first command response arrives. If the heat pump is unpaired (`isheatpumpPresent`/`isHPMPresent` becomes false, or `heatpump_info` disappears from `get_home` entirely), all four devices are removed — mirroring the existing ICL zone `ABSENT` removal behavior.
+
+There is no dedicated read-only HPM status command — confirmed from the reference, only `get_home` polling and the three write commands' echoes ever carry HPM status.
+
+### Operations
+
+| Method | Command | Notes |
+|---|---|---|
+| `IaquaHeatPump.turn_on()` / `turn_off()` | `enable_disable_hpm` | Noop if already in the target state |
+| `IaquaHeatPumpMode.select_option("heat"\|"chill")` | `switch_hpm_mode` | Validated against `options` by the base `AqualinkSelect` template method |
+| `pool_set_point.set_value()` / `spa_set_point.set_value()` / `pool_chill_set_point.set_value()` | `setpoint_hpm_temp` | See routing decision below |
+
+### Design Decisions
+
+#### `pool_set_point`/`spa_set_point` route through `setpoint_hpm_temp` when a heat pump is paired
+
+`pool_set_point` and `spa_set_point` are the same logical target temperature regardless of which equipment is doing the heating. When no heat pump is paired, writing them sends `set_temps` (`temp1`/`temp2`), as before. When a heat pump **is** paired (`"heatpump" in self.devices`), the heat pump becomes the equipment that actually heats, so writes are sent via `setpoint_hpm_temp` (`poolheatsetpointtemp`/`spaheatsetpointtemp`) instead. This is a behavior change for any existing user with a heat pump-equipped system — `IaquaClimate` (the composed pool/spa thermostat) needed no code changes, since it already delegates to the set point's `set_value()`. `pool_chill_set_point` has no relay-heater equivalent and always routes through `setpoint_hpm_temp` (`poolchillsetpointtemp`).
+
+The HPM command echo (`poolheatSetPointTemp`/`spaheatSetPointTemp`) is used to re-sync `pool_set_point`/`spa_set_point` after an HPM-routed write, mirroring what `set_temps`'s own `_parse_home_response` call does for the non-HPM path — without this, those two devices would report stale pre-write values until the next full `refresh()`. `pool_chill_set_point` has no echoed equivalent (`poolchillSetPointTemp` is never present in any HPM response, confirmed absent from the reference): rather than leave its pre-write value looking current, `setpoint_hpm_temp` explicitly invalidates it (clears `state`) whenever a write targets it, so `current_value` reads back `None` until the next `get_home` poll.
+
+#### Reused temperature bounds for HPM set points
+
+`pool_chill_set_point` reuses the same `IAQUA_TEMP_*_LOW`/`HIGH` bounds as the relay-heater set points. No HPM-specific bounds were found in the reference — not observed.
+
+### Deltas vs Protocol Reference (HPM)
+
+| # | Reference behaviour | Python implementation |
+|---|---|---|
+| 1 | `on_off_action` literal `"on"`/`"off"` for `enable_disable_hpm` | ✓ Matches |
+| 2 | `setpoint_hpm_temp` only sends the parameter(s) being changed | ✓ Matches — no seeding of unrelated set points, unlike `set_temps` |
+| 3 | No HPM-specific temperature bounds documented | Reuses relay-heater bounds (assumption, not observed in reference) |
 
 ## See Also
 

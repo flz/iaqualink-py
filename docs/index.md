@@ -19,7 +19,7 @@
 - **Comprehensive Device Support**
     - Temperature sensors (pool, spa, air)
     - Thermostats with adjustable set points
-    - Pumps and heaters
+    - Pumps and heaters, including paired HPM heat pumps
     - Lights with toggle control
     - Auxiliary switches
     - Water chemistry sensors (pH, ORP, salinity)

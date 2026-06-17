@@ -7,6 +7,7 @@ __all__ = [
     "AqualinkFan",
     "AqualinkLight",
     "AqualinkNumber",
+    "AqualinkSelect",
     "AqualinkSensor",
     "AqualinkSwitch",
 ]
@@ -347,6 +348,36 @@ class AqualinkNumber(AqualinkDevice):
                 f"{value} is not a multiple of {self.step}."
             )
         await self._set_value(value)
+
+
+class AqualinkSelect(AqualinkDevice):
+    """Single-choice picker. Maps to HA SelectEntity."""
+
+    # ── Required overrides ──────────────────────────────────────────────────
+
+    @property
+    @abstractmethod
+    def current_option(self) -> str | None:
+        """Currently selected option, or None if unavailable."""
+
+    @property
+    @abstractmethod
+    def options(self) -> list[str]:
+        """List of valid options."""
+
+    @abstractmethod
+    async def _select_option(self, option: str) -> None:
+        """Send the validated option to the device."""
+
+    # ── Template (do not override) ───────────────────────────────────────────
+
+    async def select_option(self, option: str) -> None:
+        """Select one of the available options."""
+        if option not in self.options:
+            raise AqualinkInvalidParameterException(
+                f"{option!r} isn't a valid option ({', '.join(self.options)})."
+            )
+        await self._select_option(option)
 
 
 class AqualinkFan(AqualinkDevice):

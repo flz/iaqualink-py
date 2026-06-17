@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.system import AqualinkSystem, SystemStatus
@@ -12,7 +12,12 @@ from iaqualink.systems.iaqua.device import (
     IaquaAuxSwitch,
     IaquaBinaryState,
     IaquaClimate,
+    IaquaDevice,
     IaquaDimmableLight,
+    IaquaHeatPump,
+    IaquaHeatPumpAlertSensor,
+    IaquaHeatPumpMode,
+    IaquaHeatPumpStatusSensor,
     IaquaIclLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
@@ -51,6 +56,11 @@ IAQUA_COMMAND_SET_SOLAR_HEATER = "set_solar_heater"
 IAQUA_COMMAND_SET_SPA_HEATER = "set_spa_heater"
 IAQUA_COMMAND_SET_SPA_PUMP = "set_spa_pump"
 IAQUA_COMMAND_SET_TEMPS = "set_temps"
+
+# HPM (heat pump) commands
+IAQUA_COMMAND_ENABLE_DISABLE_HPM = "enable_disable_hpm"
+IAQUA_COMMAND_SWITCH_HPM_MODE = "switch_hpm_mode"
+IAQUA_COMMAND_SETPOINT_HPM_TEMP = "setpoint_hpm_temp"
 
 # ICL (IntelliCenter Light) commands
 IAQUA_COMMAND_ICL_ONOFF = "onoff_iclzone"
@@ -222,6 +232,8 @@ class IaquaSystem(AqualinkSystem):
                     self, {"name": therm_key}
                 )
 
+        self._upsert_heatpump(home.get("heatpump_info"))
+
     def _parse_devices_response(self, response: httpx.Response) -> None:
         data = response.json()
         LOGGER.debug("Devices body: %s", redact_value(data))
@@ -295,6 +307,125 @@ class IaquaSystem(AqualinkSystem):
 
         r = await self._send_session_request(IAQUA_COMMAND_SET_TEMPS, args)
         self._parse_home_response(r)
+
+    async def enable_disable_hpm(self, turn_on: bool) -> None:
+        params: Payload = {"on_off_action": "on" if turn_on else "off"}
+        r = await self._send_session_request(
+            IAQUA_COMMAND_ENABLE_DISABLE_HPM, params
+        )
+        self._parse_hpm_command_response(r)
+
+    async def switch_hpm_mode(self, mode: str) -> None:
+        params: Payload = {"hpm_mode": mode}
+        r = await self._send_session_request(
+            IAQUA_COMMAND_SWITCH_HPM_MODE, params
+        )
+        self._parse_hpm_command_response(r)
+
+    async def setpoint_hpm_temp(self, temps: Payload) -> None:
+        # Unlike set_temps, only the changed key is sent — no seeding of the
+        # other set points (confirmed from reference: "only parameters with
+        # values > 0 are sent").
+        r = await self._send_session_request(
+            IAQUA_COMMAND_SETPOINT_HPM_TEMP, temps
+        )
+        self._parse_hpm_command_response(r)
+        # poolchillsetpointtemp is never echoed back in any HPM response
+        # (confirmed absent from reference, unlike poolheatSetPointTemp/
+        # spaheatSetPointTemp) — invalidate rather than leave the pre-write
+        # value looking current. current_value's existing ValueError/KeyError
+        # handling turns an empty state into None for free.
+        if (
+            "poolchillsetpointtemp" in temps
+            and "pool_chill_set_point" in self.devices
+        ):
+            self.devices["pool_chill_set_point"].data["state"] = ""
+
+    def _parse_hpm_command_response(self, response: httpx.Response) -> None:
+        data = response.json()
+        LOGGER.debug("HPM command body: %s", redact_value(data))
+        self._upsert_heatpump(data)
+
+    def _upsert_device(
+        self, name: str, device_class: type[IaquaDevice], data: Payload
+    ) -> None:
+        full_data = {"name": name, **data}
+        if name in self.devices:
+            self.devices[name].data.update(full_data)
+        else:
+            self.devices[name] = device_class(self, full_data)
+
+    _HEATPUMP_DEVICE_NAMES: ClassVar[tuple[str, ...]] = (
+        "heatpump",
+        "heatpump_mode",
+        "heatpump_status",
+        "heatpump_alert",
+    )
+
+    def _upsert_heatpump(self, hp: dict[str, object] | None) -> None:
+        if not hp:
+            for name in self._HEATPUMP_DEVICE_NAMES:
+                self.devices.pop(name, None)
+            return
+
+        # get_home's heatpump_info uses lowercase keys; the three HPM write
+        # commands echo back the same data under HPMxxx-cased keys.
+        if "isHPMPresent" in hp:
+            present = hp.get("isHPMPresent")
+            status = hp.get("HPMstatus")
+            mode = hp.get("HPMmode")
+            hpm_type = hp.get("HPMtype")
+        else:
+            present = hp.get("isheatpumpPresent")
+            status = hp.get("heatpumpstatus")
+            mode = hp.get("heatpumpmode")
+            hpm_type = hp.get("heatpumptype")
+        chill_available = hp.get("isChillAvailable")
+
+        if not present:
+            for name in self._HEATPUMP_DEVICE_NAMES:
+                self.devices.pop(name, None)
+            return
+
+        self._upsert_device(
+            "heatpump", IaquaHeatPump, {"state": status, "hpm_type": hpm_type}
+        )
+        self._upsert_device(
+            "heatpump_status", IaquaHeatPumpStatusSensor, {"state": status}
+        )
+        if chill_available:
+            self._upsert_device(
+                "heatpump_mode", IaquaHeatPumpMode, {"state": mode}
+            )
+        else:
+            self.devices.pop("heatpump_mode", None)
+        # alert_message only appears on HPM command-response echoes, not in
+        # get_home's heatpump_info — not observed in reference there.
+        if "alert_message" in hp:
+            alert = hp.get("alert_message")
+            if alert:
+                self._upsert_device(
+                    "heatpump_alert",
+                    IaquaHeatPumpAlertSensor,
+                    {"state": alert},
+                )
+            else:
+                self.devices.pop("heatpump_alert", None)
+
+        # poolheatSetPointTemp/spaheatSetPointTemp only appear on HPM
+        # command-echo responses, never in get_home's heatpump_info —
+        # guarded by key presence so this is a no-op on the get_home path.
+        # Only updates devices that already exist (created by
+        # _parse_home_response); never creates one here, so an echoed
+        # spaheatSetPointTemp on a pool-only system can't fabricate a
+        # phantom spa_set_point device.
+        for device_name, echo_key in (
+            ("pool_set_point", "poolheatSetPointTemp"),
+            ("spa_set_point", "spaheatSetPointTemp"),
+        ):
+            value = hp.get(echo_key)
+            if value is not None and device_name in self.devices:
+                self.devices[device_name].data["state"] = str(value)
 
     async def set_aux(self, aux: str) -> None:
         aux = IAQUA_COMMAND_SET_AUX + "_" + aux.removeprefix("aux_")

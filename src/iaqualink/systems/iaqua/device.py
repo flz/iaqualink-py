@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from enum import StrEnum, unique
+from enum import Enum, StrEnum, unique
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from iaqualink.device import (
@@ -10,6 +10,7 @@ from iaqualink.device import (
     AqualinkDevice,
     AqualinkLight,
     AqualinkNumber,
+    AqualinkSelect,
     AqualinkSensor,
     AqualinkSwitch,
 )
@@ -18,7 +19,12 @@ from iaqualink.exception import (
     AqualinkOperationNotSupportedException,
     AqualinkStateUnavailableException,
 )
-from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
+from iaqualink.systems.iaqua.enums import (
+    IaquaHpmErrorCode,
+    IaquaHpmMode,
+    IaquaHpmStatus,
+    IaquaTemperatureUnit,
+)
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import IaquaSystem
@@ -146,6 +152,58 @@ class IaquaHeater(IaquaSwitch):
             if self.state
             else False
         )
+
+
+class IaquaHeatPump(IaquaDevice, AqualinkSwitch):
+    """Enable/disable switch for a paired HPM heat pump."""
+
+    @property
+    def is_on(self) -> bool:
+        return (
+            self.state in [IaquaHpmStatus.ON, IaquaHpmStatus.ENABLED]
+            if self.state
+            else False
+        )
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self.system.enable_disable_hpm(True)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self.system.enable_disable_hpm(False)
+
+    @property
+    def model(self) -> str:
+        hpm_type = self.data.get("hpm_type")
+        return f"Heat Pump ({hpm_type})" if hpm_type else "Heat Pump"
+
+
+class IaquaHeatPumpMode(IaquaDevice, AqualinkSelect):
+    """Heat/chill mode picker for a paired HPM heat pump. Only present when chill is available."""
+
+    @property
+    def current_option(self) -> str | None:
+        return self.state or None
+
+    @property
+    def options(self) -> list[str]:
+        return [IaquaHpmMode.HEAT, IaquaHpmMode.CHILL]
+
+    async def _select_option(self, option: str) -> None:
+        await self.system.switch_hpm_mode(option)
+
+
+class IaquaHeatPumpStatusSensor(IaquaSensor):
+    @property
+    def value_enum(self) -> type[Enum] | None:
+        return IaquaHpmStatus
+
+
+class IaquaHeatPumpAlertSensor(IaquaSensor):
+    @property
+    def value_enum(self) -> type[Enum] | None:
+        return IaquaHpmErrorCode
 
 
 class _IaquaAuxMixin(IaquaDevice):
@@ -403,6 +461,13 @@ light_subtype_to_class = {
 }
 
 
+_HPM_TEMP_PARAM: dict[str, str] = {
+    "pool_set_point": "poolheatsetpointtemp",
+    "spa_set_point": "spaheatsetpointtemp",
+    "pool_chill_set_point": "poolchillsetpointtemp",
+}
+
+
 class IaquaSetPoint(IaquaDevice, AqualinkNumber):
     @property
     def _temperature_key(self) -> str:
@@ -449,7 +514,20 @@ class IaquaSetPoint(IaquaDevice, AqualinkNumber):
         return "°C" if unit == IaquaTemperatureUnit.CELSIUS else "°F"
 
     async def _set_value(self, value: float) -> None:
-        await self.system.set_temps({self._temperature_key: str(int(value))})
+        # Pool chill is heat-pump-only; pool/spa heat set points route through
+        # the same HPM command once a heat pump is paired (it becomes the
+        # equipment that actually heats, superseding the relay-heater path).
+        if (
+            self.name == "pool_chill_set_point"
+            or "heatpump" in self.system.devices
+        ):
+            await self.system.setpoint_hpm_temp(
+                {_HPM_TEMP_PARAM[self.name]: str(int(value))}
+            )
+        else:
+            await self.system.set_temps(
+                {self._temperature_key: str(int(value))}
+            )
 
 
 ICL_CUSTOM_COLOR_ID = 16
@@ -665,6 +743,7 @@ _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
     "is_icl_present": IaquaPresenceSensor,
     "spa_set_point": IaquaSetPoint,
     "pool_set_point": IaquaSetPoint,
+    "pool_chill_set_point": IaquaSetPoint,
     "relay_count": IaquaSensor,
 }
 
@@ -686,5 +765,10 @@ _HOME_DEVICE_LABELS: dict[str, str] = {
     "is_icl_present": "ICL Present",
     "spa_set_point": "Spa Set Point",
     "pool_set_point": "Pool Set Point",
+    "pool_chill_set_point": "Pool Chill Set Point",
     "relay_count": "Relay Count",
+    "heatpump": "Heat Pump",
+    "heatpump_mode": "Heat Pump Mode",
+    "heatpump_status": "Heat Pump Status",
+    "heatpump_alert": "Heat Pump Alert",
 }
