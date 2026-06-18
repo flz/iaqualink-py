@@ -1372,6 +1372,37 @@ class TestIaquaSystem:
         assert isinstance(sut.devices["vsp_pump_5"], IaquaVSPump)
         assert sut._vsp_discovered is True
 
+    async def test_refresh_without_is_vsp_skips_discovery(self) -> None:
+        _, sut = _make_iaqua_system()
+        assert sut.is_vsp is False
+
+        with (
+            patch.object(
+                sut, "_send_home_screen_request", return_value=MagicMock()
+            ),
+            patch.object(
+                sut, "_parse_home_response", side_effect=_set_online_for(sut)
+            ),
+            patch.object(
+                sut,
+                "_send_devices_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_devices_response"),
+            patch.object(
+                sut,
+                "_send_onetouch_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_onetouch_response"),
+            patch.object(sut, "get_vsp_names") as get_vsp_names,
+        ):
+            await sut.refresh()
+
+        get_vsp_names.assert_not_called()
+        assert sut._vsp_discovered is False
+        assert not any(k.startswith("vsp_pump_") for k in sut.devices)
+
     async def test_refresh_vsp_pumps_empty_discovery(self) -> None:
         _, sut = _make_iaqua_system()
         with (

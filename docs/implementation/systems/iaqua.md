@@ -265,15 +265,15 @@ Variable-speed pump support is an optional subsystem within `IaquaSystem`. It is
 
 ### Device class
 
-`IaquaVSPump(AqualinkFan, IaquaDevice)` — inherits device identity from `IaquaDevice` and exposes the `AqualinkFan` preset contract (suitable for a Home Assistant `fan` entity).
+`IaquaVSPump(IaquaDevice, AqualinkFan)` — inherits device identity from `IaquaDevice` and exposes the `AqualinkFan` preset contract (suitable for a Home Assistant `fan` entity).
 
 | `AqualinkFan` property | `IaquaVSPump` behaviour |
 |---|---|
 | `supports_turn_on` | `True` — activates first speed preset (or `speed_id=1` if presets not yet loaded) via `enable_disable_pump_speedId` |
 | `supports_turn_off` | `True` — sends `enable_disable_pump_speedId` with `on_off_action=off` |
 | `supports_presets` | `True` after `fetch_speed()` populates a non-empty `_speed_presets`; `False` if the hardware reports an empty preset list |
-| `preset_modes` | Raises `AqualinkOperationNotSupportedException` if `_speed_presets` not yet populated |
-| `preset_mode` | Raises same exception if not loaded; returns `None` if no preset has `enabled == "true"` |
+| `preset_modes` | Raises `AqualinkOperationNotSupportedException` whenever `supports_presets` is `False` (not yet loaded, or hardware reports an empty preset list) |
+| `preset_mode` | Raises same exception under the same condition; otherwise returns `None` if no preset has `enabled == "true"` |
 | `supports_percentage` | `False` — arbitrary-RPM write not yet confirmed for iaqua VSP |
 
 ### Slot ID

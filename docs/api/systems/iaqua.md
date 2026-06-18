@@ -34,6 +34,10 @@ iAqua systems use the iaqualink.net API.
 
 ::: iaqualink.systems.iaqua.device.IaquaHeatPumpAlertSensor
 
+## IaquaVSPump
+
+::: iaqualink.systems.iaqua.device.IaquaVSPump
+
 ## Characteristics
 
 ### API Endpoint
@@ -115,6 +119,12 @@ Optional sub-system, only present when a heat pump is paired with the iQ20 contr
 - `heatpump_status` - Raw operational status (`off`/`enabled`/`on`). Class: `IaquaHeatPumpStatusSensor`.
 - `heatpump_alert` - Fault code, if any. Only present once an HPM command response has supplied one. Class: `IaquaHeatPumpAlertSensor`.
 - `pool_chill_set_point` - Pool chill (cooling) set point. Only present when chill mode is available. Uses the existing `IaquaSetPoint` class.
+
+### VSP Pumps
+
+Optional sub-system, only present when a variable-speed pump is paired with the iQ20 controller (`isVSP` flag in the master device list / appmodelserials fallback). Distinct from the standalone Jandy iQPump (`i2d` system type).
+
+- `vsp_pump_1` through `vsp_pump_N` - One entry per discovered slot. Class: `IaquaVSPump`. Maps to HA `AqualinkFan` contract: presets, on/off; no percentage (RPM) control.
 
 ### Lights
 
