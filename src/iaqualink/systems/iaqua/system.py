@@ -39,6 +39,8 @@ if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.typing import Payload
 
+# v2 session endpoint (p-api); used for all get_*/set_* commands.
+# r-api hosts v1 / swc endpoints — kept here for future reference.
 IAQUA_SESSION_URL = "https://p-api.iaqualink.net/v2/mobile/session.json"
 IAQUA_SESSION_V1_URL = "https://r-api.iaqualink.net/v1/mobile/session.json"
 
@@ -684,7 +686,7 @@ class IaquaSystem(AqualinkSystem):
             self.devices[device_name] = device
             LOGGER.debug(
                 "VSP pump discovered: serial=%s slot=%d name=%r",
-                self.serial,
+                mask_serial(self.serial),
                 pump_id,
                 label,
             )

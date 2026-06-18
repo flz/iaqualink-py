@@ -145,7 +145,7 @@ class IaquaOneTouchSwitch(IaquaSwitch):
         await self.system.set_onetouch(self.data["name"])
 
 
-class IaquaVSPump(AqualinkFan, IaquaDevice):
+class IaquaVSPump(IaquaDevice, AqualinkFan):
     def __init__(self, system: IaquaSystem, data: DeviceData) -> None:
         super().__init__(system, data)
         self._speed_presets: list[dict[str, Any]] | None = None
@@ -178,13 +178,13 @@ class IaquaVSPump(AqualinkFan, IaquaDevice):
 
     @property
     def preset_modes(self) -> list[str]:
-        if self._speed_presets is None:
+        if not self._speed_presets:
             raise AqualinkOperationNotSupportedException
         return [str(p["speedName"]) for p in self._speed_presets]
 
     @property
     def preset_mode(self) -> str | None:
-        if self._speed_presets is None:
+        if not self._speed_presets:
             raise AqualinkOperationNotSupportedException
         for p in self._speed_presets:
             if p.get("enabled") == "true":
@@ -192,8 +192,8 @@ class IaquaVSPump(AqualinkFan, IaquaDevice):
         return None
 
     async def _set_preset_mode(self, preset_mode: str) -> None:
-        if self._speed_presets is None:
-            raise AqualinkOperationNotSupportedException
+        # supports_presets gates this in the base class's set_preset_mode().
+        assert self._speed_presets is not None
         for p in self._speed_presets:
             if p["speedName"] == preset_mode:
                 result = await self.system.set_vsp_speed(
