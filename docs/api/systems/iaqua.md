@@ -124,7 +124,7 @@ Optional sub-system, only present when a heat pump is paired with the iQ20 contr
 
 Optional sub-system, only present when a variable-speed pump is paired with the iQ20 controller (`isVSP` flag in the master device list / appmodelserials fallback). Distinct from the standalone Jandy iQPump (`i2d` system type).
 
-- `vsp_pump_1` through `vsp_pump_N` - One entry per discovered slot. Class: `IaquaVSPump`. Maps to HA `AqualinkFan` contract: presets, on/off; no percentage (RPM) control.
+- `vsp_pump_<slot_id>` - One entry per discovered slot. Class: `IaquaVSPump`. Maps to HA `AqualinkFan` contract: presets, on/off; no percentage (RPM) control.
 
 ### Lights
 

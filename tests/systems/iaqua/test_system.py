@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
@@ -1422,6 +1423,99 @@ class TestIaquaSystem:
 
         assert not any(k.startswith("vsp_pump_") for k in sut.devices)
         assert sut._vsp_discovered is True
+
+    async def test_refresh_vsp_pumps_logs_warning_on_partial_page(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        mdl_resp = {
+            "count": 1,
+            "totalCount": 2,
+            "deviceList": [{"id": 5, "name": "ePump 1", "isVSP": "true"}],
+        }
+        with (
+            patch.object(sut, "get_vsp_names", return_value={"vsp_names": []}),
+            patch.object(sut, "get_master_device_list", return_value=mdl_resp),
+            patch.object(
+                sut, "get_vsp_speed", return_value={"vsp_speedInfo": []}
+            ),
+            caplog.at_level(logging.WARNING, logger="iaqualink.systems.iaqua"),
+        ):
+            await sut._refresh_vsp_pumps()
+
+        assert "partial page" in caplog.text
+
+    async def test_refresh_vsp_failure_does_not_disconnect_system(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        sut.data["isVSP"] = "true"
+
+        with (
+            patch.object(
+                sut, "_send_home_screen_request", return_value=MagicMock()
+            ),
+            patch.object(
+                sut, "_parse_home_response", side_effect=_set_online_for(sut)
+            ),
+            patch.object(
+                sut,
+                "_send_devices_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_devices_response"),
+            patch.object(
+                sut,
+                "_send_onetouch_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_onetouch_response"),
+            patch.object(
+                sut,
+                "get_vsp_names",
+                side_effect=AqualinkServiceException("boom"),
+            ),
+        ):
+            await sut.refresh()
+
+        assert sut.status is SystemStatus.ONLINE
+        assert sut._vsp_discovered is False
+
+    async def test_refresh_calls_fetch_speed_on_subsequent_cycle(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        sut.data["isVSP"] = "true"
+        sut._vsp_discovered = True
+        existing = IaquaVSPump(
+            sut, {"name": "vsp_pump_5", "state": "1", "slot_id": "5"}
+        )
+        sut.devices["vsp_pump_5"] = existing
+
+        with (
+            patch.object(
+                sut, "_send_home_screen_request", return_value=MagicMock()
+            ),
+            patch.object(
+                sut, "_parse_home_response", side_effect=_set_online_for(sut)
+            ),
+            patch.object(
+                sut,
+                "_send_devices_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_devices_response"),
+            patch.object(
+                sut,
+                "_send_onetouch_screen_request",
+                return_value=MagicMock(),
+            ),
+            patch.object(sut, "_parse_onetouch_response"),
+            patch.object(existing, "fetch_speed") as fetch_speed,
+        ):
+            await sut.refresh()
+
+        fetch_speed.assert_called_once()
 
     @patch("httpx.AsyncClient.request")
     async def test_stop_vsp_pump_params(self, mock_request) -> None:

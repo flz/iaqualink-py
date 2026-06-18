@@ -4,6 +4,7 @@ import logging
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from iaqualink.const import AQUALINK_API_KEY
+from iaqualink.exception import AqualinkServiceException
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
     _HOME_DEVICE_MAP,
@@ -167,8 +168,21 @@ class IaquaSystem(AqualinkSystem):
         # ICL info embedded in get_devices response as icl_info_list;
         # parsed by _parse_devices_response. get_icl_info times out on hardware.
 
-        if self.is_vsp and not self._vsp_discovered:
-            await self._refresh_vsp_pumps()
+        if self.is_vsp:
+            try:
+                if not self._vsp_discovered:
+                    await self._refresh_vsp_pumps()
+                else:
+                    await self._refresh_vsp_speeds()
+            except AqualinkServiceException:
+                # VSP is an optional sub-system; a flaky VSP call must not
+                # poison the otherwise-healthy refresh() above. Skip and
+                # retry on the next refresh() cycle instead.
+                LOGGER.warning(
+                    "VSP refresh failed for serial=%s; will retry next "
+                    "refresh()",
+                    mask_serial(self.serial),
+                )
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -656,6 +670,20 @@ class IaquaSystem(AqualinkSystem):
 
         # Primary: master device list — per-device isVSP flag identifies slots
         mdl_data = await self.get_master_device_list()
+        count, total_count = mdl_data.get("count"), mdl_data.get("totalCount")
+        if (
+            isinstance(count, int)
+            and isinstance(total_count, int)
+            and count < total_count
+        ):
+            LOGGER.warning(
+                "get_master_device_list returned a partial page (count=%d "
+                "totalCount=%d) for serial=%s; VSP pumps beyond page 1 may "
+                "be missed",
+                count,
+                total_count,
+                mask_serial(self.serial),
+            )
         vsp_slots: list[tuple[int, str]] = [
             (int(d["id"]), str(d.get("name", "")))
             for d in mdl_data.get("deviceList", [])
@@ -692,3 +720,8 @@ class IaquaSystem(AqualinkSystem):
             )
 
         self._vsp_discovered = True
+
+    async def _refresh_vsp_speeds(self) -> None:
+        for device in self.devices.values():
+            if isinstance(device, IaquaVSPump):
+                await device.fetch_speed()

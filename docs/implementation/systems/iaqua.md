@@ -286,10 +286,10 @@ Each VSP pump is identified by a `slot_id` (integer). This is stored in `device.
 
 1. Check `system.data.get("isVSP") == "true"` (`is_vsp` property) — skip if false.
 2. Call `get_vsp_names()` → build `pumpId → pumpName` map.
-3. Call `get_master_device_list()` → filter to `isVSP == "true"` entries; if none found, fall back to `get_vsp_appmodelserials()`.
+3. Call `get_master_device_list()` → filter to `isVSP == "true"` entries; if none found, fall back to `get_vsp_appmodelserials()`. If the response's `count` is less than `totalCount`, log a warning — the list is paginated and there's no documented param to request subsequent pages, so VSP pumps beyond page 1 may go undiscovered.
 4. For each slot ID not already in `self.devices`: create `IaquaVSPump`, call `fetch_speed()` to populate `_speed_presets`, then add to `self.devices`.
 
-Called from `_refresh()` after `_parse_devices_response`, only when `is_vsp and not _vsp_discovered`. The pump is never added to `self.devices` before `_speed_presets` is populated.
+Called from `_refresh()` after `_parse_devices_response`, whenever `is_vsp` is true: `_refresh_vsp_pumps()` runs discovery once; on every subsequent cycle, `_refresh_vsp_speeds()` calls `fetch_speed()` on each already-discovered `IaquaVSPump` instead (see Preset lifecycle below). The pump is never added to `self.devices` before `_speed_presets` is populated. Any `AqualinkServiceException` from either path is logged and swallowed rather than propagated — see "Best-effort VSP refresh" below.
 
 ### Preset lifecycle
 
@@ -302,13 +302,17 @@ await pump.turn_off()             # calls enable_disable_pump_speedId with on_of
 await pump.fetch_speed()          # explicit refresh from get_vsp_speedauxinfo if needed
 ```
 
-`_speed_presets` is populated by `fetch_speed()` during discovery. After each write (`set_preset_mode`, `turn_on`, `turn_off`), `_apply_speed_update()` merges the response `vsp_speedInfo` back into `_speed_presets` so `is_on` and `preset_mode` stay current without an extra round-trip. Callers needing a full refresh can call `fetch_speed()` explicitly.
+`_speed_presets` is populated by `fetch_speed()` during discovery, and refreshed wholesale by `fetch_speed()` again on every subsequent `refresh()` cycle via `_refresh_vsp_speeds()`. After each write (`set_preset_mode`, `turn_on`, `turn_off`), `_apply_speed_update()` additionally merges the response `vsp_speedInfo` back into `_speed_presets` so `is_on` and `preset_mode` stay current without waiting for the next refresh cycle.
 
 ### Design decisions
 
 **`supports_presets` reflects whether `_speed_presets` is a non-empty list:** `bool(self._speed_presets)` — `False` before `fetch_speed()` has run (`_speed_presets is None`) and also `False` if the hardware reports an empty `vsp_speedInfo` array (a discovered-but-unconfigured slot). This keeps the `AqualinkFan` contract intact: `supports_presets=True` only when `preset_modes` is non-empty.
 
-**No automatic preset refresh on `_refresh()`:** `get_vsp_speedauxinfo` is an extra HTTP call per pump. The current active preset can change externally (e.g. schedule), so callers needing up-to-date preset state should call `fetch_speed()` explicitly.
+**Automatic preset refresh on every `_refresh()` cycle:** `_apply_speed_update()` (used after writes) only patches presets named in the response; if the server ever echoed a partial `vsp_speedInfo` list, presets it omitted would keep a stale `enabled` flag indefinitely. `_refresh_vsp_speeds()` calls `fetch_speed()` — which always replaces `_speed_presets` wholesale — for every discovered pump on each `refresh()` cycle, so any staleness self-heals within one cycle at the cost of one extra HTTP call per pump per refresh.
+
+**Best-effort VSP refresh — failures don't disconnect the system:** `_refresh_vsp_pumps()`/`_refresh_vsp_speeds()` run after home/devices/onetouch have already succeeded and `status` is `ONLINE`. The base `refresh()` template normally turns any `AqualinkServiceException` from `_refresh()` into `status = DISCONNECTED`. Since VSP is an optional sub-system, `_refresh()` catches `AqualinkServiceException` around just the VSP block, logs a warning, and leaves `status`/`_vsp_discovered` untouched — a flaky VSP call is retried on the next `refresh()` cycle instead of marking an otherwise-healthy system as disconnected. This is a deliberate, narrow exception to the rule (elsewhere in this codebase) that `_refresh()` implementations should not catch `AqualinkServiceException` subclasses themselves.
+
+**Partial `get_master_device_list` pages are logged, not paginated through:** the response includes `count`/`totalCount`, implying pagination, but there's no documented parameter to request page 2+. Rather than guess at one, `_refresh_vsp_pumps()` logs a warning when `count < totalCount` so under-discovery is diagnosable from a bug report.
 
 **`slot_id` in `data`, not constructor:** Keeps the `IaquaDevice` constructor signature uniform (`system, data`). Discovery stores `slot_id` in the data dict; `IaquaVSPump.slot_id` reads it with a default of `1`.
 
