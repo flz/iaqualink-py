@@ -29,7 +29,10 @@ from iaqualink.systems.iaqua.device import (
     IaquaPresenceSensor,
     IaquaSensor,
     IaquaSetPoint,
-    IaquaSwcBoostSwitch,
+    IaquaSwcBoostPauseButton,
+    IaquaSwcBoostResumeButton,
+    IaquaSwcBoostStartButton,
+    IaquaSwcBoostStopButton,
     IaquaSwcSetPoint,
     IaquaSwitch,
     IaquaVSPump,
@@ -51,7 +54,6 @@ from .factories import (
     IAQUA_POOL_SET_POINT_DATA,
     IAQUA_POOL_TEMP_DATA,
     IAQUA_SENSOR_DATA,
-    IAQUA_SWC_BOOST_OFF_DATA,
     IAQUA_SWC_POOL_SET_POINT_DATA,
     IAQUA_SWITCH_OFF_DATA,
     make_system,
@@ -1206,39 +1208,73 @@ class TestIaquaSwcSetPoint:
         assert "spaswcsp=70" in url
 
 
-class TestIaquaSwcBoostSwitch:
-    def test_is_on_false(self) -> None:
-        sut = IaquaSwcBoostSwitch(make_system(), {**IAQUA_SWC_BOOST_OFF_DATA})
-        assert sut.is_on is False
-
-    def test_is_on_true(self) -> None:
-        sut = IaquaSwcBoostSwitch(
-            make_system(), {**IAQUA_SWC_BOOST_OFF_DATA, "state": "1"}
-        )
-        assert sut.is_on is True
-
-    async def test_turn_on_sends_start(
+class TestIaquaSwcBoostButtons:
+    async def test_start_button_sends_default_hrs_and_mode(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
-        sut = IaquaSwcBoostSwitch(make_system(), {**IAQUA_SWC_BOOST_OFF_DATA})
+        sut = IaquaSwcBoostStartButton(
+            make_system(), {"name": "swc_boost_start"}
+        )
         respx_mock.route(dotstar).mock(resp_200)
         with patch.object(sut.system, "_parse_swc_config_response"):
-            await sut.turn_on()
+            await sut.press()
         url = str(respx_mock.calls[0].request.url)
         assert "command=control_swc_boost" in url
         assert "boostcontrol=start" in url
         assert "boosthrs=24" in url
         assert "boostmode=pool" in url
 
-    async def test_turn_off_sends_stop(
+    async def test_start_button_uses_last_known_hrs_and_mode(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
-        sut = IaquaSwcBoostSwitch(
-            make_system(), {**IAQUA_SWC_BOOST_OFF_DATA, "state": "1"}
+        system = make_system()
+        system.devices["swc_boost_hrs"] = IaquaSensor(
+            system, {"name": "swc_boost_hrs", "state": "12"}
         )
+        system.devices["swc_boost_mode"] = IaquaSensor(
+            system, {"name": "swc_boost_mode", "state": "spillover"}
+        )
+        sut = IaquaSwcBoostStartButton(system, {"name": "swc_boost_start"})
         respx_mock.route(dotstar).mock(resp_200)
         with patch.object(sut.system, "_parse_swc_config_response"):
-            await sut.turn_off()
+            await sut.press()
+        url = str(respx_mock.calls[0].request.url)
+        assert "boosthrs=12" in url
+        assert "boostmode=spillover" in url
+
+    async def test_stop_button_sends_stop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcBoostStopButton(make_system(), {"name": "swc_boost_stop"})
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.press()
         url = str(respx_mock.calls[0].request.url)
         assert "command=control_swc_boost" in url
         assert "boostcontrol=stop" in url
+        assert "boosthrs" not in url
+        assert "boostmode" not in url
+
+    async def test_pause_button_sends_pause(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcBoostPauseButton(
+            make_system(), {"name": "swc_boost_pause"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.press()
+        url = str(respx_mock.calls[0].request.url)
+        assert "boostcontrol=pause" in url
+
+    async def test_resume_button_sends_resume(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcBoostResumeButton(
+            make_system(), {"name": "swc_boost_resume"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.press()
+        url = str(respx_mock.calls[0].request.url)
+        assert "boostcontrol=resume" in url

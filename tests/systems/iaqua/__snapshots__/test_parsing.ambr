@@ -339,7 +339,7 @@
     'swc_boost': dict({
       'is_on': False,
       'label': 'Swc Boost',
-      'type': 'IaquaSwcBoostSwitch',
+      'type': 'IaquaBinarySensor',
     }),
     'swc_low': dict({
       'is_on': False,
@@ -599,7 +599,7 @@
     'swc_boost': dict({
       'is_on': False,
       'label': 'Swc Boost',
-      'type': 'IaquaSwcBoostSwitch',
+      'type': 'IaquaBinarySensor',
     }),
     'swc_low': dict({
       'is_on': False,
@@ -792,7 +792,7 @@
     'swc_boost': dict({
       'is_on': False,
       'label': 'Swc Boost',
-      'type': 'IaquaSwcBoostSwitch',
+      'type': 'IaquaBinarySensor',
     }),
     'swc_low': dict({
       'is_on': False,
@@ -1046,6 +1046,18 @@
       'label': 'Freeze Protection',
       'type': 'IaquaBinarySensor',
     }),
+    'heatpump': dict({
+      'is_on': False,
+      'label': 'Heat Pump',
+      'type': 'IaquaHeatPump',
+    }),
+    'heatpump_status': dict({
+      'label': 'Heat Pump Status',
+      'type': 'IaquaHeatPumpStatusSensor',
+      'unit_of_measurement': None,
+      'value': 'off',
+      'value_translated': 'OFF',
+    }),
     'icl_zone_1': dict({
       'brightness_percentage': 100,
       'effect': None,
@@ -1193,7 +1205,7 @@
     'swc_boost': dict({
       'is_on': False,
       'label': 'Swc Boost',
-      'type': 'IaquaSwcBoostSwitch',
+      'type': 'IaquaBinarySensor',
     }),
     'swc_boost_dip_switch': dict({
       'is_on': True,
@@ -1201,18 +1213,34 @@
       'type': 'IaquaBinarySensor',
     }),
     'swc_boost_hrs': dict({
-      'label': 'Swc Boost Hrs',
+      'label': 'Boost Hours',
       'type': 'IaquaSensor',
       'unit_of_measurement': None,
       'value': '24',
       'value_translated': None,
     }),
     'swc_boost_mode': dict({
-      'label': 'Swc Boost Mode',
+      'label': 'Boost Mode',
       'type': 'IaquaSensor',
       'unit_of_measurement': None,
       'value': 'pool',
       'value_translated': None,
+    }),
+    'swc_boost_pause': dict({
+      'label': 'Boost Pause',
+      'type': 'IaquaSwcBoostPauseButton',
+    }),
+    'swc_boost_resume': dict({
+      'label': 'Boost Resume',
+      'type': 'IaquaSwcBoostResumeButton',
+    }),
+    'swc_boost_start': dict({
+      'label': 'Boost Start',
+      'type': 'IaquaSwcBoostStartButton',
+    }),
+    'swc_boost_stop': dict({
+      'label': 'Boost Stop',
+      'type': 'IaquaSwcBoostStopButton',
     }),
     'swc_low': dict({
       'is_on': False,
@@ -1469,6 +1497,18 @@
       'label': 'Freeze Protection',
       'type': 'IaquaBinarySensor',
     }),
+    'heatpump': dict({
+      'is_on': False,
+      'label': 'Heat Pump',
+      'type': 'IaquaHeatPump',
+    }),
+    'heatpump_status': dict({
+      'label': 'Heat Pump Status',
+      'type': 'IaquaHeatPumpStatusSensor',
+      'unit_of_measurement': None,
+      'value': 'off',
+      'value_translated': 'OFF',
+    }),
     'icl_zone_1': dict({
       'brightness_percentage': 100,
       'effect': None,
@@ -1616,7 +1656,7 @@
     'swc_boost': dict({
       'is_on': False,
       'label': 'Swc Boost',
-      'type': 'IaquaSwcBoostSwitch',
+      'type': 'IaquaBinarySensor',
     }),
     'swc_boost_dip_switch': dict({
       'is_on': True,
@@ -1624,18 +1664,34 @@
       'type': 'IaquaBinarySensor',
     }),
     'swc_boost_hrs': dict({
-      'label': 'Swc Boost Hrs',
+      'label': 'Boost Hours',
       'type': 'IaquaSensor',
       'unit_of_measurement': None,
       'value': '24',
       'value_translated': None,
     }),
     'swc_boost_mode': dict({
-      'label': 'Swc Boost Mode',
+      'label': 'Boost Mode',
       'type': 'IaquaSensor',
       'unit_of_measurement': None,
       'value': 'pool',
       'value_translated': None,
+    }),
+    'swc_boost_pause': dict({
+      'label': 'Boost Pause',
+      'type': 'IaquaSwcBoostPauseButton',
+    }),
+    'swc_boost_resume': dict({
+      'label': 'Boost Resume',
+      'type': 'IaquaSwcBoostResumeButton',
+    }),
+    'swc_boost_start': dict({
+      'label': 'Boost Start',
+      'type': 'IaquaSwcBoostStartButton',
+    }),
+    'swc_boost_stop': dict({
+      'label': 'Boost Stop',
+      'type': 'IaquaSwcBoostStopButton',
     }),
     'swc_low': dict({
       'is_on': False,
@@ -1892,6 +1948,18 @@
       'label': 'Freeze Protection',
       'type': 'IaquaBinarySensor',
     }),
+    'heatpump': dict({
+      'is_on': False,
+      'label': 'Heat Pump',
+      'type': 'IaquaHeatPump',
+    }),
+    'heatpump_status': dict({
+      'label': 'Heat Pump Status',
+      'type': 'IaquaHeatPumpStatusSensor',
+      'unit_of_measurement': None,
+      'value': 'off',
+      'value_translated': 'OFF',
+    }),
     'icl_zone_1': dict({
       'brightness_percentage': 100,
       'effect': None,
@@ -2039,7 +2107,7 @@
     'swc_boost': dict({
       'is_on': True,
       'label': 'Swc Boost',
-      'type': 'IaquaSwcBoostSwitch',
+      'type': 'IaquaBinarySensor',
     }),
     'swc_boost_dip_switch': dict({
       'is_on': True,
@@ -2047,18 +2115,34 @@
       'type': 'IaquaBinarySensor',
     }),
     'swc_boost_hrs': dict({
-      'label': 'Swc Boost Hrs',
+      'label': 'Boost Hours',
       'type': 'IaquaSensor',
       'unit_of_measurement': None,
       'value': '24',
       'value_translated': None,
     }),
     'swc_boost_mode': dict({
-      'label': 'Swc Boost Mode',
+      'label': 'Boost Mode',
       'type': 'IaquaSensor',
       'unit_of_measurement': None,
       'value': 'pool',
       'value_translated': None,
+    }),
+    'swc_boost_pause': dict({
+      'label': 'Boost Pause',
+      'type': 'IaquaSwcBoostPauseButton',
+    }),
+    'swc_boost_resume': dict({
+      'label': 'Boost Resume',
+      'type': 'IaquaSwcBoostResumeButton',
+    }),
+    'swc_boost_start': dict({
+      'label': 'Boost Start',
+      'type': 'IaquaSwcBoostStartButton',
+    }),
+    'swc_boost_stop': dict({
+      'label': 'Boost Stop',
+      'type': 'IaquaSwcBoostStopButton',
     }),
     'swc_low': dict({
       'is_on': False,
