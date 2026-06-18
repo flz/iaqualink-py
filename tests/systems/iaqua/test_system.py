@@ -21,8 +21,8 @@ from iaqualink.systems.iaqua.device import (
     IaquaHeatPumpAlertSensor,
     IaquaHeatPumpMode,
     IaquaOneTouchSwitch,
-    IaquaPump,
     IaquaSetPoint,
+    IaquaVSPump,
 )
 from iaqualink.systems.iaqua.enums import IaquaSystemType, IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import (
@@ -1274,7 +1274,7 @@ class TestIaquaSystem:
         assert "vsp_pump_6" in sut.devices
         assert "vsp_pump_7" not in sut.devices
         pump5 = sut.devices["vsp_pump_5"]
-        assert isinstance(pump5, IaquaPump)
+        assert isinstance(pump5, IaquaVSPump)
         assert pump5.slot_id == 5
         assert pump5.data["slot_id"] == "5"  # DeviceData convention: str values
         assert pump5.label == "Main Pump"  # from get_vsp_names, not master list
@@ -1318,7 +1318,7 @@ class TestIaquaSystem:
 
     async def test_refresh_vsp_pumps_skips_existing(self) -> None:
         _, sut = _make_iaqua_system()
-        existing = IaquaPump(
+        existing = IaquaVSPump(
             sut, {"name": "vsp_pump_5", "state": "1", "slot_id": "5"}
         )
         sut.devices["vsp_pump_5"] = existing
@@ -1369,7 +1369,7 @@ class TestIaquaSystem:
             await sut.refresh()
 
         assert "vsp_pump_5" in sut.devices
-        assert isinstance(sut.devices["vsp_pump_5"], IaquaPump)
+        assert isinstance(sut.devices["vsp_pump_5"], IaquaVSPump)
         assert sut._vsp_discovered is True
 
     async def test_refresh_vsp_pumps_empty_discovery(self) -> None:

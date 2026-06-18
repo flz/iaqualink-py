@@ -21,8 +21,8 @@ from iaqualink.systems.iaqua.device import (
     IaquaIclLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
-    IaquaPump,
     IaquaSetPoint,
+    IaquaVSPump,
     IaquaZoneStatus,
     light_subtype_to_class,
 )
@@ -679,7 +679,7 @@ class IaquaSystem(AqualinkSystem):
                 "label": label,
                 "slot_id": str(pump_id),
             }
-            device = IaquaPump(self, data)
+            device = IaquaVSPump(self, data)
             await device.fetch_speed()
             self.devices[device_name] = device
             LOGGER.debug(

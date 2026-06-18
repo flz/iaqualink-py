@@ -27,10 +27,10 @@ from iaqualink.systems.iaqua.device import (
     IaquaIclLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
-    IaquaPump,
     IaquaSensor,
     IaquaSetPoint,
     IaquaSwitch,
+    IaquaVSPump,
 )
 from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import IaquaSystem
@@ -545,17 +545,17 @@ def _iaqua_fan() -> FanFixture:
 
     on_presets = [{**p} for p in _VSP_SPEED_INFO]
     on_presets[0]["enabled"] = "true"
-    device_on = IaquaPump(system, {**data})
+    device_on = IaquaVSPump(system, {**data})
     device_on._speed_presets = on_presets
 
     off_presets = [{**p} for p in _VSP_SPEED_INFO]
-    device_off = IaquaPump(system, {**data})
+    device_off = IaquaVSPump(system, {**data})
     device_off._speed_presets = off_presets
 
     return FanFixture(
         device_on=device_on,
         device_off=device_off,
-        expected_class=IaquaPump,
+        expected_class=IaquaVSPump,
     )
 
 

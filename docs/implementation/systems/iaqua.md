@@ -265,9 +265,9 @@ Variable-speed pump support is an optional subsystem within `IaquaSystem`. It is
 
 ### Device class
 
-`IaquaPump(AqualinkFan, IaquaDevice)` — inherits device identity from `IaquaDevice` and exposes the `AqualinkFan` preset contract (suitable for a Home Assistant `fan` entity).
+`IaquaVSPump(AqualinkFan, IaquaDevice)` — inherits device identity from `IaquaDevice` and exposes the `AqualinkFan` preset contract (suitable for a Home Assistant `fan` entity).
 
-| `AqualinkFan` property | `IaquaPump` behaviour |
+| `AqualinkFan` property | `IaquaVSPump` behaviour |
 |---|---|
 | `supports_turn_on` | `True` — activates first speed preset (or `speed_id=1` if presets not yet loaded) via `enable_disable_pump_speedId` |
 | `supports_turn_off` | `True` — sends `enable_disable_pump_speedId` with `on_off_action=off` |
@@ -278,7 +278,7 @@ Variable-speed pump support is an optional subsystem within `IaquaSystem`. It is
 
 ### Slot ID
 
-Each VSP pump is identified by a `slot_id` (integer). This is stored in `device.data["slot_id"]` and read via `IaquaPump.slot_id`. It is set during discovery and passed to all speed commands.
+Each VSP pump is identified by a `slot_id` (integer). This is stored in `device.data["slot_id"]` and read via `IaquaVSPump.slot_id`. It is set during discovery and passed to all speed commands.
 
 ### Discovery flow
 
@@ -287,7 +287,7 @@ Each VSP pump is identified by a `slot_id` (integer). This is stored in `device.
 1. Check `system.data.get("isVSP") == "true"` (`is_vsp` property) — skip if false.
 2. Call `get_vsp_names()` → build `pumpId → pumpName` map.
 3. Call `get_master_device_list()` → filter to `isVSP == "true"` entries; if none found, fall back to `get_vsp_appmodelserials()`.
-4. For each slot ID not already in `self.devices`: create `IaquaPump`, call `fetch_speed()` to populate `_speed_presets`, then add to `self.devices`.
+4. For each slot ID not already in `self.devices`: create `IaquaVSPump`, call `fetch_speed()` to populate `_speed_presets`, then add to `self.devices`.
 
 Called from `_refresh()` after `_parse_devices_response`, only when `is_vsp and not _vsp_discovered`. The pump is never added to `self.devices` before `_speed_presets` is populated.
 
@@ -310,7 +310,7 @@ await pump.fetch_speed()          # explicit refresh from get_vsp_speedauxinfo i
 
 **No automatic preset refresh on `_refresh()`:** `get_vsp_speedauxinfo` is an extra HTTP call per pump. The current active preset can change externally (e.g. schedule), so callers needing up-to-date preset state should call `fetch_speed()` explicitly.
 
-**`slot_id` in `data`, not constructor:** Keeps the `IaquaDevice` constructor signature uniform (`system, data`). Discovery stores `slot_id` in the data dict; `IaquaPump.slot_id` reads it with a default of `1`.
+**`slot_id` in `data`, not constructor:** Keeps the `IaquaDevice` constructor signature uniform (`system, data`). Discovery stores `slot_id` in the data dict; `IaquaVSPump.slot_id` reads it with a default of `1`.
 
 **No `is_vsp` transition handling:** `is_vsp` reads `self.data["isVSP"]`, and `self.data` is set once at construction and never reassigned — a fresh `IaquaSystem` instance is created by `AqualinkSystem.from_data()` on every `get_systems()` call. So `is_vsp` is fixed for an instance's whole lifetime; there's no real "VSP support disappeared mid-session" transition to clean up after, only "this system was never VSP-capable."
 

@@ -145,7 +145,7 @@ class IaquaOneTouchSwitch(IaquaSwitch):
         await self.system.set_onetouch(self.data["name"])
 
 
-class IaquaPump(AqualinkFan, IaquaDevice):
+class IaquaVSPump(AqualinkFan, IaquaDevice):
     def __init__(self, system: IaquaSystem, data: DeviceData) -> None:
         super().__init__(system, data)
         self._speed_presets: list[dict[str, Any]] | None = None

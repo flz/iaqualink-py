@@ -27,10 +27,10 @@ from iaqualink.systems.iaqua.device import (
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
     IaquaPresenceSensor,
-    IaquaPump,
     IaquaSensor,
     IaquaSetPoint,
     IaquaSwitch,
+    IaquaVSPump,
     IaquaZoneStatus,
 )
 from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
@@ -897,7 +897,7 @@ class TestIaquaIclLight:
 
 
 # ---------------------------------------------------------------------------
-# IaquaPump (VSP)
+# IaquaVSPump (VSP)
 # ---------------------------------------------------------------------------
 
 _VSP_SPEED_INFO = [
@@ -940,10 +940,10 @@ def _make_pump():
         "label": "Main Pump",
         "slot_id": "1",
     }
-    return system, IaquaPump(system, data)
+    return system, IaquaVSPump(system, data)
 
 
-class TestIaquaPump:
+class TestIaquaVSPump:
     def test_supports_presets_false_before_fetch(self) -> None:
         _, sut = _make_pump()
         assert sut.supports_presets is False
