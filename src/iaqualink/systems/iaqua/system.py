@@ -165,11 +165,7 @@ class IaquaSystem(AqualinkSystem):
         # ICL info embedded in get_devices response as icl_info_list;
         # parsed by _parse_devices_response. get_icl_info times out on hardware.
 
-        if not self.is_vsp:
-            for key in [k for k in self.devices if k.startswith("vsp_pump_")]:
-                del self.devices[key]
-            self._vsp_discovered = False
-        elif not self._vsp_discovered:
+        if self.is_vsp and not self._vsp_discovered:
             await self._refresh_vsp_pumps()
 
     def _parse_home_response(self, response: httpx.Response) -> None:
@@ -597,7 +593,9 @@ class IaquaSystem(AqualinkSystem):
         r = await self._send_session_request(
             IAQUA_COMMAND_GET_VSP_SPEED, {"slot_id": str(slot_id)}
         )
-        return r.json()
+        data = r.json()
+        LOGGER.debug("VSP speed body: %s", redact_value(data))
+        return data
 
     async def set_vsp_speed(self, speed_id: int, slot_id: int = 1) -> Payload:
         r = await self._send_session_request(
@@ -608,7 +606,9 @@ class IaquaSystem(AqualinkSystem):
                 "on_off_action": "on",
             },
         )
-        return r.json()
+        data = r.json()
+        LOGGER.debug("VSP set speed body: %s", redact_value(data))
+        return data
 
     async def stop_vsp_pump(self, slot_id: int = 1) -> Payload:
         r = await self._send_session_request(
@@ -619,23 +619,31 @@ class IaquaSystem(AqualinkSystem):
                 "on_off_action": "off",
             },
         )
-        return r.json()
+        data = r.json()
+        LOGGER.debug("VSP stop pump body: %s", redact_value(data))
+        return data
 
     async def get_vsp_names(self) -> Payload:
         r = await self._send_session_request(IAQUA_COMMAND_GET_VSP_NAMES)
-        return r.json()
+        data = r.json()
+        LOGGER.debug("VSP names body: %s", redact_value(data))
+        return data
 
     async def get_vsp_appmodelserials(self) -> Payload:
         r = await self._send_session_request(
             IAQUA_COMMAND_GET_VSP_APPMODELSERIALS
         )
-        return r.json()
+        data = r.json()
+        LOGGER.debug("VSP appmodelserials body: %s", redact_value(data))
+        return data
 
     async def get_master_device_list(self) -> Payload:
         r = await self._send_session_request(
             IAQUA_COMMAND_GET_MASTER_DEVICE_LIST
         )
-        return r.json()
+        data = r.json()
+        LOGGER.debug("Master device list body: %s", redact_value(data))
+        return data
 
     async def _refresh_vsp_pumps(self) -> None:
         names_data = await self.get_vsp_names()
@@ -669,7 +677,7 @@ class IaquaSystem(AqualinkSystem):
                 "name": device_name,
                 "state": "0",
                 "label": label,
-                "slot_id": pump_id,
+                "slot_id": str(pump_id),
             }
             device = IaquaPump(self, data)
             await device.fetch_speed()

@@ -271,7 +271,7 @@ Variable-speed pump support is an optional subsystem within `IaquaSystem`. It is
 |---|---|
 | `supports_turn_on` | `True` — activates first speed preset (or `speed_id=1` if presets not yet loaded) via `enable_disable_pump_speedId` |
 | `supports_turn_off` | `True` — sends `enable_disable_pump_speedId` with `on_off_action=off` |
-| `supports_presets` | `True` after `fetch_speed()` is called; always `True` post-discovery since `fetch_speed()` runs before device enters `self.devices` |
+| `supports_presets` | `True` after `fetch_speed()` populates a non-empty `_speed_presets`; `False` if the hardware reports an empty preset list |
 | `preset_modes` | Raises `AqualinkOperationNotSupportedException` if `_speed_presets` not yet populated |
 | `preset_mode` | Raises same exception if not loaded; returns `None` if no preset has `enabled == "true"` |
 | `supports_percentage` | `False` — arbitrary-RPM write not yet confirmed for iaqua VSP |
@@ -306,11 +306,13 @@ await pump.fetch_speed()          # explicit refresh from get_vsp_speedauxinfo i
 
 ### Design decisions
 
-**`supports_presets` is `True` after `fetch_speed()`:** `IaquaPump` is always a VSP-capable device (that's why it was created). In practice `fetch_speed()` runs during discovery before the device enters `self.devices`, so by the time any external caller sees the pump `supports_presets` is already `True`. `False` is only observable if `IaquaPump` is constructed directly without calling `fetch_speed()`.
+**`supports_presets` reflects whether `_speed_presets` is a non-empty list:** `bool(self._speed_presets)` — `False` before `fetch_speed()` has run (`_speed_presets is None`) and also `False` if the hardware reports an empty `vsp_speedInfo` array (a discovered-but-unconfigured slot). This keeps the `AqualinkFan` contract intact: `supports_presets=True` only when `preset_modes` is non-empty.
 
 **No automatic preset refresh on `_refresh()`:** `get_vsp_speedauxinfo` is an extra HTTP call per pump. The current active preset can change externally (e.g. schedule), so callers needing up-to-date preset state should call `fetch_speed()` explicitly.
 
 **`slot_id` in `data`, not constructor:** Keeps the `IaquaDevice` constructor signature uniform (`system, data`). Discovery stores `slot_id` in the data dict; `IaquaPump.slot_id` reads it with a default of `1`.
+
+**No `is_vsp` transition handling:** `is_vsp` reads `self.data["isVSP"]`, and `self.data` is set once at construction and never reassigned — a fresh `IaquaSystem` instance is created by `AqualinkSystem.from_data()` on every `get_systems()` call. So `is_vsp` is fixed for an instance's whole lifetime; there's no real "VSP support disappeared mid-session" transition to clean up after, only "this system was never VSP-capable."
 
 **Turn on/off via `enable_disable_pump_speedId`:** `turn_on` activates the first configured speed preset (or `speed_id=1` if presets unavailable). `turn_off` sends `on_off_action=off` via `stop_vsp_pump()`. Both update `_speed_presets` via `_apply_speed_update()` from the response.
 

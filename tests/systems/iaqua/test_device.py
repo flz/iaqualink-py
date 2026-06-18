@@ -944,6 +944,20 @@ def _make_pump():
 
 
 class TestIaquaPump:
+    def test_supports_presets_false_before_fetch(self) -> None:
+        _, sut = _make_pump()
+        assert sut.supports_presets is False
+
+    def test_supports_presets_true_after_fetch_with_presets(self) -> None:
+        _, sut = _make_pump()
+        sut._speed_presets = _VSP_SPEED_INFO  # type: ignore[assignment]
+        assert sut.supports_presets is True
+
+    def test_supports_presets_false_when_speed_presets_empty(self) -> None:
+        _, sut = _make_pump()
+        sut._speed_presets = []
+        assert sut.supports_presets is False
+
     def test_preset_modes_raises_before_fetch(self) -> None:
         _, sut = _make_pump()
         with pytest.raises(AqualinkOperationNotSupportedException):

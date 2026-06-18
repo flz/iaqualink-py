@@ -1276,6 +1276,7 @@ class TestIaquaSystem:
         pump5 = sut.devices["vsp_pump_5"]
         assert isinstance(pump5, IaquaPump)
         assert pump5.slot_id == 5
+        assert pump5.data["slot_id"] == "5"  # DeviceData convention: str values
         assert pump5.label == "Main Pump"  # from get_vsp_names, not master list
         assert pump5._speed_presets is not None
         assert sut._vsp_discovered is True
@@ -1370,35 +1371,6 @@ class TestIaquaSystem:
         assert "vsp_pump_5" in sut.devices
         assert isinstance(sut.devices["vsp_pump_5"], IaquaPump)
         assert sut._vsp_discovered is True
-
-    async def test_vsp_devices_cleared_when_is_vsp_false(self) -> None:
-        _, sut = _make_iaqua_system()
-        sut.devices["vsp_pump_1"] = MagicMock()
-        sut._vsp_discovered = True
-        with (
-            patch.object(
-                sut, "_send_home_screen_request", return_value=MagicMock()
-            ),
-            patch.object(
-                sut, "_parse_home_response", side_effect=_set_online_for(sut)
-            ),
-            patch.object(
-                sut,
-                "_send_devices_screen_request",
-                return_value=MagicMock(),
-            ),
-            patch.object(sut, "_parse_devices_response"),
-            patch.object(
-                sut,
-                "_send_onetouch_screen_request",
-                return_value=MagicMock(),
-            ),
-            patch.object(sut, "_parse_onetouch_response"),
-        ):
-            await sut.refresh()
-
-        assert "vsp_pump_1" not in sut.devices
-        assert sut._vsp_discovered is False
 
     async def test_refresh_vsp_pumps_empty_discovery(self) -> None:
         _, sut = _make_iaqua_system()

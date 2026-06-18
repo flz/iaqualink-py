@@ -164,7 +164,7 @@ class IaquaPump(AqualinkFan, IaquaDevice):
 
     @property
     def supports_presets(self) -> bool:
-        return self._speed_presets is not None
+        return bool(self._speed_presets)
 
     @property
     def supports_percentage(self) -> bool:
