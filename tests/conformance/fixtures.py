@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from iaqualink.device import (
         AqualinkBinarySensor,
+        AqualinkButton,
         AqualinkClimate,
         AqualinkDevice,
         AqualinkFan,
@@ -56,6 +57,14 @@ class SwitchFixture:
     device_on: AqualinkSwitch
     device_off: AqualinkSwitch
     has_noop_guard: bool = True
+    expected_class: type | None = None
+
+
+@dataclass
+class ButtonFixture:
+    """Fixture for AqualinkButton conformance tests."""
+
+    device: AqualinkButton
     expected_class: type | None = None
 
 

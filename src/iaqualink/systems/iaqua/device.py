@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from iaqualink.device import (
     AqualinkBinarySensor,
+    AqualinkButton,
     AqualinkClimate,
     AqualinkDevice,
     AqualinkFan,
@@ -234,16 +235,49 @@ class IaquaVSPump(IaquaDevice, AqualinkFan):
         self._speed_presets = data.get("vsp_speedInfo", [])
 
 
-class IaquaSwcBoostSwitch(IaquaSwitch):
-    async def _toggle(self) -> None:
-        if self.is_on:
-            await self.system.control_swc_boost(IaquaBoostControl.STOP)
-        else:
+def _last_swc_boost_hrs(system: IaquaSystem) -> int:
+    device = system.devices.get("swc_boost_hrs")
+    state = device.data.get("state") if device else None
+    return int(state) if state else 24
+
+
+def _last_swc_boost_mode(system: IaquaSystem) -> IaquaBoostMode:
+    device = system.devices.get("swc_boost_mode")
+    state = device.data.get("state") if device else None
+    try:
+        return IaquaBoostMode(state) if state else IaquaBoostMode.POOL
+    except ValueError:
+        return IaquaBoostMode.POOL
+
+
+class _IaquaSwcBoostButton(IaquaDevice, AqualinkButton):
+    _CONTROL: ClassVar[IaquaBoostControl]
+
+    async def press(self) -> None:
+        if self._CONTROL == IaquaBoostControl.START:
             await self.system.control_swc_boost(
-                IaquaBoostControl.START,
-                boosthrs=24,
-                boostmode=IaquaBoostMode.POOL,
+                self._CONTROL,
+                boosthrs=_last_swc_boost_hrs(self.system),
+                boostmode=_last_swc_boost_mode(self.system),
             )
+        else:
+            await self.system.control_swc_boost(self._CONTROL)
+
+
+class IaquaSwcBoostStartButton(_IaquaSwcBoostButton):
+    _CONTROL = IaquaBoostControl.START
+
+
+class IaquaSwcBoostStopButton(_IaquaSwcBoostButton):
+    _CONTROL = IaquaBoostControl.STOP
+
+
+class IaquaSwcBoostPauseButton(_IaquaSwcBoostButton):
+    _CONTROL = IaquaBoostControl.PAUSE
+
+
+class IaquaSwcBoostResumeButton(_IaquaSwcBoostButton):
+    _CONTROL = IaquaBoostControl.RESUME
 
 
 class IaquaHeater(IaquaSwitch):
@@ -872,7 +906,7 @@ _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
     "pool_chill_set_point": IaquaSetPoint,
     "relay_count": IaquaSensor,
     "swc_set_point": IaquaSensor,
-    "swc_boost": IaquaSwcBoostSwitch,
+    "swc_boost": IaquaBinarySensor,
     "swc_low": IaquaBinarySensor,
     "swc_pool_value": IaquaSensor,
     "swc_pool_status": IaquaSensor,
@@ -904,6 +938,12 @@ _HOME_DEVICE_LABELS: dict[str, str] = {
     "heatpump_mode": "Heat Pump Mode",
     "heatpump_status": "Heat Pump Status",
     "heatpump_alert": "Heat Pump Alert",
+    "swc_boost_hrs": "Boost Hours",
+    "swc_boost_mode": "Boost Mode",
+    "swc_boost_start": "Boost Start",
+    "swc_boost_stop": "Boost Stop",
+    "swc_boost_pause": "Boost Pause",
+    "swc_boost_resume": "Boost Resume",
 }
 
 # Devices populated from get_swc_config response: (device_key, response_field, device_class)
@@ -915,4 +955,12 @@ _SWC_CONFIG_DEVICE_MAP: list[tuple[str, str, type[IaquaDevice]]] = [
     ("swc_remaining_boost_mins", "remainingBoostMins", IaquaSensor),
     ("swc_boost_mode", "boostMode", IaquaSensor),
     ("swc_boost_dip_switch", "boostDipSwitch", IaquaBinarySensor),
+]
+
+# SWC boost action buttons, upserted once SWC presence is confirmed.
+_SWC_BOOST_BUTTON_MAP: list[tuple[str, type[IaquaDevice]]] = [
+    ("swc_boost_start", IaquaSwcBoostStartButton),
+    ("swc_boost_stop", IaquaSwcBoostStopButton),
+    ("swc_boost_pause", IaquaSwcBoostPauseButton),
+    ("swc_boost_resume", IaquaSwcBoostResumeButton),
 ]

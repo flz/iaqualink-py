@@ -29,7 +29,10 @@ from iaqualink.systems.iaqua.device import (
     IaquaOneTouchSwitch,
     IaquaSensor,
     IaquaSetPoint,
-    IaquaSwcBoostSwitch,
+    IaquaSwcBoostPauseButton,
+    IaquaSwcBoostResumeButton,
+    IaquaSwcBoostStartButton,
+    IaquaSwcBoostStopButton,
     IaquaSwcSetPoint,
     IaquaSwitch,
     IaquaVSPump,
@@ -39,6 +42,7 @@ from iaqualink.systems.iaqua.system import IaquaSystem
 
 from ...conformance.fixtures import (
     BinarySensorFixture,
+    ButtonFixture,
     ClimateFixture,
     DeviceFixture,
     FanFixture,
@@ -210,8 +214,19 @@ def _iaqua_binary_sensor() -> BinarySensorFixture:
     )
 
 
+def _iaqua_swc_boost() -> BinarySensorFixture:
+    system = make_system()
+    data_on = {**IAQUA_SWC_BOOST_OFF_DATA, "state": "1"}
+    return BinarySensorFixture(
+        device_on=IaquaBinarySensor(system, data_on),
+        device_off=IaquaBinarySensor(system, {**IAQUA_SWC_BOOST_OFF_DATA}),
+        expected_class=IaquaBinarySensor,
+    )
+
+
 iaqua_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-binary-sensor", _iaqua_binary_sensor),
+    ("iaqua-swc-boost", _iaqua_swc_boost),
 ]
 
 # ---------------------------------------------------------------------------
@@ -275,23 +290,56 @@ def _iaqua_heatpump() -> SwitchFixture:
     )
 
 
-def _iaqua_swc_boost_switch() -> SwitchFixture:
-    system = make_system()
-    data_on = {**IAQUA_SWC_BOOST_OFF_DATA, "state": "1"}
-    return SwitchFixture(
-        device_on=IaquaSwcBoostSwitch(system, data_on),
-        device_off=IaquaSwcBoostSwitch(system, {**IAQUA_SWC_BOOST_OFF_DATA}),
-        expected_class=IaquaSwcBoostSwitch,
-    )
-
-
 iaqua_switch_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-switch", _iaqua_switch),
     ("iaqua-heater", _iaqua_heater),
     ("iaqua-aux-switch", _iaqua_aux_switch),
     ("iaqua-onetouch-switch", _iaqua_onetouch_switch),
     ("iaqua-heatpump", _iaqua_heatpump),
-    ("iaqua-swc-boost-switch", _iaqua_swc_boost_switch),
+]
+
+# ---------------------------------------------------------------------------
+# Button fixtures
+# ---------------------------------------------------------------------------
+
+
+def _iaqua_swc_boost_start_button() -> ButtonFixture:
+    system = make_system()
+    return ButtonFixture(
+        device=IaquaSwcBoostStartButton(system, {"name": "swc_boost_start"}),
+        expected_class=IaquaSwcBoostStartButton,
+    )
+
+
+def _iaqua_swc_boost_stop_button() -> ButtonFixture:
+    system = make_system()
+    return ButtonFixture(
+        device=IaquaSwcBoostStopButton(system, {"name": "swc_boost_stop"}),
+        expected_class=IaquaSwcBoostStopButton,
+    )
+
+
+def _iaqua_swc_boost_pause_button() -> ButtonFixture:
+    system = make_system()
+    return ButtonFixture(
+        device=IaquaSwcBoostPauseButton(system, {"name": "swc_boost_pause"}),
+        expected_class=IaquaSwcBoostPauseButton,
+    )
+
+
+def _iaqua_swc_boost_resume_button() -> ButtonFixture:
+    system = make_system()
+    return ButtonFixture(
+        device=IaquaSwcBoostResumeButton(system, {"name": "swc_boost_resume"}),
+        expected_class=IaquaSwcBoostResumeButton,
+    )
+
+
+iaqua_button_factories: list[tuple[str, Callable[[], Any]]] = [
+    ("iaqua-swc-boost-start-button", _iaqua_swc_boost_start_button),
+    ("iaqua-swc-boost-stop-button", _iaqua_swc_boost_stop_button),
+    ("iaqua-swc-boost-pause-button", _iaqua_swc_boost_pause_button),
+    ("iaqua-swc-boost-resume-button", _iaqua_swc_boost_resume_button),
 ]
 
 # ---------------------------------------------------------------------------

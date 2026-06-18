@@ -12,12 +12,14 @@ import respx.router
 from iaqualink.client import AqualinkClient
 from iaqualink.const import AQUALINK_API_KEY
 from iaqualink.exception import (
+    AqualinkInvalidParameterException,
     AqualinkServiceException,
     AqualinkServiceThrottledException,
     AqualinkServiceUnauthorizedException,
 )
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
+    IaquaBinarySensor,
     IaquaClimate,
     IaquaHeatPump,
     IaquaHeatPumpAlertSensor,
@@ -25,7 +27,6 @@ from iaqualink.systems.iaqua.device import (
     IaquaOneTouchSwitch,
     IaquaSensor,
     IaquaSetPoint,
-    IaquaSwcBoostSwitch,
     IaquaVSPump,
 )
 from iaqualink.systems.iaqua.enums import (
@@ -127,7 +128,7 @@ def _add_swc_devices(sut: IaquaSystem) -> None:
     sut.devices["swc_set_point"] = IaquaSensor(
         sut, {"name": "swc_set_point", "state": "50"}
     )
-    sut.devices["swc_boost"] = IaquaSwcBoostSwitch(
+    sut.devices["swc_boost"] = IaquaBinarySensor(
         sut, {"name": "swc_boost", "state": "0"}
     )
 
@@ -1813,3 +1814,88 @@ class TestIaquaSystem:
         ):
             await sut._refresh()
         mock_parse.assert_not_called()
+
+    def test_has_swc_false_without_swc_set_point(self) -> None:
+        _, sut = _make_iaqua_system()
+        assert sut.has_swc is False
+
+    def test_has_swc_true_with_swc_set_point(self) -> None:
+        _, sut = _make_iaqua_system()
+        sut.devices["swc_set_point"] = IaquaSensor(
+            sut, {"name": "swc_set_point", "state": "50"}
+        )
+        assert sut.has_swc is True
+
+    async def test_parse_swc_config_response_creates_boost_buttons(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        _add_swc_devices(sut)
+        response = httpx.Response(200, json=_SWC_CONFIG)
+        sut._parse_swc_config_response(response)
+        assert "swc_boost_start" in sut.devices
+        assert "swc_boost_stop" in sut.devices
+        assert "swc_boost_pause" in sut.devices
+        assert "swc_boost_resume" in sut.devices
+
+    async def test_parse_swc_config_response_buttons_not_duplicated(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        _add_swc_devices(sut)
+        response = httpx.Response(200, json=_SWC_CONFIG)
+        sut._parse_swc_config_response(response)
+        first = sut.devices["swc_boost_start"]
+        sut._parse_swc_config_response(response)
+        assert sut.devices["swc_boost_start"] is first
+
+    async def test_parse_swc_config_response_no_buttons_without_swc_boost(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        response = httpx.Response(200, json=_SWC_CONFIG)
+        sut._parse_swc_config_response(response)
+        assert "swc_boost_start" not in sut.devices
+
+    @respx.mock
+    async def test_set_swc_boost_delegates_to_control_swc_boost(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_swc_boost(12, IaquaBoostMode.SPILLOVER)
+        url = str(respx_mock.calls[0].request.url)
+        assert f"command={IAQUA_COMMAND_CONTROL_SWC_BOOST}" in url
+        assert "boostcontrol=start" in url
+        assert "boosthrs=12" in url
+        assert "boostmode=spillover" in url
+
+    @respx.mock
+    async def test_set_swc_boost_rejects_hrs_too_low(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await sut.set_swc_boost(0, IaquaBoostMode.POOL)
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_set_swc_boost_rejects_hrs_too_high(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await sut.set_swc_boost(25, IaquaBoostMode.POOL)
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_set_swc_boost_rejects_invalid_mode(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await sut.set_swc_boost(12, "not-a-mode")
+        assert len(respx_mock.calls) == 0

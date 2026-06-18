@@ -71,6 +71,7 @@ All classes are direct subclasses of `AqualinkDevice`:
 | `AqualinkClimate` | Climate | `ClimateEntity` |
 | `AqualinkLight` | Lights | `LightEntity` |
 | `AqualinkSwitch` | Switches | `SwitchEntity` |
+| `AqualinkButton` | Buttons | `ButtonEntity` |
 | `AqualinkFan` | Fans | `FanEntity` (no PumpEntity in HA) |
 | `AqualinkNumber` | Numbers | `NumberEntity` |
 | `AqualinkSelect` | Modes | `SelectEntity` |

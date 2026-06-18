@@ -273,3 +273,4 @@ hpm_system_factories: list[tuple[str, Callable[[], Any]]] = [
 hpm_light_factories: list[tuple[str, Callable[[], Any]]] = []
 hpm_number_factories: list[tuple[str, Callable[[], Any]]] = []
 hpm_fan_factories: list[tuple[str, Callable[[], Any]]] = []
+hpm_button_factories: list[tuple[str, Callable[[], Any]]] = []

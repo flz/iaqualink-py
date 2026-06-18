@@ -26,6 +26,7 @@ from ..conftest import (  # noqa: F401 — re-exported for test modules
 )
 from .fixtures import (
     BinarySensorFixture,
+    ButtonFixture,
     ClimateFixture,
     DeviceFixture,
     FanFixture,
@@ -107,6 +108,14 @@ _switch_ids, _switch_factories = _discover_factories("switch")
 
 @pytest.fixture(params=_switch_factories, ids=_switch_ids)
 def switch_fixture(request: pytest.FixtureRequest) -> SwitchFixture:
+    return request.param()
+
+
+_button_ids, _button_factories = _discover_factories("button")
+
+
+@pytest.fixture(params=_button_factories, ids=_button_ids)
+def button_fixture(request: pytest.FixtureRequest) -> ButtonFixture:
     return request.param()
 
 

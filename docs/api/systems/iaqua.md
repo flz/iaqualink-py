@@ -126,6 +126,17 @@ Optional sub-system, only present when a variable-speed pump is paired with the 
 
 - `vsp_pump_<slot_id>` - One entry per discovered slot. Class: `IaquaVSPump`. Maps to HA `AqualinkFan` contract: presets, on/off; no percentage (RPM) control.
 
+### SWC (Salt Water Chlorinator)
+
+Optional sub-system, only present when a salt water chlorinator is paired with the controller (`swc_set_point` in the home response). Presence is also exposed as `IaquaSystem.has_swc` (overriding the base `AqualinkSystem.has_swc`, which defaults `False`).
+
+- `swc_boost` - Whether a boost is currently running/paused (read-only). Class: `IaquaBinarySensor`.
+- `swc_boost_hrs`, `swc_boost_mode` - Last-polled configured boost duration/circuit (read-only sensors, from `get_swc_config`).
+- `swc_boost_start`, `swc_boost_stop`, `swc_boost_pause`, `swc_boost_resume` - Stateless action buttons wrapping `control_swc_boost`'s 4 actions. `swc_boost_start` repeats the last-known `swc_boost_hrs`/`swc_boost_mode`.
+- `swc_pool_set_point`, `swc_spa_set_point` - Configurable chlorine output set points (0-100). Class: `IaquaSwcSetPoint`.
+
+To start a boost with explicit hours/circuit (rather than repeating the last-known config via `swc_boost_start`), call `IaquaSystem.set_swc_boost(boosthrs, boostmode)` directly — it validates both arguments before sending `control_swc_boost`.
+
 ### Lights
 
 - `pool_light` - Pool light
