@@ -555,7 +555,44 @@ The `zoneColorVal` strings in the response are human-readable display names; the
 
 The iQ20 session endpoint also provides VSP management commands for pumps assigned to aux slots. These are separate from the iQPump `/r-api.iaqualink.net` protocol and operate on pumps physically connected to the iQ20 controller.
 
-All VSP commands use the same session endpoint.
+All VSP commands use the same session endpoint (`https://p-api.iaqualink.net/v2/mobile/session.json`). Optional subsystem — only present when at least one VSP-capable pump is paired with the iQ20 controller.
+
+### Discovery
+
+**Step 1 — Check `isVSP` flag.** The iAquaLink system-level data (returned by `AqualinkClient.get_systems()`) may include an `isVSP` field. If `isVSP == "true"`, at least one VSP pump is paired and the discovery commands below should be called.
+
+**Step 2 — Enumerate pumps** using `get_master_device_list`:
+
+| Param | Value |
+|---|---|
+| `command` | `get_master_device_list` |
+| `actionID` | `"command"` |
+| `serial` | iAquaLink serial |
+| `sessionID` | `session_id` from login |
+
+**Response** — JSON object:
+
+| Field | Type | Description |
+|---|---|---|
+| `response` | string | `"success"` or error string |
+| `is_error` | boolean | Error flag |
+| `count` | integer | Devices in this page |
+| `totalCount` | integer | Total paired devices |
+| `listType` | integer | List type discriminator |
+| `pageNum` | integer | Page number |
+| `deviceList` | array | Per-device objects (see below) |
+
+**Device object fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Device identifier |
+| `name` | string | Display name |
+| `isVSP` | string | `"true"` if pump is variable-speed capable, `"false"` or absent otherwise |
+
+---
+
+### VSP Session Commands
 
 #### `get_vsp_names`
 
@@ -567,8 +604,8 @@ Get names of all VSPs assigned to iQ20 aux slots.
 
 | Field | Type | Description |
 |---|---|---|
-| `serial` | string | Device serial |
-| `device_status` | string | `"online"` / `"offline"` |
+| `serial` | string | Device serial (echoed) |
+| `device_status` | string | `"Online"` / `"Offline"` (capital O) |
 | `is_error` | string | Error flag |
 | `vsp_names` | array | List of VSP name objects |
 
@@ -576,8 +613,8 @@ Each `vsp_names` element:
 
 | Field | Type | Description |
 |---|---|---|
-| `pumpId` | integer | VSP slot identifier |
-| `pumpName` | string | VSP display name |
+| `pumpId` | integer | Slot ID — matches `slot_id` in speed commands |
+| `pumpName` | string | User-assigned display name |
 
 #### `get_vsp_speedauxinfo`
 
@@ -591,12 +628,12 @@ Get speed and aux assignment information for a specific VSP slot.
 
 | Field | Type | Description |
 |---|---|---|
-| `serial` | string | Device serial |
-| `slot_id` | string | VSP slot identifier |
-| `device_status` | string | `"online"` / `"offline"` |
-| `is_error` | string | Error flag |
-| `maxSpeed` | string | Maximum speed |
-| `minSpeed` | string | Minimum speed |
+| `serial` | string | Device serial (echoed) |
+| `slot` | integer | Pump slot (echoed — note: `slot`, not `slot_id`) |
+| `device_status` | string | `"Online"` / `"Offline"` (capital O) |
+| `is_error` | boolean | Error flag |
+| `minSpeed` | integer | Global minimum RPM (e.g. `600`) |
+| `maxSpeed` | integer | Global maximum RPM (e.g. `3450`) |
 | `aux_count` | integer | Number of aux assignments |
 | `aux_speed_assignments` | array | List of aux speed assignment strings |
 | `vsp_speedInfo` | array | List of speed preset objects |
@@ -606,10 +643,10 @@ Each `vsp_speedInfo` element:
 
 | Field | Type | Description |
 |---|---|---|
-| `speedid` | integer | Speed preset identifier |
-| `speedName` | string | Speed preset name |
-| `speedvalue` | integer | Speed value |
-| `enabled` | string | Whether this speed is enabled |
+| `speedid` | integer | Preset ID (1–8) |
+| `speedName` | string | Human-readable name (e.g. `"LO"`, `"HI"`) |
+| `speedvalue` | integer | RPM setting for this preset |
+| `enabled` | string | `"true"` if currently active, `"false"` otherwise |
 
 #### `get_vsp_definition`
 
@@ -649,22 +686,22 @@ Get available VSP application model serial numbers for assignment.
 
 | Field | Type | Description |
 |---|---|---|
-| `serial` | string | iQ20 serial |
-| `device_status` | string | `"online"` / `"offline"` |
+| `serial` | string | Device serial (echoed) |
+| `device_status` | string | `"Online"` / `"Offline"` (capital O) |
 | `is_error` | string | Error flag |
-| `vsp_app_model_serials` | array | List of available VSP application/model records |
-| `response` | string | `"success"` or error string |
+| `response` | string | `"success"` or error |
+| `vsp_app_model_serials` | array | Per-slot hardware entries (see below) |
 
 Each `vsp_app_model_serials` element:
 
 | Field | Type | Description |
 |---|---|---|
+| `pumpId` | integer | Slot ID — primary join key with `get_vsp_names` |
+| `pumpSerial` | string | VSP device serial number |
+| `modelName` | string | Hardware model name |
+| `modelType` | integer | Model type discriminator |
 | `appId` | integer | Application identifier |
 | `appName` | string | Application name |
-| `modelName` | string | Model name |
-| `modelType` | integer | Model type identifier |
-| `pumpId` | integer | Pump slot identifier |
-| `pumpSerial` | string | Pump serial number |
 
 #### `get_unassigned_serials`
 
@@ -747,34 +784,34 @@ Remove a VSP serial assignment from an iQ20 aux slot.
 
 #### `enable_disable_pump_speedId`
 
-Enable or disable a specific speed preset for a VSP.
+Activate a speed preset or stop the pump.
 
 | Extra param | Value |
 |---|---|
 | `slot_id` | VSP slot identifier (integer) |
-| `speed_id` | Speed preset identifier (integer) |
-| `on_off_action` | `"on"` or `"off"` |
+| `speed_id` | Preset ID integer (1–8) |
+| `on_off_action` | `"on"` to activate at preset speed; `"off"` to stop pump |
 
 **Response fields:**
 
 | Field | Type | Description |
 |---|---|---|
-| `serial` | string | iQ20 serial |
-| `slot_id` | integer | VSP slot identifier |
-| `unit` | string | Speed unit |
-| `vsp_speedInfo` | array | Updated speed preset list |
-| `device_status` | string | `"online"` / `"offline"` |
-| `is_error` | string | Error flag |
-| `response` | string | `"success"` or error string |
+| `serial` | string | Device serial (echoed) |
+| `slot_id` | integer | Pump slot (echoed — note: `slot_id`, not `slot`) |
+| `unit` | string | `"rpm"` |
+| `vsp_speedInfo` | array | Updated preset states (see below) |
+| `device_status` | string | `"Online"` / `"Offline"` (capital O) |
+| `is_error` | boolean | Error flag |
+| `status` | string | `"success"` or error string |
 | `alert_message` | string | Alert message if any |
 
-Each `vsp_speedInfo` element:
+Each `vsp_speedInfo` element (in response):
 
 | Field | Type | Description |
 |---|---|---|
-| `speedId` | integer | Speed preset identifier |
-| `speedvalue` | integer | Speed value |
-| `status` | string | Enabled status string |
+| `speedId` | integer | Preset ID (1–8) — note capital `I`, unlike get response `speedid` |
+| `speedvalue` | integer | RPM for this preset |
+| `status` | string | `"Enabled"` if active, `"Disabled"` otherwise |
 
 #### `set_aux_speed`
 

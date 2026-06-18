@@ -30,6 +30,7 @@ from iaqualink.systems.iaqua.device import (
     IaquaSensor,
     IaquaSetPoint,
     IaquaSwitch,
+    IaquaVSPump,
 )
 from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import IaquaSystem
@@ -38,6 +39,7 @@ from ...conformance.fixtures import (
     BinarySensorFixture,
     ClimateFixture,
     DeviceFixture,
+    FanFixture,
     LightFixture,
     NumberFixture,
     SelectFixture,
@@ -521,5 +523,42 @@ iaqua_system_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-system", _iaqua_system),
 ]
 
-# iaqua does not implement this device type.
-iaqua_fan_factories: list[tuple[str, Callable[[], Any]]] = []
+# ---------------------------------------------------------------------------
+# Fan fixtures
+# ---------------------------------------------------------------------------
+
+_VSP_SPEED_INFO: list[dict[str, Any]] = [
+    {"speedid": 1, "speedName": "LO", "speedvalue": 1800, "enabled": "false"},
+    {"speedid": 2, "speedName": "MED", "speedvalue": 3000, "enabled": "false"},
+    {"speedid": 3, "speedName": "HI", "speedvalue": 3450, "enabled": "false"},
+]
+
+
+def _iaqua_fan() -> FanFixture:
+    system = make_system()
+    data = {
+        "name": "vsp_pump_1",
+        "state": "0",
+        "label": "Main Pump",
+        "slot_id": "1",
+    }
+
+    on_presets = [{**p} for p in _VSP_SPEED_INFO]
+    on_presets[0]["enabled"] = "true"
+    device_on = IaquaVSPump(system, {**data})
+    device_on._speed_presets = on_presets
+
+    off_presets = [{**p} for p in _VSP_SPEED_INFO]
+    device_off = IaquaVSPump(system, {**data})
+    device_off._speed_presets = off_presets
+
+    return FanFixture(
+        device_on=device_on,
+        device_off=device_off,
+        expected_class=IaquaVSPump,
+    )
+
+
+iaqua_fan_factories: list[tuple[str, Callable[[], Any]]] = [
+    ("iaqua-pump", _iaqua_fan),
+]
