@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 import respx.router
+from httpx_ws import WebSocketUpgradeError
 
 from iaqualink.client import AqualinkAuthState, AqualinkClient
 from iaqualink.const import (
@@ -883,6 +884,17 @@ def _ws_cm(ws: AsyncMock) -> MagicMock:
     return cm
 
 
+def _ws_cm_upgrade_error(status: int) -> MagicMock:
+    # A WS handshake that the server rejects: aconnect_ws raises
+    # WebSocketUpgradeError from __aenter__ carrying the HTTP response.
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(
+        side_effect=WebSocketUpgradeError(httpx.Response(status))
+    )
+    cm.__aexit__ = AsyncMock(return_value=None)
+    return cm
+
+
 class TestAqualinkClientWebSocket:
     async def test_send_ws_frame_sends_json_and_swallows_ack_timeout(
         self,
@@ -922,6 +934,56 @@ class TestAqualinkClientWebSocket:
         ws_client = mock_connect.call_args.args[1]
         assert ws_client is client._get_ws_httpx_client()
         assert ws_client is not client._get_httpx_client()
+
+    async def test_ws_connect_maps_unauthorized_upgrade(self) -> None:
+        # A 401 on the WS handshake is a stale token -> surface it as the same
+        # unauthorized error the REST path raises, so callers can reauth.
+        client = _make_client()
+        client.id_token = "tok"
+        with (
+            patch(
+                "iaqualink.client.aconnect_ws",
+                return_value=_ws_cm_upgrade_error(401),
+            ),
+            pytest.raises(AqualinkServiceUnauthorizedException),
+        ):
+            async with client.ws_connect("https://ws.example/devices"):
+                pass
+
+    async def test_ws_connect_reraises_non_auth_upgrade_error(self) -> None:
+        # A non-auth handshake failure (e.g. 500) propagates unchanged.
+        client = _make_client()
+        client.id_token = "tok"
+        with (
+            patch(
+                "iaqualink.client.aconnect_ws",
+                return_value=_ws_cm_upgrade_error(500),
+            ),
+            pytest.raises(WebSocketUpgradeError),
+        ):
+            async with client.ws_connect("https://ws.example/devices"):
+                pass
+
+    async def test_send_ws_frame_reauths_and_retries_on_401(self) -> None:
+        # First handshake 401 -> refresh auth -> retry once and succeed,
+        # mirroring the REST read path's reauth-retry.
+        client = _make_client()
+        client.id_token = "stale"
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(return_value="ack")
+
+        with (
+            patch.object(client, "_refresh_auth", new=AsyncMock()) as refresh,
+            patch(
+                "iaqualink.client.aconnect_ws",
+                side_effect=[_ws_cm_upgrade_error(401), _ws_cm(ws)],
+            ) as mock_connect,
+        ):
+            await client.send_ws_frame("https://ws.example/devices", {"a": 1})
+
+        refresh.assert_awaited_once()
+        assert mock_connect.call_count == 2
+        ws.send_text.assert_awaited_once()
         ws.receive_text.assert_awaited_once()
         await client.close()
 

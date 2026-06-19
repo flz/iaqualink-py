@@ -17,6 +17,7 @@ import httpx
 from httpx_ws import (
     WebSocketDisconnect,
     WebSocketInvalidTypeReceived,
+    WebSocketUpgradeError,
     aconnect_ws,
 )
 
@@ -337,10 +338,18 @@ class AqualinkClient:
             kwargs["keepalive_ping_interval_seconds"] = (
                 keepalive_ping_interval_seconds
             )
-        async with aconnect_ws(
-            url, self._get_ws_httpx_client(), headers=headers, **kwargs
-        ) as ws:
-            yield ws
+        try:
+            async with aconnect_ws(
+                url, self._get_ws_httpx_client(), headers=headers, **kwargs
+            ) as ws:
+                yield ws
+        except WebSocketUpgradeError as exc:
+            # A 401/403 on the WS handshake means the bearer token is stale,
+            # same as the REST path — surface it as unauthorized so callers can
+            # reauth and retry. Other upgrade failures propagate unchanged.
+            if exc.response.status_code in (401, 403):
+                raise AqualinkServiceUnauthorizedException from exc
+            raise
 
     async def send_ws_frame(
         self,
@@ -355,18 +364,23 @@ class AqualinkClient:
             self._log_redact_url(url),
             frame.get("action"),
         )
-        async with self.ws_connect(url) as ws:
-            await ws.send_text(json.dumps(frame))
-            try:
-                ack = await ws.receive_text(timeout=ack_timeout)
-            except (
-                TimeoutError,
-                WebSocketDisconnect,
-                WebSocketInvalidTypeReceived,
-            ) as exc:
-                LOGGER.debug("No WS ack within %.1fs: %r", ack_timeout, exc)
-            else:
-                LOGGER.debug("WS ack received (length=%d)", len(ack))
+
+        async def do_send() -> None:
+            async with self.ws_connect(url) as ws:
+                await ws.send_text(json.dumps(frame))
+                try:
+                    ack = await ws.receive_text(timeout=ack_timeout)
+                except (
+                    TimeoutError,
+                    WebSocketDisconnect,
+                    WebSocketInvalidTypeReceived,
+                ) as exc:
+                    LOGGER.debug("No WS ack within %.1fs: %r", ack_timeout, exc)
+                else:
+                    LOGGER.debug("WS ack received (length=%d)", len(ack))
+
+        # Mirror the REST read path: reauth once on a stale-token handshake.
+        await send_with_reauth_retry(do_send, self._refresh_auth)
 
     async def _send_login_request(self) -> httpx.Response:
         data = {
