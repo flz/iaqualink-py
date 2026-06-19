@@ -293,6 +293,27 @@ def test_time_remaining_unknown_cycle_returns_none(
     )
 
 
+def test_rebuild_robot_devices_allowlists_scalars(
+    sut: CyclonextSystem,
+) -> None:
+    # The live shadow carries config/internal scalars (schedule slots, vendor
+    # counters) that must not become entities; only allowlisted scalars pass.
+    sut._robot_state = {
+        "mode": 1,
+        "cycle": 2,
+        "stepper": 30,
+        "schConf0Enable": "0",
+        "logger": "0",
+        "stepperAdjTime": "15",
+        "equipmentId": "ND22010130",
+    }
+    sut._rebuild_robot_devices()
+    for kept in ("mode", "cycle", "stepper"):
+        assert kept in sut.devices
+    for noise in ("schConf0Enable", "logger", "stepperAdjTime", "equipmentId"):
+        assert noise not in sut.devices
+
+
 # --- WebSocket state subscription (reduce polling) -------------------------
 # Protocol captured from the vendor app: Authorization `subscribe` on connect,
 # full state in the Authorization ack, then StateStreamer `StateReported`
