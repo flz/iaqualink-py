@@ -47,6 +47,7 @@ _API_CLASSES = frozenset(
         _dev.AqualinkNumber,
         _dev.AqualinkSelect,
         _dev.AqualinkFan,
+        _dev.AqualinkVacuum,
     }
 )
 
@@ -65,6 +66,15 @@ _SNAPSHOT_EXCLUDE = frozenset(
         "supports_rgbw",
         "supports_presets",
         "supports_percentage",
+        "supports_start",
+        "supports_stop",
+        "supports_pause",
+        "supports_return",
+        "supports_clean_spot",
+        "supports_locate",
+        "supports_fan_speed",
+        "supports_battery",
+        "fan_speed_list",
         "max_temp",
         "min_temp",
     }
