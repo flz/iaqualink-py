@@ -7,11 +7,19 @@ import importlib
 import json
 import logging
 import time
+from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from dataclasses import fields as dataclass_fields
 from typing import TYPE_CHECKING, Any, Self
+from urllib.parse import urlsplit
 
 import httpx
+from httpx_ws import (
+    WebSocketDisconnect,
+    WebSocketInvalidTypeReceived,
+    WebSocketUpgradeError,
+    aconnect_ws,
+)
 
 from iaqualink.const import (
     AQUALINK_API_KEY,
@@ -21,6 +29,7 @@ from iaqualink.const import (
     AQUALINK_REFRESH_URL,
     DEFAULT_REQUEST_TIMEOUT,
     KEEPALIVE_EXPIRY,
+    WS_ACK_TIMEOUT,
 )
 from iaqualink.exception import (
     AqualinkServiceException,
@@ -40,12 +49,18 @@ from iaqualink.utils.redact import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from types import TracebackType
 
+    from httpx_ws import AsyncWebSocketSession
+
 for module_name in (
+    "iaqualink.systems.cyclobat.system",
+    "iaqualink.systems.cyclonext.system",
     "iaqualink.systems.exo.system",
     "iaqualink.systems.i2d.system",
     "iaqualink.systems.iaqua.system",
+    "iaqualink.systems.vr.system",
 ):
     importlib.import_module(module_name)
 
@@ -65,6 +80,7 @@ class AqualinkAuthState:
     user_id: str
     id_token: str
     refresh_token: str
+    app_client_id: str = ""
 
     def to_dict(self) -> dict[str, str]:
         return asdict(self)
@@ -88,7 +104,10 @@ class AqualinkAuthState:
                 )
             values[field_name] = value
 
-        return cls(**values)
+        app_client_id = data.get("app_client_id", "")
+        if not isinstance(app_client_id, str):
+            app_client_id = ""
+        return cls(app_client_id=app_client_id, **values)
 
     def __repr__(self) -> str:
         parts = ", ".join(
@@ -116,6 +135,8 @@ class AqualinkClient:
 
         self._event_hooks: dict[str, list] = event_hooks or {}
         self._client: httpx.AsyncClient | None = None
+        # Dedicated HTTP/1.1 client for WebSockets (see _get_ws_httpx_client).
+        self._ws_client: httpx.AsyncClient | None = None
 
         if httpx_client is None:
             self._client = None
@@ -129,6 +150,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.app_client_id = ""
         self.country = ""
         self._refresh_lock = asyncio.Lock()
 
@@ -153,6 +175,7 @@ class AqualinkClient:
             user_id=self.user_id,
             id_token=self.id_token,
             refresh_token=self.refresh_token,
+            app_client_id=self.app_client_id,
         )
 
     @auth_state.setter
@@ -167,9 +190,15 @@ class AqualinkClient:
         self.user_id = state.user_id
         self.id_token = state.id_token
         self.refresh_token = state.refresh_token
+        self.app_client_id = state.app_client_id
         self._logged = True
 
     async def close(self) -> None:
+        # The WS client is always ours (never HA-injected), so always close it.
+        if self._ws_client is not None:
+            await self._ws_client.aclose()
+            self._ws_client = None
+
         if self._must_close_client is False:
             return
 
@@ -271,6 +300,90 @@ class AqualinkClient:
             )
         return self._client
 
+    def _get_ws_httpx_client(self) -> httpx.AsyncClient:
+        # WebSockets ride a dedicated HTTP/1.1 client: the upgrade is an
+        # HTTP/1.1 mechanism (`Connection: Upgrade`), invalid over the REST
+        # client's HTTP/2 — the endpoint rejects it with 400. Separate from the
+        # (possibly HA-injected, HTTP/2) REST client; carries no REST cookies.
+        if self._ws_client is None:
+            self._ws_client = httpx.AsyncClient(
+                http1=True,
+                http2=False,
+                limits=httpx.Limits(keepalive_expiry=KEEPALIVE_EXPIRY),
+            )
+        return self._ws_client
+
+    @asynccontextmanager
+    async def ws_connect(
+        self,
+        url: str,
+        *,
+        keepalive_ping_interval_seconds: float | None = None,
+    ) -> AsyncIterator[AsyncWebSocketSession]:
+        """Open an authenticated WebSocket over the dedicated HTTP/1.1 client.
+
+        Reused by robot commands and state subscriptions (and other wss-based
+        systems such as tcx). ``keepalive_ping_interval_seconds`` enables
+        periodic WS pings so a silently dropped connection raises instead of
+        blocking forever — set it for long-lived subscriptions; None for
+        one-shot sends.
+        """
+        parts = urlsplit(url)
+        headers = {
+            "Authorization": self.id_token,
+            # Match the vendor app handshake (the WAF in front of the endpoint
+            # expects an Origin matching the host).
+            "Origin": f"{parts.scheme}://{parts.netloc}",
+        }
+        kwargs: dict[str, Any] = {}
+        if keepalive_ping_interval_seconds is not None:
+            kwargs["keepalive_ping_interval_seconds"] = (
+                keepalive_ping_interval_seconds
+            )
+        try:
+            async with aconnect_ws(
+                url, self._get_ws_httpx_client(), headers=headers, **kwargs
+            ) as ws:
+                yield ws
+        except WebSocketUpgradeError as exc:
+            # A 401/403 on the WS handshake means the bearer token is stale,
+            # same as the REST path — surface it as unauthorized so callers can
+            # reauth and retry. Other upgrade failures propagate unchanged.
+            if exc.response.status_code in (401, 403):
+                raise AqualinkServiceUnauthorizedException from exc
+            raise
+
+    async def send_ws_frame(
+        self,
+        url: str,
+        frame: dict[str, Any],
+        *,
+        ack_timeout: float = WS_ACK_TIMEOUT,
+    ) -> None:
+        """Open a one-shot WS, send `frame` as JSON, best-effort wait for ack."""
+        LOGGER.debug(
+            "-> WS %s action=%s",
+            self._log_redact_url(url),
+            frame.get("action"),
+        )
+
+        async def do_send() -> None:
+            async with self.ws_connect(url) as ws:
+                await ws.send_text(json.dumps(frame))
+                try:
+                    ack = await ws.receive_text(timeout=ack_timeout)
+                except (
+                    TimeoutError,
+                    WebSocketDisconnect,
+                    WebSocketInvalidTypeReceived,
+                ) as exc:
+                    LOGGER.debug("No WS ack within %.1fs: %r", ack_timeout, exc)
+                else:
+                    LOGGER.debug("WS ack received (length=%d)", len(ack))
+
+        # Mirror the REST read path: reauth once on a stale-token handshake.
+        await send_with_reauth_retry(do_send, self._refresh_auth)
+
     async def _send_login_request(self) -> httpx.Response:
         data = {
             "api_key": AQUALINK_API_KEY,
@@ -342,6 +455,7 @@ class AqualinkClient:
         self.user_id = ""
         self.id_token = ""
         self.refresh_token = ""
+        self.app_client_id = ""
         self.country = ""
         self._logged = False
 
@@ -359,6 +473,8 @@ class AqualinkClient:
         self.refresh_token = data["userPoolOAuth"].get(
             "RefreshToken", refresh_token_fallback
         )
+        cognito = data.get("cognitoPool") or {}
+        self.app_client_id = cognito.get("appClientId", "")
         self.country = (data.get("country") or "us").lower()
         self._logged = True
 

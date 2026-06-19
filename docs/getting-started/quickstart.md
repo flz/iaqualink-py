@@ -131,6 +131,273 @@ except AqualinkServiceException as e:
     print(f"Service error: {e}")
 ```
 
+## Cyclobat — Battery-Powered Robot Cleaners
+
+Cyclobat systems (`device_type: "cyclobat"`) represent Zodiac battery-powered robot cleaners. They expose read-only sensors from an HTTP shadow poll and accept start/stop/return-to-base commands over WebSocket.
+
+### API Overview
+
+- **Reads** — `system.refresh()` fetches the robot shadow (`GET /devices/v1/{serial}/shadow`) and updates all devices atomically.
+- **Writes** — Three high-level commands send a WebSocket frame to `wss://prod-socket.zodiac-io.com/devices`.
+
+### System Status
+
+| `SystemStatus` | Meaning |
+|---|---|
+| `ONLINE` | Shadow fetched and `equipment.robot` present |
+| `OFFLINE` | Shadow reachable but `equipment.robot` absent or malformed |
+| `DISCONNECTED` | Network or HTTP error (non-401, non-429) |
+| `UNKNOWN` | HTTP 429 throttle response |
+
+### Device Inventory
+
+All keys are read-only `CyclobatSensor` unless noted.
+
+| Device key | Description |
+|---|---|
+| `main_state` | Current robot state (integer: 0=stopped, 1=cleaning, 3=returning) |
+| `main_ctrl` | Write target — same encoding as `main_state` |
+| `main_mode` | Cleaning mode code |
+| `main_error` | Error code (0 = none) |
+| `main_cycleStartTime` | Unix timestamp when current cycle started |
+| `battery_state` | Battery state code |
+| `battery_percentage` | Charge percentage (0–100) |
+| `battery_charge_state` | Charge state code |
+| `battery_cycles` | Total charge cycle count |
+| `battery_warning_code` | Battery warning code (0 = none) |
+| `battery_version` | Battery firmware version |
+| `total_runtime` | Lifetime total run time (minutes) |
+| `diagnostic_code` | Diagnostic code |
+| `temperature` | Robot temperature reading |
+| `last_error_code` | Last recorded error code |
+| `last_error_cycle` | Cycle number of last error |
+| `last_cycle_number` | Most recent completed cycle count |
+| `last_cycle_duration` | Duration of most recent cycle (minutes) |
+| `last_cycle_mode` | Mode used in most recent cycle |
+| `cycle` | End-cycle type index of most recent cycle (0–3) |
+| `last_cycle_error` | Error code at end of most recent cycle |
+| `floor_duration` | Floor-only cycle duration (minutes) |
+| `floor_walls_duration` | Floor + walls cycle duration (minutes) |
+| `smart_duration` | Smart cycle duration (minutes) |
+| `waterline_duration` | Waterline cycle duration (minutes) |
+| `first_smart_done` | Whether first smart cycle has completed |
+| `lift_pattern_time` | Lift pattern timing value |
+| `vr` | Robot firmware version |
+| `sn` | Serial number |
+| `model_number` | Model number string |
+| `running` | **BinarySensor** — `True` when `main_state == 1` (cleaning) |
+| `returning` | **BinarySensor** — `True` when `main_state == 3` (returning) |
+| `time_remaining_sec` | Estimated seconds remaining in current cycle (derived) |
+
+### Write Commands
+
+```python
+# Start a cleaning cycle
+await system.start_cleaning()   # sends ctrl=1
+
+# Stop cleaning
+await system.stop_cleaning()    # sends ctrl=0
+
+# Return the robot to its base/dock
+await system.return_to_base()   # sends ctrl=3
+```
+
+### Full Example
+
+```python
+from iaqualink import AqualinkClient
+from iaqualink.system import SystemStatus
+
+async with AqualinkClient('user@example.com', 'password') as client:
+    systems = await client.get_systems()
+
+    for system in systems.values():
+        if system.data.get('device_type') == 'cyclobat':
+            await system.refresh()
+
+            if system.status is SystemStatus.ONLINE:
+                devices = await system.get_devices()
+
+                running = devices.get('running')
+                pct = devices.get('battery_percentage')
+                print(f"Running: {running.is_on}, Battery: {pct.value}%")
+
+                # Start cleaning
+                await system.start_cleaning()
+```
+
+## Cyclonext — Wired Robot Cleaners
+
+Cyclonext systems (`device_type: "cyclonext"`) represent Zodiac wired robot cleaners. They expose read-only sensors from an HTTP shadow poll and accept start/stop, cycle selection, runtime extension, remote control, and lift system commands over WebSocket.
+
+### API Overview
+
+- **Reads** — `system.refresh()` fetches the robot shadow (`GET /devices/v1/{serial}/shadow`) and updates all devices atomically.
+- **Writes** — Commands send a WebSocket frame to `wss://prod-socket.zodiac-io.com/devices` with action `setCleanerState` and namespace `cyclonext`.
+
+### System Status
+
+| `SystemStatus` | Meaning |
+|---|---|
+| `ONLINE` | Shadow fetched and `equipment.robot` list has a valid dict entry |
+| `OFFLINE` | Shadow reachable but `equipment.robot` list has no dict entry |
+| `DISCONNECTED` | Network or HTTP error (non-401, non-429) |
+| `UNKNOWN` | HTTP 429 throttle response |
+
+### Device Inventory
+
+All keys are read-only `CyclonextSensor` unless noted.
+
+| Device key | Description |
+|---|---|
+| `mode` | Current robot mode (0=stopped, 1=running, 2=remote_control, 3=lift_system) |
+| `cycle` | Active cleaning cycle (1=floor, 3=floor_and_walls) |
+| `cycleStartTime` | Unix timestamp when current cycle started |
+| `stepper` | Runtime extension in minutes |
+| `durations.<key>` | Per-cycle duration values in minutes (e.g. `quickTim`, `deepTim`) |
+| `error_code` | Active error code (0 = OK) — `CyclonextErrorSensor` |
+| `ebox_*` | Control-box hardware identifiers (one device per `eboxData` field) |
+| `control_box_vr` | Control-box firmware version |
+| `model_number` | Model number string |
+| `running` | **BinarySensor** — `True` when `mode != 0` |
+| `time_remaining_sec` | Estimated seconds remaining in current cycle (derived) |
+
+### Write Commands
+
+```python
+# Select a cleaning cycle
+await system.set_cycle(1)             # floor cycle
+
+# Start cleaning (optionally set cycle in one call)
+await system.start_cleaning(cycle=3)  # floor + walls
+
+# Stop cleaning (also exits Remote / Lift modes)
+await system.stop_cleaning()
+
+# Extend runtime (must be a non-negative multiple of 15 minutes)
+await system.set_runtime_extension(30)
+
+# Remote control (places robot in mode=2)
+await system.remote_forward()
+await system.remote_backward()
+await system.remote_rotate_left()
+await system.remote_rotate_right()
+await system.remote_stop()
+
+# Lift system (places robot in mode=3)
+await system.lift_eject()
+await system.lift_rotate_left()
+await system.lift_rotate_right()
+await system.lift_stop()
+```
+
+### Full Example
+
+```python
+from iaqualink import AqualinkClient
+from iaqualink.system import SystemStatus
+
+async with AqualinkClient('user@example.com', 'password') as client:
+    systems = await client.get_systems()
+
+    for system in systems.values():
+        if system.data.get('device_type') == 'cyclonext':
+            await system.refresh()
+
+            if system.status is SystemStatus.ONLINE:
+                devices = await system.get_devices()
+
+                running = devices.get('running')
+                mode = devices.get('mode')
+                print(f"Running: {running.is_on}, Mode: {mode.value}")
+
+                # Start a floor + walls cleaning cycle
+                await system.start_cleaning(cycle=3)
+```
+
+## VR — Variable-Speed Robot Cleaners
+
+VR systems (`device_type: "vr"`) represent Zodiac variable-speed robot pool cleaners. They expose read-only sensors from an HTTP shadow poll and accept start/stop, pause, return-to-base, cycle selection, runtime extension, and remote steering commands over WebSocket.
+
+### API Overview
+
+- **Reads** — `system.refresh()` fetches the robot shadow (`GET /devices/v1/{serial}/shadow`) and updates all devices atomically.
+- **Writes** — Commands send a WebSocket frame to `wss://prod-socket.zodiac-io.com/devices` with action `setCleanerState` (or `setRemoteSteeringControl` for remote control) and namespace `vr`.
+
+### System Status
+
+| `SystemStatus` | Meaning |
+|---|---|
+| `ONLINE` | Shadow fetched and `equipment.robot` is a valid dict |
+| `OFFLINE` | Shadow reachable but `equipment.robot` absent or not a dict |
+| `DISCONNECTED` | Network or HTTP error (non-401, non-429) |
+| `UNKNOWN` | HTTP 429 throttle response |
+
+### Device Inventory
+
+All keys are read-only `VrSensor` unless noted.
+
+| Device key | Description |
+|---|---|
+| `state` | Current robot state (0=stopped, 1=cleaning, 2=paused, 3=returning) |
+| `prCyc` | Active cleaning cycle (0=wall_only, 1=floor_only, 2=smart_floor_and_walls, 3=floor_and_walls) |
+| `stepper` | Runtime extension in minutes |
+| `cycleStartTime` | Unix timestamp when current cycle started |
+| `sn` | Robot serial number |
+| `vr` | Robot firmware version |
+| `temperature` | Water temperature (from `sensors.sns_1.val`) |
+| `model_number` | Model number string |
+| `running` | **BinarySensor** — `True` when `state == 1` (cleaning) |
+| `returning` | **BinarySensor** — `True` when `state == 3` (returning) |
+| `time_remaining_sec` | Estimated seconds remaining in current cycle (derived) |
+
+### Write Commands
+
+```python
+# Start a cleaning cycle (optionally specify cycle)
+await system.start_cleaning(cycle=1)  # floor_only
+
+# Pause cleaning (required state before remote control)
+await system.pause_cleaning()
+
+# Return robot to base
+await system.return_to_base()
+
+# Stop cleaning
+await system.stop_cleaning()
+
+# Extend runtime (absolute minutes)
+await system.set_runtime_extension(30)
+
+# Remote control (auto-pauses robot if not already paused)
+await system.remote_forward()
+await system.remote_stop()
+```
+
+### Full Example
+
+```python
+from iaqualink import AqualinkClient
+from iaqualink.system import SystemStatus
+
+async with AqualinkClient('user@example.com', 'password') as client:
+    systems = await client.get_systems()
+
+    for system in systems.values():
+        if system.data.get('device_type') == 'vr':
+            await system.refresh()
+
+            if system.status is SystemStatus.ONLINE:
+                devices = await system.get_devices()
+
+                running = devices.get('running')
+                state = devices.get('state')
+                print(f"Running: {running.is_on}, State: {state.value}")
+
+                # Start a floor + walls cleaning cycle
+                await system.start_cleaning(cycle=3)
+```
+
 ## Next Steps
 
 - [CLI Reference](cli.md) — command-line client for scripting and quick control

@@ -2,6 +2,7 @@
 # name: test_parse_alldata
   dict({
     'ABC123': dict({
+      'entity_category': None,
       'is_on': True,
       'label': 'IQPump',
       'percentage': 32,
@@ -15,6 +16,7 @@
     }),
     'countdownperiod': dict({
       'current_value': 30.0,
+      'entity_category': None,
       'label': 'Countdown Period',
       'max_value': 86400,
       'min_value': 3600,
@@ -24,6 +26,7 @@
     }),
     'countdownrpm': dict({
       'current_value': 1500.0,
+      'entity_category': None,
       'label': 'Countdown RPM',
       'max_value': 3450.0,
       'min_value': 600.0,
@@ -32,14 +35,20 @@
       'unit_of_measurement': 'RPM',
     }),
     'countdowntimer': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Countdown Timer',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': 's',
       'value': '0',
       'value_translated': None,
     }),
     'currentspan': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Current Schedule Span',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': None,
       'value': '-1',
@@ -47,6 +56,7 @@
     }),
     'customspeedrpm': dict({
       'current_value': 1500.0,
+      'entity_category': None,
       'label': 'Custom Speed RPM',
       'max_value': 3450.0,
       'min_value': 600.0,
@@ -56,6 +66,7 @@
     }),
     'customspeedtimer': dict({
       'current_value': 60.0,
+      'entity_category': None,
       'label': 'Custom Speed Timer',
       'max_value': 3600,
       'min_value': 300,
@@ -64,12 +75,14 @@
       'unit_of_measurement': 's',
     }),
     'freezeprotectenable': dict({
+      'entity_category': None,
       'is_on': True,
       'label': 'Freeze Protection',
       'type': 'I2dSwitch',
     }),
     'freezeprotectperiod': dict({
       'current_value': 30.0,
+      'entity_category': None,
       'label': 'Freeze Protect Period',
       'max_value': 28800,
       'min_value': 0,
@@ -79,6 +92,7 @@
     }),
     'freezeprotectrpm': dict({
       'current_value': 1000.0,
+      'entity_category': None,
       'label': 'Freeze Protect RPM',
       'max_value': 3450.0,
       'min_value': 600.0,
@@ -88,6 +102,7 @@
     }),
     'freezeprotectsetpointc': dict({
       'current_value': 4.0,
+      'entity_category': None,
       'label': 'Freeze Protect Setpoint',
       'max_value': 7,
       'min_value': 3,
@@ -96,12 +111,17 @@
       'unit_of_measurement': '°C',
     }),
     'freezeprotectstatus': dict({
+      'device_class': None,
+      'entity_category': None,
       'is_on': False,
       'label': 'Freeze Protect Status',
       'type': 'I2dBinarySensor',
     }),
     'fwversion': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Firmware Version',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': None,
       'value': '1.5.2',
@@ -109,6 +129,7 @@
     }),
     'globalrpmmax': dict({
       'current_value': 3450.0,
+      'entity_category': None,
       'label': 'Global RPM Max',
       'max_value': 3450,
       'min_value': 600.0,
@@ -118,6 +139,7 @@
     }),
     'globalrpmmin': dict({
       'current_value': 600.0,
+      'entity_category': None,
       'label': 'Global RPM Min',
       'max_value': 3450.0,
       'min_value': 600.0,
@@ -126,14 +148,20 @@
       'unit_of_measurement': 'RPM',
     }),
     'horsepower': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Horsepower',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': 'HP',
       'value': '1.65',
       'value_translated': None,
     }),
     'power': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Motor Power',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': 'W',
       'value': '180',
@@ -141,6 +169,7 @@
     }),
     'primingperiod': dict({
       'current_value': 3.0,
+      'entity_category': None,
       'label': 'Priming Period',
       'max_value': 300,
       'min_value': 0,
@@ -150,6 +179,7 @@
     }),
     'primingrpm': dict({
       'current_value': 3450.0,
+      'entity_category': None,
       'label': 'Priming RPM',
       'max_value': 3450.0,
       'min_value': 600.0,
@@ -158,7 +188,10 @@
       'unit_of_measurement': 'RPM',
     }),
     'primingtimer': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Priming Timer',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': 's',
       'value': '0',
@@ -166,6 +199,7 @@
     }),
     'quickcleanperiod': dict({
       'current_value': 8.0,
+      'entity_category': None,
       'label': 'Quick Clean Period',
       'max_value': 3600,
       'min_value': 300,
@@ -175,6 +209,7 @@
     }),
     'quickcleanrpm': dict({
       'current_value': 3450.0,
+      'entity_category': None,
       'label': 'Quick Clean RPM',
       'max_value': 3450.0,
       'min_value': 600.0,
@@ -183,7 +218,10 @@
       'unit_of_measurement': 'RPM',
     }),
     'quickcleantimer': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Quick Clean Timer',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': 's',
       'value': '0',
@@ -191,6 +229,7 @@
     }),
     'relayK1Rpm': dict({
       'current_value': 1500.0,
+      'entity_category': None,
       'label': 'Auxiliary Relay K1 RPM',
       'max_value': 3450.0,
       'min_value': 600.0,
@@ -200,6 +239,7 @@
     }),
     'relayK2Rpm': dict({
       'current_value': 1200.0,
+      'entity_category': None,
       'label': 'Auxiliary Relay K2 RPM',
       'max_value': 3450.0,
       'min_value': 600.0,
@@ -208,14 +248,20 @@
       'unit_of_measurement': 'RPM',
     }),
     'speed': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Motor Speed',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': 'RPM',
       'value': '1500',
       'value_translated': None,
     }),
     'temperature': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Motor Temperature',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': '°F',
       'value': '110',
@@ -223,6 +269,7 @@
     }),
     'timeoutperiod': dict({
       'current_value': 10.0,
+      'entity_category': None,
       'label': 'Timeout Period',
       'max_value': 86400,
       'min_value': 3600,
@@ -231,35 +278,50 @@
       'unit_of_measurement': 's',
     }),
     'timeouttimer': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Timeout Timer',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': 's',
       'value': '0',
       'value_translated': None,
     }),
     'updateflag': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Update Flag',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': None,
       'value': '0',
       'value_translated': None,
     }),
     'updateprogress': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'Update Progress',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': None,
       'value': '0',
       'value_translated': None,
     }),
     'wifissid': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'WiFi SSID',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': None,
       'value': 'test-network',
       'value_translated': None,
     }),
     'wifistate': dict({
+      'device_class': None,
+      'entity_category': None,
       'label': 'WiFi State',
+      'state_class': None,
       'type': 'I2dSensor',
       'unit_of_measurement': None,
       'value': 'connected',
