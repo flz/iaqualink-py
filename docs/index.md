@@ -16,6 +16,8 @@
     - **iAqua** systems (iaqualink.net API)
     - **eXO** systems (zodiac-io.com API)
     - **i2d** systems — iQPump variable-speed pumps (r-api.iaqualink.net API)
+    - **Cyclobat** — Zodiac battery-powered robot cleaners (read-only sensors + start/stop/return-to-base commands over WebSocket)
+    - **i2d_robot** — Polaris iqPump robot cleaners (HTTP control.json with hex-encoded status protocol)
 - **Comprehensive Device Support**
     - Temperature sensors (pool, spa, air)
     - Thermostats with adjustable set points
