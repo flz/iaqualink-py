@@ -214,7 +214,7 @@ class CyclobatRobot(CyclobatDevice, AqualinkVacuum):
         return CYCLE_LABELS.get(int(mode))
 
     @property
-    def fan_speed_list(self) -> list[str] | None:
+    def fan_speed_list(self) -> list[str]:
         return list(CYCLE_LABELS.values())
 
     async def _set_fan_speed(self, fan_speed: str) -> None:

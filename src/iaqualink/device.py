@@ -619,19 +619,20 @@ class AqualinkVacuum(AqualinkDevice):
         return None
 
     @property
-    def fan_speed_list(self) -> list[str] | None:
-        return None
+    def fan_speed_list(self) -> list[str]:
+        # Mirrors HA's StateVacuumEntity.fan_speed_list (list[str], default
+        # []); an empty list means fan speed / cleaning mode is unsupported.
+        return []
 
     @property
     def supports_fan_speed(self) -> bool:
-        return self.fan_speed_list is not None
+        return bool(self.fan_speed_list)
 
     async def set_fan_speed(self, fan_speed: str) -> None:
         """Select a fan speed / cleaning mode by name."""
         if not self.supports_fan_speed:
             raise AqualinkOperationNotSupportedException
-        fan_speed_list = self.fan_speed_list
-        if fan_speed_list is not None and fan_speed not in fan_speed_list:
+        if fan_speed not in self.fan_speed_list:
             raise AqualinkInvalidParameterException(
                 f"{fan_speed!r} isn't a valid fan speed."
             )

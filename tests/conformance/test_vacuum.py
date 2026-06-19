@@ -109,7 +109,7 @@ class TestAqualinkVacuum(unittest.IsolatedAsyncioTestCase):
 
     def test_fan_speed_defaults(self) -> None:
         assert self.robot.fan_speed is None
-        assert self.robot.fan_speed_list is None
+        assert self.robot.fan_speed_list == []
 
     def test_battery_level_defaults_none(self) -> None:
         assert self.robot.battery_level is None
