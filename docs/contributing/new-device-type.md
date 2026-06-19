@@ -73,6 +73,7 @@ All classes are direct subclasses of `AqualinkDevice`:
 | `AqualinkSwitch` | Switches | `SwitchEntity` |
 | `AqualinkFan` | Fans | `FanEntity` (no PumpEntity in HA) |
 | `AqualinkNumber` | Numbers | `NumberEntity` |
+| `AqualinkSelect` | Modes | `SelectEntity` |
 | `AqualinkBinarySensor` | Sensors | `BinarySensorEntity` |
 | `AqualinkSensor` | Sensors | `SensorEntity` |
 

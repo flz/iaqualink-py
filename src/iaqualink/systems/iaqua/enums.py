@@ -22,3 +22,42 @@ class IaquaSystemStatus(StrEnum):
 class IaquaTemperatureUnit(StrEnum):
     FAHRENHEIT = "F"
     CELSIUS = "C"
+
+
+@unique
+class IaquaHpmMode(StrEnum):
+    HEAT = "heat"
+    CHILL = "chill"
+
+
+@unique
+class IaquaHpmStatus(StrEnum):
+    OFF = "off"
+    ENABLED = "enabled"
+    ON = "on"
+
+
+@unique
+class IaquaHpmErrorCode(StrEnum):
+    EXCHANGER_PROTECTION_COOL = "1"
+    EVAPORATOR_HIGH_TEMP_COOL = "2"
+    PHASE_ORDER_FAULT = "3"
+    COOLING_LOW_PRESSURE = "4"
+    COOLING_HIGH_PRESSURE = "5"
+    COMPRESSOR_DISCHARGE_TEMP_FAULT = "6"
+    WATER_INLET_SENSOR_FAULT = "7"
+    FLUID_LINE_SENSOR_FAULT = "8"
+    DEFROST_SENSOR_FAULT = "9"
+    AIR_INLET_SENSOR_FAULT = "10"
+    COMPRESSOR_DISCHARGE_SENSOR_FAULT = "11"
+    BOARD_COMMUNICATION_FAULT = "12"
+    # "13" is genuinely absent from the reference implementation's error code
+    # list (codes jump from "12" to "14") — not a documentation omission.
+    ELECTRONIC_BOARD_OVERHEAT = "14"
+    ELECTRICAL_NETWORK_PROTECTION = "15"
+    FAN_MOTOR_ERROR = "16"
+    COMPRESSOR_DRIVER_PROBLEM = "17"
+    DRIVER_COMPRESSOR_COMM_ERROR = "18"
+    MAIN_PCB_NOT_CONFIGURED = "19"
+    UNRECOGNISED_CONFIG_FAULT = "20"
+    UNKNOWN = "-1"

@@ -108,10 +108,10 @@ Nested object under the flattened `home_screen` key `heatpump_info`. Present onl
 | Field | Type | Description |
 |---|---|---|
 | `isheatpumpPresent` | boolean | Heat pump hardware is present and paired |
-| `heatpumpstatus` | string | Current heat pump operational status (e.g. `"off"`, `"heat"`) |
+| `heatpumpstatus` | string | Current heat pump operational status — see HPMstatus enum below |
 | `isChillAvailable` | boolean | Whether chill (cooling) mode is available on this heat pump |
-| `heatpumpmode` | string | Current mode — e.g. `"heat"` |
-| `heatpumptype` | string | Hardware type string — e.g. `"4-wired"` |
+| `heatpumpmode` | string | Current mode — see HPMmode enum below |
+| `heatpumptype` | string | Hardware type string — see HPMtype enum below |
 
 #### `get_devices`
 
@@ -215,6 +215,8 @@ Enable or disable the heat pump.
 |---|---|
 | `on_off_action` | `"on"` to enable, `"off"` to disable |
 
+Confirmed from the request-building call site (not just inferred from field names): the reference implementation passes the literal string `"on"` when enabling and `"off"` when disabling directly as the `on_off_action` query parameter value — this is a plain ternary at the call site, not a named constant.
+
 **Response fields:**
 
 | Field | Type | Description |
@@ -223,14 +225,14 @@ Enable or disable the heat pump.
 | `device_status` | string | `"online"` / `"offline"` |
 | `is_error` | boolean | Error flag |
 | `isHPMPresent` | boolean | Heat pump present |
-| `HPMstatus` | string | Operational status string |
-| `HPMmode` | string | Current mode |
-| `HPMtype` | string | Hardware type |
+| `HPMstatus` | string | Operational status string — see HPMstatus enum below |
+| `HPMmode` | string | Current mode — see HPMmode enum below |
+| `HPMtype` | string | Hardware type — see HPMtype enum below |
 | `isChillAvailable` | boolean | Chill mode available |
 | `poolheatSetPointTemp` | integer | Pool heat set point temperature |
 | `spaheatSetPointTemp` | integer | Spa heat set point temperature |
 | `response` | string | `"success"` or error string |
-| `alert_message` | string | Alert message if any |
+| `alert_message` | string | Alert message if any — see HPM Error Codes below |
 | `status` | string | Status string |
 
 #### `switch_hpm_mode`
@@ -239,7 +241,7 @@ Switch the heat pump operating mode.
 
 | Extra param | Value |
 |---|---|
-| `hpm_mode` | Target mode string |
+| `hpm_mode` | Target mode string — see HPMmode enum below |
 
 **Response:** Same shape as `enable_disable_hpm`.
 
@@ -254,6 +256,79 @@ Set pool heat set point, spa heat set point, and/or pool chill set point. Only p
 | `poolchillsetpointtemp` | Pool chill set point (integer, omit if not changing) |
 
 **Response:** Same shape as `enable_disable_hpm`.
+
+### HPM Enum Wire Values
+
+#### HPMmode / heatpumpmode
+
+Wire values for the `hpm_mode` request parameter and the `HPMmode` / `heatpumpmode` response fields:
+
+| Wire value | Meaning |
+|---|---|
+| `"heat"` | Heat pump set to heating mode |
+| `"chill"` | Heat pump set to chill (cooling) mode |
+
+Only these two mode strings are referenced in the reference implementation (mode-selection UI toggles between exactly these two values; `isChillAvailable` gates whether chill mode is offered at all). No other mode strings (e.g. `"auto"`) were found.
+
+#### HPMtype / heatpumptype
+
+Wire values for the `HPMtype` / `heatpumptype` hardware-type field:
+
+| Wire value | Meaning |
+|---|---|
+| `"2-wired"` | Heat pump variant that supports app-driven mode switching (chill mode selection UI is offered for this type) |
+| `"4-wired"` | Heat pump variant (mode selection UI not offered for this type in the reference implementation) |
+
+Not observed in reference: any wire values beyond these two.
+
+#### HPMstatus / heatpumpstatus
+
+Wire values for the `HPMstatus` / `heatpumpstatus` operational-status field:
+
+| Wire value | Meaning |
+|---|---|
+| `"on"` | Heat pump actively running (combined with `HPMmode`/`heatpumpmode` to derive a "Heating"/"Chilling" display) |
+| `"enabled"` | Heat pump enabled but in standby (not actively heating/chilling) |
+| `"off"` | Heat pump disabled |
+
+Not observed in reference: any additional status strings (e.g. defrost/error-specific status values) — `alert_message` and the HPM error code list (below) appear to carry fault detail separately from `HPMstatus`.
+
+### HPM Error Codes
+
+The `alert_message` field (and a corresponding error-code list UI in the reference implementation) carries heat pump fault codes as a numeric wire string. The following codes and their meanings are defined in the reference implementation's heat pump error code table:
+
+| Wire value | Meaning |
+|---|---|
+| `"1"` | Exchanger protection in cool mode |
+| `"2"` | High temperature error on evaporator in cool mode |
+| `"3"` | Phase order fault (three-phase models only) |
+| `"4"` | Cooling circuit low pressure fault |
+| `"5"` | Cooling circuit high pressure fault |
+| `"6"` | Compressor discharge temperature fault |
+| `"7"` | Water inlet sensor fault |
+| `"8"` | Fluid line sensor fault |
+| `"9"` | Defrost sensor fault |
+| `"10"` | Air inlet sensor fault |
+| `"11"` | Compressor discharge sensor fault |
+| `"12"` | Communication fault between the regulation board and the display board |
+| `"14"` | Overheating on the electronic board |
+| `"15"` | Automatic protection against electrical network instabilities |
+| `"16"` | Error on the fan motor |
+| `"17"` | Problem relayed by the compressor driver |
+| `"18"` | Driver–compressor communication error |
+| `"19"` | Main PCB not configured |
+| `"20"` | Unrecognised/other configuration fault |
+| `"-1"` | Unknown error |
+
+Note: code `"13"` is not defined in the reference implementation's error code list — it is skipped (codes jump from `"12"` to `"14"`). This is a genuine gap in the source list, not a documentation omission. Whether `alert_message` carries this code as a bare numeric string, a prefixed string (e.g. `"E12"`), or a human-readable message is not observed in reference — the reference implementation's error code list/lookup model only defines the wire-side numeric identifier and a corresponding local display string; the exact transport format of `alert_message` itself is unconfirmed.
+
+### No Dedicated HPM Status Read Command
+
+The iQ20 session protocol does not expose a separate read-only command for fetching heat pump status. Confirmed from request-building code: exactly three HPM-related commands are sent to the legacy session endpoint — `enable_disable_hpm`, `switch_hpm_mode`, and `setpoint_hpm_temp` — all of which are writes (they change heat pump state) and echo the full heat-pump status field set (as documented under `enable_disable_hpm` above) back in the response. There is no `get_hpm` / `get_heatpump_status` (or similarly named) command. Heat pump status is therefore obtained only by:
+1. Polling `get_home`, which nests current status under `heatpump_info`, or
+2. Issuing one of the three write commands above and reading the echoed status fields in its response.
+
+This differs from the standalone MQTT-shadow-based heat pump subsystem (a separate device type entirely, not reachable through the iQ20 session protocol), which is out of scope for this document.
 
 ---
 
@@ -480,7 +555,44 @@ The `zoneColorVal` strings in the response are human-readable display names; the
 
 The iQ20 session endpoint also provides VSP management commands for pumps assigned to aux slots. These are separate from the iQPump `/r-api.iaqualink.net` protocol and operate on pumps physically connected to the iQ20 controller.
 
-All VSP commands use the same session endpoint.
+All VSP commands use the same session endpoint (`https://p-api.iaqualink.net/v2/mobile/session.json`). Optional subsystem — only present when at least one VSP-capable pump is paired with the iQ20 controller.
+
+### Discovery
+
+**Step 1 — Check `isVSP` flag.** The iAquaLink system-level data (returned by `AqualinkClient.get_systems()`) may include an `isVSP` field. If `isVSP == "true"`, at least one VSP pump is paired and the discovery commands below should be called.
+
+**Step 2 — Enumerate pumps** using `get_master_device_list`:
+
+| Param | Value |
+|---|---|
+| `command` | `get_master_device_list` |
+| `actionID` | `"command"` |
+| `serial` | iAquaLink serial |
+| `sessionID` | `session_id` from login |
+
+**Response** — JSON object:
+
+| Field | Type | Description |
+|---|---|---|
+| `response` | string | `"success"` or error string |
+| `is_error` | boolean | Error flag |
+| `count` | integer | Devices in this page |
+| `totalCount` | integer | Total paired devices |
+| `listType` | integer | List type discriminator |
+| `pageNum` | integer | Page number |
+| `deviceList` | array | Per-device objects (see below) |
+
+**Device object fields:**
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | integer | Device identifier |
+| `name` | string | Display name |
+| `isVSP` | string | `"true"` if pump is variable-speed capable, `"false"` or absent otherwise |
+
+---
+
+### VSP Session Commands
 
 #### `get_vsp_names`
 
@@ -492,8 +604,8 @@ Get names of all VSPs assigned to iQ20 aux slots.
 
 | Field | Type | Description |
 |---|---|---|
-| `serial` | string | Device serial |
-| `device_status` | string | `"online"` / `"offline"` |
+| `serial` | string | Device serial (echoed) |
+| `device_status` | string | `"Online"` / `"Offline"` (capital O) |
 | `is_error` | string | Error flag |
 | `vsp_names` | array | List of VSP name objects |
 
@@ -501,8 +613,8 @@ Each `vsp_names` element:
 
 | Field | Type | Description |
 |---|---|---|
-| `pumpId` | integer | VSP slot identifier |
-| `pumpName` | string | VSP display name |
+| `pumpId` | integer | Slot ID — matches `slot_id` in speed commands |
+| `pumpName` | string | User-assigned display name |
 
 #### `get_vsp_speedauxinfo`
 
@@ -516,12 +628,12 @@ Get speed and aux assignment information for a specific VSP slot.
 
 | Field | Type | Description |
 |---|---|---|
-| `serial` | string | Device serial |
-| `slot_id` | string | VSP slot identifier |
-| `device_status` | string | `"online"` / `"offline"` |
-| `is_error` | string | Error flag |
-| `maxSpeed` | string | Maximum speed |
-| `minSpeed` | string | Minimum speed |
+| `serial` | string | Device serial (echoed) |
+| `slot` | integer | Pump slot (echoed — note: `slot`, not `slot_id`) |
+| `device_status` | string | `"Online"` / `"Offline"` (capital O) |
+| `is_error` | boolean | Error flag |
+| `minSpeed` | integer | Global minimum RPM (e.g. `600`) |
+| `maxSpeed` | integer | Global maximum RPM (e.g. `3450`) |
 | `aux_count` | integer | Number of aux assignments |
 | `aux_speed_assignments` | array | List of aux speed assignment strings |
 | `vsp_speedInfo` | array | List of speed preset objects |
@@ -531,10 +643,10 @@ Each `vsp_speedInfo` element:
 
 | Field | Type | Description |
 |---|---|---|
-| `speedid` | integer | Speed preset identifier |
-| `speedName` | string | Speed preset name |
-| `speedvalue` | integer | Speed value |
-| `enabled` | string | Whether this speed is enabled |
+| `speedid` | integer | Preset ID (1–8) |
+| `speedName` | string | Human-readable name (e.g. `"LO"`, `"HI"`) |
+| `speedvalue` | integer | RPM setting for this preset |
+| `enabled` | string | `"true"` if currently active, `"false"` otherwise |
 
 #### `get_vsp_definition`
 
@@ -574,22 +686,22 @@ Get available VSP application model serial numbers for assignment.
 
 | Field | Type | Description |
 |---|---|---|
-| `serial` | string | iQ20 serial |
-| `device_status` | string | `"online"` / `"offline"` |
+| `serial` | string | Device serial (echoed) |
+| `device_status` | string | `"Online"` / `"Offline"` (capital O) |
 | `is_error` | string | Error flag |
-| `vsp_app_model_serials` | array | List of available VSP application/model records |
-| `response` | string | `"success"` or error string |
+| `response` | string | `"success"` or error |
+| `vsp_app_model_serials` | array | Per-slot hardware entries (see below) |
 
 Each `vsp_app_model_serials` element:
 
 | Field | Type | Description |
 |---|---|---|
+| `pumpId` | integer | Slot ID — primary join key with `get_vsp_names` |
+| `pumpSerial` | string | VSP device serial number |
+| `modelName` | string | Hardware model name |
+| `modelType` | integer | Model type discriminator |
 | `appId` | integer | Application identifier |
 | `appName` | string | Application name |
-| `modelName` | string | Model name |
-| `modelType` | integer | Model type identifier |
-| `pumpId` | integer | Pump slot identifier |
-| `pumpSerial` | string | Pump serial number |
 
 #### `get_unassigned_serials`
 
@@ -672,34 +784,34 @@ Remove a VSP serial assignment from an iQ20 aux slot.
 
 #### `enable_disable_pump_speedId`
 
-Enable or disable a specific speed preset for a VSP.
+Activate a speed preset or stop the pump.
 
 | Extra param | Value |
 |---|---|
 | `slot_id` | VSP slot identifier (integer) |
-| `speed_id` | Speed preset identifier (integer) |
-| `on_off_action` | `"on"` or `"off"` |
+| `speed_id` | Preset ID integer (1–8) |
+| `on_off_action` | `"on"` to activate at preset speed; `"off"` to stop pump |
 
 **Response fields:**
 
 | Field | Type | Description |
 |---|---|---|
-| `serial` | string | iQ20 serial |
-| `slot_id` | integer | VSP slot identifier |
-| `unit` | string | Speed unit |
-| `vsp_speedInfo` | array | Updated speed preset list |
-| `device_status` | string | `"online"` / `"offline"` |
-| `is_error` | string | Error flag |
-| `response` | string | `"success"` or error string |
+| `serial` | string | Device serial (echoed) |
+| `slot_id` | integer | Pump slot (echoed — note: `slot_id`, not `slot`) |
+| `unit` | string | `"rpm"` |
+| `vsp_speedInfo` | array | Updated preset states (see below) |
+| `device_status` | string | `"Online"` / `"Offline"` (capital O) |
+| `is_error` | boolean | Error flag |
+| `status` | string | `"success"` or error string |
 | `alert_message` | string | Alert message if any |
 
-Each `vsp_speedInfo` element:
+Each `vsp_speedInfo` element (in response):
 
 | Field | Type | Description |
 |---|---|---|
-| `speedId` | integer | Speed preset identifier |
-| `speedvalue` | integer | Speed value |
-| `status` | string | Enabled status string |
+| `speedId` | integer | Preset ID (1–8) — note capital `I`, unlike get response `speedid` |
+| `speedvalue` | integer | RPM for this preset |
+| `status` | string | `"Enabled"` if active, `"Disabled"` otherwise |
 
 #### `set_aux_speed`
 
@@ -1181,7 +1293,7 @@ Wire values for `swcPoolStatus` / `swcSpaStatus`:
 | 2 | `set_onetouch` write command — `get_onetouch` read is confirmed; no `set_onetouch` command string found in protocol analysis. One Touch preset activation may use a different mechanism. |
 | 3 | VSP commands via iQ20 session — confirmed via protocol analysis; exact wire behavior on multi-board configurations needs real-world verification. |
 | 4 | TruSense `unit_id` valid range and format — integer confirmed from request signatures; valid range not confirmed from live traffic. |
-| 5 | HPM `on_off_action` values for `enable_disable_hpm` — `"on"` / `"off"` inferred; not confirmed from live traffic. |
+| 5 | ~~HPM `on_off_action` values for `enable_disable_hpm`~~ — confirmed: the reference implementation passes literal `"on"` / `"off"` strings at the request-building call site (a direct ternary, not a named constant). No longer unconfirmed. |
 
 ---
 

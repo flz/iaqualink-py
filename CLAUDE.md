@@ -73,6 +73,7 @@ When adding a new direct subclass of `AqualinkDevice` to `device.py`, also add a
 | `AqualinkLight` | Lights | |
 | `AqualinkSwitch` | Switches | |
 | `AqualinkFan` | Fans | HA has no PumpEntity; FanEntity is closest match |
+| `AqualinkSelect` | Modes | Maps to HA SelectEntity |
 | `AqualinkNumber` | Numbers | |
 | `AqualinkBinarySensor` | Sensors | |
 | `AqualinkSensor` | Sensors | Entries with the same label are merged into one group |

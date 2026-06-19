@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import logging
-from enum import StrEnum, unique
-from typing import TYPE_CHECKING, ClassVar, cast
+from enum import Enum, StrEnum, unique
+from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from iaqualink.device import (
     AqualinkBinarySensor,
     AqualinkClimate,
     AqualinkDevice,
+    AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
+    AqualinkSelect,
     AqualinkSensor,
     AqualinkSwitch,
 )
@@ -18,7 +20,12 @@ from iaqualink.exception import (
     AqualinkOperationNotSupportedException,
     AqualinkStateUnavailableException,
 )
-from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
+from iaqualink.systems.iaqua.enums import (
+    IaquaHpmErrorCode,
+    IaquaHpmMode,
+    IaquaHpmStatus,
+    IaquaTemperatureUnit,
+)
 
 if TYPE_CHECKING:
     from iaqualink.systems.iaqua.system import IaquaSystem
@@ -138,6 +145,93 @@ class IaquaOneTouchSwitch(IaquaSwitch):
         await self.system.set_onetouch(self.data["name"])
 
 
+class IaquaVSPump(IaquaDevice, AqualinkFan):
+    def __init__(self, system: IaquaSystem, data: DeviceData) -> None:
+        super().__init__(system, data)
+        self._speed_presets: list[dict[str, Any]] | None = None
+
+    @property
+    def slot_id(self) -> int:
+        return int(self.data.get("slot_id", 1))
+
+    @property
+    def supports_turn_on(self) -> bool:
+        return True
+
+    @property
+    def supports_turn_off(self) -> bool:
+        return True
+
+    @property
+    def supports_presets(self) -> bool:
+        return bool(self._speed_presets)
+
+    @property
+    def supports_percentage(self) -> bool:
+        return False
+
+    @property
+    def is_on(self) -> bool:
+        if self._speed_presets is None:
+            return self.state == IaquaBinaryState.ON
+        return any(p.get("enabled") == "true" for p in self._speed_presets)
+
+    @property
+    def preset_modes(self) -> list[str]:
+        if not self._speed_presets:
+            raise AqualinkOperationNotSupportedException
+        return [str(p["speedName"]) for p in self._speed_presets]
+
+    @property
+    def preset_mode(self) -> str | None:
+        if not self._speed_presets:
+            raise AqualinkOperationNotSupportedException
+        for p in self._speed_presets:
+            if p.get("enabled") == "true":
+                return str(p["speedName"])
+        return None
+
+    async def _set_preset_mode(self, preset_mode: str) -> None:
+        # supports_presets gates this in the base class's set_preset_mode().
+        assert self._speed_presets is not None
+        for p in self._speed_presets:
+            if p["speedName"] == preset_mode:
+                result = await self.system.set_vsp_speed(
+                    int(p["speedid"]), slot_id=self.slot_id
+                )
+                self._apply_speed_update(result.get("vsp_speedInfo", []))
+                return
+        raise AqualinkOperationNotSupportedException
+
+    async def turn_on(self) -> None:
+        if self.is_on:
+            return
+        speed_id = 1
+        if self._speed_presets:
+            speed_id = int(self._speed_presets[0]["speedid"])
+        result = await self.system.set_vsp_speed(speed_id, slot_id=self.slot_id)
+        self._apply_speed_update(result.get("vsp_speedInfo", []))
+
+    async def turn_off(self) -> None:
+        if not self.is_on:
+            return
+        result = await self.system.stop_vsp_pump(self.slot_id)
+        self._apply_speed_update(result.get("vsp_speedInfo", []))
+
+    def _apply_speed_update(self, speed_info: list[dict[str, Any]]) -> None:
+        if self._speed_presets is None or not speed_info:
+            return
+        by_id = {int(p["speedId"]): p["status"] for p in speed_info}
+        for preset in self._speed_presets:
+            status = by_id.get(int(preset["speedid"]))
+            if status is not None:
+                preset["enabled"] = "true" if status == "Enabled" else "false"
+
+    async def fetch_speed(self) -> None:
+        data = await self.system.get_vsp_speed(self.slot_id)
+        self._speed_presets = data.get("vsp_speedInfo", [])
+
+
 class IaquaHeater(IaquaSwitch):
     @property
     def is_on(self) -> bool:
@@ -146,6 +240,58 @@ class IaquaHeater(IaquaSwitch):
             if self.state
             else False
         )
+
+
+class IaquaHeatPump(IaquaDevice, AqualinkSwitch):
+    """Enable/disable switch for a paired HPM heat pump."""
+
+    @property
+    def is_on(self) -> bool:
+        return (
+            self.state in [IaquaHpmStatus.ON, IaquaHpmStatus.ENABLED]
+            if self.state
+            else False
+        )
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self.system.enable_disable_hpm(True)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self.system.enable_disable_hpm(False)
+
+    @property
+    def model(self) -> str:
+        hpm_type = self.data.get("hpm_type")
+        return f"Heat Pump ({hpm_type})" if hpm_type else "Heat Pump"
+
+
+class IaquaHeatPumpMode(IaquaDevice, AqualinkSelect):
+    """Heat/chill mode picker for a paired HPM heat pump. Only present when chill is available."""
+
+    @property
+    def current_option(self) -> str | None:
+        return self.state or None
+
+    @property
+    def options(self) -> list[str]:
+        return [IaquaHpmMode.HEAT, IaquaHpmMode.CHILL]
+
+    async def _select_option(self, option: str) -> None:
+        await self.system.switch_hpm_mode(option)
+
+
+class IaquaHeatPumpStatusSensor(IaquaSensor):
+    @property
+    def value_enum(self) -> type[Enum] | None:
+        return IaquaHpmStatus
+
+
+class IaquaHeatPumpAlertSensor(IaquaSensor):
+    @property
+    def value_enum(self) -> type[Enum] | None:
+        return IaquaHpmErrorCode
 
 
 class _IaquaAuxMixin(IaquaDevice):
@@ -403,6 +549,13 @@ light_subtype_to_class = {
 }
 
 
+_HPM_TEMP_PARAM: dict[str, str] = {
+    "pool_set_point": "poolheatsetpointtemp",
+    "spa_set_point": "spaheatsetpointtemp",
+    "pool_chill_set_point": "poolchillsetpointtemp",
+}
+
+
 class IaquaSetPoint(IaquaDevice, AqualinkNumber):
     @property
     def _temperature_key(self) -> str:
@@ -449,7 +602,20 @@ class IaquaSetPoint(IaquaDevice, AqualinkNumber):
         return "°C" if unit == IaquaTemperatureUnit.CELSIUS else "°F"
 
     async def _set_value(self, value: float) -> None:
-        await self.system.set_temps({self._temperature_key: str(int(value))})
+        # Pool chill is heat-pump-only; pool/spa heat set points route through
+        # the same HPM command once a heat pump is paired (it becomes the
+        # equipment that actually heats, superseding the relay-heater path).
+        if (
+            self.name == "pool_chill_set_point"
+            or "heatpump" in self.system.devices
+        ):
+            await self.system.setpoint_hpm_temp(
+                {_HPM_TEMP_PARAM[self.name]: str(int(value))}
+            )
+        else:
+            await self.system.set_temps(
+                {self._temperature_key: str(int(value))}
+            )
 
 
 ICL_CUSTOM_COLOR_ID = 16
@@ -665,6 +831,7 @@ _HOME_DEVICE_MAP: dict[str, type[IaquaDevice]] = {
     "is_icl_present": IaquaPresenceSensor,
     "spa_set_point": IaquaSetPoint,
     "pool_set_point": IaquaSetPoint,
+    "pool_chill_set_point": IaquaSetPoint,
     "relay_count": IaquaSensor,
 }
 
@@ -686,5 +853,10 @@ _HOME_DEVICE_LABELS: dict[str, str] = {
     "is_icl_present": "ICL Present",
     "spa_set_point": "Spa Set Point",
     "pool_set_point": "Pool Set Point",
+    "pool_chill_set_point": "Pool Chill Set Point",
     "relay_count": "Relay Count",
+    "heatpump": "Heat Pump",
+    "heatpump_mode": "Heat Pump Mode",
+    "heatpump_status": "Heat Pump Status",
+    "heatpump_alert": "Heat Pump Alert",
 }

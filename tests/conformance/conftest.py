@@ -31,6 +31,7 @@ from .fixtures import (
     FanFixture,
     LightFixture,
     NumberFixture,
+    SelectFixture,
     SensorFixture,
     SwitchFixture,
     SystemFixture,
@@ -130,6 +131,14 @@ _number_ids, _number_factories = _discover_factories("number")
 
 @pytest.fixture(params=_number_factories, ids=_number_ids)
 def number_fixture(request: pytest.FixtureRequest) -> NumberFixture:
+    return request.param()
+
+
+_select_ids, _select_factories = _discover_factories("select")
+
+
+@pytest.fixture(params=_select_factories, ids=_select_ids)
+def select_fixture(request: pytest.FixtureRequest) -> SelectFixture:
     return request.param()
 
 

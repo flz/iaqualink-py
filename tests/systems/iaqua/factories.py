@@ -20,12 +20,17 @@ from iaqualink.systems.iaqua.device import (
     IaquaDevice,
     IaquaDimmableLight,
     IaquaHeater,
+    IaquaHeatPump,
+    IaquaHeatPumpAlertSensor,
+    IaquaHeatPumpMode,
+    IaquaHeatPumpStatusSensor,
     IaquaIclLight,
     IaquaLightSwitch,
     IaquaOneTouchSwitch,
     IaquaSensor,
     IaquaSetPoint,
     IaquaSwitch,
+    IaquaVSPump,
 )
 from iaqualink.systems.iaqua.enums import IaquaTemperatureUnit
 from iaqualink.systems.iaqua.system import IaquaSystem
@@ -34,8 +39,10 @@ from ...conformance.fixtures import (
     BinarySensorFixture,
     ClimateFixture,
     DeviceFixture,
+    FanFixture,
     LightFixture,
     NumberFixture,
+    SelectFixture,
     SensorFixture,
     SwitchFixture,
     SystemFixture,
@@ -90,6 +97,18 @@ IAQUA_COLOR_LIGHT_OFF_DATA: dict = {
 IAQUA_POOL_SET_POINT_DATA: dict = {"name": "pool_set_point", "state": "86"}
 IAQUA_POOL_TEMP_DATA: dict = {"name": "pool_temp", "state": "65"}
 IAQUA_CLIMATE_DATA: dict = {"name": "pool_thermostat"}
+IAQUA_POOL_CHILL_SET_POINT_DATA: dict = {
+    "name": "pool_chill_set_point",
+    "state": "78",
+}
+IAQUA_HEATPUMP_BASE_DATA: dict = {
+    "name": "heatpump",
+    "state": "off",
+    "hpm_type": "2-wired",
+}
+IAQUA_HEATPUMP_MODE_DATA: dict = {"name": "heatpump_mode", "state": "heat"}
+IAQUA_HEATPUMP_STATUS_DATA: dict = {"name": "heatpump_status", "state": "on"}
+IAQUA_HEATPUMP_ALERT_DATA: dict = {"name": "heatpump_alert", "state": "1"}
 
 
 def make_system() -> IaquaSystem:
@@ -145,8 +164,28 @@ def _iaqua_sensor() -> SensorFixture:
     )
 
 
+def _iaqua_heatpump_status_sensor() -> SensorFixture:
+    system = make_system()
+    return SensorFixture(
+        device=IaquaHeatPumpStatusSensor(
+            system, {**IAQUA_HEATPUMP_STATUS_DATA}
+        ),
+        expected_class=IaquaHeatPumpStatusSensor,
+    )
+
+
+def _iaqua_heatpump_alert_sensor() -> SensorFixture:
+    system = make_system()
+    return SensorFixture(
+        device=IaquaHeatPumpAlertSensor(system, {**IAQUA_HEATPUMP_ALERT_DATA}),
+        expected_class=IaquaHeatPumpAlertSensor,
+    )
+
+
 iaqua_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-sensor", _iaqua_sensor),
+    ("iaqua-heatpump-status-sensor", _iaqua_heatpump_status_sensor),
+    ("iaqua-heatpump-alert-sensor", _iaqua_heatpump_alert_sensor),
 ]
 
 # ---------------------------------------------------------------------------
@@ -219,11 +258,39 @@ def _iaqua_onetouch_switch() -> SwitchFixture:
     )
 
 
+def _iaqua_heatpump() -> SwitchFixture:
+    system = make_system()
+    data_on = {**IAQUA_HEATPUMP_BASE_DATA, "state": "on"}
+    return SwitchFixture(
+        device_on=IaquaHeatPump(system, data_on),
+        device_off=IaquaHeatPump(system, {**IAQUA_HEATPUMP_BASE_DATA}),
+        expected_class=IaquaHeatPump,
+    )
+
+
 iaqua_switch_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-switch", _iaqua_switch),
     ("iaqua-heater", _iaqua_heater),
     ("iaqua-aux-switch", _iaqua_aux_switch),
     ("iaqua-onetouch-switch", _iaqua_onetouch_switch),
+    ("iaqua-heatpump", _iaqua_heatpump),
+]
+
+# ---------------------------------------------------------------------------
+# Select fixtures
+# ---------------------------------------------------------------------------
+
+
+def _iaqua_heatpump_mode() -> SelectFixture:
+    system = make_system()
+    return SelectFixture(
+        device=IaquaHeatPumpMode(system, {**IAQUA_HEATPUMP_MODE_DATA}),
+        expected_class=IaquaHeatPumpMode,
+    )
+
+
+iaqua_select_factories: list[tuple[str, Callable[[], Any]]] = [
+    ("iaqua-heatpump-mode", _iaqua_heatpump_mode),
 ]
 
 # ---------------------------------------------------------------------------
@@ -344,8 +411,19 @@ def _iaqua_set_point() -> NumberFixture:
     return NumberFixture(device=device, expected_class=IaquaSetPoint)
 
 
+def _iaqua_pool_chill_set_point() -> NumberFixture:
+    system = make_system()
+    system.temp_unit = IaquaTemperatureUnit.FAHRENHEIT
+
+    device = IaquaSetPoint(system, {**IAQUA_POOL_CHILL_SET_POINT_DATA})
+    system.devices = {"pool_chill_set_point": device}
+
+    return NumberFixture(device=device, expected_class=IaquaSetPoint)
+
+
 iaqua_number_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-set-point", _iaqua_set_point),
+    ("iaqua-pool-chill-set-point", _iaqua_pool_chill_set_point),
 ]
 
 # ---------------------------------------------------------------------------
@@ -445,5 +523,42 @@ iaqua_system_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-system", _iaqua_system),
 ]
 
-# iaqua does not implement this device type.
-iaqua_fan_factories: list[tuple[str, Callable[[], Any]]] = []
+# ---------------------------------------------------------------------------
+# Fan fixtures
+# ---------------------------------------------------------------------------
+
+_VSP_SPEED_INFO: list[dict[str, Any]] = [
+    {"speedid": 1, "speedName": "LO", "speedvalue": 1800, "enabled": "false"},
+    {"speedid": 2, "speedName": "MED", "speedvalue": 3000, "enabled": "false"},
+    {"speedid": 3, "speedName": "HI", "speedvalue": 3450, "enabled": "false"},
+]
+
+
+def _iaqua_fan() -> FanFixture:
+    system = make_system()
+    data = {
+        "name": "vsp_pump_1",
+        "state": "0",
+        "label": "Main Pump",
+        "slot_id": "1",
+    }
+
+    on_presets = [{**p} for p in _VSP_SPEED_INFO]
+    on_presets[0]["enabled"] = "true"
+    device_on = IaquaVSPump(system, {**data})
+    device_on._speed_presets = on_presets
+
+    off_presets = [{**p} for p in _VSP_SPEED_INFO]
+    device_off = IaquaVSPump(system, {**data})
+    device_off._speed_presets = off_presets
+
+    return FanFixture(
+        device_on=device_on,
+        device_off=device_off,
+        expected_class=IaquaVSPump,
+    )
+
+
+iaqua_fan_factories: list[tuple[str, Callable[[], Any]]] = [
+    ("iaqua-pump", _iaqua_fan),
+]

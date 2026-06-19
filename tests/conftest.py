@@ -45,6 +45,7 @@ _API_CLASSES = frozenset(
         _dev.AqualinkLight,
         _dev.AqualinkClimate,
         _dev.AqualinkNumber,
+        _dev.AqualinkSelect,
         _dev.AqualinkFan,
         _dev.AqualinkVacuum,
     }

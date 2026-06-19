@@ -21,7 +21,7 @@
 - 🌡️ **Comprehensive Device Support**
   - Temperature sensors (pool, spa, air)
   - Thermostats with adjustable set points
-  - Pumps and heaters
+  - Pumps and heaters, including paired HPM heat pumps
   - Lights with toggle control
   - **ICL (IntelliCenter) lights** with color control, custom RGBW, and dimming
   - Auxiliary switches

@@ -23,6 +23,7 @@ from iaqualink.device import (
     AqualinkFan,
     AqualinkLight,
     AqualinkNumber,
+    AqualinkSelect,
     AqualinkSensor,
     AqualinkSwitch,
     AqualinkVacuum,
@@ -259,6 +260,7 @@ _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
     (AqualinkSwitch, "⚡", "Switches"),
     (AqualinkFan, "⚙️", "Fans"),
     (AqualinkVacuum, "🤖", "Vacuums"),
+    (AqualinkSelect, "🔘", "Modes"),
     (AqualinkNumber, "🔢", "Numbers"),
     (AqualinkBinarySensor, "📊", "Sensors"),
     (AqualinkSensor, "📊", "Sensors"),
@@ -337,6 +339,9 @@ def _format_device_line(device_name: str, device: AqualinkDevice) -> Text:
             state_str = f"{cv:g} {unit}" if unit else f"{cv:g}"
         else:
             state_str = None
+        translated = None
+    elif isinstance(device, AqualinkSelect):
+        state_str = device.current_option
         translated = None
     else:
         state_str = None
@@ -730,6 +735,35 @@ async def _set_number_value(
     return t
 
 
+async def _select_option(
+    credentials: Credentials,
+    system_selector: str | None,
+    device_selector: str,
+    option: str,
+    cookie_jar: Path,
+) -> Text:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_system(systems, system_selector)
+    devices = await _load_devices_for_system(system)
+    device_name, device = _resolve_device(devices, device_selector)
+
+    if not isinstance(device, AqualinkSelect):
+        _exit_with_error(
+            f"Device {device_name!r} does not support selecting options.",
+        )
+
+    await device.select_option(option)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append("Set ")
+    t.append(device.label, style="bold")
+    t.append(f" [{device_name}]", style="dim")
+    t.append(f" to {option!r} on ")
+    t.append_text(_format_system_line(system))
+    return t
+
+
 async def _set_temperature(
     credentials: Credentials,
     system_selector: str | None,
@@ -1116,6 +1150,24 @@ def set_value(
     _console.print(
         _run_async(
             _set_number_value(credentials, system, device, value, cookie_jar)
+        )
+    )
+
+
+@app.command("select-option")
+def select_option(
+    device: DeviceArgument,
+    option: Annotated[str, typer.Argument(help="Option to select.")],
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    credentials = _resolve_credentials(username, password, config)
+    _console.print(
+        _run_async(
+            _select_option(credentials, system, device, option, cookie_jar)
         )
     )
 

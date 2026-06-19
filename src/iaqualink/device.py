@@ -7,6 +7,7 @@ __all__ = [
     "AqualinkFan",
     "AqualinkLight",
     "AqualinkNumber",
+    "AqualinkSelect",
     "AqualinkSensor",
     "AqualinkSwitch",
     "AqualinkVacuum",
@@ -371,6 +372,36 @@ class AqualinkNumber(AqualinkDevice):
         await self._set_value(value)
 
 
+class AqualinkSelect(AqualinkDevice):
+    """Single-choice picker. Maps to HA SelectEntity."""
+
+    # ── Required overrides ──────────────────────────────────────────────────
+
+    @property
+    @abstractmethod
+    def current_option(self) -> str | None:
+        """Currently selected option, or None if unavailable."""
+
+    @property
+    @abstractmethod
+    def options(self) -> list[str]:
+        """List of valid options."""
+
+    @abstractmethod
+    async def _select_option(self, option: str) -> None:
+        """Send the validated option to the device."""
+
+    # ── Template (do not override) ───────────────────────────────────────────
+
+    async def select_option(self, option: str) -> None:
+        """Select one of the available options."""
+        if option not in self.options:
+            raise AqualinkInvalidParameterException(
+                f"{option!r} isn't a valid option ({', '.join(self.options)})."
+            )
+        await self._select_option(option)
+
+
 class AqualinkFan(AqualinkDevice):
     """Fan/pump control. Maps to HA FanEntity."""
 
@@ -439,6 +470,8 @@ class AqualinkFan(AqualinkDevice):
     @property
     def percentage(self) -> int | None:
         """Current speed as a percentage (0–100), or None if unknown."""
+        if not self.supports_percentage:
+            raise AqualinkOperationNotSupportedException
         return None
 
     async def _set_percentage(self, percentage: int) -> None:

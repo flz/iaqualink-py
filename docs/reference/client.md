@@ -127,6 +127,7 @@ GET https://r-api.iaqualink.net/devices.json
 | `created_at` | string | ISO 8601 timestamp |
 | `updated_at` | string | ISO 8601 timestamp |
 | `last_activity_at` | string or null | ISO 8601 timestamp of last device contact |
+| `isVSP` | string | `iaqua` (iQ20) devices only — `"true"` if at least one VSP-capable pump is paired; absent or `"false"` otherwise |
 
 ---
 

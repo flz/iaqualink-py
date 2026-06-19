@@ -18,6 +18,26 @@ iAqua systems use the iaqualink.net API.
 
 ::: iaqualink.systems.iaqua.device.IaquaZoneStatus
 
+## IaquaHeatPump
+
+::: iaqualink.systems.iaqua.device.IaquaHeatPump
+
+## IaquaHeatPumpMode
+
+::: iaqualink.systems.iaqua.device.IaquaHeatPumpMode
+
+## IaquaHeatPumpStatusSensor
+
+::: iaqualink.systems.iaqua.device.IaquaHeatPumpStatusSensor
+
+## IaquaHeatPumpAlertSensor
+
+::: iaqualink.systems.iaqua.device.IaquaHeatPumpAlertSensor
+
+## IaquaVSPump
+
+::: iaqualink.systems.iaqua.device.IaquaVSPump
+
 ## Characteristics
 
 ### API Endpoint
@@ -87,6 +107,24 @@ Commands are sent as session requests with specific command names:
 Temperature ranges:
 - **Fahrenheit:** 34°F - 104°F
 - **Celsius:** 1°C - 40°C
+
+When a heat pump is paired (see Heat Pump below), `pool_set_point` and `spa_set_point` transparently route their writes through the heat pump's `setpoint_hpm_temp` command instead of `set_temps` — same device, same API, different command on the wire.
+
+### Heat Pump (HPM)
+
+Optional sub-system, only present when a heat pump is paired with the iQ20 controller (`heatpump_info.isheatpumpPresent` in the home response). Distinct from the relay-based heaters above and from the standalone AWS-IoT-shadow heat pump device (out of scope for this system).
+
+- `heatpump` - Enable/disable switch. Class: `IaquaHeatPump`.
+- `heatpump_mode` - Heat/chill mode picker. Only present when the paired unit supports chill mode. Class: `IaquaHeatPumpMode`.
+- `heatpump_status` - Raw operational status (`off`/`enabled`/`on`). Class: `IaquaHeatPumpStatusSensor`.
+- `heatpump_alert` - Fault code, if any. Only present once an HPM command response has supplied one. Class: `IaquaHeatPumpAlertSensor`.
+- `pool_chill_set_point` - Pool chill (cooling) set point. Only present when chill mode is available. Uses the existing `IaquaSetPoint` class.
+
+### VSP Pumps
+
+Optional sub-system, only present when a variable-speed pump is paired with the iQ20 controller (`isVSP` flag in the master device list / appmodelserials fallback). Distinct from the standalone Jandy iQPump (`i2d` system type).
+
+- `vsp_pump_<slot_id>` - One entry per discovered slot. Class: `IaquaVSPump`. Maps to HA `AqualinkFan` contract: presets, on/off; no percentage (RPM) control.
 
 ### Lights
 
