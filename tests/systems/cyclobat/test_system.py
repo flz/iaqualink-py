@@ -108,6 +108,38 @@ async def test_refresh_polls_rest_when_ws_disabled(
     assert sut.status is SystemStatus.ONLINE
 
 
+@respx.mock
+async def test_apply_robot_delta_merges_and_rederives(
+    sut: CyclobatSystem,
+) -> None:
+    # A WS StateStreamer delta must deep-merge onto cached state and
+    # re-derive devices, leaving sibling fields untouched.
+    _mock_shadow(load_fixture("cyclobat", "shadow_get"))
+    await sut.refresh()
+    assert cast(AqualinkSensor, sut.devices["battery_percentage"]).value == 87
+
+    sut._apply_robot_delta({"battery": {"userChargePerc": 50}})
+
+    assert cast(AqualinkSensor, sut.devices["battery_percentage"]).value == 50
+    # deep_merge preserved a field the delta didn't mention.
+    assert "total_runtime" in sut.devices
+
+
+async def test_extract_robot_handles_dotted_ws_key(
+    sut: CyclobatSystem,
+) -> None:
+    # WS Authorization/StateStreamer payloads dot-key the robot as
+    # equipment["robot.1"] rather than nesting it under equipment.robot.
+    reported = load_fixture("cyclobat", "shadow_get")["state"]["reported"]
+    robot = reported["equipment"].pop("robot")
+    reported["equipment"]["robot.1"] = robot
+
+    assert sut._extract_robot(reported) is robot
+
+    sut._apply_reported_state(reported)
+    assert cast(AqualinkSensor, sut.devices["battery_percentage"]).value == 87
+
+
 async def test_refresh_throttled_sets_unknown_and_propagates(
     sut: CyclobatSystem,
 ) -> None:
