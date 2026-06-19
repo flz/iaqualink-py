@@ -11,6 +11,11 @@ from iaqualink.device import AqualinkSensor
 from iaqualink.enums import AqualinkRobotActivity
 from iaqualink.exception import AqualinkServiceThrottledException
 from iaqualink.system import AqualinkSystem, SystemStatus
+from iaqualink.systems.cyclobat.const import (
+    CYCLE_FLOOR,
+    CYCLOBAT_STATE_CLEANING,
+    CYCLOBAT_STATE_STOPPED,
+)
 from iaqualink.systems.cyclobat.device import CyclobatRobot
 from iaqualink.systems.cyclobat.system import (
     CYCLOBAT_DEVICES_URL,
@@ -148,6 +153,69 @@ async def test_refresh_throttled_sets_unknown_and_propagates(
         with pytest.raises(AqualinkServiceThrottledException):
             await sut.refresh()
     assert sut.status is SystemStatus.UNKNOWN
+
+
+@respx.mock
+async def test_refresh_malformed_shadow_sets_offline(
+    sut: CyclobatSystem,
+) -> None:
+    # state.reported missing entirely -> KeyError -> offline, not a crash.
+    _mock_shadow({"state": {}})
+    await sut.refresh()
+    assert sut.status is SystemStatus.OFFLINE
+
+
+async def test_set_cleaning_mode_sends_mode_frame(
+    sut: CyclobatSystem,
+) -> None:
+    with patch.object(
+        sut.aqualink, "send_ws_frame", new=AsyncMock()
+    ) as mock_send:
+        await sut.set_cleaning_mode(2)
+    mock_send.assert_awaited_once()
+    assert mock_send.await_args is not None
+    frame = mock_send.await_args.args[1]
+    main = frame["payload"]["state"]["desired"]["equipment"]["robot"]["main"]
+    assert main == {"mode": 2}
+
+
+@respx.mock
+async def test_battery_level_non_numeric_returns_none(
+    sut: CyclobatSystem,
+) -> None:
+    _mock_shadow(load_fixture("cyclobat", "shadow_get"))
+    await sut.refresh()
+    robot = cast(CyclobatRobot, sut.devices["robot"])
+    assert robot.battery_level == 87
+
+    sut._apply_robot_delta({"battery": {"userChargePerc": "n/a"}})
+    assert robot.battery_level is None
+
+
+def test_time_remaining_seconds_edge_cases(sut: CyclobatSystem) -> None:
+    compute = sut._compute_time_remaining_seconds
+    # Idle (not cleaning/returning) -> 0.
+    assert compute({"state": CYCLOBAT_STATE_STOPPED}, {}, {}) == 0
+    # Cleaning but no cycle start time -> unknown.
+    assert compute({"state": CYCLOBAT_STATE_CLEANING}, {}, {}) is None
+    # Unknown cycle id -> unknown.
+    assert (
+        compute(
+            {"state": CYCLOBAT_STATE_CLEANING, "cycleStartTime": 1000},
+            {},
+            {"endCycleType": 99},
+        )
+        is None
+    )
+    # Known cycle id but its duration is absent -> unknown.
+    assert (
+        compute(
+            {"state": CYCLOBAT_STATE_CLEANING, "cycleStartTime": 1000},
+            {},
+            {"endCycleType": CYCLE_FLOOR},
+        )
+        is None
+    )
 
 
 async def test_start_cleaning_calls_send_set_ctrl(sut: CyclobatSystem) -> None:
