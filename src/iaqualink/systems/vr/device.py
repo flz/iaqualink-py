@@ -215,7 +215,7 @@ class VrRobot(VrDevice, AqualinkVacuum):
         return CYCLE_LABELS.get(int(cycle))
 
     @property
-    def fan_speed_list(self) -> list[str] | None:
+    def fan_speed_list(self) -> list[str]:
         return list(CYCLE_LABELS.values())
 
     async def _set_fan_speed(self, fan_speed: str) -> None:
