@@ -262,3 +262,91 @@ iaqualink turn-on pool_light --system "My Pool"
 ```
 
 Without `--system`, commands that operate on a single device will error if multiple systems are found.
+
+## Robot commands
+
+The `robot` subgroup controls robot pool cleaners (cyclobat, cyclonext, vortrax, vr systems).
+
+### `robot start`
+
+Start a cleaning cycle, optionally setting the cycle preset first.
+
+```bash
+iaqualink robot start
+iaqualink robot start --cycle floor
+iaqualink robot start --cycle floor-wall
+```
+
+### `robot stop`
+
+Stop the robot. Exits cleaning, Remote, and Lift modes (sends mode=0).
+
+```bash
+iaqualink robot stop
+```
+
+### `robot pause`
+
+Pause a running cleaning cycle.
+
+```bash
+iaqualink robot pause
+```
+
+### `robot status`
+
+Print the current mode, cycle, and time remaining.
+
+```bash
+iaqualink robot status
+```
+
+### `robot extend`
+
+Set an absolute runtime extension in minutes (0 to clear, must be a multiple of 15).
+
+```bash
+iaqualink robot extend 30
+iaqualink robot extend 0
+```
+
+### `robot adjust-time`
+
+Adjust the runtime extension by a relative delta (multiples of 15).
+
+```bash
+iaqualink robot adjust-time +15
+iaqualink robot adjust-time -15
+```
+
+### `robot set-cycle`
+
+Change the cleaning cycle without starting.
+
+```bash
+iaqualink robot set-cycle floor
+iaqualink robot set-cycle floor-wall
+```
+
+### `robot remote`
+
+Send a directional command in Remote Control mode.
+
+```bash
+iaqualink robot remote forward
+iaqualink robot remote backward
+iaqualink robot remote left
+iaqualink robot remote right
+iaqualink robot remote stop
+```
+
+### `robot lift`
+
+Control the lift mechanism.
+
+```bash
+iaqualink robot lift eject
+iaqualink robot lift left
+iaqualink robot lift right
+iaqualink robot lift stop
+```
