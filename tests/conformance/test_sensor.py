@@ -12,7 +12,9 @@ def test_inheritance(sensor_fixture: SensorFixture) -> None:
 
 
 def test_property_value(sensor_fixture: SensorFixture) -> None:
-    assert isinstance(sensor_fixture.device.value, str)
+    # AqualinkSensor.value is typed (HA native_value): str | int | float | None.
+    value = sensor_fixture.device.value
+    assert value is None or isinstance(value, (str, int, float))
 
 
 def test_property_value_enum(sensor_fixture: SensorFixture) -> None:
