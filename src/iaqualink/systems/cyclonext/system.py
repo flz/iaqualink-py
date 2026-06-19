@@ -50,6 +50,23 @@ CYCLONEXT_DEVICES_URL = "https://prod.zodiac-io.com/devices/v1"
 
 LOGGER = logging.getLogger("iaqualink.systems.cyclonext")
 
+# Robot scalar wire fields surfaced as standalone sensors. The shadow carries
+# many internal/config scalars (per-day schedule slots, vendor counters) that
+# would flood HA with noise entities, so only the operationally meaningful
+# scalars are allowlisted; everything else is ignored.
+_ROBOT_SCALAR_KEYS = frozenset(
+    {
+        "mode",
+        "cycle",
+        "cycleStartTime",
+        "stepper",
+        "canister",
+        "diagnostic",
+        "totRunTime",
+        "tmp",
+    }
+)
+
 
 class CyclonextSystem(RobotStateSubscription, AqualinkSystem):
     NAME = "cyclonext"
@@ -158,9 +175,11 @@ class CyclonextSystem(RobotStateSubscription, AqualinkSystem):
         robot = self._robot_state
         devices: dict[str, dict[str, Any]] = {}
 
-        # Scalar robot attributes → attribute sensors.
+        # Allowlisted scalar robot attributes → attribute sensors. The shadow
+        # also carries schedule slots and internal counters we deliberately
+        # don't expose.
         for key, value in robot.items():
-            if isinstance(value, (dict, list)):
+            if key not in _ROBOT_SCALAR_KEYS or isinstance(value, (dict, list)):
                 continue
             devices[key] = {"name": key, "state": value}
 
