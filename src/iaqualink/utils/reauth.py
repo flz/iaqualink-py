@@ -1,18 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from typing import TYPE_CHECKING
 
 from iaqualink.exception import AqualinkServiceUnauthorizedException
 
-if TYPE_CHECKING:
-    import httpx
 
-
-async def send_with_reauth_retry(
-    request_factory: Callable[[], Awaitable[httpx.Response]],
+async def send_with_reauth_retry[T](
+    request_factory: Callable[[], Awaitable[T]],
     refresh_auth: Callable[[], Awaitable[None]],
-) -> httpx.Response:
+) -> T:
     try:
         return await request_factory()
     except AqualinkServiceUnauthorizedException:
