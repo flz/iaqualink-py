@@ -925,6 +925,41 @@ class TestAqualinkClientWebSocket:
         ws.receive_text.assert_awaited_once()
         await client.close()
 
+    async def test_ws_connect_forwards_keepalive_when_set(self) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+
+        with patch(
+            "iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)
+        ) as mock_connect:
+            async with client.ws_connect(
+                "https://ws.example/devices",
+                keepalive_ping_interval_seconds=30.0,
+            ):
+                pass
+
+        assert (
+            mock_connect.call_args.kwargs["keepalive_ping_interval_seconds"]
+            == 30.0
+        )
+
+    async def test_ws_connect_omits_keepalive_by_default(self) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+
+        with patch(
+            "iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)
+        ) as mock_connect:
+            async with client.ws_connect("https://ws.example/devices"):
+                pass
+
+        assert (
+            "keepalive_ping_interval_seconds"
+            not in mock_connect.call_args.kwargs
+        )
+
     async def test_ws_client_cached_and_closed(self) -> None:
         # V24: the dedicated WS client is reused, and close() disposes it.
         client = _make_client()

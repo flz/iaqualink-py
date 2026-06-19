@@ -9,6 +9,7 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from iaqualink.exception import _AqualinkOfflineSignal
+from iaqualink.shared.robots import RobotStateSubscription, deep_merge
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.cyclobat.const import (
     CYCLE_DURATION_KEY,
@@ -33,7 +34,7 @@ CYCLOBAT_DEVICES_URL = "https://prod.zodiac-io.com/devices/v1"
 LOGGER = logging.getLogger("iaqualink.systems.cyclobat")
 
 
-class CyclobatSystem(AqualinkSystem):
+class CyclobatSystem(RobotStateSubscription, AqualinkSystem):
     NAME = "cyclobat"
 
     def __init__(self, aqualink: AqualinkClient, data: Payload) -> None:
@@ -51,6 +52,9 @@ class CyclobatSystem(AqualinkSystem):
         return await self._send_with_reauth_retry(do_request)
 
     async def _refresh(self) -> None:
+        if self._ws_enabled and self._ws_state_fresh():
+            # WS subscription is delivering fresh state; skip the REST poll.
+            return
         r = await self.send_shadow_request()
         self._parse_shadow_response(r)
         self.status = SystemStatus.ONLINE
@@ -64,11 +68,44 @@ class CyclobatSystem(AqualinkSystem):
         except (KeyError, TypeError) as exc:
             raise _AqualinkOfflineSignal from exc
 
-        robot = (reported.get("equipment") or {}).get("robot")
-        if not isinstance(robot, dict):
-            raise _AqualinkOfflineSignal
+        self._apply_reported_state(reported)
 
+    def _extract_robot(self, reported: dict[str, Any]) -> dict[str, Any] | None:
+        """Find the robot object in a `reported` payload.
+
+        The REST shadow nests it as a dict under ``equipment.robot``; the WS
+        Authorization/StateStreamer payloads use the dot-keyed
+        ``equipment["robot.1"]`` dict.
+        """
+        equipment = reported.get("equipment") or {}
+        dotted = equipment.get("robot.1")
+        if isinstance(dotted, dict):
+            return dotted
+        robot = equipment.get("robot")
+        if isinstance(robot, dict):
+            return robot
+        return None
+
+    def _apply_reported_state(self, reported: dict[str, Any]) -> None:
+        """Apply a FULL `state.reported` payload (REST shadow or WS auth ack).
+
+        Caches the robot state and (re)builds the device registry. WS
+        StateStreamer deltas go through `_apply_robot_delta` instead.
+        """
+        robot = self._extract_robot(reported)
+        if robot is None:
+            raise _AqualinkOfflineSignal
         self._robot_state = robot
+        self._rebuild_robot_devices()
+
+    def _apply_robot_delta(self, delta: dict[str, Any]) -> None:
+        """Merge a partial robot dict (WS StateStreamer) and re-derive."""
+        self._robot_state = deep_merge(self._robot_state, delta)
+        self._rebuild_robot_devices()
+
+    def _rebuild_robot_devices(self) -> None:
+        """(Re)derive all devices from the cached `_robot_state`."""
+        robot = self._robot_state
 
         main = robot.get("main") or {}
         battery = robot.get("battery") or {}
@@ -212,6 +249,9 @@ class CyclobatSystem(AqualinkSystem):
                 "state": remaining,
             }
 
+        self._ingest_devices(devices)
+
+    def _ingest_devices(self, devices: dict[str, dict[str, Any]]) -> None:
         for k, v in devices.items():
             if k in self.devices:
                 self.devices[k].data.update(v)

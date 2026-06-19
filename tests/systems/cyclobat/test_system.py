@@ -84,6 +84,30 @@ async def test_refresh_missing_robot_sets_offline(
     assert sut.status is SystemStatus.OFFLINE
 
 
+async def test_refresh_skips_rest_when_ws_state_fresh(
+    sut: CyclobatSystem,
+) -> None:
+    sut._ws_enabled = True
+    with (
+        patch.object(sut, "_ws_state_fresh", return_value=True),
+        patch.object(sut, "send_shadow_request") as mock_req,
+    ):
+        await sut.refresh()
+    mock_req.assert_not_called()
+
+
+@respx.mock
+async def test_refresh_polls_rest_when_ws_disabled(
+    sut: CyclobatSystem,
+) -> None:
+    # WS fresh but disabled -> must still poll REST.
+    sut._ws_enabled = False
+    _mock_shadow(load_fixture("cyclobat", "shadow_get"))
+    with patch.object(sut, "_ws_state_fresh", return_value=True):
+        await sut.refresh()
+    assert sut.status is SystemStatus.ONLINE
+
+
 async def test_refresh_throttled_sets_unknown_and_propagates(
     sut: CyclobatSystem,
 ) -> None:

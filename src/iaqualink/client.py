@@ -312,12 +312,18 @@ class AqualinkClient:
 
     @asynccontextmanager
     async def ws_connect(
-        self, url: str
+        self,
+        url: str,
+        *,
+        keepalive_ping_interval_seconds: float | None = None,
     ) -> AsyncIterator[AsyncWebSocketSession]:
         """Open an authenticated WebSocket over the dedicated HTTP/1.1 client.
 
-        Reused by robot commands and future state subscriptions (and other
-        wss-based systems such as tcx).
+        Reused by robot commands and state subscriptions (and other wss-based
+        systems such as tcx). ``keepalive_ping_interval_seconds`` enables
+        periodic WS pings so a silently dropped connection raises instead of
+        blocking forever — set it for long-lived subscriptions; None for
+        one-shot sends.
         """
         parts = urlsplit(url)
         headers = {
@@ -326,8 +332,13 @@ class AqualinkClient:
             # expects an Origin matching the host).
             "Origin": f"{parts.scheme}://{parts.netloc}",
         }
+        kwargs: dict[str, Any] = {}
+        if keepalive_ping_interval_seconds is not None:
+            kwargs["keepalive_ping_interval_seconds"] = (
+                keepalive_ping_interval_seconds
+            )
         async with aconnect_ws(
-            url, self._get_ws_httpx_client(), headers=headers
+            url, self._get_ws_httpx_client(), headers=headers, **kwargs
         ) as ws:
             yield ws
 
