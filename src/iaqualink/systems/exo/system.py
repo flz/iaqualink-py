@@ -62,7 +62,8 @@ class ExoSystem(AqualinkSystem):
             method="post", json={"state": {"desired": state}}
         )
 
-    async def _refresh(self) -> None:
+    async def _refresh(self, *, full: bool = False) -> None:
+        # Single fixed call regardless; `full` (diagnose()) has nothing to add.
         r = await self.send_reported_state_request()
         self._parse_shadow_response(r)
 

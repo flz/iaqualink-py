@@ -656,6 +656,64 @@ class TestIaquaSystem:
 
         assert sut._onetouch_supported is True
 
+    async def test_refresh_full_forces_onetouch_when_unsupported(self) -> None:
+        """full=True forces get_onetouch even when onetouch is not supported."""
+        _, sut = _make_iaqua_system()
+
+        with (
+            patch.object(sut, "_send_home_screen_request"),
+            patch.object(sut, "_send_devices_screen_request"),
+            patch.object(sut, "_send_onetouch_screen_request") as onetouch_req,
+            patch.object(
+                sut, "_parse_home_response", side_effect=_set_online_for(sut)
+            ),
+            patch.object(sut, "_parse_devices_response"),
+            patch.object(sut, "_parse_onetouch_response"),
+        ):
+            # _onetouch_supported starts None (falsy) — would normally be skipped.
+            await sut.refresh(full=True)
+            assert onetouch_req.call_count == 1
+
+    async def test_refresh_full_forces_devices_and_onetouch_when_offline(
+        self,
+    ) -> None:
+        """full=True forces get_devices/get_onetouch even when status is not ONLINE."""
+        _, sut = _make_iaqua_system()
+
+        def _set_offline(_response: object) -> None:
+            sut.status = SystemStatus.OFFLINE
+
+        with (
+            patch.object(sut, "_send_home_screen_request"),
+            patch.object(sut, "_send_devices_screen_request") as devices_req,
+            patch.object(sut, "_send_onetouch_screen_request") as onetouch_req,
+            patch.object(sut, "_parse_home_response", side_effect=_set_offline),
+            patch.object(sut, "_parse_devices_response"),
+            patch.object(sut, "_parse_onetouch_response"),
+        ):
+            await sut.refresh(full=True)
+            assert devices_req.call_count == 1
+            assert onetouch_req.call_count == 1
+
+    async def test_refresh_not_full_skips_devices_and_onetouch_when_offline(
+        self,
+    ) -> None:
+        """full=False (default) skips get_devices/get_onetouch when status is not ONLINE."""
+        _, sut = _make_iaqua_system()
+
+        def _set_offline(_response: object) -> None:
+            sut.status = SystemStatus.OFFLINE
+
+        with (
+            patch.object(sut, "_send_home_screen_request"),
+            patch.object(sut, "_send_devices_screen_request") as devices_req,
+            patch.object(sut, "_send_onetouch_screen_request") as onetouch_req,
+            patch.object(sut, "_parse_home_response", side_effect=_set_offline),
+        ):
+            await sut.refresh()
+            assert devices_req.call_count == 0
+            assert onetouch_req.call_count == 0
+
     async def test_refresh_onetouch_disabled_by_home_flag(self) -> None:
         """Absent or false onetouch flag in home response skips the request."""
         _, sut = _make_iaqua_system()
