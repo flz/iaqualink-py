@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import hmac
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -354,6 +354,82 @@ class TestAqualinkClient:
         systems = await client.get_systems()
         assert len(systems) == 1
         assert isinstance(next(iter(systems.values())), UnsupportedSystem)
+
+    @patch("httpx.AsyncClient.request")
+    async def test_get_systems_reuses_unchanged_system(
+        self, mock_request
+    ) -> None:
+        client = _make_client()
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+        await client.login()
+
+        mock_request.return_value.json.return_value = [
+            {"device_type": "foo", "serial_number": "SN123456"}
+        ]
+
+        first = await client.get_systems()
+        second = await client.get_systems()
+
+        assert first["SN123456"] is second["SN123456"]
+
+    @patch("httpx.AsyncClient.request")
+    async def test_get_systems_replaces_changed_device_type(
+        self, mock_request
+    ) -> None:
+        client = _make_client()
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+        await client.login()
+
+        mock_request.return_value.json.return_value = [
+            {"device_type": "foo", "serial_number": "SN123456"}
+        ]
+        first = await client.get_systems()
+
+        mock_request.return_value.json.return_value = [
+            {"device_type": "bar", "serial_number": "SN123456"}
+        ]
+        second = await client.get_systems()
+
+        assert first["SN123456"] is not second["SN123456"]
+
+    @patch("httpx.AsyncClient.request")
+    async def test_get_systems_closes_systems_it_drops(
+        self, mock_request
+    ) -> None:
+        client = _make_client()
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+        await client.login()
+
+        mock_request.return_value.json.return_value = [
+            {"device_type": "foo", "serial_number": "SN123456"}
+        ]
+        first = await client.get_systems()
+        old_system = first["SN123456"]
+
+        with patch.object(old_system, "aclose", new=AsyncMock()) as mock_aclose:
+            mock_request.return_value.json.return_value = []
+            await client.get_systems()
+            mock_aclose.assert_awaited_once()
+
+    @patch("httpx.AsyncClient.request")
+    async def test_close_closes_tracked_systems(self, mock_request) -> None:
+        client = _make_client()
+        mock_request.return_value.status_code = 200
+        mock_request.return_value.json = MagicMock(return_value=LOGIN_DATA)
+        await client.login()
+
+        mock_request.return_value.json.return_value = [
+            {"device_type": "foo", "serial_number": "SN123456"}
+        ]
+        systems = await client.get_systems()
+        system = systems["SN123456"]
+
+        with patch.object(system, "aclose", new=AsyncMock()) as mock_aclose:
+            await client.close()
+            mock_aclose.assert_awaited_once()
 
     @patch("httpx.AsyncClient.request")
     async def test_systems_request(self, mock_request) -> None:
