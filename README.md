@@ -17,6 +17,7 @@
   - **iAqua** systems (iaqualink.net API)
   - **eXO** systems (zodiac-io.com API)
   - **i2d** systems — iQPump variable-speed pumps (r-api.iaqualink.net API)
+  - **TCX** systems — filtration and spa controllers (prod.zodiac-io.com API)
 - 🌡️ **Comprehensive Device Support**
   - Temperature sensors (pool, spa, air)
   - Thermostats with adjustable set points
