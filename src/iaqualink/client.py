@@ -63,6 +63,7 @@ for module_name in (
     "iaqualink.systems.i2d.system",
     "iaqualink.systems.iaqua.system",
     "iaqualink.systems.tcx.system",
+    "iaqualink.systems.zs500.system",
 ):
     importlib.import_module(module_name)
 
@@ -197,12 +198,16 @@ class AqualinkClient:
         self.refresh_token = ""
         self.app_client_id = ""
         self.country = ""
+        self.iot_credentials: dict[str, str] | None = None
         self._refresh_lock = asyncio.Lock()
 
         self._last_refresh = 0
         # Populated after get_systems() returns. Requests made before that point
         # (login, device-list) will contain unmasked serials in debug-log URLs.
         self._log_serials: set[str] = set()
+        # Tracks systems returned by get_systems() so close() can release any
+        # held connections (e.g. a persistent MQTT session) on shutdown.
+        self._systems: dict[str, AqualinkSystem] = {}
 
         # Systems whose WS subscription is currently running (auto-started by
         # _refresh() via WsStateSubscription._ws_refresh_gate). close() stops
@@ -262,6 +267,10 @@ class AqualinkClient:
         if self._ws_client is not None:
             await self._ws_client.aclose()
             self._ws_client = None
+
+        for system in self._systems.values():
+            await system.aclose()
+        self._systems = {}
 
         if self._must_close_client is False:
             return
@@ -541,6 +550,7 @@ class AqualinkClient:
         self.refresh_token = ""
         self.app_client_id = ""
         self.country = ""
+        self.iot_credentials = None
         self._logged = False
 
     def _apply_login_data(
@@ -560,6 +570,7 @@ class AqualinkClient:
         cognito = data.get("cognitoPool") or {}
         self.app_client_id = cognito.get("appClientId", "")
         self.country = (data.get("country") or "us").lower()
+        self.iot_credentials = data.get("credentials")
         self._logged = True
 
     async def _send_systems_request(self) -> httpx.Response:
@@ -598,6 +609,23 @@ class AqualinkClient:
         LOGGER.debug("Systems body: %s", redact_value(data))
         LOGGER.debug("get_systems: %d system(s) discovered", len(data))
 
-        systems = [AqualinkSystem.from_data(self, x) for x in data]
-        self._log_serials.update(s.serial for s in systems if s.serial)
-        return {x.serial: x for x in systems}
+        # Reuse existing system instances when serial + device_type are
+        # unchanged, rather than rebuilding from scratch every call — a
+        # system can hold state (e.g. zs500's persistent MQTT connection)
+        # that a needless rebuild would silently drop and reconnect.
+        new_systems: dict[str, AqualinkSystem] = {}
+        for x in data:
+            serial = x.get("serial_number", "")
+            existing = self._systems.get(serial)
+            if existing is not None and existing.type == x.get("device_type"):
+                existing.data = x
+                new_systems[serial] = existing
+            else:
+                new_systems[serial] = AqualinkSystem.from_data(self, x)
+        self._log_serials.update(serial for serial in new_systems if serial)
+
+        for serial, old_system in self._systems.items():
+            if new_systems.get(serial) is not old_system:
+                await old_system.aclose()
+        self._systems = new_systems
+        return new_systems
