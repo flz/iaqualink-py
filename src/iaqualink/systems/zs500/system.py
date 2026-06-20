@@ -6,6 +6,7 @@ import uuid
 from collections.abc import Awaitable, Callable
 from typing import TYPE_CHECKING, Any, TypeVar
 
+import httpx
 from awscrt import auth, mqtt5
 from awsiot import iotshadow, mqtt5_client_builder
 
@@ -57,9 +58,9 @@ _MIN_CONNECTED_TIME_TO_RESET_RECONNECT_DELAY_MS = 20000
 def _error_for_rejected(response: Any) -> AqualinkServiceException:
     code = getattr(response, "code", None)
     message = getattr(response, "message", None) or "Shadow operation rejected"
-    if code == 401:
+    if code == httpx.codes.UNAUTHORIZED:
         return AqualinkServiceUnauthorizedException(message)
-    if code == 429:
+    if code == httpx.codes.TOO_MANY_REQUESTS:
         return AqualinkServiceThrottledException(message)
     return AqualinkServiceException(f"{message} (code={code})")
 
