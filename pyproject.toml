@@ -27,6 +27,8 @@ classifiers = [
 ]
 dependencies = [
     "httpx[http2]>=0.27.0",
+    "awscrt>=0.34.1",
+    "awsiotsdk>=1.30.0",
 ]
 dynamic = [
     "version",

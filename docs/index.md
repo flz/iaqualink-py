@@ -16,6 +16,7 @@
     - **iAqua** systems (iaqualink.net API)
     - **eXO** systems (zodiac-io.com API)
     - **i2d** systems — iQPump variable-speed pumps (r-api.iaqualink.net API)
+    - **zs500** systems — ZS500 heat pumps over AWS IoT MQTT (auth via zodiac-io.com, control via AWS IoT; experimental)
 - **Comprehensive Device Support**
     - Temperature sensors (pool, spa, air)
     - Thermostats with adjustable set points

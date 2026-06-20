@@ -49,6 +49,13 @@ Content-Type: application/json
 | `userPoolOAuth.AccessToken` | string | Cognito access token (not used by this library) |
 | `userPoolOAuth.ExpiresIn` | integer | IdToken TTL in seconds (typically 3600) |
 | `userPoolOAuth.TokenType` | string | Always `"Bearer"` |
+| `credentials.AccessKeyId` | string | Temporary AWS access key — used for SigV4-signing the AWS IoT MQTT WebSocket connection (zs500) |
+| `credentials.SecretKey` | string | Temporary AWS secret key, paired with `AccessKeyId` |
+| `credentials.SessionToken` | string | AWS session token, paired with `AccessKeyId`/`SecretKey` |
+| `credentials.Expiration` | string | Credential expiry timestamp — not independently tracked by the reference app; it re-derives fresh credentials on every login/refresh instead |
+| `credentials.IdentityId` | string | AWS Cognito identity ID associated with the issued credentials |
+
+No separate AWS Cognito Identity Pool exchange call was observed — the server performs that exchange itself and returns ready-to-use temporary AWS credentials directly in the login/refresh response body.
 
 ### Token Refresh
 
