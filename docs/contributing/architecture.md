@@ -71,6 +71,7 @@ AqualinkDevice (ABC)
 ├── AqualinkSensor        — read-only sensor; maps to HA SensorEntity
 ├── AqualinkBinarySensor  — read-only on/off sensor; maps to HA BinarySensorEntity
 ├── AqualinkSwitch        — controllable on/off; maps to HA SwitchEntity
+├── AqualinkButton        — stateless action trigger; maps to HA ButtonEntity
 ├── AqualinkLight         — controllable light; maps to HA LightEntity
 ├── AqualinkClimate       — temperature control; maps to HA ClimateEntity
 ├── AqualinkNumber        — writable numeric setting; maps to HA NumberEntity

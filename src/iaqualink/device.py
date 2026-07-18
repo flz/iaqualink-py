@@ -135,6 +135,14 @@ class AqualinkBinarySensor(AqualinkDevice):
         return None
 
 
+class AqualinkButton(AqualinkDevice):
+    """Stateless action trigger. Maps to HA ButtonEntity."""
+
+    @abstractmethod
+    async def press(self) -> None:
+        """Perform the action."""
+
+
 class AqualinkSwitch(AqualinkDevice):
     """Controllable on/off device. Maps to HA SwitchEntity."""
 

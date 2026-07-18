@@ -3,6 +3,7 @@ from __future__ import annotations
 from iaqualink.client import AqualinkClient
 from iaqualink.device import (
     AqualinkBinarySensor,
+    AqualinkButton,
     AqualinkClimate,
     AqualinkDevice,
     AqualinkFan,
@@ -23,6 +24,7 @@ __all__ = [
     # Devices
     "AqualinkDevice",
     "AqualinkBinarySensor",
+    "AqualinkButton",
     "AqualinkClimate",
     "AqualinkFan",
     "AqualinkLight",
