@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import copy
 from typing import Any, cast
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -323,3 +323,63 @@ class TestSubShadowFetchIsolation:
         retry_headers = mock_request.call_args_list[1][1]["headers"]
         mock_refresh.assert_awaited_once()
         assert retry_headers["Authorization"] == "new-id-token"
+
+
+class TestTcxRefreshWsLifecycle:
+    # _refresh() never calls start_ws_subscription() itself — the library
+    # must not spin up background tasks on its own (matches cyclobat's
+    # precedent). A consumer opts in by calling start_ws_subscription()
+    # explicitly; these tests simulate that by patching _ws_state_fresh.
+
+    async def test_refresh_skips_rest_when_ws_state_fresh(self) -> None:
+        _, sut = _make_tcx_system()
+        sut._ws_reported_cache = copy.deepcopy(SAMPLE_REPORTED)
+        with (
+            patch.object(sut, "_ws_state_fresh", return_value=True),
+            patch.object(
+                sut, "send_reported_state_request", new=AsyncMock()
+            ) as mock_req,
+        ):
+            await sut._refresh()
+        mock_req.assert_not_called()
+
+    async def test_refresh_restores_status_on_ws_fresh_skip(self) -> None:
+        # refresh() resets status to IN_PROGRESS before calling _refresh();
+        # the skip-REST path must restore it from the WS-derived cache.
+        _, sut = _make_tcx_system()
+        sut._ws_reported_cache = {
+            **copy.deepcopy(SAMPLE_REPORTED),
+            "aws": {"status": "connected"},
+        }
+        with patch.object(sut, "_ws_state_fresh", return_value=True):
+            await sut.refresh()
+        assert sut.status is SystemStatus.CONNECTED
+
+    @patch("httpx.AsyncClient.request")
+    async def test_refresh_polls_rest_when_ws_disabled(
+        self, mock_request: MagicMock
+    ) -> None:
+        # WS fresh but disabled -> must still poll REST.
+        _, sut = _make_tcx_system()
+        sut._ws_enabled = False
+        mock_request.return_value = MagicMock(
+            status_code=200, json=lambda: SAMPLE_DATA
+        )
+        with patch.object(sut, "_ws_state_fresh", return_value=True):
+            await sut._refresh()
+        mock_request.assert_called()
+
+    @patch("httpx.AsyncClient.request")
+    async def test_refresh_polls_rest_when_ws_never_started(
+        self, mock_request: MagicMock
+    ) -> None:
+        # No consumer has called start_ws_subscription() -> _ws_state_fresh()
+        # is naturally False -> plain REST bootstrap, same as before WS
+        # support existed.
+        _, sut = _make_tcx_system()
+        mock_request.return_value = MagicMock(
+            status_code=200, json=lambda: SAMPLE_DATA
+        )
+        await sut._refresh()
+        mock_request.assert_called()
+        assert sut.status is SystemStatus.CONNECTED

@@ -6,29 +6,18 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from iaqualink.client import AqualinkClient
-from iaqualink.device import AqualinkSensor, AqualinkSwitch
+from iaqualink.device import AqualinkSensor
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.tcx.device import (
     TcxAirSensor,
-    TcxAuxSwitch,
-    TcxChlorinatorBoost,
-    TcxClimate,
     TcxDevice,
-    TcxFeatureCircuit,
     TcxFilterPump,
     TcxSolarSensor,
     TcxWaterSensor,
-    TcxZigbeeSwitch,
 )
 from iaqualink.systems.tcx.system import TcxSystem
 
-from ...conformance.fixtures import (
-    ClimateFixture,
-    DeviceFixture,
-    SensorFixture,
-    SwitchFixture,
-    SystemFixture,
-)
+from ...conformance.fixtures import DeviceFixture, SensorFixture, SystemFixture
 
 # ---------------------------------------------------------------------------
 # Shared test data constants
@@ -164,116 +153,24 @@ tcx_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
 # ---------------------------------------------------------------------------
 
 
-def _tcx_filter_pump() -> SwitchFixture:
-    system = make_system()
-    data_off: dict[str, Any] = {**TCX_FILTER_PUMP_ON_DATA, "st": 0}
-    return SwitchFixture(
-        device_on=cast(
-            AqualinkSwitch,
-            TcxDevice.from_data(system, {**TCX_FILTER_PUMP_ON_DATA}),
-        ),
-        device_off=cast(AqualinkSwitch, TcxDevice.from_data(system, data_off)),
-        expected_class=TcxFilterPump,
-    )
-
-
-def _tcx_aux_switch() -> SwitchFixture:
-    system = make_system()
-    data_off: dict[str, Any] = {**TCX_AUX_SWITCH_ON_DATA, "st": 0}
-    return SwitchFixture(
-        device_on=cast(
-            AqualinkSwitch,
-            TcxDevice.from_data(system, {**TCX_AUX_SWITCH_ON_DATA}),
-        ),
-        device_off=cast(AqualinkSwitch, TcxDevice.from_data(system, data_off)),
-        expected_class=TcxAuxSwitch,
-    )
-
-
-def _tcx_chlorinator_boost() -> SwitchFixture:
-    system = make_system()
-    data_off: dict[str, Any] = {**TCX_CHLORINATOR_BOOST_ON_DATA, "boost": 0}
-    return SwitchFixture(
-        device_on=cast(
-            AqualinkSwitch,
-            TcxDevice.from_data(system, {**TCX_CHLORINATOR_BOOST_ON_DATA}),
-        ),
-        device_off=cast(AqualinkSwitch, TcxDevice.from_data(system, data_off)),
-        expected_class=TcxChlorinatorBoost,
-    )
-
-
-def _tcx_feature_circuit() -> SwitchFixture:
-    system = make_system()
-    data_off: dict[str, Any] = {**TCX_FEATURE_CIRCUIT_ON_DATA, "st": 0}
-    return SwitchFixture(
-        device_on=cast(
-            AqualinkSwitch,
-            TcxDevice.from_data(system, {**TCX_FEATURE_CIRCUIT_ON_DATA}),
-        ),
-        device_off=cast(AqualinkSwitch, TcxDevice.from_data(system, data_off)),
-        expected_class=TcxFeatureCircuit,
-    )
-
-
-def _tcx_zigbee_switch() -> SwitchFixture:
-    system = make_system()
-    data_off: dict[str, Any] = {**TCX_ZIGBEE_SWITCH_ON_DATA, "st": 0}
-    return SwitchFixture(
-        device_on=cast(
-            AqualinkSwitch,
-            TcxDevice.from_data(system, {**TCX_ZIGBEE_SWITCH_ON_DATA}),
-        ),
-        device_off=cast(AqualinkSwitch, TcxDevice.from_data(system, data_off)),
-        expected_class=TcxZigbeeSwitch,
-    )
-
-
-tcx_switch_factories: list[tuple[str, Callable[[], Any]]] = [
-    ("tcx-filter-pump", _tcx_filter_pump),
-    ("tcx-aux-switch", _tcx_aux_switch),
-    ("tcx-chlorinator-boost", _tcx_chlorinator_boost),
-    ("tcx-feature-circuit", _tcx_feature_circuit),
-    ("tcx-zigbee-switch", _tcx_zigbee_switch),
-]
+# Generic switch conformance (test_switch.py) asserts turn_on/turn_off make
+# an HTTP request via respx. TCX writes now go over WS (StateController
+# frames), which respx can't intercept, so these fixtures would fail for the
+# wrong reason. Covered by direct unit tests in test_device.py instead (same
+# precedent as tcx_fan_factories below); the *_ON_DATA constants above are
+# reused there.
+tcx_switch_factories: list[tuple[str, Callable[[], Any]]] = []
 
 # ---------------------------------------------------------------------------
 # Climate fixtures
 # ---------------------------------------------------------------------------
 
 
-def _tcx_climate() -> ClimateFixture:
-    system = make_system()
-
-    water_dev = TcxDevice.from_data(system, {**TCX_WATER_DATA})
-    device_on = cast(
-        TcxClimate,
-        TcxDevice.from_data(system, {**TCX_CLIMATE_ON_DATA}),
-    )
-    climate_off_data: dict[str, Any] = {
-        **TCX_CLIMATE_ON_DATA,
-        "heatEnabled": False,
-    }
-    device_off = cast(
-        TcxClimate,
-        TcxDevice.from_data(system, climate_off_data),
-    )
-
-    system.devices = {
-        "water": water_dev,
-        "TspBdy0": device_on,
-    }
-
-    return ClimateFixture(
-        device_on=device_on,
-        device_off=device_off,
-        expected_class=TcxClimate,
-    )
-
-
-tcx_climate_factories: list[tuple[str, Callable[[], Any]]] = [
-    ("tcx-climate", _tcx_climate),
-]
+# Generic climate conformance (test_climate.py) asserts turn_on/turn_off/
+# set_temperature make an HTTP request via respx, same problem as switches
+# above (TCX writes now go over WS). Covered by direct unit tests in
+# test_device.py instead; TCX_CLIMATE_ON_DATA is reused there.
+tcx_climate_factories: list[tuple[str, Callable[[], Any]]] = []
 
 # ---------------------------------------------------------------------------
 # System fixtures

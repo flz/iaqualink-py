@@ -361,9 +361,9 @@ class AqualinkClient:
     ) -> None:
         """Open a one-shot WS, send `frame` as JSON, best-effort wait for ack."""
         LOGGER.debug(
-            "-> WS %s action=%s",
+            "-> WS %s %s",
             self._log_redact_url(url),
-            frame.get("action"),
+            redact_value(frame),
         )
 
         async def do_send() -> None:
@@ -378,7 +378,14 @@ class AqualinkClient:
                 ) as exc:
                     LOGGER.debug("No WS ack within %.1fs: %r", ack_timeout, exc)
                 else:
-                    LOGGER.debug("WS ack received (length=%d)", len(ack))
+                    ack_data: Any
+                    try:
+                        ack_data = json.loads(ack)
+                    except (json.JSONDecodeError, TypeError):
+                        ack_data = ack
+                    else:
+                        ack_data = redact_value(ack_data)
+                    LOGGER.debug("<- WS ack: %s", ack_data)
 
         # Mirror the REST read path: reauth once on a stale-token handshake.
         await send_with_reauth_retry(do_send, self._refresh_auth)

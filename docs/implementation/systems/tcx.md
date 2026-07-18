@@ -7,10 +7,10 @@ Implementation details for the TCX system (`device_type: "tcx"`). For the wire-l
 | Property | Value |
 |----------|-------|
 | `device_type` | `tcx` |
-| API host | `prod.zodiac-io.com` |
-| Authentication | JWT `IdToken` (Bearer) |
-| Update call | Main shadow (`GET /devices/v2/{serial}/shadow`) + active sub-shadows |
-| State updates | Desired/reported state pattern (`POST /devices/v2/{serial}/shadow`) |
+| API host | `prod.zodiac-io.com` (REST), `prod-socket.zodiac-io.com` (WS) |
+| Authentication | JWT `IdToken` (Bearer on REST; bare on WS) |
+| Update call | WS state subscription (primary); main shadow (`GET /devices/v2/{serial}/shadow`) + active sub-shadows as a one-shot bootstrap/fallback |
+| State updates | WS `StateController` command frames |
 | Python class | `TcxSystem` in `src/iaqualink/systems/tcx/system.py` |
 
 ## System Status Lifecycle
@@ -75,11 +75,17 @@ Sub-shadow failures are isolated — a failed fetch for one suffix does not abor
 
 ## Design Decisions
 
-### REST polling only (no WebSocket or MQTT)
+### WebSocket-primary reads and writes
 
-The reference app uses WebSocket (server default) or MQTT for real-time push. The Python implementation polls the HTTP REST shadow endpoint (`GET /devices/v2/{serial}/shadow`), which exposes the same data. Desired state writes use the same REST endpoint.
+Per the reference app, REST shadow GET is only a one-shot online/offline status check on the system list screen — it is not part of the live data flow, and commands are issued over WebSocket. `TcxSystem` mixes in `TcxStateSubscription` (`src/iaqualink/systems/tcx/ws.py`), built on the shared `WsStateSubscription` engine (`src/iaqualink/utils/websockets.py`, also used by `cyclobat`'s `RobotStateSubscription`):
 
-This matches the EXO precedent and avoids persistent connection management.
+- `_refresh()` skips the REST fetch while `_ws_state_fresh()` is true. It does **not** call `start_ws_subscription()` itself — the library must not spin up background tasks on its own; a consumer (CLI/HA) opts in by calling it explicitly. Until a consumer does, `_refresh()` behaves exactly as before (a plain REST poll every call).
+- All 8 write methods (`set_filter_pump`, `set_aux`, `set_heat_enabled`, `set_water_temp_setpoint`, `set_swc_boost`, `set_vsp_speed`, `set_feature_circuit_state`, `set_zigbee_state`) send WS `StateController` command frames (`service`/`namespace`/`action`/`target`/`payload`) instead of REST POST. Writes are fire-and-forget (best-effort ack, no synchronous error) — wire-level errors are signaled asynchronously via `ErrorStreamer`, not yet wired into an exception on the calling command.
+- `start_ws_subscription()`/`stop_ws_subscription()` are provided but not auto-invoked by any consumer (same as cyclobat) — wiring into CLI/HA is separate future work.
+
+Unlike cyclobat, tcx has no "robot" wrapper concept in its shadow — the reported tree is flat and multi-key across ~9 namespaces (see the protocol reference) — so `TcxStateSubscription` implements the generic engine's hooks directly against the whole reported tree rather than drilling into a sub-object.
+
+**Unconfirmed assumptions** (see Deltas table below): the WS ack/delta payload's inner shape beyond the envelope, and per-action WS command payload field shapes — the reference doc only documents the envelope, not field-level bodies.
 
 ### Shadow URL versions
 
@@ -117,3 +123,7 @@ The SWC chlorinator is modelled as a boost on/off switch (`TcxChlorinatorBoost`)
 | 2 | Heater bounds hardcoded | Shadow bounds field presence not confirmed |
 | 3 | ZigBee write payload shape unverified | `set_zigbee_state` posts `{"zig": {addr: {"st": N}}}`; not confirmed from wire traffic |
 | 4 | `_sched`, `_pib0`, `_scene` fetched but not parsed | Schema not confirmed; no device mapping defined yet |
+| 5 | WS Authorization-ack/StateStreamer-delta payload shape assumed to mirror REST's `state.reported` envelope, with no `robot`-style nesting level | Only the outer frame envelope (`service`/`target`/`namespace`/`payload`) is confirmed in the reference doc; the payload's inner structure has no confirmed example |
+| 6 | Sub-shadow-namespace-scoped WS deltas (e.g. `filtration` carrying `{"filt0": {...}}`) assumed to arrive in the same flat envelope and applied via the same generic per-key merge, without namespace-specific parsing | Even less confirmed than the main-namespace shape; mechanically safe due to `_update_devices`'s per-key guards, but unverified on the wire |
+| 7 | Per-action WS command payload shapes inferred by reusing each write method's existing REST desired-state delta (e.g. `{"filt0": {"st": state}}`) as the frame's `payload`, plus `clientToken` | The reference doc documents the command envelope but not field-level payloads per action; this is the only confirmed field-naming source available |
+| 8 | `set_vsp_speed` uses the generic `tcx` namespace `"setState"` action | No documented VSP namespace action matches "set current commanded speed" (`cmdSpd`) — the other VSP actions are all specific-purpose (priming/min/max/quick-clean/freeze speeds) |

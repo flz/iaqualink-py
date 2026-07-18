@@ -7,8 +7,17 @@ from typing import TYPE_CHECKING, Any
 from iaqualink.const import AQUALINK_API_SIGNING_KEY
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.tcx.device import TcxDevice
+from iaqualink.systems.tcx.ws import (
+    NAMESPACE_FEATURE_CIRCUIT,
+    NAMESPACE_FILTRATION,
+    NAMESPACE_SWC,
+    NAMESPACE_TCX,
+    NAMESPACE_ZIGBEE,
+    TcxStateSubscription,
+)
 from iaqualink.utils.crypto import sign
 from iaqualink.utils.redact import mask_serial, redact_value
+from iaqualink.utils.websockets import deep_merge
 
 if TYPE_CHECKING:
     import httpx
@@ -18,6 +27,20 @@ if TYPE_CHECKING:
 
 TCX_SHADOW_URL = "https://prod.zodiac-io.com/devices/v2"
 TCX_SUB_SHADOW_READ_URL = "https://prod.zodiac-io.com/devices/v1"
+
+# Wire actions (docs/reference/systems/tcx.md "Command Reference"). Per-action
+# payload shapes beyond the envelope aren't documented — see _send_command_frame.
+_ACTION_SET_FILTER_PUMP_STATE = "setFilterPumpState"
+_ACTION_SET_AUX_STATE = "setAuxState"
+_ACTION_SET_HEAT_ENABLED = "setHeatEnabled"
+_ACTION_SET_WATER_TEMP_SETPOINT = "setWaterTempSetpoint"
+_ACTION_SET_BOOST_MODE = "setBoostMode"
+# No VSP action matches "set current commanded speed" (setPrimingSpeed/
+# setMinMasterSpeed/setMaxMasterSpeed/setQuickCleanSpeed/setFreezeProtectSpeed
+# are all specific-purpose) — fall back to the tcx namespace's generic action.
+_ACTION_SET_STATE = "setState"
+_ACTION_SET_FEATURE_CIRCUIT_STATE = "setFeatureCircuitState"
+_ACTION_SET_ZIGBEE_STATE = "setZigbeeState"
 
 # Sub-shadow suffixes that may exist for a given device.
 # Presence is signalled by state.reported.equipment.<key>.
@@ -58,12 +81,13 @@ def _derive_status(reported: dict[str, Any]) -> SystemStatus:
     return status
 
 
-class TcxSystem(AqualinkSystem):
+class TcxSystem(TcxStateSubscription, AqualinkSystem):
     NAME = "tcx"
 
     def __init__(self, aqualink: AqualinkClient, data: Payload):
         super().__init__(aqualink, data)
         self.temp_unit = "F"
+        self._ws_reported_cache: dict[str, Any] = {}
 
     def __repr__(self) -> str:
         attrs = ["name", "serial", "data"]
@@ -101,23 +125,22 @@ class TcxSystem(AqualinkSystem):
             self.serial, params={"signature": signature}
         )
 
-    async def send_desired_state_request(
-        self, state: dict[str, Any]
-    ) -> httpx.Response:
-        return await self._send_shadow_request(
-            self.serial, method="post", json={"state": {"desired": state}}
-        )
-
-    async def send_sub_shadow_desired_state_request(
-        self, suffix: str, state: dict[str, Any]
-    ) -> httpx.Response:
-        return await self._send_shadow_request(
-            f"{self.serial}{suffix}",
-            method="post",
-            json={"state": {"desired": state}},
-        )
-
     async def _refresh(self) -> None:
+        # Per the reference app, REST shadow GET is only a one-shot
+        # online/offline status check (system list screen) — live state
+        # flows over the WS subscription when a consumer has started one via
+        # start_ws_subscription() (not auto-started here — the library must
+        # not spin up background tasks on its own, matching cyclobat's
+        # precedent). Skip the REST fetch while it's delivering fresh state;
+        # otherwise this is a plain REST bootstrap/fallback poll.
+        if self._ws_enabled and self._ws_state_fresh():
+            # refresh() resets self.status to IN_PROGRESS before calling
+            # _refresh(); restore it from the cache the WS push already
+            # derived, so the "must set status before returning" contract
+            # holds on the skip path too.
+            self.status = _derive_status(self._ws_reported_cache)
+            return
+
         r = await self.send_reported_state_request()
         reported = self._parse_shadow_response(r)
 
@@ -151,6 +174,13 @@ class TcxSystem(AqualinkSystem):
         LOGGER.debug("TCX shadow body: %s", redact_value(data))
 
         reported = data.get("state", {}).get("reported", {})
+        self._apply_reported_state(reported)
+        return reported
+
+    def _apply_reported_state(self, reported: dict[str, Any]) -> None:
+        """Apply a FULL tcx `state.reported` tree (REST shadow or WS
+        Authorization ack): derive status/temp_unit and rebuild devices."""
+        self._ws_reported_cache = reported
 
         self.status = _derive_status(reported)
         if reported.get("tempSetting") == 0:
@@ -165,7 +195,16 @@ class TcxSystem(AqualinkSystem):
         )
 
         self._update_devices(reported)
-        return reported
+
+    def _apply_reported_delta(self, delta: dict[str, Any]) -> None:
+        """Merge a partial WS-pushed reported dict onto cached state and
+        re-derive. Merging onto the full cached tree (rather than deriving
+        status/temp_unit from the raw delta) matters: a delta that omits
+        `aws`/`systemMode`/`tempSetting` would otherwise reset status to
+        UNKNOWN or flip temp_unit back to "F" even though nothing changed.
+        `_update_devices` is safe on partial dicts on its own (each key is
+        individually guarded), but the two scalar derivations are not."""
+        self._apply_reported_state(deep_merge(self._ws_reported_cache, delta))
 
     def _parse_sub_shadow_response(
         self, suffix: str, response: httpx.Response
@@ -271,48 +310,60 @@ class TcxSystem(AqualinkSystem):
             else:
                 self.devices[key] = TcxDevice.from_data(self, attrs)
 
-    # ── Command helpers ──────────────────────────────────────────────────────
+    # ── Command helpers (WS StateController frames) ──────────────────────────
 
     async def set_filter_pump(self, state: int) -> None:
-        r = await self.send_desired_state_request({"filt0": {"st": state}})
-        r.raise_for_status()
+        await self._send_command_frame(
+            namespace=NAMESPACE_FILTRATION,
+            action=_ACTION_SET_FILTER_PUMP_STATE,
+            delta={"filt0": {"st": state}},
+        )
 
     async def set_aux(self, name: str, state: int) -> None:
-        r = await self.send_desired_state_request({name: {"st": state}})
-        r.raise_for_status()
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_AUX_STATE,
+            delta={name: {"st": state}},
+        )
 
     async def set_heat_enabled(self, enabled: bool) -> None:
-        r = await self.send_desired_state_request(
-            {"TspBdy0": {"heatEnabled": enabled}}
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_HEAT_ENABLED,
+            delta={"TspBdy0": {"heatEnabled": enabled}},
         )
-        r.raise_for_status()
 
     async def set_water_temp_setpoint(self, temp: int) -> None:
-        r = await self.send_desired_state_request(
-            {"TspBdy0": {"waterTempSet": temp}}
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_WATER_TEMP_SETPOINT,
+            delta={"TspBdy0": {"waterTempSet": temp}},
         )
-        r.raise_for_status()
 
     async def set_swc_boost(self, enabled: bool) -> None:
-        r = await self.send_desired_state_request(
-            {"swc0": {"boost": int(enabled)}}
+        await self._send_command_frame(
+            namespace=NAMESPACE_SWC,
+            action=_ACTION_SET_BOOST_MODE,
+            delta={"swc0": {"boost": int(enabled)}},
         )
-        r.raise_for_status()
 
     async def set_vsp_speed(self, speed_rpm: int) -> None:
-        r = await self.send_desired_state_request(
-            {"ecm0": {"cmdSpd": speed_rpm}}
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_STATE,
+            delta={"ecm0": {"cmdSpd": speed_rpm}},
         )
-        r.raise_for_status()
 
     async def set_feature_circuit_state(self, name: str, state: int) -> None:
-        r = await self.send_sub_shadow_desired_state_request(
-            "_fea", {name: {"st": state}}
+        await self._send_command_frame(
+            namespace=NAMESPACE_FEATURE_CIRCUIT,
+            action=_ACTION_SET_FEATURE_CIRCUIT_STATE,
+            delta={name: {"st": state}},
         )
-        r.raise_for_status()
 
     async def set_zigbee_state(self, addr: str, state: int) -> None:
-        r = await self.send_sub_shadow_desired_state_request(
-            "_zig", {"zig": {addr: {"st": state}}}
+        await self._send_command_frame(
+            namespace=NAMESPACE_ZIGBEE,
+            action=_ACTION_SET_ZIGBEE_STATE,
+            delta={"zig": {addr: {"st": state}}},
         )
-        r.raise_for_status()

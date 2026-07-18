@@ -9,7 +9,6 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from iaqualink.exception import _AqualinkOfflineSignal
-from iaqualink.shared.robots import RobotStateSubscription, deep_merge
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.cyclobat.const import (
     CYCLE_DURATION_KEY,
@@ -22,6 +21,7 @@ from iaqualink.systems.cyclobat.const import (
 from iaqualink.systems.cyclobat.device import CyclobatDevice
 from iaqualink.systems.cyclobat.ws import send_set_ctrl, send_set_mode
 from iaqualink.utils.redact import mask_serial
+from iaqualink.utils.robots import RobotStateSubscription, deep_merge
 
 if TYPE_CHECKING:
     import httpx

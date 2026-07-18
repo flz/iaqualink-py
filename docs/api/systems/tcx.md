@@ -1,6 +1,6 @@
 # TCX Systems API
 
-TCX filtration and spa controllers communicate via AWS IoT Device Shadow on `prod.zodiac-io.com`.
+TCX filtration and spa controllers communicate via AWS IoT Device Shadow. Reads are primarily WebSocket (`prod-socket.zodiac-io.com`), with REST shadow endpoints (`prod.zodiac-io.com`) as a one-shot bootstrap/fallback; writes are WebSocket `StateController` command frames.
 
 ## TcxSystem
 
