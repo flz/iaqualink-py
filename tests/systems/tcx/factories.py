@@ -307,6 +307,7 @@ tcx_system_factories: list[tuple[str, Callable[[], Any]]] = [
 tcx_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = []
 tcx_light_factories: list[tuple[str, Callable[[], Any]]] = []
 tcx_number_factories: list[tuple[str, Callable[[], Any]]] = []
+tcx_select_factories: list[tuple[str, Callable[[], Any]]] = []
 # TcxVariableSpeedPump doesn't implement on/off (supports_turn_on/off are
 # False), which conflicts with the generic AqualinkFan conformance contract
 # for `is_on`. Covered by direct unit tests in test_device.py instead.
