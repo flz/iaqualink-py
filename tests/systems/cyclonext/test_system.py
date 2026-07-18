@@ -93,6 +93,27 @@ async def test_refresh_parses_shadow_and_sets_online(
 
 
 @respx.mock
+async def test_refresh_surfaces_full_errors_dict(
+    sut: CyclonextSystem,
+) -> None:
+    # Every scalar under the robot's `errors` block becomes an `error_<key>`
+    # sensor, not just `code`. Sibling fields (e.g. timestamp) are preserved.
+    payload = load_fixture("cyclonext", "shadow_get")
+    robot = next(
+        r
+        for r in payload["state"]["reported"]["equipment"]["robot"]
+        if isinstance(r, dict)
+    )
+    robot["errors"] = {"code": 107, "timestamp": 1783590606}
+    _mock_shadow(payload)
+    await sut.refresh()
+    assert sut.devices["error_code"].data["state"] == 107
+    assert "error_timestamp" in sut.devices
+    assert sut.devices["error_timestamp"].data["state"] == 1783590606
+    assert sut.devices["error_timestamp"].entity_category == "diagnostic"
+
+
+@respx.mock
 async def test_refresh_missing_robot_sets_offline(
     sut: CyclonextSystem,
 ) -> None:

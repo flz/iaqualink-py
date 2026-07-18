@@ -183,10 +183,15 @@ class CyclonextSystem(RobotStateSubscription, AqualinkSystem):
                 continue
             devices[key] = {"name": key, "state": value}
 
-        # Surface error code as a dedicated sensor.
-        err = robot.get("errors") or {}
-        if "code" in err:
-            devices["error_code"] = {"name": "error_code", "state": err["code"]}
+        # Surface every scalar field from the robot's error block. `code`
+        # keeps its canonical `error_code` name (0 = no fault); siblings such
+        # as `timestamp` become `error_<key>` so the full fault context, not
+        # just the code, reaches consumers.
+        for ekey, evalue in (robot.get("errors") or {}).items():
+            if isinstance(evalue, (dict, list)):
+                continue
+            name = f"error_{ekey}"
+            devices[name] = {"name": name, "state": evalue}
 
         # Vendor app "Model Number" maps to devices.json `id`.
         model_number = self.data.get("id")

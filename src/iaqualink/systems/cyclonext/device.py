@@ -54,6 +54,7 @@ _SENSOR_META: dict[str, _Meta] = {
     "time_remaining_sec": _Meta(_DUR, "s", _MEAS, numeric=True),
     "stepper": _Meta(_DUR, "min", _MEAS, numeric=True),
     "error_code": _Meta(numeric=True),
+    "error_timestamp": _Meta(numeric=True),
 }
 
 # Sensors marked HA diagnostic: firmware/identifiers + state that merely
@@ -87,7 +88,9 @@ class CyclonextDevice(AqualinkDevice):
 
     @property
     def entity_category(self) -> str | None:
-        if self.name in _DIAGNOSTIC_NAMES or self.name.startswith("ebox_"):
+        if self.name in _DIAGNOSTIC_NAMES or self.name.startswith(
+            ("ebox_", "error_")
+        ):
             return "diagnostic"
         return None
 
