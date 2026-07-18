@@ -3,12 +3,14 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import json
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
 import respx.router
+from httpx_ws import WebSocketUpgradeError
 
 from iaqualink.client import AqualinkAuthState, AqualinkClient
 from iaqualink.const import (
@@ -140,6 +142,43 @@ class TestAqualinkClient:
         )
 
         assert AqualinkAuthState.from_dict(auth_state.to_dict()) == auth_state
+
+    def test_auth_state_app_client_id_default_empty(self) -> None:
+        state = AqualinkAuthState(
+            username="u",
+            client_id="c",
+            authentication_token="t",
+            user_id="1",
+            id_token="i",
+            refresh_token="r",
+        )
+        assert state.app_client_id == ""
+
+    def test_auth_state_from_dict_tolerates_missing_app_client_id(self) -> None:
+        raw = {
+            "username": "u",
+            "client_id": "c",
+            "authentication_token": "t",
+            "user_id": "1",
+            "id_token": "i",
+            "refresh_token": "r",
+        }
+        state = AqualinkAuthState.from_dict(raw)
+        assert state.app_client_id == ""
+
+    def test_auth_state_from_dict_round_trip_with_app_client_id(self) -> None:
+        raw = {
+            "username": "u",
+            "client_id": "c",
+            "authentication_token": "t",
+            "user_id": "1",
+            "id_token": "i",
+            "refresh_token": "r",
+            "app_client_id": "abc123",
+        }
+        state = AqualinkAuthState.from_dict(raw)
+        assert state.app_client_id == "abc123"
+        assert state.to_dict()["app_client_id"] == "abc123"
 
     async def test_auth_state_setter(self) -> None:
         client = _make_client()
@@ -627,6 +666,47 @@ class TestAqualinkClient:
         )
 
     @patch("httpx.AsyncClient.request")
+    async def test_login_captures_app_client_id(self, mock_request) -> None:
+        data = {
+            **LOGIN_DATA,
+            "cognitoPool": {"appClientId": "client-xyz"},
+        }
+        mock_request.return_value = _make_resp(200, data)
+
+        client = _make_client()
+        await client.login()
+
+        assert client.app_client_id == "client-xyz"
+
+    @patch("httpx.AsyncClient.request")
+    async def test_login_app_client_id_defaults_empty_when_missing(
+        self, mock_request
+    ) -> None:
+        mock_request.return_value = _make_resp(200, LOGIN_DATA)
+
+        client = _make_client()
+        await client.login()
+
+        assert client.app_client_id == ""
+
+    async def test_auth_state_round_trip_includes_app_client_id(self) -> None:
+        state = AqualinkAuthState(
+            username="foo",
+            client_id="c",
+            authentication_token="t",
+            user_id="1",
+            id_token="i",
+            refresh_token="r",
+            app_client_id="abc",
+        )
+        client = _make_client()
+        client.auth_state = state
+
+        assert client.app_client_id == "abc"
+        assert client.auth_state is not None
+        assert client.auth_state.app_client_id == "abc"
+
+    @patch("httpx.AsyncClient.request")
     async def test_refresh_retains_existing_token_when_none_returned(
         self, mock_request
     ) -> None:
@@ -795,3 +875,157 @@ class TestAqualinkAuthStateRepr:
         assert "jwt" not in r
         assert "refresh-tok" not in r
         assert "***" in r
+
+
+def _ws_cm(ws: AsyncMock) -> MagicMock:
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(return_value=ws)
+    cm.__aexit__ = AsyncMock(return_value=None)
+    return cm
+
+
+def _ws_cm_upgrade_error(status: int) -> MagicMock:
+    # A WS handshake that the server rejects: aconnect_ws raises
+    # WebSocketUpgradeError from __aenter__ carrying the HTTP response.
+    cm = MagicMock()
+    cm.__aenter__ = AsyncMock(
+        side_effect=WebSocketUpgradeError(httpx.Response(status))
+    )
+    cm.__aexit__ = AsyncMock(return_value=None)
+    return cm
+
+
+class TestAqualinkClientWebSocket:
+    async def test_send_ws_frame_sends_json_and_swallows_ack_timeout(
+        self,
+    ) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(side_effect=TimeoutError())
+        frame = {"version": 1, "action": "setCleanerState"}
+
+        with patch(
+            "iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)
+        ) as mock_connect:
+            await client.send_ws_frame("https://ws.example/devices", frame)
+
+        mock_connect.assert_called_once()
+        assert mock_connect.call_args.args[0] == "https://ws.example/devices"
+        assert mock_connect.call_args.kwargs["headers"] == {
+            "Authorization": "tok",
+            "Origin": "https://ws.example",
+        }
+        ws.send_text.assert_awaited_once_with(json.dumps(frame))
+
+    async def test_ws_uses_dedicated_http1_client_not_rest(self) -> None:
+        # V24: WS rides a dedicated HTTP/1.1 client, NOT the HTTP/2 REST client
+        # (the Upgrade is invalid over HTTP/2 → endpoint 400s).
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(return_value="ack")
+
+        with patch(
+            "iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)
+        ) as mock_connect:
+            await client.send_ws_frame("https://ws.example/devices", {"a": 1})
+
+        ws_client = mock_connect.call_args.args[1]
+        assert ws_client is client._get_ws_httpx_client()
+        assert ws_client is not client._get_httpx_client()
+
+    async def test_ws_connect_maps_unauthorized_upgrade(self) -> None:
+        # A 401 on the WS handshake is a stale token -> surface it as the same
+        # unauthorized error the REST path raises, so callers can reauth.
+        client = _make_client()
+        client.id_token = "tok"
+        with (
+            patch(
+                "iaqualink.client.aconnect_ws",
+                return_value=_ws_cm_upgrade_error(401),
+            ),
+            pytest.raises(AqualinkServiceUnauthorizedException),
+        ):
+            async with client.ws_connect("https://ws.example/devices"):
+                pass
+
+    async def test_ws_connect_reraises_non_auth_upgrade_error(self) -> None:
+        # A non-auth handshake failure (e.g. 500) propagates unchanged.
+        client = _make_client()
+        client.id_token = "tok"
+        with (
+            patch(
+                "iaqualink.client.aconnect_ws",
+                return_value=_ws_cm_upgrade_error(500),
+            ),
+            pytest.raises(WebSocketUpgradeError),
+        ):
+            async with client.ws_connect("https://ws.example/devices"):
+                pass
+
+    async def test_send_ws_frame_reauths_and_retries_on_401(self) -> None:
+        # First handshake 401 -> refresh auth -> retry once and succeed,
+        # mirroring the REST read path's reauth-retry.
+        client = _make_client()
+        client.id_token = "stale"
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(return_value="ack")
+
+        with (
+            patch.object(client, "_refresh_auth", new=AsyncMock()) as refresh,
+            patch(
+                "iaqualink.client.aconnect_ws",
+                side_effect=[_ws_cm_upgrade_error(401), _ws_cm(ws)],
+            ) as mock_connect,
+        ):
+            await client.send_ws_frame("https://ws.example/devices", {"a": 1})
+
+        refresh.assert_awaited_once()
+        assert mock_connect.call_count == 2
+        ws.send_text.assert_awaited_once()
+        ws.receive_text.assert_awaited_once()
+        await client.close()
+
+    async def test_ws_connect_forwards_keepalive_when_set(self) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+
+        with patch(
+            "iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)
+        ) as mock_connect:
+            async with client.ws_connect(
+                "https://ws.example/devices",
+                keepalive_ping_interval_seconds=30.0,
+            ):
+                pass
+
+        assert (
+            mock_connect.call_args.kwargs["keepalive_ping_interval_seconds"]
+            == 30.0
+        )
+
+    async def test_ws_connect_omits_keepalive_by_default(self) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+
+        with patch(
+            "iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)
+        ) as mock_connect:
+            async with client.ws_connect("https://ws.example/devices"):
+                pass
+
+        assert (
+            "keepalive_ping_interval_seconds"
+            not in mock_connect.call_args.kwargs
+        )
+
+    async def test_ws_client_cached_and_closed(self) -> None:
+        # V24: the dedicated WS client is reused, and close() disposes it.
+        client = _make_client()
+        first = client._get_ws_httpx_client()
+        assert client._get_ws_httpx_client() is first
+        await client.close()
+        assert client._ws_client is None
