@@ -875,6 +875,9 @@ Combined status derived from `aws.status` and `systemMode`:
 | 5 | `feaCircuit` element schema (from `_fea` sub-shadow) — reference app model is empty; fields discovered dynamically |
 | 6 | ZigBee per-device schema within `_zig` sub-shadow — `addr→{st, fr, ...}` shape not confirmed from wire |
 | 7 | `ecm` sub-shadow URL (`tcx_ecm_shadow`) absent from production config — may not be fetched by reference app in production |
+| 8 | WS Authorization-ack and StateStreamer/DataStreamer/EventStreamer delta payload **body** shape — the envelope (`service`/`target`/`namespace`/`payload`) is confirmed, but the `payload` object's inner structure (whether it nests `state.reported` like REST, or something else) has no confirmed example in captured traffic |
+| 9 | Whether namespace-scoped pushes (`filtration`, `featureCircuit`, `zigbee`, etc.) deliver deltas in the same flat `payload.state.reported` shape as main-namespace (`tcx`) pushes, or a different per-namespace envelope — not confirmed |
+| 10 | Per-action WS command payload field shapes (`StateController` frames) — only the envelope is documented in this spec; field-level bodies for each action (e.g. `setWaterTempSetpoint`, `setFilterPumpState`) have no confirmed example |
 
 ---
 

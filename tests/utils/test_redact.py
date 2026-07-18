@@ -83,3 +83,14 @@ class TestRedactDict(unittest.TestCase):
     def test_state_not_redacted_by_default(self) -> None:
         result = redact_dict({"state": "on", "status": "ok"})
         assert result["state"] == "on"
+
+    def test_user_id_camel_case_redacted(self) -> None:
+        # WS subscribe frames use `userId` (camelCase), unlike REST's
+        # `user_id` (snake_case) — both must be caught.
+        result = redact_dict({"userId": 12345})
+        assert result["userId"] == "***"
+
+    def test_target_redacted(self) -> None:
+        # WS frames carry the device serial as `target`, not `serial`.
+        result = redact_dict({"target": "ABCDEFGHIJKL"})
+        assert result["target"] == "***"

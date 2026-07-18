@@ -8,6 +8,7 @@ import pytest
 from iaqualink.exception import AqualinkOperationNotSupportedException
 from iaqualink.systems.tcx.device import (
     TcxAuxSwitch,
+    TcxChlorinatorBoost,
     TcxClimate,
     TcxDevice,
     TcxFeatureCircuit,
@@ -230,3 +231,213 @@ class TestTcxZigbeeSwitchLabel:
     def test_label_falls_back_to_name(self) -> None:
         sut = TcxZigbeeSwitch(make_system(), {"name": "zig_aabbccdd"})
         assert sut.label == "ZigBee aabbccdd"
+
+
+# ---------------------------------------------------------------------------
+# Switch/climate on-off dispatch to WS command methods.
+#
+# These devices are excluded from the generic switch/climate conformance
+# suites (tests/conformance/test_switch.py, test_climate.py) because those
+# assert turn_on/turn_off make an HTTP request via respx — TCX writes now go
+# over WS, which respx can't intercept. Covered directly here instead,
+# mirroring the pattern already used for TcxVariableSpeedPump above.
+# ---------------------------------------------------------------------------
+
+
+FILTER_PUMP_ON: dict[str, Any] = {"name": "filt0", "st": 1}
+FILTER_PUMP_OFF: dict[str, Any] = {"name": "filt0", "st": 0}
+AUX_SWITCH_ON: dict[str, Any] = {"name": "aux0", "st": 1}
+AUX_SWITCH_OFF: dict[str, Any] = {"name": "aux0", "st": 0}
+CHLORINATOR_BOOST_ON: dict[str, Any] = {"name": "swc0", "boost": 1}
+CHLORINATOR_BOOST_OFF: dict[str, Any] = {"name": "swc0", "boost": 0}
+FEATURE_CIRCUIT_ON: dict[str, Any] = {"name": "feaCircuit0", "st": 1}
+FEATURE_CIRCUIT_OFF: dict[str, Any] = {"name": "feaCircuit0", "st": 0}
+ZIGBEE_SWITCH_ON: dict[str, Any] = {
+    "name": "zig_aabbccdd",
+    "addr": "aabbccdd",
+    "st": 1,
+}
+ZIGBEE_SWITCH_OFF: dict[str, Any] = {
+    "name": "zig_aabbccdd",
+    "addr": "aabbccdd",
+    "st": 0,
+}
+CLIMATE_ON: dict[str, Any] = {"name": "TspBdy0", "heatEnabled": True}
+CLIMATE_OFF: dict[str, Any] = {"name": "TspBdy0", "heatEnabled": False}
+
+
+class TestTcxFilterPumpOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxFilterPump(make_system(), FILTER_PUMP_ON)
+        assert sut.is_on is True
+
+    def test_is_on_false(self) -> None:
+        sut = TcxFilterPump(make_system(), FILTER_PUMP_OFF)
+        assert sut.is_on is False
+
+    async def test_turn_on_sends_command(self) -> None:
+        sut = TcxFilterPump(make_system(), FILTER_PUMP_OFF)
+        with patch.object(
+            sut.system, "set_filter_pump", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with(1)
+
+    async def test_turn_on_noop_when_already_on(self) -> None:
+        sut = TcxFilterPump(make_system(), FILTER_PUMP_ON)
+        with patch.object(
+            sut.system, "set_filter_pump", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_not_called()
+
+    async def test_turn_off_sends_command(self) -> None:
+        sut = TcxFilterPump(make_system(), FILTER_PUMP_ON)
+        with patch.object(
+            sut.system, "set_filter_pump", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with(0)
+
+    async def test_turn_off_noop_when_already_off(self) -> None:
+        sut = TcxFilterPump(make_system(), FILTER_PUMP_OFF)
+        with patch.object(
+            sut.system, "set_filter_pump", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_not_called()
+
+
+class TestTcxAuxSwitchOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxAuxSwitch(make_system(), AUX_SWITCH_ON)
+        assert sut.is_on is True
+
+    def test_is_on_false(self) -> None:
+        sut = TcxAuxSwitch(make_system(), AUX_SWITCH_OFF)
+        assert sut.is_on is False
+
+    async def test_turn_on_sends_command_with_name(self) -> None:
+        sut = TcxAuxSwitch(make_system(), AUX_SWITCH_OFF)
+        with patch.object(
+            sut.system, "set_aux", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with("aux0", 1)
+
+    async def test_turn_off_sends_command_with_name(self) -> None:
+        sut = TcxAuxSwitch(make_system(), AUX_SWITCH_ON)
+        with patch.object(
+            sut.system, "set_aux", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with("aux0", 0)
+
+
+class TestTcxChlorinatorBoostOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxChlorinatorBoost(make_system(), CHLORINATOR_BOOST_ON)
+        assert sut.is_on is True
+
+    def test_is_on_false(self) -> None:
+        sut = TcxChlorinatorBoost(make_system(), CHLORINATOR_BOOST_OFF)
+        assert sut.is_on is False
+
+    async def test_turn_on_sends_command(self) -> None:
+        sut = TcxChlorinatorBoost(make_system(), CHLORINATOR_BOOST_OFF)
+        with patch.object(
+            sut.system, "set_swc_boost", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with(True)
+
+    async def test_turn_off_sends_command(self) -> None:
+        sut = TcxChlorinatorBoost(make_system(), CHLORINATOR_BOOST_ON)
+        with patch.object(
+            sut.system, "set_swc_boost", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with(False)
+
+
+class TestTcxFeatureCircuitOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxFeatureCircuit(make_system(), FEATURE_CIRCUIT_ON)
+        assert sut.is_on is True
+
+    async def test_turn_on_sends_command_with_name(self) -> None:
+        sut = TcxFeatureCircuit(make_system(), FEATURE_CIRCUIT_OFF)
+        with patch.object(
+            sut.system, "set_feature_circuit_state", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with("feaCircuit0", 1)
+
+    async def test_turn_off_sends_command_with_name(self) -> None:
+        sut = TcxFeatureCircuit(make_system(), FEATURE_CIRCUIT_ON)
+        with patch.object(
+            sut.system, "set_feature_circuit_state", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with("feaCircuit0", 0)
+
+
+class TestTcxZigbeeSwitchOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxZigbeeSwitch(make_system(), ZIGBEE_SWITCH_ON)
+        assert sut.is_on is True
+
+    async def test_turn_on_sends_command_with_addr(self) -> None:
+        sut = TcxZigbeeSwitch(make_system(), ZIGBEE_SWITCH_OFF)
+        with patch.object(
+            sut.system, "set_zigbee_state", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with("aabbccdd", 1)
+
+    async def test_turn_off_sends_command_with_addr(self) -> None:
+        sut = TcxZigbeeSwitch(make_system(), ZIGBEE_SWITCH_ON)
+        with patch.object(
+            sut.system, "set_zigbee_state", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with("aabbccdd", 0)
+
+
+class TestTcxClimateOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxClimate(make_system(), CLIMATE_ON)
+        assert sut.is_on is True
+
+    def test_is_on_false(self) -> None:
+        sut = TcxClimate(make_system(), CLIMATE_OFF)
+        assert sut.is_on is False
+
+    async def test_turn_on_sends_command(self) -> None:
+        sut = TcxClimate(make_system(), CLIMATE_OFF)
+        with patch.object(
+            sut.system, "set_heat_enabled", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with(True)
+
+    async def test_turn_off_sends_command(self) -> None:
+        sut = TcxClimate(make_system(), CLIMATE_ON)
+        with patch.object(
+            sut.system, "set_heat_enabled", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with(False)
+
+    async def test_set_temperature_sends_command(self) -> None:
+        data: dict[str, Any] = {
+            "name": "TspBdy0",
+            "heatEnabled": True,
+            "waterTempSet": 80,
+        }
+        sut = TcxClimate(make_system(), data)
+        with patch.object(
+            sut.system, "set_water_temp_setpoint", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_temperature(88)
+        mock_set.assert_awaited_once_with(88)
