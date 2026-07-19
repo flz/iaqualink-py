@@ -38,6 +38,7 @@ from iaqualink.exception import (
 )
 from iaqualink.system import AqualinkSystem
 from iaqualink.utils.crypto import sign
+from iaqualink.utils.diagnostics import record_response
 from iaqualink.utils.reauth import send_with_reauth_retry
 from iaqualink.utils.redact import (
     REDACT_KEYS,
@@ -262,6 +263,8 @@ class AqualinkClient:
             raise AqualinkServiceException(
                 f"Request failed: {method.upper()} {url}: {e}"
             ) from e
+
+        await record_response(r)
 
         LOGGER.debug(
             "<- %s %s - %s",
