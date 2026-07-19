@@ -1030,6 +1030,38 @@ class TestAqualinkClientWebSocket:
         await client.close()
         assert client._ws_client is None
 
+    async def test_close_is_noop_with_no_registered_subscriptions(
+        self,
+    ) -> None:
+        client = _make_client()
+        await client.close()  # must not raise
+        assert client._ws_subscriptions == []
+
+    async def test_close_stops_registered_subscriptions(self) -> None:
+        client = _make_client()
+        sub = MagicMock()
+        sub.stop_ws_subscription = AsyncMock()
+        client._register_ws_subscription(sub)
+
+        await client.close()
+
+        sub.stop_ws_subscription.assert_awaited_once()
+
+    async def test_register_ws_subscription_dedups(self) -> None:
+        client = _make_client()
+        sub = MagicMock()
+        client._register_ws_subscription(sub)
+        client._register_ws_subscription(sub)
+        assert client._ws_subscriptions == [sub]
+
+    async def test_unregister_ws_subscription_is_noop_if_absent(
+        self,
+    ) -> None:
+        client = _make_client()
+        sub = MagicMock()
+        client._unregister_ws_subscription(sub)  # must not raise
+        assert client._ws_subscriptions == []
+
     async def test_send_ws_frame_logs_redacted_frame_body(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:

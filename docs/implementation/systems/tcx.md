@@ -9,7 +9,7 @@ Implementation details for the TCX system (`device_type: "tcx"`). For the wire-l
 | `device_type` | `tcx` |
 | API host | `prod.zodiac-io.com` (REST), `prod-socket.zodiac-io.com` (WS) |
 | Authentication | JWT `IdToken` (Bearer on REST; bare on WS) |
-| Update call | WS state subscription (primary); main shadow (`GET /devices/v2/{serial}/shadow`) + active sub-shadows as a one-shot bootstrap/fallback |
+| Update call | WS state subscription (primary, auto-started); main shadow (`GET /devices/v2/{serial}/shadow`) as a one-shot bootstrap/fallback |
 | State updates | WS `StateController` command frames |
 | Python class | `TcxSystem` in `src/iaqualink/systems/tcx/system.py` |
 
@@ -57,21 +57,15 @@ Status is derived from two fields in `state.reported`:
 | `swc0` | `TcxChlorinatorBoost` | `AqualinkSwitch` | Exposes boost on/off only |
 | `solar` | `TcxSolarSensor` | `AqualinkSensor` | Solar temperature |
 
-### From sub-shadows
+### Feature-circuit / ZigBee discovery (best-effort, WS-driven)
 
-Sub-shadows are fetched concurrently after the main shadow on each `_refresh()` call. Presence is discovered from `state.reported.equipment` keys.
+`TcxFeatureCircuit` (one per `feaCircuit[N]` key) and `TcxZigbeeSwitch` (one per device in a `zig` dict) used to be discovered from dedicated REST sub-shadow responses (`_fea`, `_zig`). That REST sub-shadow fetch (`/devices/v1/{serial}{suffix}/shadow`, one GET per active suffix reported under `state.reported.equipment`) is **confirmed non-functional against real hardware** and has been removed.
 
-| Sub-shadow | Action | New devices |
-|---|---|---|
-| `_filt` | Merges `state.reported` into `filt0` device data | None (enriches existing) |
-| `_ecm` | Merges `state.reported` into `ecm0` device data | None (enriches existing) |
-| `_fea` | Discovers feature circuits | `TcxFeatureCircuit` (one per `feaCircuit[N]` key) |
-| `_zig` | Discovers ZigBee devices | `TcxZigbeeSwitch` (one per device in `zig` dict) |
-| `_sched` | Fetched but not parsed | None |
-| `_pib0` | Fetched but not parsed | None |
-| `_scene` | Fetched but not parsed | None |
+`_parse_fea_sub_shadow`/`_parse_zig_sub_shadow` now run unconditionally against whatever reported tree `_apply_reported_state` sees — the REST main shadow, a WS Authorization full-state ack, or a WS delta merged onto the cached tree. Both guard on their own key patterns (`feaCircuitN` prefix, `zig` dict), so this is a safe no-op when the data isn't present. This is a best-effort fallback, not a wire-confirmed behavior: whether the WS payload actually carries `feaCircuitN`/`zig` keys in the unified tree is unconfirmed (see Deltas table). If it doesn't, these devices simply won't appear until that's separately verified.
 
-Sub-shadow failures are isolated — a failed fetch for one suffix does not abort others. The failure is logged at WARNING level and the refresh continues.
+The `_filt`/`_ecm` sub-shadow responses used to additionally enrich `filt0`/`ecm0` device data with fields beyond what the main shadow's `reported.filt0`/`reported.ecm0` carries. That enrichment had no safe equivalent once the REST fetch was removed (the sub-shadow response's own document root *was* the flat filt0/ecm0 field set, a different shape than the nested `reported.filt0`/`reported.ecm0` the main shadow and `_update_devices()` use) and was dropped rather than reintroduced. `_update_devices()`'s existing handling of `reported.filt0`/`reported.ecm0` still picks up whatever fields land there via the main shadow or WS.
+
+`_sched`, `_pib0`, `_scene` sub-shadows were fetched but never parsed into devices even before this change — no functionality is lost there.
 
 ## Design Decisions
 
@@ -79,9 +73,10 @@ Sub-shadow failures are isolated — a failed fetch for one suffix does not abor
 
 Per the reference app, REST shadow GET is only a one-shot online/offline status check on the system list screen — it is not part of the live data flow, and commands are issued over WebSocket. `TcxSystem` mixes in `TcxStateSubscription` (`src/iaqualink/systems/tcx/ws.py`), built on the shared `WsStateSubscription` engine (`src/iaqualink/utils/websockets.py`, also used by `cyclobat`'s `RobotStateSubscription`):
 
-- `_refresh()` skips the REST fetch while `_ws_state_fresh()` is true. It does **not** call `start_ws_subscription()` itself — the library must not spin up background tasks on its own; a consumer (CLI/HA) opts in by calling it explicitly. Until a consumer does, `_refresh()` behaves exactly as before (a plain REST poll every call).
+- `_refresh()` calls `_ws_refresh_gate()`, which auto-starts the WS subscription (idempotent — a no-op once a live task exists) and skips the REST fetch while `_ws_state_fresh()` is true. `AqualinkClient.close()` stops any subscriptions it auto-started (systems register themselves with the client on `start_ws_subscription()`), so a consumer that never calls `stop_ws_subscription()` itself doesn't leak a background task + connection.
 - All 8 write methods (`set_filter_pump`, `set_aux`, `set_heat_enabled`, `set_water_temp_setpoint`, `set_swc_boost`, `set_vsp_speed`, `set_feature_circuit_state`, `set_zigbee_state`) send WS `StateController` command frames (`service`/`namespace`/`action`/`target`/`payload`) instead of REST POST. Writes are fire-and-forget (best-effort ack, no synchronous error) — wire-level errors are signaled asynchronously via `ErrorStreamer`, not yet wired into an exception on the calling command.
-- `start_ws_subscription()`/`stop_ws_subscription()` are provided but not auto-invoked by any consumer (same as cyclobat) — wiring into CLI/HA is separate future work.
+
+This start/stop lifecycle binding (tied to `_refresh()` calls and client close) is a library design choice, not observed from the reference app — no vendor evidence documents the reference app's actual WS session lifetime.
 
 Unlike cyclobat, tcx has no "robot" wrapper concept in its shadow — the reported tree is flat and multi-key across ~9 namespaces (see the protocol reference) — so `TcxStateSubscription` implements the generic engine's hooks directly against the whole reported tree rather than drilling into a sub-object.
 
@@ -89,15 +84,11 @@ Unlike cyclobat, tcx has no "robot" wrapper concept in its shadow — the report
 
 ### Shadow URL versions
 
-TCX main shadow reads use `/devices/v2/` (spec §Shadow Endpoints). Sub-shadow reads use `/devices/v1/` with the suffixed serial. All writes (main and sub-shadow) use `/devices/v2/`.
-
-### Concurrent sub-shadow fetch
-
-Sub-shadows are fetched with `asyncio.gather(..., return_exceptions=True)`. Each failure is logged individually rather than aborting the whole refresh. This tolerates temporary sub-shadow unavailability without marking the system offline.
+TCX main shadow reads use `/devices/v2/` (spec §Shadow Endpoints). All writes use `/devices/v2/`. Sub-shadow reads (`/devices/v1/` with the suffixed serial) are no longer issued by this library — see "Feature-circuit / ZigBee discovery" above.
 
 ### HMAC signature on main shadow GET
 
-The main shadow GET (`/devices/v2/{serial}/shadow`) requires `?signature={sig}` or the request is rejected with `400 BAD_REQUEST` (`"missing signature"`). `sig` is `sign([serial.upper(), user_id], AQUALINK_API_SIGNING_KEY)` — the same HMAC-SHA1 helper and signing key used for device discovery, with `[serial.upper(), user_id]` as the message parts. Sub-shadow GETs (`/devices/v1/`) and all writes (`POST`) do not require a signature.
+The main shadow GET (`/devices/v2/{serial}/shadow`) requires `?signature={sig}` or the request is rejected with `400 BAD_REQUEST` (`"missing signature"`). `sig` is `sign([serial.upper(), user_id], AQUALINK_API_SIGNING_KEY)` — the same HMAC-SHA1 helper and signing key used for device discovery, with `[serial.upper(), user_id]` as the message parts. Writes (`POST`) do not require a signature.
 
 ### Temperature unit
 
@@ -122,8 +113,8 @@ The SWC chlorinator is modelled as a boost on/off switch (`TcxChlorinatorBoost`)
 | 1 | SWC exposes boost only | Richer SWC surface (output %, salinity, mode) is future work |
 | 2 | Heater bounds hardcoded | Shadow bounds field presence not confirmed |
 | 3 | ZigBee write payload shape unverified | `set_zigbee_state` posts `{"zig": {addr: {"st": N}}}`; not confirmed from wire traffic |
-| 4 | `_sched`, `_pib0`, `_scene` fetched but not parsed | Schema not confirmed; no device mapping defined yet |
+| 4 | REST sub-shadow reads (`_filt`, `_ecm`, `_fea`, `_zig`, `_sched`, `_pib0`, `_scene`) removed entirely — no longer fetched | Confirmed non-functional against real hardware (field report); previously the "REST requests for all subsystems" behavior that motivated this change. Feature-circuit/ZigBee discovery now runs best-effort against the unified reported tree instead (see "Feature-circuit / ZigBee discovery" above); `filt0`/`ecm0` field enrichment from `_filt`/`_ecm` has no replacement |
 | 5 | WS Authorization-ack/StateStreamer-delta payload shape assumed to mirror REST's `state.reported` envelope, with no `robot`-style nesting level | Only the outer frame envelope (`service`/`target`/`namespace`/`payload`) is confirmed in the reference doc; the payload's inner structure has no confirmed example |
-| 6 | Sub-shadow-namespace-scoped WS deltas (e.g. `filtration` carrying `{"filt0": {...}}`) assumed to arrive in the same flat envelope and applied via the same generic per-key merge, without namespace-specific parsing | Even less confirmed than the main-namespace shape; mechanically safe due to `_update_devices`'s per-key guards, but unverified on the wire |
+| 6 | Sub-shadow-namespace-scoped WS deltas (e.g. `filtration` carrying `{"filt0": {...}}`, `featureCircuit` carrying `feaCircuitN` keys, `zigbee` carrying a `zig` dict) assumed to arrive in the same flat envelope and applied via the same generic per-key merge, without namespace-specific parsing | Even less confirmed than the main-namespace shape; mechanically safe due to `_update_devices`'s per-key guards and `_parse_fea_sub_shadow`/`_parse_zig_sub_shadow`'s own key-pattern guards, but unverified on the wire — if the WS payload nests this data differently, feature-circuit/ZigBee devices won't populate |
 | 7 | Per-action WS command payload shapes inferred by reusing each write method's existing REST desired-state delta (e.g. `{"filt0": {"st": state}}`) as the frame's `payload`, plus `clientToken` | The reference doc documents the command envelope but not field-level payloads per action; this is the only confirmed field-naming source available |
 | 8 | `set_vsp_speed` uses the generic `tcx` namespace `"setState"` action | No documented VSP namespace action matches "set current commanded speed" (`cmdSpd`) — the other VSP actions are all specific-purpose (priming/min/max/quick-clean/freeze speeds) |

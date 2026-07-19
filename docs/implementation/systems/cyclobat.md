@@ -9,7 +9,7 @@ Implementation details for cyclobat systems (`device_type: "cyclobat"` — Zodia
 | `device_type` | `cyclobat` |
 | API host | `prod.zodiac-io.com` |
 | Authentication | JWT `IdToken` (bare, no `Bearer` prefix) |
-| Update call | Single shadow state fetch (`GET /devices/v1/{serial}/shadow`) |
+| Update call | WS state subscription (primary, auto-started); shadow state fetch (`GET /devices/v1/{serial}/shadow`) as bootstrap/fallback |
 | Write commands | WebSocket `wss://prod-socket.zodiac-io.com/devices` via `AqualinkClient.send_ws_frame` + shared `iaqualink.shared.robots` framing |
 | Python class | `CyclobatSystem` in `src/iaqualink/systems/cyclobat/system.py` |
 
@@ -19,13 +19,14 @@ Status is derived from the shadow response and request outcome, not from a wire 
 
 ### `_refresh()` template
 
-1. Issue `GET /devices/v1/{serial}/shadow` with `Authorization: {id_token}`.
-2. Call `_parse_shadow_response()`:
+1. Call `_ws_refresh_gate()`: auto-starts the WS subscription (idempotent) and reports whether pushed state is fresh.
+2. If fresh: skip the REST fetch and set `self.status = SystemStatus.ONLINE` (the WS apply path doesn't set status itself, so `_refresh()` restores it here — `refresh()` resets status to `IN_PROGRESS` before every call).
+3. Otherwise, issue `GET /devices/v1/{serial}/shadow` with `Authorization: {id_token}`, then call `_parse_shadow_response()`:
    - Deserialise JSON; extract `state.reported`.
    - Traverse to `state.reported.equipment.robot`.
    - If `state.reported` is absent/malformed **or** `equipment.robot` is not a dict → raise `_AqualinkOfflineSignal`.
-3. Flatten robot sub-keys into the device registry (see §Device Model below).
-4. On success set `self.status = SystemStatus.ONLINE`.
+4. Flatten robot sub-keys into the device registry (see §Device Model below).
+5. On REST-path success set `self.status = SystemStatus.ONLINE`.
 
 ### Status mapping
 
@@ -105,9 +106,11 @@ All write commands go through the shared WebSocket transport (`AqualinkClient.se
 
 ## Design Decisions
 
-### Read path is HTTP shadow GET; write path is WebSocket
+### WebSocket-primary reads; write path is WebSocket
 
-The reference app uses WebSocket for both reads and writes. The Python implementation polls the HTTP REST shadow endpoint for reads (same pattern as the eXO implementation) and uses the WebSocket only for write commands. This avoids managing a persistent connection for polling.
+The reference app uses WebSocket for both reads and writes. `CyclobatSystem` mixes in `RobotStateSubscription` (`src/iaqualink/utils/robots.py`), built on the shared `WsStateSubscription` engine (`src/iaqualink/utils/websockets.py`, also used by `tcx`). `_refresh()` auto-starts the subscription (via `_ws_refresh_gate()`, idempotent — a no-op once a live task exists) and skips the REST shadow GET while WS-pushed state is fresh; otherwise it falls back to the REST shadow GET (same pattern as the eXO implementation). `AqualinkClient.close()` stops any subscriptions it auto-started.
+
+This start/stop lifecycle binding (tied to `_refresh()` calls and client close) is a library design choice, not observed from the reference app — no vendor evidence documents the reference app's actual WS session lifetime.
 
 ### Device registry flattened into underscored keys
 

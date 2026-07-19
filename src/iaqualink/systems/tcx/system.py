@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -26,7 +25,6 @@ if TYPE_CHECKING:
     from iaqualink.typing import Payload
 
 TCX_SHADOW_URL = "https://prod.zodiac-io.com/devices/v2"
-TCX_SUB_SHADOW_READ_URL = "https://prod.zodiac-io.com/devices/v1"
 
 # Wire actions (docs/reference/systems/tcx.md "Command Reference"). Per-action
 # payload shapes beyond the envelope aren't documented — see _send_command_frame.
@@ -41,18 +39,6 @@ _ACTION_SET_BOOST_MODE = "setBoostMode"
 _ACTION_SET_STATE = "setState"
 _ACTION_SET_FEATURE_CIRCUIT_STATE = "setFeatureCircuitState"
 _ACTION_SET_ZIGBEE_STATE = "setZigbeeState"
-
-# Sub-shadow suffixes that may exist for a given device.
-# Presence is signalled by state.reported.equipment.<key>.
-_SUB_SHADOW_SUFFIX_MAP = {
-    "filt": "_filt",
-    "ecm": "_ecm",
-    "sched": "_sched",
-    "pib0": "_pib0",
-    "fea": "_fea",
-    "zig": "_zig",
-    "scene": "_scene",
-}
 
 LOGGER = logging.getLogger("iaqualink.systems.tcx")
 
@@ -106,16 +92,6 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
 
         return await self._send_with_reauth_retry(do_request)
 
-    async def _send_sub_shadow_read_request(
-        self, suffix: str
-    ) -> httpx.Response:
-        async def do_request() -> httpx.Response:
-            url = f"{TCX_SUB_SHADOW_READ_URL}/{self.serial}{suffix}/shadow"
-            headers = {"Authorization": self.aqualink.id_token}
-            return await self.aqualink.send_request(url, headers=headers)
-
-        return await self._send_with_reauth_retry(do_request)
-
     async def send_reported_state_request(self) -> httpx.Response:
         signature = sign(
             [self.serial.upper(), self.aqualink.user_id],
@@ -128,12 +104,11 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
     async def _refresh(self) -> None:
         # Per the reference app, REST shadow GET is only a one-shot
         # online/offline status check (system list screen) — live state
-        # flows over the WS subscription when a consumer has started one via
-        # start_ws_subscription() (not auto-started here — the library must
-        # not spin up background tasks on its own, matching cyclobat's
-        # precedent). Skip the REST fetch while it's delivering fresh state;
-        # otherwise this is a plain REST bootstrap/fallback poll.
-        if self._ws_enabled and self._ws_state_fresh():
+        # flows over the WS subscription, auto-started below (idempotent —
+        # a no-op once a live task exists). Skip the REST fetch while it's
+        # delivering fresh state; otherwise this is a plain REST
+        # bootstrap/fallback poll.
+        if await self._ws_refresh_gate():
             # refresh() resets self.status to IN_PROGRESS before calling
             # _refresh(); restore it from the cache the WS push already
             # derived, so the "must set status before returning" contract
@@ -142,30 +117,7 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             return
 
         r = await self.send_reported_state_request()
-        reported = self._parse_shadow_response(r)
-
-        suffixes = self._active_sub_shadow_suffixes(reported)
-        if suffixes:
-            sub_responses = await asyncio.gather(
-                *[self._send_sub_shadow_read_request(s) for s in suffixes],
-                return_exceptions=True,
-            )
-            for suffix, resp in zip(suffixes, sub_responses):
-                if isinstance(resp, BaseException):
-                    LOGGER.warning(
-                        "TCX sub-shadow %s fetch failed for %s: %s",
-                        suffix,
-                        mask_serial(self.serial),
-                        resp,
-                    )
-                    continue
-                self._parse_sub_shadow_response(suffix, resp)
-
-    def _active_sub_shadow_suffixes(
-        self, reported: dict[str, Any]
-    ) -> list[str]:
-        equipment = reported.get("equipment", {})
-        return [s for k, s in _SUB_SHADOW_SUFFIX_MAP.items() if k in equipment]
+        self._parse_shadow_response(r)
 
     def _parse_shadow_response(
         self, response: httpx.Response
@@ -195,6 +147,17 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
         )
 
         self._update_devices(reported)
+        # Feature-circuit/ZigBee device discovery: best-effort against
+        # whatever the unified tree carries (REST main shadow, WS
+        # Authorization ack, or a merged WS delta). These previously only
+        # ran against a dedicated REST sub-shadow response, which is
+        # confirmed non-functional against real hardware and has been
+        # removed — see "Deltas vs Protocol Reference" in
+        # docs/implementation/systems/tcx.md. Both guard on their own key
+        # patterns, so calling them unconditionally is a safe no-op when the
+        # data isn't present in `reported`.
+        self._parse_fea_sub_shadow(reported)
+        self._parse_zig_sub_shadow(reported)
 
     def _apply_reported_delta(self, delta: dict[str, Any]) -> None:
         """Merge a partial WS-pushed reported dict onto cached state and
@@ -205,27 +168,6 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
         `_update_devices` is safe on partial dicts on its own (each key is
         individually guarded), but the two scalar derivations are not."""
         self._apply_reported_state(deep_merge(self._ws_reported_cache, delta))
-
-    def _parse_sub_shadow_response(
-        self, suffix: str, response: httpx.Response
-    ) -> None:
-        data = response.json()
-        LOGGER.debug("TCX sub-shadow %s body: %s", suffix, redact_value(data))
-        reported = data.get("state", {}).get("reported", {})
-
-        if suffix == "_filt":
-            self._merge_device_data("filt0", reported)
-        elif suffix == "_ecm":
-            self._merge_device_data("ecm0", reported)
-        elif suffix == "_fea":
-            self._parse_fea_sub_shadow(reported)
-        elif suffix == "_zig":
-            self._parse_zig_sub_shadow(reported)
-        # _sched, _pib0, _scene: fetched but schema not confirmed; not surfaced
-
-    def _merge_device_data(self, key: str, reported: dict[str, Any]) -> None:
-        if key in self.devices:
-            self.devices[key].data.update(reported)
 
     def _parse_fea_sub_shadow(self, reported: dict[str, Any]) -> None:
         candidates: dict[str, dict[str, Any]] = {}

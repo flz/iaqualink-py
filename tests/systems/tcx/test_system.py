@@ -115,168 +115,58 @@ class TestTcxTempUnit:
         assert sut.temp_unit == "C"
 
 
-class TestActiveSubShadowSuffixes:
-    def test_no_equipment_key(self) -> None:
-        _, sut = _make_tcx_system()
-        reported: dict[str, Any] = {}
-        assert sut._active_sub_shadow_suffixes(reported) == []
+class TestFeaZigDeviceDiscovery:
+    # _parse_fea_sub_shadow/_parse_zig_sub_shadow used to only ever run
+    # against a dedicated REST sub-shadow response. That REST fetch is
+    # confirmed non-functional against real hardware and has been removed;
+    # these now run unconditionally against whatever reported tree
+    # _apply_reported_state sees (REST main shadow, WS Authorization ack, or
+    # a merged WS delta), best-effort — see "Deltas vs Protocol Reference" in
+    # docs/implementation/systems/tcx.md.
 
-    def test_filt_and_ecm(self) -> None:
+    def test_fea_circuits_discovered_from_reported_tree(self) -> None:
         _, sut = _make_tcx_system()
-        reported: dict[str, Any] = {"equipment": {"filt": {}, "ecm": {}}}
-        result = sut._active_sub_shadow_suffixes(reported)
-        assert set(result) == {"_filt", "_ecm"}
-
-    def test_all_sub_shadows(self) -> None:
-        _, sut = _make_tcx_system()
-        reported: dict[str, Any] = {
-            "equipment": {
-                "filt": {},
-                "ecm": {},
-                "sched": {},
-                "pib0": {},
-                "fea": {},
-                "zig": {},
-                "scene": {},
+        response = _make_shadow_response(
+            {
+                "feaCircuit0": {"st": 0, "en": 1, "fr": "Spa Jets"},
+                "feaCircuit1": {"st": 1, "en": 1, "fr": "Spa Light"},
             }
-        }
-        result = sut._active_sub_shadow_suffixes(reported)
-        assert set(result) == {
-            "_filt",
-            "_ecm",
-            "_sched",
-            "_pib0",
-            "_fea",
-            "_zig",
-            "_scene",
-        }
-
-
-class TestSubShadowMerge:
-    def test_filt_sub_shadow_merges_into_filt0(self) -> None:
-        _, sut = _make_tcx_system()
-        sut._parse_shadow_response(_make_shadow_response())
-
-        sub_resp = MagicMock()
-        sub_resp.json.return_value = {
-            "state": {
-                "reported": {
-                    "sl": [{"start": "08:00", "end": "20:00", "en": 1}],
-                    "st": 1,
-                }
-            }
-        }
-        sut._parse_sub_shadow_response("_filt", sub_resp)
-        assert "sl" in sut.devices["filt0"].data
-
-    def test_ecm_sub_shadow_merges_into_ecm0(self) -> None:
-        _, sut = _make_tcx_system()
-        sut._parse_shadow_response(_make_shadow_response())
-
-        sub_resp = MagicMock()
-        sub_resp.json.return_value = {
-            "state": {"reported": {"servTm": 999, "cmdSpd": 2700}}
-        }
-        sut._parse_sub_shadow_response("_ecm", sub_resp)
-        assert sut.devices["ecm0"].data["servTm"] == 999
-
-    def test_fea_sub_shadow_creates_feature_circuits(self) -> None:
-        _, sut = _make_tcx_system()
-        sut._parse_shadow_response(_make_shadow_response())
-
-        sub_resp = MagicMock()
-        sub_resp.json.return_value = {
-            "state": {
-                "reported": {
-                    "feaCircuit0": {"st": 0, "en": 1, "fr": "Spa Jets"},
-                    "feaCircuit1": {"st": 1, "en": 1, "fr": "Spa Light"},
-                }
-            }
-        }
-        sut._parse_sub_shadow_response("_fea", sub_resp)
+        )
+        sut._parse_shadow_response(response)
         assert "feaCircuit0" in sut.devices
         assert "feaCircuit1" in sut.devices
 
-    def test_zig_sub_shadow_creates_zigbee_devices(self) -> None:
+    def test_zig_devices_discovered_from_reported_tree(self) -> None:
         _, sut = _make_tcx_system()
-        sut._parse_shadow_response(_make_shadow_response())
-
-        sub_resp = MagicMock()
-        sub_resp.json.return_value = {
-            "state": {
-                "reported": {
-                    "zig": {
-                        "aabbccdd": {"st": 1, "fr": "Pool Light"},
-                    }
-                }
-            }
-        }
-        sut._parse_sub_shadow_response("_zig", sub_resp)
+        response = _make_shadow_response(
+            {"zig": {"aabbccdd": {"st": 1, "fr": "Pool Light"}}}
+        )
+        sut._parse_shadow_response(response)
         assert "zig_aabbccdd" in sut.devices
 
-    def test_unknown_suffix_is_silently_ignored(self) -> None:
+    def test_absent_fea_and_zig_keys_is_a_no_op(self) -> None:
         _, sut = _make_tcx_system()
         sut._parse_shadow_response(_make_shadow_response())
-        device_count = len(sut.devices)
-
-        sub_resp = MagicMock()
-        sub_resp.json.return_value = {"state": {"reported": {"foo": "bar"}}}
-        sut._parse_sub_shadow_response("_scene", sub_resp)
-        assert len(sut.devices) == device_count
+        assert not any(k.startswith("feaCircuit") for k in sut.devices)
+        assert not any(k.startswith("zig_") for k in sut.devices)
 
 
-class TestSubShadowFetchIsolation:
+class TestTcxRefreshRestOnlyMainShadow:
     @patch("httpx.AsyncClient.request")
-    async def test_sub_shadow_failure_does_not_abort_others(
-        self, mock_request
+    async def test_refresh_issues_only_main_shadow_request(
+        self, mock_request: MagicMock
     ) -> None:
+        # No sub-shadow REST calls remain — only the main shadow GET.
         _, sut = _make_tcx_system()
+        sut._ws_enabled = False
+        mock_request.return_value = MagicMock(
+            status_code=200, json=lambda: SAMPLE_DATA
+        )
+        await sut._refresh()
+        assert mock_request.call_count == 1
 
-        main_resp = MagicMock()
-        main_resp.json.return_value = {
-            "state": {
-                "reported": {
-                    **SAMPLE_REPORTED,
-                    "equipment": {"filt": {}, "fea": {}},
-                }
-            }
-        }
-        fea_resp = MagicMock()
-        fea_resp.json.return_value = {
-            "state": {
-                "reported": {
-                    "feaCircuit0": {"st": 0, "en": 1, "fr": "Spa Jets"}
-                }
-            }
-        }
 
-        async def fake_send_reported() -> MagicMock:
-            return main_resp
-
-        async def fake_filt_fail(suffix: str) -> MagicMock:
-            if suffix == "_filt":
-                raise ConnectionError("network error")
-            return fea_resp
-
-        with (
-            patch.object(
-                sut,
-                "send_reported_state_request",
-                side_effect=fake_send_reported,
-            ),
-            patch.object(
-                sut,
-                "_send_sub_shadow_read_request",
-                side_effect=fake_filt_fail,
-            ),
-        ):
-            await sut._refresh()
-
-        # _fea succeeded despite _filt failure
-        assert "feaCircuit0" in sut.devices
-        # filt0 still created from main shadow
-        assert "filt0" in sut.devices
-
+class TestReportedStateRequest:
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request_includes_signature(
         self, mock_request
@@ -326,15 +216,28 @@ class TestSubShadowFetchIsolation:
 
 
 class TestTcxRefreshWsLifecycle:
-    # _refresh() never calls start_ws_subscription() itself — the library
-    # must not spin up background tasks on its own (matches cyclobat's
-    # precedent). A consumer opts in by calling start_ws_subscription()
-    # explicitly; these tests simulate that by patching _ws_state_fresh.
+    # _refresh() auto-starts the WS subscription via _ws_refresh_gate()
+    # (idempotent — a no-op once a live task exists). Tests that don't want
+    # a real background task/connection attempt patch start_ws_subscription
+    # directly.
+
+    async def test_refresh_auto_starts_subscription(self) -> None:
+        _, sut = _make_tcx_system()
+        with (
+            patch.object(
+                sut, "start_ws_subscription", new=AsyncMock()
+            ) as mock_start,
+            patch.object(sut, "send_reported_state_request", new=AsyncMock()),
+            patch.object(sut, "_parse_shadow_response"),
+        ):
+            await sut._refresh()
+        mock_start.assert_awaited_once()
 
     async def test_refresh_skips_rest_when_ws_state_fresh(self) -> None:
         _, sut = _make_tcx_system()
         sut._ws_reported_cache = copy.deepcopy(SAMPLE_REPORTED)
         with (
+            patch.object(sut, "start_ws_subscription", new=AsyncMock()),
             patch.object(sut, "_ws_state_fresh", return_value=True),
             patch.object(
                 sut, "send_reported_state_request", new=AsyncMock()
@@ -351,7 +254,10 @@ class TestTcxRefreshWsLifecycle:
             **copy.deepcopy(SAMPLE_REPORTED),
             "aws": {"status": "connected"},
         }
-        with patch.object(sut, "_ws_state_fresh", return_value=True):
+        with (
+            patch.object(sut, "start_ws_subscription", new=AsyncMock()),
+            patch.object(sut, "_ws_state_fresh", return_value=True),
+        ):
             await sut.refresh()
         assert sut.status is SystemStatus.CONNECTED
 
@@ -359,27 +265,35 @@ class TestTcxRefreshWsLifecycle:
     async def test_refresh_polls_rest_when_ws_disabled(
         self, mock_request: MagicMock
     ) -> None:
-        # WS fresh but disabled -> must still poll REST.
+        # Disabled -> must still poll REST, and must not even attempt to
+        # start the subscription.
         _, sut = _make_tcx_system()
         sut._ws_enabled = False
         mock_request.return_value = MagicMock(
             status_code=200, json=lambda: SAMPLE_DATA
         )
-        with patch.object(sut, "_ws_state_fresh", return_value=True):
+        with (
+            patch.object(
+                sut, "start_ws_subscription", new=AsyncMock()
+            ) as mock_start,
+            patch.object(sut, "_ws_state_fresh", return_value=True),
+        ):
             await sut._refresh()
         mock_request.assert_called()
+        mock_start.assert_not_awaited()
 
     @patch("httpx.AsyncClient.request")
-    async def test_refresh_polls_rest_when_ws_never_started(
+    async def test_refresh_polls_rest_when_ws_never_connected(
         self, mock_request: MagicMock
     ) -> None:
-        # No consumer has called start_ws_subscription() -> _ws_state_fresh()
-        # is naturally False -> plain REST bootstrap, same as before WS
-        # support existed.
+        # start_ws_subscription() runs (auto-started) but the socket hasn't
+        # delivered anything yet -> _ws_state_fresh() is naturally False ->
+        # plain REST bootstrap, same as before WS support existed.
         _, sut = _make_tcx_system()
         mock_request.return_value = MagicMock(
             status_code=200, json=lambda: SAMPLE_DATA
         )
-        await sut._refresh()
+        with patch.object(sut, "start_ws_subscription", new=AsyncMock()):
+            await sut._refresh()
         mock_request.assert_called()
         assert sut.status is SystemStatus.CONNECTED
