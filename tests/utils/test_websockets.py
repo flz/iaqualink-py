@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import json
 import time
 import unittest
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from iaqualink.utils.websockets import (
     ACTION_SUBSCRIBE,
@@ -363,3 +365,81 @@ class TestSubscriptionLifecycle(unittest.IsolatedAsyncioTestCase):
         sub = _make_sub()
         await sub.stop_ws_subscription()
         assert sub._ws_task is None
+
+    async def test_start_registers_with_client(self) -> None:
+        sub = _make_sub()
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(side_effect=_never)
+        sub.aqualink.ws_connect = MagicMock(return_value=_ws_cm(ws))
+
+        await sub.start_ws_subscription()
+        sub.aqualink._register_ws_subscription.assert_called_once_with(  # ty: ignore
+            sub
+        )
+        await sub.stop_ws_subscription()
+
+    async def test_stop_unregisters_from_client(self) -> None:
+        sub = _make_sub()
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(side_effect=_never)
+        sub.aqualink.ws_connect = MagicMock(return_value=_ws_cm(ws))
+
+        await sub.start_ws_subscription()
+        await sub.stop_ws_subscription()
+        sub.aqualink._unregister_ws_subscription.assert_called_once_with(  # ty: ignore
+            sub
+        )
+
+    async def test_stop_swallows_exception_from_already_failed_task(
+        self,
+    ) -> None:
+        # stop_ws_subscription() must not re-raise an exception the loop
+        # already ended with — client.close() calls this on every
+        # registered subscription and a propagating exception there would
+        # break cleanup for the rest.
+        sub = _make_sub()
+
+        async def _boom() -> None:
+            raise RuntimeError("dropped connection")
+
+        sub._ws_task = asyncio.ensure_future(_boom())
+        with contextlib.suppress(RuntimeError):
+            await sub._ws_task  # let it finish so it's already done
+        # _on_ws_task_done wasn't attached here (bypassing start_ws_subscription),
+        # so retrieve the exception the same way it would, then confirm stop
+        # doesn't re-raise it.
+        sub._ws_task.exception()
+
+        await sub.stop_ws_subscription()  # must not raise
+        assert sub._ws_task is None
+
+
+class TestWsRefreshGate(unittest.IsolatedAsyncioTestCase):
+    async def test_disabled_returns_false_without_starting(self) -> None:
+        sub = _make_sub()
+        sub._ws_enabled = False
+        with patch.object(
+            sub, "start_ws_subscription", new=AsyncMock()
+        ) as mock_start:
+            assert await sub._ws_refresh_gate() is False
+        mock_start.assert_not_awaited()
+
+    async def test_enabled_starts_subscription_and_reports_freshness(
+        self,
+    ) -> None:
+        sub = _make_sub()
+        sub._ws_connected = True
+        sub._ws_last_update = time.time()
+        with patch.object(
+            sub, "start_ws_subscription", new=AsyncMock()
+        ) as mock_start:
+            assert await sub._ws_refresh_gate() is True
+        mock_start.assert_awaited_once()
+
+    async def test_enabled_not_fresh_returns_false(self) -> None:
+        sub = _make_sub()
+        with patch.object(
+            sub, "start_ws_subscription", new=AsyncMock()
+        ) as mock_start:
+            assert await sub._ws_refresh_gate() is False
+        mock_start.assert_awaited_once()

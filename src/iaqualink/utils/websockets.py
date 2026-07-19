@@ -191,6 +191,19 @@ class WsStateSubscription(ABC):
             return False
         return (time.time() - self._ws_last_update) < max_age_secs
 
+    async def _ws_refresh_gate(self) -> bool:
+        """Ensure the subscription is running and report whether `_refresh`
+        should skip its REST fetch in favor of pushed WS state.
+
+        Auto-starts the subscription (idempotent — a no-op if a live task
+        already exists) so consumers get WS-backed reads without having to
+        call `start_ws_subscription()` themselves.
+        """
+        if not self._ws_enabled:
+            return False
+        await self.start_ws_subscription()
+        return self._ws_state_fresh()
+
     def _ws_subscribe_frame(self) -> dict[str, Any]:
         """Authorization subscribe frame that opens the push stream."""
         return build_subscribe_frame(
@@ -255,6 +268,7 @@ class WsStateSubscription(ABC):
             return
         self._ws_task = asyncio.create_task(self._ws_receive_loop())
         self._ws_task.add_done_callback(self._on_ws_task_done)
+        self.aqualink._register_ws_subscription(self)
 
     @staticmethod
     def _on_ws_task_done(task: asyncio.Task[None]) -> None:
@@ -270,10 +284,14 @@ class WsStateSubscription(ABC):
         """Cancel the background WS subscription, if running."""
         task = self._ws_task
         self._ws_task = None
+        self.aqualink._unregister_ws_subscription(self)
         if task is None:
             return
-        task.cancel()
+        if not task.done():
+            task.cancel()
         try:
             await task
         except asyncio.CancelledError:
             pass
+        except Exception:
+            pass  # already logged by _on_ws_task_done

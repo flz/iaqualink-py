@@ -54,6 +54,8 @@ if TYPE_CHECKING:
 
     from httpx_ws import AsyncWebSocketSession
 
+    from iaqualink.utils.websockets import WsStateSubscription
+
 for module_name in (
     "iaqualink.systems.cyclobat.system",
     "iaqualink.systems.exo.system",
@@ -158,6 +160,20 @@ class AqualinkClient:
         # (login, device-list) will contain unmasked serials in debug-log URLs.
         self._log_serials: set[str] = set()
 
+        # Systems whose WS subscription is currently running (auto-started by
+        # _refresh() via WsStateSubscription._ws_refresh_gate). close() stops
+        # them all so a consumer that never calls stop_ws_subscription()
+        # itself doesn't leak a background task + connection per system.
+        self._ws_subscriptions: list[WsStateSubscription] = []
+
+    def _register_ws_subscription(self, sub: WsStateSubscription) -> None:
+        if sub not in self._ws_subscriptions:
+            self._ws_subscriptions.append(sub)
+
+    def _unregister_ws_subscription(self, sub: WsStateSubscription) -> None:
+        if sub in self._ws_subscriptions:
+            self._ws_subscriptions.remove(sub)
+
     @property
     def logged(self) -> bool:
         return self._logged
@@ -193,6 +209,11 @@ class AqualinkClient:
         self._logged = True
 
     async def close(self) -> None:
+        # Stop any auto-started subscriptions first — they use _ws_client to
+        # connect, so this must happen before it's closed below.
+        for sub in list(self._ws_subscriptions):
+            await sub.stop_ws_subscription()
+
         # The WS client is always ours (never HA-injected), so always close it.
         if self._ws_client is not None:
             await self._ws_client.aclose()
