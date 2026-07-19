@@ -59,6 +59,8 @@ for module_name in (
     "iaqualink.systems.exo.system",
     "iaqualink.systems.i2d.system",
     "iaqualink.systems.iaqua.system",
+    "iaqualink.systems.vr.system",
+    "iaqualink.systems.vortrax.system",
 ):
     importlib.import_module(module_name)
 

@@ -1,0 +1,24 @@
+{
+  "state": {
+    "reported": {
+      "equipment": {
+        "robot": {
+          "state": 1,
+          "errorState": 0,
+          "prCyc": 1,
+          "stepper": 30,
+          "cycleStartTime": 1000,
+          "durations": {
+            "wallTim": 60,
+            "floorTim": 90,
+            "smartTim": 120,
+            "floorWallsTim": 150
+          },
+          "sensors": {"sns_1": {"val": 25}},
+          "sn": "SN42",
+          "vr": "1.0.0"
+        }
+      }
+    }
+  }
+}
