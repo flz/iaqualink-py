@@ -1,29 +1,24 @@
-"""Shared WebSocket framing for Zodiac robot cleaners.
+"""Shared WebSocket framing and subscription engine.
 
-Used by cyclobat (and cyclonext/vortrax/vr in the stack) to publish
-StateController frames. The wss transport lives on
-``AqualinkClient.send_ws_frame``; this module only builds robot frames and
-forwards them to that shared endpoint.
+The wss transport lives on ``AqualinkClient.send_ws_frame``/``ws_connect``;
+this module builds on top of it with pieces reused across every wss-based
+system (robots, tcx): a clientToken helper, the Authorization subscribe
+frame, a recursive state merge, and a generic persistent-subscription engine
+that a system mixes in and adapts to its own frame/payload shape.
 """
 
 from __future__ import annotations
 
 __all__ = [
-    "ACTION_SET_CLEANER_STATE",
-    "ACTION_SET_CLEANING_MODE",
-    "ACTION_SET_REMOTE_STEERING",
     "ACTION_SUBSCRIBE",
-    "EVENT_STATE_REPORTED",
     "NAMESPACE_AUTHORIZATION",
     "SERVICE_AUTHORIZATION",
     "SERVICE_STATE_CONTROLLER",
-    "SERVICE_STATE_STREAMER",
-    "RobotStateSubscription",
-    "build_set_state_frame",
+    "WsStateSubscription",
     "build_subscribe_frame",
     "client_token",
     "deep_merge",
-    "send_robot_frame",
+    "send_ws_command_frame",
 ]
 
 import asyncio
@@ -36,25 +31,20 @@ from typing import TYPE_CHECKING, Any
 
 from iaqualink.const import AQUALINK_WS_URL
 from iaqualink.system import SystemStatus
+from iaqualink.utils.redact import redact_value
 
 if TYPE_CHECKING:
     from iaqualink.client import AqualinkClient
     from iaqualink.device import AqualinkDevice
 
-LOGGER = logging.getLogger("iaqualink.shared.robots")
+LOGGER = logging.getLogger("iaqualink.utils.websockets")
 
 SERVICE_STATE_CONTROLLER = "StateController"
-ACTION_SET_CLEANER_STATE = "setCleanerState"
-ACTION_SET_CLEANING_MODE = "setCleaningMode"
-ACTION_SET_REMOTE_STEERING = "setRemoteSteeringControl"
 
-# Receive side: the cloud pushes state on the StateStreamer service as
-# StateReported events after an Authorization subscribe.
+# Subscribe side: every wss-based system opens the push stream the same way.
 ACTION_SUBSCRIBE = "subscribe"
 NAMESPACE_AUTHORIZATION = "authorization"
 SERVICE_AUTHORIZATION = "Authorization"
-SERVICE_STATE_STREAMER = "StateStreamer"
-EVENT_STATE_REPORTED = "StateReported"
 
 
 def deep_merge(base: dict[str, Any], delta: dict[str, Any]) -> dict[str, Any]:
@@ -73,8 +63,8 @@ def client_token(client: AqualinkClient) -> str:
     """Build the WS clientToken.
 
     Three-part ``{user_id}|{auth_token}|{app_client_id}`` when Cognito's
-    appClientId is available (vr/vortrax/cyclobat); two-part
-    ``{user_id}|<random-uuid-hex>`` fallback for cyclonext.
+    appClientId is available; two-part ``{user_id}|<random-uuid-hex>``
+    fallback otherwise.
     """
     if client.app_client_id:
         return (
@@ -85,28 +75,6 @@ def client_token(client: AqualinkClient) -> str:
     return f"{client.user_id}|{uuid.uuid4().hex}"
 
 
-def build_set_state_frame(
-    *,
-    namespace: str,
-    target: str,
-    equipment_state: dict[str, Any],
-    token: str,
-    action: str = ACTION_SET_CLEANER_STATE,
-) -> dict[str, Any]:
-    """Build the JSON shape posted on the StateController WS channel."""
-    return {
-        "version": 1,
-        "action": action,
-        "namespace": namespace,
-        "service": SERVICE_STATE_CONTROLLER,
-        "target": target,
-        "payload": {
-            "clientToken": token,
-            "state": {"desired": {"equipment": equipment_state}},
-        },
-    }
-
-
 def build_subscribe_frame(
     *,
     user_id: str | int,
@@ -114,8 +82,8 @@ def build_subscribe_frame(
 ) -> dict[str, Any]:
     """Build the Authorization subscribe frame sent on connect.
 
-    Generic across robot systems (and tcx): it opens the StateStreamer push
-    stream for the account. ``userId`` is numeric on the wire.
+    Generic across every wss-based system: it opens the push stream for the
+    account. ``userId`` is numeric on the wire.
     """
     try:
         uid: str | int = int(user_id)
@@ -131,31 +99,32 @@ def build_subscribe_frame(
     }
 
 
-async def send_robot_frame(
+async def send_ws_command_frame(
     client: AqualinkClient,
     frame: dict[str, Any],
 ) -> None:
-    """Send a pre-built robot frame over the shared wss endpoint."""
+    """Send a pre-built StateController-style command frame."""
     await client.send_ws_frame(AQUALINK_WS_URL, frame)
 
 
-class RobotStateSubscription(ABC):
-    """Mixin: persistent WebSocket state stream for robot systems.
+class WsStateSubscription(ABC):
+    """Mixin: persistent WebSocket state stream, protocol-shape-agnostic.
 
-    The vendor app keeps a wss connection open and applies pushed state
-    instead of polling. On connect it sends an Authorization ``subscribe``
+    The vendor apps keep a wss connection open and apply pushed state
+    instead of polling. On connect they send an Authorization ``subscribe``
     frame; the cloud replies with the full reported state, then streams
-    ``StateStreamer``/``StateReported`` deltas (``desired`` frames are command
-    echoes, ignored). A system's ``_refresh`` should skip the REST poll while
-    ``_ws_state_fresh()`` is true, so the socket dropping degrades to polling.
+    delta frames (command echoes are ignored). A system's ``_refresh``
+    should skip its REST poll while ``_ws_state_fresh()`` is true, so the
+    socket dropping degrades to polling.
 
-    Mix in before ``AqualinkSystem`` so the cooperative ``__init__`` and engine
-    methods take MRO precedence. Concrete systems implement the three hooks for
-    their own payload shape; the frame dispatch and lifecycle are shared.
+    Mix in before ``AqualinkSystem`` so the cooperative ``__init__`` and
+    engine methods take MRO precedence. Concrete systems implement the four
+    hooks below for their own frame/payload shape; the receive loop,
+    freshness tracking, and lifecycle are shared.
     """
 
-    # Max age of the last WS-pushed state before _refresh falls back to a REST
-    # poll. Only consulted while the WS subscription is connected.
+    # Max age of the last WS-pushed state before _refresh falls back to a
+    # REST poll. Only consulted while the WS subscription is connected.
     WS_STATE_FRESH_SECS: float = 120.0
 
     # WS keepalive ping interval. Detects a silently dropped socket (the cloud
@@ -183,16 +152,30 @@ class RobotStateSubscription(ABC):
     # --- system-specific hooks --------------------------------------------
 
     @abstractmethod
-    def _extract_robot(self, reported: dict[str, Any]) -> dict[str, Any] | None:
-        """Find the robot object in a `reported` payload (REST or WS shape)."""
+    def _ws_full_state_from_frame(
+        self, frame: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Given an Authorization-service frame, return the validated full
+        reported-state dict to apply, or None if it isn't a usable full-state
+        ack. Owns 100% of the payload-envelope unwrap for this family."""
 
     @abstractmethod
-    def _apply_reported_state(self, reported: dict[str, Any]) -> None:
-        """Apply a FULL `state.reported` payload and (re)build devices."""
+    def _ws_delta_from_frame(
+        self, frame: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """Given any non-Authorization frame, return the validated partial
+        delta dict to merge, or None if not a usable delta (wrong
+        event/service, desired-echo, missing/invalid nesting). Owns 100% of
+        the payload-envelope unwrap and any event/service filtering."""
 
     @abstractmethod
-    def _apply_robot_delta(self, delta: dict[str, Any]) -> None:
-        """Merge a partial robot dict (WS delta) and re-derive devices."""
+    def _apply_full_state(self, reported: dict[str, Any]) -> None:
+        """Apply a full reported-state dict (from a WS Authorization ack)
+        and (re)build devices."""
+
+    @abstractmethod
+    def _apply_state_delta(self, delta: dict[str, Any]) -> None:
+        """Merge a partial delta (WS push) onto cached state and re-derive."""
 
     # --- shared subscription engine ---------------------------------------
 
@@ -208,8 +191,21 @@ class RobotStateSubscription(ABC):
             return False
         return (time.time() - self._ws_last_update) < max_age_secs
 
+    async def _ws_refresh_gate(self) -> bool:
+        """Ensure the subscription is running and report whether `_refresh`
+        should skip its REST fetch in favor of pushed WS state.
+
+        Auto-starts the subscription (idempotent — a no-op if a live task
+        already exists) so consumers get WS-backed reads without having to
+        call `start_ws_subscription()` themselves.
+        """
+        if not self._ws_enabled:
+            return False
+        await self.start_ws_subscription()
+        return self._ws_state_fresh()
+
     def _ws_subscribe_frame(self) -> dict[str, Any]:
-        """Authorization subscribe frame that opens the StateStreamer stream."""
+        """Authorization subscribe frame that opens the push stream."""
         return build_subscribe_frame(
             user_id=self.aqualink.user_id, target=self.serial
         )
@@ -217,36 +213,23 @@ class RobotStateSubscription(ABC):
     def _apply_ws_frame(self, frame: dict[str, Any]) -> bool:
         """Apply a pushed WS frame. Returns True if device state changed.
 
-        Handles the Authorization full-state ack and StateStreamer reported
-        deltas; ignores `desired` command echoes, keepalives, and acks without
-        usable robot state.
+        Dispatches purely on `frame["service"] == "Authorization"` vs.
+        anything else; all payload-envelope unwrapping is delegated to the
+        four abstract hooks above, since the inner payload shape is
+        protocol-family-specific.
         """
-        payload = frame.get("payload") or {}
-
-        # Authorization ack carries the full reported state on connect.
         if frame.get("service") == SERVICE_AUTHORIZATION:
-            reported = ((payload.get("robot") or {}).get("state") or {}).get(
-                "reported"
-            )
-            if isinstance(reported, dict) and (
-                self._extract_robot(reported) is not None
-            ):
-                self._apply_reported_state(reported)
-                return True
-            return False
-
-        # StateStreamer pushes reported deltas (desired frames are echoes).
-        if frame.get("event") == EVENT_STATE_REPORTED:
-            reported = (payload.get("state") or {}).get("reported")
-            if not isinstance(reported, dict):
+            reported = self._ws_full_state_from_frame(frame)
+            if reported is None:
                 return False
-            delta = self._extract_robot(reported)
-            if delta is None:
-                return False
-            self._apply_robot_delta(delta)
+            self._apply_full_state(reported)
             return True
 
-        return False
+        delta = self._ws_delta_from_frame(frame)
+        if delta is None:
+            return False
+        self._apply_state_delta(delta)
+        return True
 
     async def _ws_receive_loop(self) -> None:
         """Subscribe, then apply pushed frames until the connection drops.
@@ -271,9 +254,9 @@ class RobotStateSubscription(ABC):
                         continue  # keepalive / non-JSON
                     if not isinstance(frame, dict):
                         continue
+                    LOGGER.debug("<- WS frame: %s", redact_value(frame))
                     if self._apply_ws_frame(frame):
                         self._ws_last_update = time.time()
-                        self.status = SystemStatus.ONLINE
             finally:
                 self._ws_connected = False
 
@@ -285,6 +268,7 @@ class RobotStateSubscription(ABC):
             return
         self._ws_task = asyncio.create_task(self._ws_receive_loop())
         self._ws_task.add_done_callback(self._on_ws_task_done)
+        self.aqualink._register_ws_subscription(self)
 
     @staticmethod
     def _on_ws_task_done(task: asyncio.Task[None]) -> None:
@@ -294,16 +278,20 @@ class RobotStateSubscription(ABC):
             return
         exc = task.exception()
         if exc is not None:
-            LOGGER.debug("robot WS loop ended: %r", exc)
+            LOGGER.debug("WS subscription loop ended: %r", exc)
 
     async def stop_ws_subscription(self) -> None:
         """Cancel the background WS subscription, if running."""
         task = self._ws_task
         self._ws_task = None
+        self.aqualink._unregister_ws_subscription(self)
         if task is None:
             return
-        task.cancel()
+        if not task.done():
+            task.cancel()
         try:
             await task
         except asyncio.CancelledError:
             pass
+        except Exception:
+            pass  # already logged by _on_ws_task_done

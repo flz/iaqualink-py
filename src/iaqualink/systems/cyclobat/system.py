@@ -9,7 +9,6 @@ import time
 from typing import TYPE_CHECKING, Any
 
 from iaqualink.exception import _AqualinkOfflineSignal
-from iaqualink.shared.robots import RobotStateSubscription, deep_merge
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.cyclobat.const import (
     CYCLE_DURATION_KEY,
@@ -22,6 +21,7 @@ from iaqualink.systems.cyclobat.const import (
 from iaqualink.systems.cyclobat.device import CyclobatDevice
 from iaqualink.systems.cyclobat.ws import send_set_ctrl, send_set_mode
 from iaqualink.utils.redact import mask_serial
+from iaqualink.utils.robots import RobotStateSubscription, deep_merge
 
 if TYPE_CHECKING:
     import httpx
@@ -52,8 +52,13 @@ class CyclobatSystem(RobotStateSubscription, AqualinkSystem):
         return await self._send_with_reauth_retry(do_request)
 
     async def _refresh(self) -> None:
-        if self._ws_enabled and self._ws_state_fresh():
-            # WS subscription is delivering fresh state; skip the REST poll.
+        # Auto-starts the WS subscription (idempotent) and skips the REST
+        # poll while it's delivering fresh state.
+        if await self._ws_refresh_gate():
+            # refresh() resets self.status to IN_PROGRESS before calling
+            # _refresh(); restore it here too so the "must set status before
+            # returning" contract holds on the skip path.
+            self.status = SystemStatus.ONLINE
             return
         r = await self.send_shadow_request()
         self._parse_shadow_response(r)

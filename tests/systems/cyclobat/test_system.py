@@ -94,11 +94,23 @@ async def test_refresh_skips_rest_when_ws_state_fresh(
 ) -> None:
     sut._ws_enabled = True
     with (
+        patch.object(sut, "start_ws_subscription", new=AsyncMock()),
         patch.object(sut, "_ws_state_fresh", return_value=True),
         patch.object(sut, "send_shadow_request") as mock_req,
     ):
         await sut.refresh()
     mock_req.assert_not_called()
+    assert sut.status is SystemStatus.ONLINE
+
+
+@respx.mock
+async def test_refresh_auto_starts_subscription(sut: CyclobatSystem) -> None:
+    _mock_shadow(load_fixture("cyclobat", "shadow_get"))
+    with patch.object(
+        sut, "start_ws_subscription", new=AsyncMock()
+    ) as mock_start:
+        await sut.refresh()
+    mock_start.assert_awaited_once()
 
 
 @respx.mock

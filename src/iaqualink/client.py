@@ -54,11 +54,14 @@ if TYPE_CHECKING:
 
     from httpx_ws import AsyncWebSocketSession
 
+    from iaqualink.utils.websockets import WsStateSubscription
+
 for module_name in (
     "iaqualink.systems.cyclobat.system",
     "iaqualink.systems.exo.system",
     "iaqualink.systems.i2d.system",
     "iaqualink.systems.iaqua.system",
+    "iaqualink.systems.tcx.system",
 ):
     importlib.import_module(module_name)
 
@@ -157,6 +160,20 @@ class AqualinkClient:
         # (login, device-list) will contain unmasked serials in debug-log URLs.
         self._log_serials: set[str] = set()
 
+        # Systems whose WS subscription is currently running (auto-started by
+        # _refresh() via WsStateSubscription._ws_refresh_gate). close() stops
+        # them all so a consumer that never calls stop_ws_subscription()
+        # itself doesn't leak a background task + connection per system.
+        self._ws_subscriptions: list[WsStateSubscription] = []
+
+    def _register_ws_subscription(self, sub: WsStateSubscription) -> None:
+        if sub not in self._ws_subscriptions:
+            self._ws_subscriptions.append(sub)
+
+    def _unregister_ws_subscription(self, sub: WsStateSubscription) -> None:
+        if sub in self._ws_subscriptions:
+            self._ws_subscriptions.remove(sub)
+
     @property
     def logged(self) -> bool:
         return self._logged
@@ -192,6 +209,11 @@ class AqualinkClient:
         self._logged = True
 
     async def close(self) -> None:
+        # Stop any auto-started subscriptions first — they use _ws_client to
+        # connect, so this must happen before it's closed below.
+        for sub in list(self._ws_subscriptions):
+            await sub.stop_ws_subscription()
+
         # The WS client is always ours (never HA-injected), so always close it.
         if self._ws_client is not None:
             await self._ws_client.aclose()
@@ -360,9 +382,9 @@ class AqualinkClient:
     ) -> None:
         """Open a one-shot WS, send `frame` as JSON, best-effort wait for ack."""
         LOGGER.debug(
-            "-> WS %s action=%s",
+            "-> WS %s %s",
             self._log_redact_url(url),
-            frame.get("action"),
+            redact_value(frame),
         )
 
         async def do_send() -> None:
@@ -377,7 +399,14 @@ class AqualinkClient:
                 ) as exc:
                     LOGGER.debug("No WS ack within %.1fs: %r", ack_timeout, exc)
                 else:
-                    LOGGER.debug("WS ack received (length=%d)", len(ack))
+                    ack_data: Any
+                    try:
+                        ack_data = json.loads(ack)
+                    except (json.JSONDecodeError, TypeError):
+                        ack_data = ack
+                    else:
+                        ack_data = redact_value(ack_data)
+                    LOGGER.debug("<- WS ack: %s", ack_data)
 
         # Mirror the REST read path: reauth once on a stale-token handshake.
         await send_with_reauth_retry(do_send, self._refresh_auth)
