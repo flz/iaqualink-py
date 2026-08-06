@@ -34,9 +34,16 @@ CYCLOBAT_DATA = {
 
 @pytest.fixture
 def sut(client) -> CyclobatSystem:
-    return cast(
+    system = cast(
         CyclobatSystem, AqualinkSystem.from_data(client, data=CYCLOBAT_DATA)
     )
+    # Most tests in this file exercise the plain REST refresh path and don't
+    # mock the WS transport — with _ws_enabled defaulting True, refresh()
+    # would auto-start a real (unmocked) WS connection attempt and each
+    # test would pay the full WS_INITIAL_ACK_TIMEOUT_SECS wait for nothing.
+    # Tests that specifically exercise WS behavior opt back in explicitly.
+    system._ws_enabled = False
+    return system
 
 
 def _mock_shadow(payload: dict) -> None:
@@ -105,6 +112,8 @@ async def test_refresh_skips_rest_when_ws_state_fresh(
 
 @respx.mock
 async def test_refresh_auto_starts_subscription(sut: CyclobatSystem) -> None:
+    sut._ws_enabled = True
+    sut.WS_INITIAL_ACK_TIMEOUT_SECS = 0.01  # keep the test fast
     _mock_shadow(load_fixture("cyclobat", "shadow_get"))
     with patch.object(
         sut, "start_ws_subscription", new=AsyncMock()

@@ -155,4 +155,14 @@ _system_ids, _system_factories = _discover_factories("system")
 
 @pytest.fixture(params=_system_factories, ids=_system_ids)
 def system_fixture(request: pytest.FixtureRequest) -> SystemFixture:
-    return request.param()
+    fixture: SystemFixture = request.param()
+    # Generic conformance tests exercise AqualinkSystem's REST-refresh
+    # contract (success/error/401-retry paths) via a single wildcard respx
+    # route. WS-capable systems (tcx, cyclobat) would otherwise also
+    # auto-start a real WS connection through that same intercepted client,
+    # racing/consuming canned responses meant for the REST sequence. WS
+    # behavior has its own dedicated coverage (test_ws.py,
+    # test_websockets.py, per-system WS-lifecycle tests) — disable it here.
+    if hasattr(fixture.system, "_ws_enabled"):
+        fixture.system._ws_enabled = False  # type: ignore[attr-defined]  # ty: ignore
+    return fixture

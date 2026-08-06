@@ -438,8 +438,37 @@ class TestWsRefreshGate(unittest.IsolatedAsyncioTestCase):
 
     async def test_enabled_not_fresh_returns_false(self) -> None:
         sub = _make_sub()
+        sub.WS_INITIAL_ACK_TIMEOUT_SECS = 0.01  # keep the test fast
         with patch.object(
             sub, "start_ws_subscription", new=AsyncMock()
         ) as mock_start:
             assert await sub._ws_refresh_gate() is False
         mock_start.assert_awaited_once()
+
+    async def test_waits_for_first_push_then_reports_fresh(self) -> None:
+        # Cold start: start_ws_subscription() only creates the background
+        # task, it doesn't itself wait for the socket to connect/subscribe/
+        # receive. The gate must wait (bounded) for the first push rather
+        # than checking freshness immediately and always missing it.
+        sub = _make_sub()
+        sub.WS_INITIAL_ACK_TIMEOUT_SECS = 2.0
+
+        async def _fake_start() -> None:
+            async def _deliver() -> None:
+                await asyncio.sleep(0.05)
+                sub._ws_connected = True
+                sub._ws_last_update = time.time()
+                sub._ws_first_update.set()
+
+            asyncio.ensure_future(_deliver())
+
+        with patch.object(
+            sub, "start_ws_subscription", side_effect=_fake_start
+        ):
+            assert await sub._ws_refresh_gate() is True
+
+    async def test_wait_times_out_and_returns_false(self) -> None:
+        sub = _make_sub()
+        sub.WS_INITIAL_ACK_TIMEOUT_SECS = 0.05
+        with patch.object(sub, "start_ws_subscription", new=AsyncMock()):
+            assert await sub._ws_refresh_gate() is False
