@@ -177,6 +177,29 @@ Authorization: {idToken}
 }
 ```
 
+Confirmed from live wire capture: for `service: "Authorization"` (full-state push on subscribe), `payload` is **namespace-keyed**, not a single flat `state.reported` object:
+
+```json
+{
+  "payload": {
+    "main":  { "state": { "reported": { "...top-level main fields..." } }, "metadata": { ... }, "version": <int>, "timestamp": <int> },
+    "filt":  { "state": { "reported": { "filt0": { ... } } }, "metadata": { ... }, "version": <int>, "timestamp": <int> },
+    "ecm":   { "state": { "reported": { "ecm0": { ... } } }, "metadata": { ... }, "version": <int>, "timestamp": <int> },
+    "pib0":  { "state": { "reported": { "water": { ... }, "air": { ... }, "solar": { ... }, "aux0": { ... }, "lvh1": { ... } } }, "metadata": { ... }, "version": <int>, "timestamp": <int> },
+    "zig":   { "state": { "reported": { "zig": { "...radio status..." }, "auxz0": { "...device..." } } }, "metadata": { ... }, "version": <int>, "timestamp": <int> },
+    "fea":   { "state": { "reported": { "fea": {}, "fcr0": { ... } } }, "metadata": { ... }, "version": <int>, "timestamp": <int> },
+    "sched": { "state": { "reported": { "sh": { ... } } }, "metadata": { ... }, "version": <int>, "timestamp": <int> },
+    "scene": { "state": { "reported": { "scene": { ... } } }, "metadata": { ... }, "version": <int>, "timestamp": <int> },
+    "data":  [ { "...telemetry sample..." } ],
+    "ota":   { "jobId": null, "status": null, "statusDetails": {} }
+  }
+}
+```
+
+Each namespace's `state.reported` merges to reproduce the same flat device keys the main REST shadow (`state.reported`) would carry for that namespace — no key collisions observed across namespaces. `data` (a telemetry-sample array) and `ota` are not `{state: {reported: ...}}`-shaped and carry no device state.
+
+`StateStreamer`/`DataStreamer`/`EventStreamer` delta payload shape has not been directly observed — whether it's the same namespace-keyed shape (likely, by analogy) or a flat `state.reported` remains unconfirmed.
+
 ---
 
 ## BLE Direct-Connect Fallback
@@ -872,12 +895,13 @@ Combined status derived from `aws.status` and `systemMode`:
 | 2 | `systemType` enum values — code-level meaning not confirmed |
 | 3 | `heatPriority` and `heatAvailable` value ranges — not confirmed |
 | 4 | `equipment` sub-object field values — presence indicators beyond key presence not characterized |
-| 5 | `feaCircuit` element schema (from `_fea` sub-shadow) — reference app model is empty; fields discovered dynamically |
-| 6 | ZigBee per-device schema within `_zig` sub-shadow — `addr→{st, fr, ...}` shape not confirmed from wire |
+| 5 | Feature-circuit element key — live capture shows `fcr[N]` (e.g. `fcr0`), not `feaCircuit[N]`; full field schema for an *enabled* circuit not yet observed (the one captured was disabled/`"app": "UNUSED"`) |
+| 6 | ZigBee device location — live capture shows attached devices as separate top-level keys (e.g. `auxz0`), analogous to `aux[N]`; the `zig` key itself is the radio's own status (`st`/`op`/`euid`/`fw`/`ty`/`bt`/`ai`), not a dict of devices keyed by address |
 | 7 | `ecm` sub-shadow URL (`tcx_ecm_shadow`) absent from production config — may not be fetched by reference app in production |
-| 8 | WS Authorization-ack and StateStreamer/DataStreamer/EventStreamer delta payload **body** shape — the envelope (`service`/`target`/`namespace`/`payload`) is confirmed, but the `payload` object's inner structure (whether it nests `state.reported` like REST, or something else) has no confirmed example in captured traffic |
-| 9 | Whether namespace-scoped pushes (`filtration`, `featureCircuit`, `zigbee`, etc.) deliver deltas in the same flat `payload.state.reported` shape as main-namespace (`tcx`) pushes, or a different per-namespace envelope — not confirmed |
-| 10 | Per-action WS command payload field shapes (`StateController` frames) — only the envelope is documented in this spec; field-level bodies for each action (e.g. `setWaterTempSetpoint`, `setFilterPumpState`) have no confirmed example |
+| 8 | ~~WS Authorization-ack payload body shape~~ — **confirmed** from live wire capture: namespace-keyed (see "Incoming data frame" above), not a flat `state.reported`. StateStreamer/DataStreamer/EventStreamer delta payload body shape remains unconfirmed — no delta frame observed live |
+| 9 | Whether namespace-scoped *delta* pushes (`filtration`, `featureCircuit`, `zigbee`, etc. via StateStreamer/DataStreamer/EventStreamer) use the same namespace-keyed shape confirmed for the Authorization full-state push, or something else — not confirmed |
+| 10 | Air sensor field — live capture shows no top-level `airTemp`/`airSnsr`; the air reading arrives as a full `air: {..., value, us}` object under the `pib0` namespace (same shape as `water`/`solar`), separate from a `hubAir`/`airSnsr` pair present at the main-namespace level |
+| 11 | Per-action WS command payload field shapes (`StateController` frames) — only the envelope is documented in this spec; field-level bodies for each action (e.g. `setWaterTempSetpoint`, `setFilterPumpState`) have no confirmed example |
 
 ---
 

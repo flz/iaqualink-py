@@ -8,10 +8,16 @@ concept — its shadow is a flat multi-key tree scoped across ~9 namespaces
 (see docs/reference/systems/tcx.md), so it builds directly on the generic
 `WsStateSubscription` engine rather than the robot-shaped mixin.
 
-The WS ack/delta payload's inner shape (beyond the envelope) has no
-confirmed example in the reference doc — this module assumes it mirrors the
-REST `state.reported` shape with no extra nesting. See "Not Observed / Needs
-Verification" in docs/reference/systems/tcx.md and "Deltas vs Protocol
+Confirmed from live wire traffic: the Authorization full-state payload is
+namespace-keyed — `{<ns>: {"state": {"reported": {...}}, ...}, ...}` for
+namespaces `main`, `filt`, `ecm`, `pib0`, `zig`, `fea`, `sched`, `scene` —
+not a single flat `payload.state.reported` as originally assumed. Each
+namespace's `reported` tree merges into one flat dict, matching what
+`_update_devices`/`_parse_fea_sub_shadow`/`_parse_zig_sub_shadow` expect.
+`StateStreamer`/`DataStreamer`/`EventStreamer` delta payload shape has not
+been directly observed — `_reported_from_payload` supports both the flat and
+namespace-keyed shapes so either works if/when confirmed. See "Not Observed /
+Needs Verification" in docs/reference/systems/tcx.md and "Deltas vs Protocol
 Reference" in docs/implementation/systems/tcx.md.
 """
 
@@ -51,6 +57,36 @@ _TCX_WS_DELTA_SERVICES = frozenset(
 )
 
 
+def _reported_from_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Extract/merge the reported-state tree from a tcx WS frame payload.
+
+    Confirmed on real hardware: the Authorization full-state payload is
+    namespace-keyed (`main`, `filt`, `ecm`, `pib0`, `zig`, `fea`, `sched`,
+    `scene`), each holding its own `state.reported`/`state.desired`/
+    `metadata`/`version`/`timestamp` — not a single flat
+    `payload["state"]["reported"]`. Every namespace's reported tree is
+    merged into one flat dict (no observed key collisions across
+    namespaces on real data).
+
+    Delta-frame (StateStreamer/DataStreamer/EventStreamer) shape hasn't
+    been directly observed, so a flat `payload.state.reported` is checked
+    first (in case a delta arrives that way) before falling back to the
+    namespace-merge — either shape resolves correctly.
+    """
+    direct = (payload.get("state") or {}).get("reported")
+    if isinstance(direct, dict) and direct:
+        return direct
+
+    merged: dict[str, Any] = {}
+    for value in payload.values():
+        if not isinstance(value, dict):
+            continue
+        reported = (value.get("state") or {}).get("reported")
+        if isinstance(reported, dict):
+            merged.update(reported)
+    return merged or None
+
+
 class TcxStateSubscription(WsStateSubscription):
     """Mixin: tcx WS envelope parsing (reads) + command frames (writes).
 
@@ -74,20 +110,14 @@ class TcxStateSubscription(WsStateSubscription):
     ) -> dict[str, Any] | None:
         if frame.get("service") != SERVICE_AUTHORIZATION:
             return None
-        reported = ((frame.get("payload") or {}).get("state") or {}).get(
-            "reported"
-        )
-        return reported if isinstance(reported, dict) and reported else None
+        return _reported_from_payload(frame.get("payload") or {})
 
     def _ws_delta_from_frame(
         self, frame: dict[str, Any]
     ) -> dict[str, Any] | None:
         if frame.get("service") not in _TCX_WS_DELTA_SERVICES:
             return None
-        reported = ((frame.get("payload") or {}).get("state") or {}).get(
-            "reported"
-        )
-        return reported if isinstance(reported, dict) and reported else None
+        return _reported_from_payload(frame.get("payload") or {})
 
     def _apply_full_state(self, reported: dict[str, Any]) -> None:
         self._apply_reported_state(reported)

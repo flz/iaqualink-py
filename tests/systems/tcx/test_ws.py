@@ -43,11 +43,35 @@ def _make_tcx_system() -> tuple[AqualinkClient, TcxSystem]:
 
 
 def _auth_frame(reported: dict[str, Any]) -> dict[str, Any]:
+    # Flat shape — kept as one of the two shapes _reported_from_payload
+    # supports (the namespace-keyed shape confirmed on real hardware is
+    # covered separately by _namespaced_auth_frame below).
     return {
         "service": SERVICE_AUTHORIZATION,
         "target": "ABCDEFG",
         "namespace": "authorization",
         "payload": {"state": {"reported": reported}},
+    }
+
+
+def _namespaced_auth_frame(
+    **namespaces: dict[str, Any],
+) -> dict[str, Any]:
+    # Confirmed on real hardware: the Authorization full-state payload is
+    # namespace-keyed, e.g. namespaces=dict(main={...}, filt={...}).
+    return {
+        "service": SERVICE_AUTHORIZATION,
+        "target": "ABCDEFG",
+        "namespace": "authorization",
+        "payload": {
+            ns: {
+                "state": {"reported": reported},
+                "metadata": {},
+                "version": 1,
+                "timestamp": 123,
+            }
+            for ns, reported in namespaces.items()
+        },
     }
 
 
@@ -90,6 +114,80 @@ class TestTcxWsFullStateFromFrame:
             "payload": {"state": {"reported": "nope"}},
         }
         assert sut._ws_full_state_from_frame(frame) is None
+
+
+class TestTcxWsFullStateNamespacedPayload:
+    # Confirmed on real hardware: the Authorization full-state payload is
+    # namespace-keyed, not the flat payload.state.reported shape.
+
+    def test_merges_reported_across_namespaces(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = _namespaced_auth_frame(
+            main={
+                "sn": "ABCDEFG",
+                "systemMode": 0,
+                "tempSetting": 1,
+                "aws": {"status": "connected"},
+            },
+            filt={"filt0": {"st": 1, "en": 1, "fr": "Filter Pump"}},
+            ecm={"ecm0": {"cmdSpd": 2700, "st": 1}},
+            pib0={
+                "water": {"value": 820, "us": "VALID"},
+                "air": {"value": 720, "snsr": "air"},
+                "aux0": {"st": 0},
+            },
+            zig={"zig": {"aabbccdd": {"st": 1, "fr": "Pool Light"}}},
+            fea={"feaCircuit0": {"st": 0, "en": 1, "fr": "Spa Jets"}},
+        )
+        reported = sut._ws_full_state_from_frame(frame)
+        assert reported is not None
+        assert reported["sn"] == "ABCDEFG"
+        assert reported["filt0"] == {"st": 1, "en": 1, "fr": "Filter Pump"}
+        assert reported["ecm0"]["cmdSpd"] == 2700
+        assert reported["water"]["value"] == 820
+        assert reported["aux0"] == {"st": 0}
+        assert reported["zig"] == {"aabbccdd": {"st": 1, "fr": "Pool Light"}}
+        assert reported["feaCircuit0"]["fr"] == "Spa Jets"
+
+    def test_non_dict_namespace_values_are_skipped(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = {
+            "service": SERVICE_AUTHORIZATION,
+            "payload": {
+                "main": {"state": {"reported": {"sn": "ABCDEFG"}}},
+                "data": [1, 2, 3],
+                "ota": {"jobId": None},
+            },
+        }
+        reported = sut._ws_full_state_from_frame(frame)
+        assert reported == {"sn": "ABCDEFG"}
+
+    def test_all_namespaces_empty_returns_none(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = {
+            "service": SERVICE_AUTHORIZATION,
+            "payload": {"sched": {"state": {"reported": {}}}},
+        }
+        assert sut._ws_full_state_from_frame(frame) is None
+
+    def test_end_to_end_populates_devices_from_all_namespaces(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = _namespaced_auth_frame(
+            main={
+                "sn": "ABCDEFG",
+                "systemMode": 0,
+                "tempSetting": 1,
+                "aws": {"status": "connected"},
+            },
+            filt={"filt0": {"st": 1, "en": 1, "fr": "Filter Pump"}},
+            fea={"feaCircuit0": {"st": 0, "en": 1, "fr": "Spa Jets"}},
+            zig={"zig": {"aabbccdd": {"st": 1, "fr": "Pool Light"}}},
+        )
+        assert sut._apply_ws_frame(frame) is True
+        assert sut.status is SystemStatus.CONNECTED
+        assert sut.devices["filt0"].data["st"] == 1
+        assert "feaCircuit0" in sut.devices
+        assert "zig_aabbccdd" in sut.devices
 
 
 class TestTcxWsDeltaFromFrame:
