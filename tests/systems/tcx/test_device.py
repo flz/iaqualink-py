@@ -14,6 +14,7 @@ from iaqualink.systems.tcx.device import (
     TcxFeatureCircuit,
     TcxFilterPump,
     TcxSolarSensor,
+    TcxSpeedSensor,
     TcxVariableSpeedPump,
     TcxWaterSensor,
     TcxZigbeeSwitch,
@@ -180,6 +181,45 @@ class TestTcxSolarSensorStatus:
         data: dict[str, Any] = {"name": "solar", "value": 1050, "us": 4}
         sut = TcxSolarSensor(make_system(), data)
         assert sut.value == ""
+
+
+class TestTcxSpeedSensor:
+    # RPM speed fields on filt0/ecm0 not otherwise surfaced (only used
+    # internally for TcxVariableSpeedPump's percentage/preset math) —
+    # exposed as read-only sensors, no /10 scaling (unlike temperature).
+
+    def test_value_and_label(self) -> None:
+        data: dict[str, Any] = {
+            "name": "ecm0_frzSpd",
+            "label": "Fan Freeze-Protect Speed",
+            "value": 2500,
+        }
+        sut = TcxSpeedSensor(make_system(), data)
+        assert sut.value == "2500"
+        assert sut.label == "Fan Freeze-Protect Speed"
+
+    def test_label_falls_back_to_name_without_label_field(self) -> None:
+        sut = TcxSpeedSensor(make_system(), {"name": "ecm0_qcSpd"})
+        assert sut.label == "ecm0_qcSpd"
+
+    def test_value_empty_when_absent(self) -> None:
+        sut = TcxSpeedSensor(make_system(), {"name": "ecm0_prmSpd"})
+        assert sut.value == ""
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "filt0_manSpd",
+            "ecm0_manSpd",
+            "ecm0_frzSpd",
+            "ecm0_prmSpd",
+            "ecm0_qcSpd",
+        ],
+    )
+    def test_from_data_dispatches_to_speed_sensor(self, name: str) -> None:
+        data: dict[str, Any] = {"name": name, "value": 1000}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxSpeedSensor)
 
 
 class TestTcxClimateLabel:

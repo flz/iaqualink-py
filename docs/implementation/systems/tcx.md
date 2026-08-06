@@ -56,6 +56,8 @@ Status is derived from two fields in `state.reported`:
 | `TspBdy0` | `TcxClimate` | `AqualinkClimate` | Uppercase T — wire-level invariant |
 | `swc0` | `TcxChlorinatorBoost` | `AqualinkSwitch` | Exposes boost on/off only |
 | `solar` | `TcxSolarSensor` | `AqualinkSensor` | Solar temperature |
+| `filt0.manSpd` (synthetic key `filt0_manSpd`) | `TcxSpeedSensor` | `AqualinkSensor` | Raw RPM, no scaling; distinct value from `ecm0.manSpd` — confirmed not a duplicate on real hardware |
+| `ecm0.manSpd`/`frzSpd`/`prmSpd`/`qcSpd` (synthetic keys `ecm0_manSpd` etc.) | `TcxSpeedSensor` | `AqualinkSensor` | Raw RPM. `minSpd`/`maxSpd`/`cmdSpd` intentionally not duplicated as sensors — already back `TcxVariableSpeedPump.percentage`/`preset_mode` |
 
 ### Feature-circuit / ZigBee discovery (best-effort, WS-driven)
 
@@ -110,6 +112,14 @@ Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, 
 
 `ecm0.cmdSpd` (commanded speed RPM) is the write target. The `spdList` entries expose named presets. The percentage API maps linearly between `ecm0.minSpd` and `ecm0.maxSpd`.
 
+### Speed sensors (`TcxSpeedSensor`)
+
+Live wire capture shows `filt0` and `ecm0` both carry raw speed (RPM) fields beyond what `TcxVariableSpeedPump` already surfaces via `percentage`/`preset_mode`: `filt0.manSpd`, `ecm0.manSpd`, `ecm0.frzSpd` (freeze-protect), `ecm0.prmSpd` (priming), `ecm0.qcSpd` (quick-clean). These are exposed as standalone read-only `TcxSpeedSensor` devices, synthesized in `_update_devices()` under synthetic keys (`filt0_manSpd`, `ecm0_manSpd`, etc.) — not real wire device names, so `TcxDevice.from_data()` dispatches them by exact match against `_SPEED_SENSOR_NAMES` rather than the `filt0`/`ecm0` name branches.
+
+`filt0.manSpd` and `ecm0.manSpd` are **not duplicates** — live-confirmed distinct values (`2000` vs `1900` on the same real system) — so both get separate sensors rather than being merged into one. `minSpd`/`maxSpd`/`cmdSpd`/`reqSpd` are deliberately **not** duplicated as standalone sensors: `minSpd`/`maxSpd` are identical between `filt0` and `ecm0` on real hardware and already back `TcxVariableSpeedPump.percentage`'s linear mapping; `cmdSpd` already backs `percentage`/`preset_mode`; `reqSpd` is a near-duplicate of `cmdSpd`.
+
+No new write path was added — the Filtration namespace's only documented action is `setFilterPumpState` (on/off); VSP namespace actions exist for `setMinMasterSpeed`/`setMaxMasterSpeed`/`setPrimingSpeed`/`setQuickCleanSpeed`/`setFreezeProtectSpeed` (VSP *configuration*, not "run at this speed now" — distinct from `cmdSpd`'s live speed selection, already covered by `set_vsp_speed`/`_set_preset_mode`), but wiring writes for these wasn't requested and hasn't been wire-verified against real hardware.
+
 ### SWC device modelling
 
 The SWC chlorinator is modelled as a boost on/off switch (`TcxChlorinatorBoost`) rather than a richer device. The output percentage (`outputPcnt`) and salinity are not yet surfaced as separate sensor devices.
@@ -128,3 +138,4 @@ The SWC chlorinator is modelled as a boost on/off switch (`TcxChlorinatorBoost`)
 | 8 | `set_vsp_speed` uses the generic `tcx` namespace `"setState"` action | No documented VSP namespace action matches "set current commanded speed" (`cmdSpd`) — the other VSP actions are all specific-purpose (priming/min/max/quick-clean/freeze speeds) |
 | 9 | Air sensor synthesized from `airTemp`/`airSnsr` scalar fields (per reference doc field table) | Live wire capture shows real hardware doesn't emit top-level `airTemp`/`airSnsr` at all — the air reading arrives as a full `air: {..., value, us}` object (same shape as `water`/`solar`), plus a separate `hubAir`/`airSnsr` pair at the main-namespace level that isn't the same field. `_update_devices` has not yet been updated to handle the real `air` object shape; not fixed as part of the WS-envelope correction — flagged here as a known, separately-scoped gap alongside delta #6. When fixed, apply the same tenths-of-a-degree scaling as delta #10 |
 | 10 | Temperature wire fields (`waterTempSet`, `water.value`, `solar.value`, `freezeSP`, `lowAirSP`) assumed to be whole degrees in the active unit | Live wire capture shows they're tenths of a degree instead — confirmed by `freezeSP=33`/`lowAirSP=128` only making sense as `3.3`/`12.8`, and `waterTempSet`/`water.value` agreeing at raw `283` only making sense as `28.3°C`. Fixed for water/solar sensors and climate current/target temperature (read and write); `freezeSP`/`lowAirSP` aren't surfaced as device fields today so needed no code change |
+| 11 | `pool` object (`et: "V_POS"`, `app: "POOL_M"`, live-observed alongside `filt0`/`ecm0` in the `filt` namespace) not parsed into any device | Semantics not confirmed (valve position indicator vs. something else); out of scope for the speed-sensor pass that added `TcxSpeedSensor` — deliberately deferred, not an oversight |

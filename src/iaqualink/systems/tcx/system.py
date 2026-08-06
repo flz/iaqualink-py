@@ -42,6 +42,17 @@ _ACTION_SET_ZIGBEE_STATE = "setZigbeeState"
 
 LOGGER = logging.getLogger("iaqualink.systems.tcx")
 
+# Speed fields (RPM) that exist on filt0/ecm0 but aren't otherwise surfaced —
+# only used internally for TcxVariableSpeedPump's percentage/preset math.
+# filt0.manSpd and ecm0.manSpd are confirmed distinct values on real
+# hardware (not duplicates), so both get their own sensor.
+_ECM0_EXTRA_SPEED_FIELDS: tuple[tuple[str, str], ...] = (
+    ("manSpd", "Fan Manual Speed"),
+    ("frzSpd", "Fan Freeze-Protect Speed"),
+    ("prmSpd", "Fan Priming Speed"),
+    ("qcSpd", "Fan Quick-Clean Speed"),
+)
+
 
 def _derive_status(reported: dict[str, Any]) -> SystemStatus:
     system_mode = reported.get("systemMode")
@@ -205,10 +216,28 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             }
 
         if "filt0" in reported:
-            candidates["filt0"] = {"name": "filt0", **reported["filt0"]}
+            filt0 = reported["filt0"]
+            candidates["filt0"] = {"name": "filt0", **filt0}
+            man_spd = filt0.get("manSpd")
+            if man_spd is not None:
+                candidates["filt0_manSpd"] = {
+                    "name": "filt0_manSpd",
+                    "label": "Filtration Manual Speed",
+                    "value": man_spd,
+                }
 
         if "ecm0" in reported:
-            candidates["ecm0"] = {"name": "ecm0", **reported["ecm0"]}
+            ecm0 = reported["ecm0"]
+            candidates["ecm0"] = {"name": "ecm0", **ecm0}
+            for wire_key, label in _ECM0_EXTRA_SPEED_FIELDS:
+                val = ecm0.get(wire_key)
+                if val is not None:
+                    key = f"ecm0_{wire_key}"
+                    candidates[key] = {
+                        "name": key,
+                        "label": label,
+                        "value": val,
+                    }
 
         for key, val in reported.items():
             if (
