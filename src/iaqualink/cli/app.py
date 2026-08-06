@@ -204,6 +204,9 @@ async def _fetch_systems(
         username=credentials.username,
         password=credentials.password,
         event_hooks=_capture_session.make_hooks() if _capture_session else None,
+        ws_capture_hook=(
+            _capture_session.capture_ws_frame if _capture_session else None
+        ),
     )
     session_state = _load_session_jar(cookie_jar, credentials.username)
     restored_session = session_state is not None
