@@ -223,6 +223,7 @@ class TestTcxRefreshWsLifecycle:
 
     async def test_refresh_auto_starts_subscription(self) -> None:
         _, sut = _make_tcx_system()
+        sut.WS_INITIAL_ACK_TIMEOUT_SECS = 0.01  # keep the test fast
         with (
             patch.object(
                 sut, "start_ws_subscription", new=AsyncMock()
@@ -290,6 +291,7 @@ class TestTcxRefreshWsLifecycle:
         # delivered anything yet -> _ws_state_fresh() is naturally False ->
         # plain REST bootstrap, same as before WS support existed.
         _, sut = _make_tcx_system()
+        sut.WS_INITIAL_ACK_TIMEOUT_SECS = 0.01  # keep the test fast
         mock_request.return_value = MagicMock(
             status_code=200, json=lambda: SAMPLE_DATA
         )

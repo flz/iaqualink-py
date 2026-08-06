@@ -132,6 +132,16 @@ class WsStateSubscription(ABC):
     # well inside WS_STATE_FRESH_SECS.
     WS_KEEPALIVE_SECS: float = 30.0
 
+    # Bounded wait in _ws_refresh_gate() for the first push after starting a
+    # subscription. Without this, a fresh subscription is never fresh in
+    # time for the _refresh() call that started it — start_ws_subscription()
+    # only creates the background task, it doesn't wait for the socket to
+    # connect/subscribe/receive, so an immediate freshness check right after
+    # is lost every time and _refresh() always falls back to REST on a cold
+    # start. Only paid once per subscription attempt: later calls see
+    # _ws_state_fresh() already true and skip the wait entirely.
+    WS_INITIAL_ACK_TIMEOUT_SECS: float = 5.0
+
     if TYPE_CHECKING:
         # Provided by AqualinkSystem in the concrete MRO.
         aqualink: AqualinkClient
@@ -147,6 +157,9 @@ class WsStateSubscription(ABC):
         self._ws_task: asyncio.Task[None] | None = None
         self._ws_last_update: float | None = None
         self._ws_connected: bool = False
+        # Set by start_ws_subscription() each time it actually starts a new
+        # task; _ws_refresh_gate() awaits it (bounded) on a cold start.
+        self._ws_first_update: asyncio.Event = asyncio.Event()
         super().__init__(*args, **kwargs)
 
     # --- system-specific hooks --------------------------------------------
@@ -197,11 +210,25 @@ class WsStateSubscription(ABC):
 
         Auto-starts the subscription (idempotent — a no-op if a live task
         already exists) so consumers get WS-backed reads without having to
-        call `start_ws_subscription()` themselves.
+        call `start_ws_subscription()` themselves. On a cold start (nothing
+        pushed yet), waits up to `WS_INITIAL_ACK_TIMEOUT_SECS` for the first
+        push before falling back to REST — without this, `_ws_state_fresh()`
+        checked immediately after `start_ws_subscription()` is always false
+        (the socket hasn't even connected yet), so a consumer that only ever
+        calls `_refresh()` once would never see WS-backed state. Once fresh,
+        later calls skip the wait entirely.
         """
         if not self._ws_enabled:
             return False
         await self.start_ws_subscription()
+        if not self._ws_state_fresh():
+            try:
+                await asyncio.wait_for(
+                    self._ws_first_update.wait(),
+                    timeout=self.WS_INITIAL_ACK_TIMEOUT_SECS,
+                )
+            except TimeoutError:
+                pass
         return self._ws_state_fresh()
 
     def _ws_subscribe_frame(self) -> dict[str, Any]:
@@ -257,6 +284,7 @@ class WsStateSubscription(ABC):
                     LOGGER.debug("<- WS frame: %s", redact_value(frame))
                     if self._apply_ws_frame(frame):
                         self._ws_last_update = time.time()
+                        self._ws_first_update.set()
             finally:
                 self._ws_connected = False
 
@@ -266,6 +294,7 @@ class WsStateSubscription(ABC):
             return
         if self._ws_task is not None and not self._ws_task.done():
             return
+        self._ws_first_update = asyncio.Event()
         self._ws_task = asyncio.create_task(self._ws_receive_loop())
         self._ws_task.add_done_callback(self._on_ws_task_done)
         self.aqualink._register_ws_subscription(self)
