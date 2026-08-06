@@ -29,7 +29,7 @@ TCX_SYSTEM_DATA: dict[str, Any] = {
 }
 TCX_WATER_DATA: dict[str, Any] = {
     "name": "water",
-    "value": 82,
+    "value": 820,  # wire is tenths of a degree -> 82.0
     "us": 1,
     "fr": "Pool Water",
     "en": 1,
@@ -38,7 +38,7 @@ TCX_WATER_DATA: dict[str, Any] = {
 TCX_AIR_DATA: dict[str, Any] = {"name": "air", "value": 72, "snsr": "ok"}
 TCX_SOLAR_DATA: dict[str, Any] = {
     "name": "solar",
-    "value": 105,
+    "value": 1050,  # wire is tenths of a degree -> 105.0
     "us": 1,
     "en": 0,
     "fr": "Solar Panel",
@@ -77,7 +77,7 @@ TCX_ZIGBEE_SWITCH_ON_DATA: dict[str, Any] = {
 TCX_CLIMATE_ON_DATA: dict[str, Any] = {
     "name": "TspBdy0",
     "bodyName": "Pool",
-    "waterTempSet": 88,
+    "waterTempSet": 880,  # wire is tenths of a degree -> 88.0
     "heatEnabled": True,
 }
 

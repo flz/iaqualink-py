@@ -158,24 +158,26 @@ class TestTcxAuxSwitchLabel:
 
 class TestTcxWaterSensorStatus:
     def test_value_when_valid(self) -> None:
-        data: dict[str, Any] = {"name": "water", "value": 82, "us": 1}
+        # Wire value is tenths of a degree (live-confirmed) -> 82.0.
+        data: dict[str, Any] = {"name": "water", "value": 820, "us": 1}
         sut = TcxWaterSensor(make_system(), data)
-        assert sut.value == "82"
+        assert sut.value == "82.0"
 
     def test_value_empty_when_not_valid(self) -> None:
-        data: dict[str, Any] = {"name": "water", "value": 82, "us": 2}
+        data: dict[str, Any] = {"name": "water", "value": 820, "us": 2}
         sut = TcxWaterSensor(make_system(), data)
         assert sut.value == ""
 
 
 class TestTcxSolarSensorStatus:
     def test_value_when_present(self) -> None:
-        data: dict[str, Any] = {"name": "solar", "value": 105, "us": 1}
+        # Wire value is tenths of a degree (live-confirmed) -> 105.0.
+        data: dict[str, Any] = {"name": "solar", "value": 1050, "us": 1}
         sut = TcxSolarSensor(make_system(), data)
-        assert sut.value == "105"
+        assert sut.value == "105.0"
 
     def test_value_empty_when_not_present(self) -> None:
-        data: dict[str, Any] = {"name": "solar", "value": 105, "us": 4}
+        data: dict[str, Any] = {"name": "solar", "value": 1050, "us": 4}
         sut = TcxSolarSensor(make_system(), data)
         assert sut.value == ""
 
@@ -192,6 +194,23 @@ class TestTcxClimateLabel:
     def test_current_temperature_none_without_water_sensor(self) -> None:
         sut = TcxClimate(make_system(), {"name": "TspBdy0"})
         assert sut.current_temperature is None
+
+
+class TestTcxClimateTemperatureScaling:
+    # Wire temperature fields are tenths of a degree (live-confirmed against
+    # real hardware — see _wire_temp_to_display in device.py).
+
+    def test_target_temperature_scales_wire_value(self) -> None:
+        data: dict[str, Any] = {"name": "TspBdy0", "waterTempSet": 283}
+        sut = TcxClimate(make_system(), data)
+        assert sut.target_temperature == "28.3"
+
+    def test_current_temperature_scales_via_water_sensor(self) -> None:
+        system = make_system()
+        water_data: dict[str, Any] = {"name": "water", "value": 283, "us": 1}
+        system.devices["water"] = TcxWaterSensor(system, water_data)
+        sut = TcxClimate(system, {"name": "TspBdy0"})
+        assert sut.current_temperature == "28.3"
 
 
 class TestTcxFromDataDispatchTspBdy0:
@@ -433,11 +452,13 @@ class TestTcxClimateOnOff:
         data: dict[str, Any] = {
             "name": "TspBdy0",
             "heatEnabled": True,
-            "waterTempSet": 80,
+            "waterTempSet": 800,
         }
         sut = TcxClimate(make_system(), data)
         with patch.object(
             sut.system, "set_water_temp_setpoint", new_callable=AsyncMock
         ) as mock_set:
+            # set_temperature() takes a whole-degree int (AqualinkClimate
+            # contract); the wire field is tenths of a degree.
             await sut.set_temperature(88)
-        mock_set.assert_awaited_once_with(88)
+        mock_set.assert_awaited_once_with(880)

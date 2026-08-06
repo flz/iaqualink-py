@@ -353,6 +353,8 @@ The `state.reported` object contains 42 top-level fields representing the full d
 | `freezeSP` | long | Freeze protection set point |
 | `lowAirSP` | long | Low air temperature threshold |
 
+Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, `freezeSP`, and `lowAirSP` are all tenths of the active display unit (per `tempSetting`), not whole degrees — e.g. raw `283` is `28.3°C`, not `283°C`. `freezeSP=33`/`lowAirSP=128` only make sense as `3.3`/`12.8` (freeze protection and a low-air cutoff near freezing/mild); `airTemp` (whole-degree, unscaled per the original decompiled-source field table) has not been confirmed live — no example with real hardware data has been captured for it, since the field itself hasn't been observed on real hardware at all (see `docs/implementation/systems/tcx.md` Deltas #9/#10).
+
 ### Pool / Valve
 
 | JSON key | Type | Description |
