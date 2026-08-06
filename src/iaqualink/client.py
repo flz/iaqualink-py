@@ -10,7 +10,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from dataclasses import fields as dataclass_fields
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, cast
 from urllib.parse import urlsplit
 
 import httpx
@@ -49,7 +49,7 @@ from iaqualink.utils.redact import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Awaitable, Callable
     from types import TracebackType
 
     from httpx_ws import AsyncWebSocketSession
@@ -122,6 +122,46 @@ class AqualinkAuthState:
         return f"AqualinkAuthState({parts})"
 
 
+class _CapturingWsSession:
+    """Wraps a WS session to report every frame sent/received to a hook.
+
+    httpx event hooks (`event_hooks["response"]`) only fire for the HTTP
+    request/response cycle — WS traffic leaves that cycle after the upgrade
+    handshake, so `--capture` couldn't see subscribe/command/push frames at
+    all. Wrapping here is the single interception point that covers every
+    WS use site: `send_ws_frame()`'s one-shot commands and
+    `WsStateSubscription._ws_receive_loop()`'s subscribe frame + all pushed
+    state, without either call site needing to know about capture.
+    """
+
+    def __init__(
+        self,
+        ws: AsyncWebSocketSession,
+        url: str,
+        hook: Callable[[str, str, Any], Awaitable[None]],
+    ) -> None:
+        self._ws = ws
+        self._url = url
+        self._hook = hook
+
+    async def send_text(self, data: str) -> None:
+        await self._ws.send_text(data)
+        await self._report("send", data)
+
+    async def receive_text(self, timeout: float | None = None) -> str:
+        data = await self._ws.receive_text(timeout=timeout)
+        await self._report("receive", data)
+        return data
+
+    async def _report(self, direction: str, raw: str) -> None:
+        frame: Any
+        try:
+            frame = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            frame = raw
+        await self._hook(direction, self._url, frame)
+
+
 class AqualinkClient:
     def __init__(
         self,
@@ -129,12 +169,15 @@ class AqualinkClient:
         password: str,
         httpx_client: httpx.AsyncClient | None = None,
         event_hooks: dict[str, list] | None = None,
+        ws_capture_hook: Callable[[str, str, Any], Awaitable[None]]
+        | None = None,
     ):
         self.username = username
         self._password = password
         self._logged = False
 
         self._event_hooks: dict[str, list] = event_hooks or {}
+        self._ws_capture_hook = ws_capture_hook
         self._client: httpx.AsyncClient | None = None
         # Dedicated HTTP/1.1 client for WebSockets (see _get_ws_httpx_client).
         self._ws_client: httpx.AsyncClient | None = None
@@ -326,6 +369,13 @@ class AqualinkClient:
         # client's HTTP/2 — the endpoint rejects it with 400. Separate from the
         # (possibly HA-injected, HTTP/2) REST client; carries no REST cookies.
         if self._ws_client is None:
+            # Deliberately no event_hooks here: the capture hook's
+            # response.aread() blocks forever on a 101-Switching-Protocols
+            # response once the connection has handed off to raw WS framing
+            # — it stalls _ws_receive_loop() before the subscribe frame is
+            # even sent. WS traffic is captured via ws_capture_hook /
+            # _CapturingWsSession instead (frame-level, doesn't touch the
+            # HTTP response body machinery at all).
             self._ws_client = httpx.AsyncClient(
                 http1=True,
                 http2=False,
@@ -364,7 +414,13 @@ class AqualinkClient:
             async with aconnect_ws(
                 url, self._get_ws_httpx_client(), headers=headers, **kwargs
             ) as ws:
-                yield ws
+                if self._ws_capture_hook is None:
+                    yield ws
+                else:
+                    yield cast(
+                        "AsyncWebSocketSession",
+                        _CapturingWsSession(ws, url, self._ws_capture_hook),
+                    )
         except WebSocketUpgradeError as exc:
             # A 401/403 on the WS handshake means the bearer token is stale,
             # same as the REST path — surface it as unauthorized so callers can
