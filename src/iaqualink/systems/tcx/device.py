@@ -25,6 +25,21 @@ _HEAT_MIN_C = 18
 _HEAT_MAX_C = 40
 
 
+def _wire_temp_to_display(raw: int | float | str) -> str:
+    """Temperature wire fields (water/solar value, TspBdy0.waterTempSet,
+    freezeSP, lowAirSP) are tenths of the active display unit (whichever
+    `tempSetting` selects) — e.g. 283 -> "28.3". Confirmed from live wire
+    capture: freezeSP=33 and lowAirSP=128 only make sense as 3.3°C/12.8°C,
+    not 33°C/128°C, and waterTempSet/water.value agreeing at raw 283 only
+    makes sense as 28.3°C for both, not 283°C."""
+    return str(float(raw) / 10)
+
+
+def _display_temp_to_wire(temperature: int) -> int:
+    """Inverse of `_wire_temp_to_display` for the write path."""
+    return temperature * 10
+
+
 class TcxDevice(AqualinkDevice):
     def __init__(self, system: TcxSystem, data: DeviceData):
         super().__init__(system, data)
@@ -86,7 +101,7 @@ class TcxWaterSensor(TcxDevice, AqualinkSensor):
         if us != WaterStatus.VALID:
             return ""
         raw = self.data.get("value")
-        return str(raw) if raw is not None else ""
+        return _wire_temp_to_display(raw) if raw is not None else ""
 
 
 class TcxAirSensor(TcxDevice, AqualinkSensor):
@@ -112,7 +127,7 @@ class TcxSolarSensor(TcxDevice, AqualinkSensor):
         if us != SolarStatus.PRESENT:
             return ""
         raw = self.data.get("value")
-        return str(raw) if raw is not None else ""
+        return _wire_temp_to_display(raw) if raw is not None else ""
 
 
 class TcxGenericSensor(TcxDevice, AqualinkSensor):
@@ -256,7 +271,7 @@ class TcxClimate(TcxDevice, AqualinkClimate):
     @property
     def target_temperature(self) -> str | None:
         raw = self.data.get("waterTempSet")
-        return str(raw) if raw is not None else None
+        return _wire_temp_to_display(raw) if raw is not None else None
 
     @property
     def min_temp(self) -> int:
@@ -267,7 +282,9 @@ class TcxClimate(TcxDevice, AqualinkClimate):
         return _HEAT_MAX_C if self.system.temp_unit == "C" else _HEAT_MAX_F
 
     async def _set_temperature(self, temperature: int) -> None:
-        await self.system.set_water_temp_setpoint(temperature)
+        await self.system.set_water_temp_setpoint(
+            _display_temp_to_wire(temperature)
+        )
 
 
 class TcxChlorinatorBoost(TcxDevice, AqualinkSwitch):
