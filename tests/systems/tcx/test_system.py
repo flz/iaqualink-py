@@ -192,6 +192,31 @@ class TestSpeedSensorDiscovery:
         assert cast(TcxSpeedSensor, sut.devices["filt0_manSpd"]).value == "2000"
         assert cast(TcxSpeedSensor, sut.devices["ecm0_manSpd"]).value == "1900"
 
+
+class TestJvaDeviceDiscovery:
+    # jva1/jva2 (JVA valve actuators) live under the pib0 namespace on real
+    # hardware but were never wired into _update_devices — discovered
+    # dynamically by key pattern jva[0-9]+, matching the aux[0-9]+ loop.
+
+    def test_jva1_discovered(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response(
+            {"jva1": {"st": 0, "en": 0, "fr": "JVA 1"}}
+        )
+        sut._parse_shadow_response(response)
+        assert "jva1" in sut.devices
+
+    def test_jva2_discovered(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response({"jva2": {"st": 1, "fr": "JVA 2"}})
+        sut._parse_shadow_response(response)
+        assert "jva2" in sut.devices
+
+    def test_absent_jva_keys_is_a_no_op(self) -> None:
+        _, sut = _make_tcx_system()
+        sut._parse_shadow_response(_make_shadow_response())
+        assert not any(k.startswith("jva") for k in sut.devices)
+
     def test_absent_speed_fields_create_no_sensors(self) -> None:
         _, sut = _make_tcx_system()
         sut._parse_shadow_response(_make_shadow_response())

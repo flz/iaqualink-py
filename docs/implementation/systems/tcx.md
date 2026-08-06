@@ -58,6 +58,7 @@ Status is derived from two fields in `state.reported`:
 | `solar` | `TcxSolarSensor` | `AqualinkSensor` | Solar temperature |
 | `filt0.manSpd` (synthetic key `filt0_manSpd`) | `TcxSpeedSensor` | `AqualinkSensor` | Raw RPM, no scaling; distinct value from `ecm0.manSpd` — confirmed not a duplicate on real hardware |
 | `ecm0.manSpd`/`frzSpd`/`prmSpd`/`qcSpd` (synthetic keys `ecm0_manSpd` etc.) | `TcxSpeedSensor` | `AqualinkSensor` | Raw RPM. `minSpd`/`maxSpd`/`cmdSpd` intentionally not duplicated as sensors — already back `TcxVariableSpeedPump.percentage`/`preset_mode` |
+| `jva1`…`jvaN` | `TcxJvaSwitch` | `AqualinkSwitch` | Discovered dynamically by key pattern `jva[0-9]+`; write path inferred, never wire-confirmed — see "JVA valves" below |
 
 ### Feature-circuit / ZigBee discovery (best-effort, WS-driven)
 
@@ -104,6 +105,14 @@ Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, 
 
 `TcxAirSensor` is **not** scaled — it's part of delta #9 below (unreachable on real hardware today; needs its own fix first, and should get the same scaling treatment then).
 
+### JVA valves
+
+`jva1`/`jva2` (JVA valve actuators) live under the `pib0` namespace on real hardware — confirmed via live wire capture, and the reference doc already has an accurate, decompiled-source-derived schema for them (`### jva1 / jva2 (JVA Valve Actuators)`). They were never wired into `_update_devices()`; now discovered dynamically by key pattern `jva[0-9]+`, matching the existing `aux[0-9]+` loop exactly, and modeled as `TcxJvaSwitch` (on/off via `st`).
+
+No "PIB" command entries exist anywhere in the reference doc's Command Reference section, despite "PIB" being a listed namespace — so `set_jva_state`'s namespace/action (`NAMESPACE_PIB`/`"setJvaState"`) is inferred, following the `"set<Thing>State"` convention every other single-purpose namespace's toggle action uses. Never wire-confirmed; same inference precedent as `set_vsp_speed` (Delta #8). Not exercised against real hardware — covered by mocked tests only.
+
+Two related `pib0`-namespace sub-objects are deliberately **not** modeled: `spare` (not confirmed to be in active use on any observed hardware — live value is a `-1311` sentinel with an undocumented `us=0` status, and the reference doc has only a one-line stub, no confirmed sub-object schema) and `pib0`'s own board-identity metadata (`sn`/`vr`/`pibConfig`/`app`) — consistent with the earlier decision not to model the `zig` namespace's own radio-metadata block as a device.
+
 ### Heater min/max set-point
 
 `TspBdy0` does not include explicit set-point bounds in the initial observed shadow schema. The implementation uses hardcoded defaults (`65–104°F`, `18–40°C`) matching typical pool heater ranges. If the shadow includes bounds in practice, this should be updated to read them from the data.
@@ -139,3 +148,6 @@ The SWC chlorinator is modelled as a boost on/off switch (`TcxChlorinatorBoost`)
 | 9 | Air sensor synthesized from `airTemp`/`airSnsr` scalar fields (per reference doc field table) | Live wire capture shows real hardware doesn't emit top-level `airTemp`/`airSnsr` at all — the air reading arrives as a full `air: {..., value, us}` object (same shape as `water`/`solar`), plus a separate `hubAir`/`airSnsr` pair at the main-namespace level that isn't the same field. `_update_devices` has not yet been updated to handle the real `air` object shape; not fixed as part of the WS-envelope correction — flagged here as a known, separately-scoped gap alongside delta #6. When fixed, apply the same tenths-of-a-degree scaling as delta #10 |
 | 10 | Temperature wire fields (`waterTempSet`, `water.value`, `solar.value`, `freezeSP`, `lowAirSP`) assumed to be whole degrees in the active unit | Live wire capture shows they're tenths of a degree instead — confirmed by `freezeSP=33`/`lowAirSP=128` only making sense as `3.3`/`12.8`, and `waterTempSet`/`water.value` agreeing at raw `283` only making sense as `28.3°C`. Fixed for water/solar sensors and climate current/target temperature (read and write); `freezeSP`/`lowAirSP` aren't surfaced as device fields today so needed no code change |
 | 11 | `pool` object (`et: "V_POS"`, `app: "POOL_M"`, live-observed alongside `filt0`/`ecm0` in the `filt` namespace) not parsed into any device | Semantics not confirmed (valve position indicator vs. something else); out of scope for the speed-sensor pass that added `TcxSpeedSensor` — deliberately deferred, not an oversight |
+| 12 | `jva1`/`jva2` write path (`NAMESPACE_PIB`/`"setJvaState"`) is inferred, never wire-confirmed | No "PIB" command entries exist in the reference doc despite "PIB" being a listed namespace. Same inference precedent as `set_vsp_speed` (delta #8). Not exercised against real hardware — covered by mocked tests only |
+| 13 | `pib0`'s own board-identity metadata (`sn`/`vr`/`pibConfig`/`app`) intentionally not modeled as a device | Consistent with the earlier decision not to model the `zig` namespace's own radio-metadata block as a device — only individually attached sub-devices become entities |
+| 14 | `spare` (live-observed alongside `jva1`/`water`/`solar`/`air`/`aux0` in the `pib0` namespace) intentionally left entirely unparsed | Not confirmed to be in active use on any observed hardware (live value is a `-1311` sentinel with an undocumented `us=0` status); the reference doc has only a one-line stub for it, no confirmed sub-object schema |

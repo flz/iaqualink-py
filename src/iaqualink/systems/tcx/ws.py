@@ -26,6 +26,7 @@ from __future__ import annotations
 __all__ = [
     "NAMESPACE_FEATURE_CIRCUIT",
     "NAMESPACE_FILTRATION",
+    "NAMESPACE_PIB",
     "NAMESPACE_SWC",
     "NAMESPACE_TCX",
     "NAMESPACE_ZIGBEE",
@@ -49,6 +50,7 @@ NAMESPACE_FILTRATION = "filtration"
 NAMESPACE_FEATURE_CIRCUIT = "featureCircuit"
 NAMESPACE_ZIGBEE = "zigbee"
 NAMESPACE_SWC = "swc"
+NAMESPACE_PIB = "pib"
 
 # Push services that carry state deltas (Authorization carries full state and
 # is handled separately by the generic engine).
