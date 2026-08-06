@@ -13,6 +13,7 @@ from iaqualink.systems.tcx.device import (
     TcxDevice,
     TcxFeatureCircuit,
     TcxFilterPump,
+    TcxJvaSwitch,
     TcxSolarSensor,
     TcxSpeedSensor,
     TcxVariableSpeedPump,
@@ -307,6 +308,8 @@ FILTER_PUMP_ON: dict[str, Any] = {"name": "filt0", "st": 1}
 FILTER_PUMP_OFF: dict[str, Any] = {"name": "filt0", "st": 0}
 AUX_SWITCH_ON: dict[str, Any] = {"name": "aux0", "st": 1}
 AUX_SWITCH_OFF: dict[str, Any] = {"name": "aux0", "st": 0}
+JVA_SWITCH_ON: dict[str, Any] = {"name": "jva1", "st": 1}
+JVA_SWITCH_OFF: dict[str, Any] = {"name": "jva1", "st": 0}
 CHLORINATOR_BOOST_ON: dict[str, Any] = {"name": "swc0", "boost": 1}
 CHLORINATOR_BOOST_OFF: dict[str, Any] = {"name": "swc0", "boost": 0}
 FEATURE_CIRCUIT_ON: dict[str, Any] = {"name": "feaCircuit0", "st": 1}
@@ -391,6 +394,38 @@ class TestTcxAuxSwitchOnOff:
         ) as mock_set:
             await sut.turn_off()
         mock_set.assert_awaited_once_with("aux0", 0)
+
+
+class TestTcxJvaSwitchOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxJvaSwitch(make_system(), JVA_SWITCH_ON)
+        assert sut.is_on is True
+
+    def test_is_on_false(self) -> None:
+        sut = TcxJvaSwitch(make_system(), JVA_SWITCH_OFF)
+        assert sut.is_on is False
+
+    async def test_turn_on_sends_command_with_name(self) -> None:
+        sut = TcxJvaSwitch(make_system(), JVA_SWITCH_OFF)
+        with patch.object(
+            sut.system, "set_jva_state", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with("jva1", 1)
+
+    async def test_turn_off_sends_command_with_name(self) -> None:
+        sut = TcxJvaSwitch(make_system(), JVA_SWITCH_ON)
+        with patch.object(
+            sut.system, "set_jva_state", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with("jva1", 0)
+
+    def test_from_data_dispatches_jva1_and_jva2(self) -> None:
+        for name in ("jva1", "jva2"):
+            data: dict[str, Any] = {"name": name, "st": 0}
+            sut = TcxDevice.from_data(make_system(), data)
+            assert isinstance(sut, TcxJvaSwitch)
 
 
 class TestTcxChlorinatorBoostOnOff:

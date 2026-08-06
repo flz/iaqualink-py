@@ -13,6 +13,7 @@ from iaqualink.systems.tcx.system import TcxSystem
 from iaqualink.systems.tcx.ws import (
     NAMESPACE_FEATURE_CIRCUIT,
     NAMESPACE_FILTRATION,
+    NAMESPACE_PIB,
     NAMESPACE_SWC,
     NAMESPACE_TCX,
     NAMESPACE_ZIGBEE,
@@ -358,3 +359,13 @@ class TestTcxSendCommandFrame(unittest.IsolatedAsyncioTestCase):
         assert frame["namespace"] == NAMESPACE_ZIGBEE
         assert frame["action"] == "setZigbeeState"
         assert frame["payload"]["zig"] == {"aabbccdd": {"st": 1}}
+
+    async def test_set_jva_state(self) -> None:
+        # Inferred namespace/action (NAMESPACE_PIB/"setJvaState") — no "PIB"
+        # command entries exist in the reference doc. Never wire-confirmed;
+        # covered by this mocked test only, not exercised live.
+        _, sut = _make_tcx_system()
+        frame = await self._sent_frame(sut, sut.set_jva_state("jva1", 1))
+        assert frame["namespace"] == NAMESPACE_PIB
+        assert frame["action"] == "setJvaState"
+        assert frame["payload"]["jva1"] == {"st": 1}

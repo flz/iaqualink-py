@@ -9,6 +9,7 @@ from iaqualink.systems.tcx.device import TcxDevice
 from iaqualink.systems.tcx.ws import (
     NAMESPACE_FEATURE_CIRCUIT,
     NAMESPACE_FILTRATION,
+    NAMESPACE_PIB,
     NAMESPACE_SWC,
     NAMESPACE_TCX,
     NAMESPACE_ZIGBEE,
@@ -39,6 +40,11 @@ _ACTION_SET_BOOST_MODE = "setBoostMode"
 _ACTION_SET_STATE = "setState"
 _ACTION_SET_FEATURE_CIRCUIT_STATE = "setFeatureCircuitState"
 _ACTION_SET_ZIGBEE_STATE = "setZigbeeState"
+# No "PIB" command entries exist in the reference doc despite "PIB" being a
+# listed namespace — inferred by the same "set<Thing>State" convention every
+# other single-purpose namespace's toggle action uses. Never wire-confirmed;
+# same inference precedent as _ACTION_SET_STATE above (VSP speed).
+_ACTION_SET_JVA_STATE = "setJvaState"
 
 LOGGER = logging.getLogger("iaqualink.systems.tcx")
 
@@ -265,6 +271,14 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
         if "solar" in reported:
             candidates["solar"] = {"name": "solar", **reported["solar"]}
 
+        for key, val in reported.items():
+            if (
+                key.startswith("jva")
+                and key[3:].isdigit()
+                and isinstance(val, dict)
+            ):
+                candidates[key] = {"name": key, **val}
+
         LOGGER.debug(
             "TCX devices parsed: serial=%s count=%d",
             mask_serial(self.serial),
@@ -337,4 +351,11 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             namespace=NAMESPACE_ZIGBEE,
             action=_ACTION_SET_ZIGBEE_STATE,
             delta={"zig": {addr: {"st": state}}},
+        )
+
+    async def set_jva_state(self, name: str, state: int) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_PIB,
+            action=_ACTION_SET_JVA_STATE,
+            delta={name: {"st": state}},
         )

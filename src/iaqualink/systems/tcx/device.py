@@ -92,6 +92,8 @@ class TcxDevice(AqualinkDevice):
             return TcxSpeedSensor(system, data)
         if name.startswith("aux") and name[3:].isdigit():
             return TcxAuxSwitch(system, data)
+        if name.startswith("jva") and name[3:].isdigit():
+            return TcxJvaSwitch(system, data)
         if name == "TspBdy0":
             return TcxClimate(system, data)
         if name == "swc0":
@@ -206,6 +208,30 @@ class TcxAuxSwitch(TcxDevice, AqualinkSwitch):
     async def turn_off(self) -> None:
         if self.is_on:
             await self.system.set_aux(self.name, 0)
+
+
+class TcxJvaSwitch(TcxDevice, AqualinkSwitch):
+    """JVA valve actuator. Write path (setJvaState/NAMESPACE_PIB) is
+    inferred, never wire-confirmed — no "PIB" command entries exist in the
+    reference doc despite "PIB" being a listed namespace. See Deltas table
+    in docs/implementation/systems/tcx.md."""
+
+    @property
+    def label(self) -> str:
+        fr = self.data.get("fr")
+        return str(fr) if fr else self.name.upper()
+
+    @property
+    def is_on(self) -> bool:
+        return self.data.get("st") == 1
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self.system.set_jva_state(self.name, 1)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self.system.set_jva_state(self.name, 0)
 
 
 class TcxVariableSpeedPump(TcxDevice, AqualinkFan):
