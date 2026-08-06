@@ -40,6 +40,21 @@ def _display_temp_to_wire(temperature: int) -> int:
     return temperature * 10
 
 
+# Synthetic device keys for speed (RPM) sensors built from filt0/ecm0
+# sub-fields in TcxSystem._update_devices — see _ECM0_EXTRA_SPEED_FIELDS
+# there. Not full wire device names, so dispatched by exact match here
+# rather than the filt0/ecm0 branches above.
+_SPEED_SENSOR_NAMES = frozenset(
+    {
+        "filt0_manSpd",
+        "ecm0_manSpd",
+        "ecm0_frzSpd",
+        "ecm0_prmSpd",
+        "ecm0_qcSpd",
+    }
+)
+
+
 class TcxDevice(AqualinkDevice):
     def __init__(self, system: TcxSystem, data: DeviceData):
         super().__init__(system, data)
@@ -73,6 +88,8 @@ class TcxDevice(AqualinkDevice):
             return TcxFilterPump(system, data)
         if name == "ecm0":
             return TcxVariableSpeedPump(system, data)
+        if name in _SPEED_SENSOR_NAMES:
+            return TcxSpeedSensor(system, data)
         if name.startswith("aux") and name[3:].isdigit():
             return TcxAuxSwitch(system, data)
         if name == "TspBdy0":
@@ -102,6 +119,22 @@ class TcxWaterSensor(TcxDevice, AqualinkSensor):
             return ""
         raw = self.data.get("value")
         return _wire_temp_to_display(raw) if raw is not None else ""
+
+
+class TcxSpeedSensor(TcxDevice, AqualinkSensor):
+    """Read-only RPM sensor for a filt0/ecm0 speed field not otherwise
+    surfaced (see _SPEED_SENSOR_NAMES / _ECM0_EXTRA_SPEED_FIELDS in
+    system.py). These are raw RPM values, already whole units — no
+    temperature-style /10 scaling applies."""
+
+    @property
+    def label(self) -> str:
+        return str(self.data.get("label") or self.name)
+
+    @property
+    def value(self) -> str:
+        raw = self.data.get("value")
+        return str(raw) if raw is not None else ""
 
 
 class TcxAirSensor(TcxDevice, AqualinkSensor):

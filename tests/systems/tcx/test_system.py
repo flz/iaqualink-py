@@ -10,6 +10,7 @@ from iaqualink.client import AqualinkClient
 from iaqualink.const import AQUALINK_API_SIGNING_KEY
 from iaqualink.exception import AqualinkServiceUnauthorizedException
 from iaqualink.system import AqualinkSystem, SystemStatus
+from iaqualink.systems.tcx.device import TcxSpeedSensor
 from iaqualink.systems.tcx.system import TcxSystem
 from iaqualink.utils.crypto import sign
 
@@ -149,6 +150,54 @@ class TestFeaZigDeviceDiscovery:
         sut._parse_shadow_response(_make_shadow_response())
         assert not any(k.startswith("feaCircuit") for k in sut.devices)
         assert not any(k.startswith("zig_") for k in sut.devices)
+
+
+class TestSpeedSensorDiscovery:
+    # filt0.manSpd and ecm0.manSpd/frzSpd/prmSpd/qcSpd aren't otherwise
+    # surfaced (only used internally for TcxVariableSpeedPump's percentage/
+    # preset math) — synthesized as standalone sensors in _update_devices.
+
+    def test_filt0_man_spd_discovered(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response({"filt0": {"manSpd": 2000}})
+        sut._parse_shadow_response(response)
+        device = cast(TcxSpeedSensor, sut.devices["filt0_manSpd"])
+        assert device.value == "2000"
+
+    def test_ecm0_extra_speeds_discovered(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response(
+            {
+                "ecm0": {
+                    "manSpd": 1900,
+                    "frzSpd": 2500,
+                    "prmSpd": 3275,
+                    "qcSpd": 3450,
+                }
+            }
+        )
+        sut._parse_shadow_response(response)
+        assert cast(TcxSpeedSensor, sut.devices["ecm0_manSpd"]).value == "1900"
+        assert cast(TcxSpeedSensor, sut.devices["ecm0_frzSpd"]).value == "2500"
+        assert cast(TcxSpeedSensor, sut.devices["ecm0_prmSpd"]).value == "3275"
+        assert cast(TcxSpeedSensor, sut.devices["ecm0_qcSpd"]).value == "3450"
+
+    def test_filt0_and_ecm0_man_spd_are_independent(self) -> None:
+        # Confirmed distinct values on real hardware, not duplicates.
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response(
+            {"filt0": {"manSpd": 2000}, "ecm0": {"manSpd": 1900}}
+        )
+        sut._parse_shadow_response(response)
+        assert cast(TcxSpeedSensor, sut.devices["filt0_manSpd"]).value == "2000"
+        assert cast(TcxSpeedSensor, sut.devices["ecm0_manSpd"]).value == "1900"
+
+    def test_absent_speed_fields_create_no_sensors(self) -> None:
+        _, sut = _make_tcx_system()
+        sut._parse_shadow_response(_make_shadow_response())
+        assert "filt0_manSpd" not in sut.devices
+        for key in ("ecm0_manSpd", "ecm0_frzSpd", "ecm0_prmSpd", "ecm0_qcSpd"):
+            assert key not in sut.devices
 
 
 class TestTcxRefreshRestOnlyMainShadow:

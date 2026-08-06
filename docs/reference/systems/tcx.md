@@ -454,17 +454,19 @@ Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, 
 
 ### `filt0` (Filtration Pump)
 
+Corrected from live wire capture: the field table below reflects real hardware. An earlier version of this doc (decompiled-source-derived) listed abbreviated keys `sp`/`mn`/`mx`/`sl`/`ax` here — none of those appear on real hardware; the actual keys are the full names below, matching `ecm0`'s naming convention almost exactly (see `ecm0` table below).
+
 | JSON key | Type | Description |
 |---|---|---|
-| `sp` | long | Current speed (RPM) |
 | `st` | long | Run status |
 | `en` | long | Enabled |
-| `mn` | long | Minimum speed |
-| `mx` | long | Maximum speed |
-| `sl` | array | Schedule slot list |
+| `manSpd` | long | Manual override speed (RPM) — confirmed **distinct** from `ecm0.manSpd` on real hardware, not a duplicate |
+| `minSpd` | long | Minimum allowed speed (RPM) — matches `ecm0.minSpd` on real hardware |
+| `maxSpd` | long | Maximum allowed speed (RPM) — matches `ecm0.maxSpd` on real hardware |
+| `spdList` | array | Named speed preset list (see SpdList below) — matches `ecm0.spdList` on real hardware |
+| `asAux` | string | Associated aux (observed empty string when unset) |
 | `cp` | boolean | Cool pool |
-| `ap` | string | Application type |
-| `ax` | string | Aux assignment |
+| `app` | string | Application type |
 | `et` | string | Equipment type |
 | `fr` | string | Friendly name |
 | `zn` | array\<long\> | Zone assignment |
