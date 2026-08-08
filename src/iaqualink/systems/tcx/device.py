@@ -25,19 +25,22 @@ if TYPE_CHECKING:
 
 LOGGER = logging.getLogger("iaqualink.systems.tcx")
 
-# Default heater set-point bounds when shadow does not supply them.
-_HEAT_MIN_F = 65
-_HEAT_MAX_F = 104
-_HEAT_MIN_C = 18
-_HEAT_MAX_C = 40
+# Water/solar heater set-point bounds (user-supplied spec: 60-104°F,
+# 1°F step — shared by both TcxClimate and TcxSolarSetPoint). Shadow does
+# not supply bounds fields, so these are hardcoded. Celsius bounds are the
+# Fahrenheit values converted and rounded to the nearest whole degree
+# (60°F=15.56°C, 104°F=40.00°C) — see docs/implementation/systems/tcx.md.
+_TEMP_SETPOINT_MIN_F = 60
+_TEMP_SETPOINT_MAX_F = 104
+_TEMP_SETPOINT_MIN_C = 16
+_TEMP_SETPOINT_MAX_C = 40
 
-# Default freeze-protection set-point bounds when shadow does not supply
-# them — unconfirmed, chosen as a plausible range around freezing (same
-# caveat as _HEAT_MIN/MAX_* above; see docs/implementation/systems/tcx.md).
-_FREEZE_SP_MIN_F = 20
-_FREEZE_SP_MAX_F = 50
-_FREEZE_SP_MIN_C = -7
-_FREEZE_SP_MAX_C = 10
+# Freeze-protection set-point bounds (user-supplied spec: 34-42°F, 1°F
+# step). Celsius bounds converted the same way (34°F=1.11°C, 42°F=5.56°C).
+_FREEZE_SP_MIN_F = 34
+_FREEZE_SP_MAX_F = 42
+_FREEZE_SP_MIN_C = 1
+_FREEZE_SP_MAX_C = 6
 
 
 def _wire_temp_to_display(raw: int | float | str) -> str:
@@ -139,6 +142,8 @@ class TcxDevice(AqualinkDevice):
             return TcxJvaSwitch(system, data)
         if name == "TspBdy0":
             return TcxClimate(system, data)
+        if name == "TspBdy0_solar":
+            return TcxSolarSetPoint(system, data)
         if name == "freezeSP":
             return TcxFreezeSetPoint(system, data)
         if name == "lvh1":
@@ -457,15 +462,66 @@ class TcxClimate(TcxDevice, AqualinkClimate):
 
     @property
     def min_temp(self) -> int:
-        return _HEAT_MIN_C if self.system.temp_unit == "C" else _HEAT_MIN_F
+        return (
+            _TEMP_SETPOINT_MIN_C
+            if self.system.temp_unit == "C"
+            else _TEMP_SETPOINT_MIN_F
+        )
 
     @property
     def max_temp(self) -> int:
-        return _HEAT_MAX_C if self.system.temp_unit == "C" else _HEAT_MAX_F
+        return (
+            _TEMP_SETPOINT_MAX_C
+            if self.system.temp_unit == "C"
+            else _TEMP_SETPOINT_MAX_F
+        )
 
     async def _set_temperature(self, temperature: int) -> None:
         await self.system.set_water_temp_setpoint(
             _display_temp_to_wire(temperature)
+        )
+
+
+class TcxSolarSetPoint(TcxDevice, AqualinkNumber):
+    """Solar heater set point (`TspBdy0.solarTempSet`) — synthetic sibling
+    of TcxClimate, same technique as lvh1/lvh1_enable (built from the same
+    TspBdy0 dict, synthetic key `TspBdy0_solar`). Writable via the
+    confirmed `setSolarTempSetpoint` action, same field-name convention as
+    `setWaterTempSetpoint` -> `waterTempSet`. Shares TcxClimate's bounds
+    (`_TEMP_SETPOINT_MIN/MAX_*`) per the user-supplied spec."""
+
+    @property
+    def label(self) -> str:
+        return "Solar Heater Set Point"
+
+    @property
+    def current_value(self) -> float | None:
+        raw = self.data.get("solarTempSet")
+        return float(_wire_temp_to_display(raw)) if raw is not None else None
+
+    @property
+    def min_value(self) -> float:
+        return (
+            _TEMP_SETPOINT_MIN_C
+            if self.system.temp_unit == "C"
+            else _TEMP_SETPOINT_MIN_F
+        )
+
+    @property
+    def max_value(self) -> float:
+        return (
+            _TEMP_SETPOINT_MAX_C
+            if self.system.temp_unit == "C"
+            else _TEMP_SETPOINT_MAX_F
+        )
+
+    @property
+    def unit_of_measurement(self) -> str | None:
+        return "°C" if self.system.temp_unit == "C" else "°F"
+
+    async def _set_value(self, value: float) -> None:
+        await self.system.set_solar_temp_setpoint(
+            _display_temp_to_wire(int(value))
         )
 
 
