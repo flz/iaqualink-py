@@ -102,7 +102,7 @@ class TcxDevice(AqualinkDevice):
             return TcxSolarSensor(system, data)
         if name.startswith("feaCircuit") and name[10:].isdigit():
             return TcxFeatureCircuit(system, data)
-        if name.startswith("zig_"):
+        if name.startswith("auxz") and name[4:].isdigit():
             return TcxZigbeeSwitch(system, data)
 
         return TcxGenericSensor(system, data)
@@ -390,12 +390,17 @@ class TcxFeatureCircuit(TcxDevice, AqualinkSwitch):
 
 
 class TcxZigbeeSwitch(TcxDevice, AqualinkSwitch):
+    """ZigBee-paired device (e.g. a light) surfaced as a top-level
+    `auxz[N]` key in the `_zig` sub-shadow — confirmed by live wire capture
+    and protocol research. See docs/reference/systems/tcx.md."""
+
     @property
     def label(self) -> str:
         fr = self.data.get("fr")
         if fr:
             return str(fr)
-        return self.name.replace("zig_", "ZigBee ")
+        idx = self.name[len("auxz") :]
+        return f"ZigBee {idx}"
 
     @property
     def is_on(self) -> bool:
@@ -403,10 +408,8 @@ class TcxZigbeeSwitch(TcxDevice, AqualinkSwitch):
 
     async def turn_on(self) -> None:
         if not self.is_on:
-            addr = str(self.data.get("addr", self.name[4:]))
-            await self.system.set_zigbee_state(addr, 1)
+            await self.system.set_zigbee_state(self.name, 1)
 
     async def turn_off(self) -> None:
         if self.is_on:
-            addr = str(self.data.get("addr", self.name[4:]))
-            await self.system.set_zigbee_state(addr, 0)
+            await self.system.set_zigbee_state(self.name, 0)

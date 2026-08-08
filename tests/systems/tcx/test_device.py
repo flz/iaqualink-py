@@ -284,13 +284,13 @@ class TestTcxFeatureCircuitLabel:
 class TestTcxZigbeeSwitchLabel:
     def test_label_uses_fr(self) -> None:
         sut = TcxZigbeeSwitch(
-            make_system(), {"name": "zig_aabbccdd", "fr": "Pool Light"}
+            make_system(), {"name": "auxz0", "fr": "Pool Light"}
         )
         assert sut.label == "Pool Light"
 
     def test_label_falls_back_to_name(self) -> None:
-        sut = TcxZigbeeSwitch(make_system(), {"name": "zig_aabbccdd"})
-        assert sut.label == "ZigBee aabbccdd"
+        sut = TcxZigbeeSwitch(make_system(), {"name": "auxz0"})
+        assert sut.label == "ZigBee 0"
 
 
 # ---------------------------------------------------------------------------
@@ -314,16 +314,8 @@ CHLORINATOR_BOOST_ON: dict[str, Any] = {"name": "swc0", "boost": 1}
 CHLORINATOR_BOOST_OFF: dict[str, Any] = {"name": "swc0", "boost": 0}
 FEATURE_CIRCUIT_ON: dict[str, Any] = {"name": "feaCircuit0", "st": 1}
 FEATURE_CIRCUIT_OFF: dict[str, Any] = {"name": "feaCircuit0", "st": 0}
-ZIGBEE_SWITCH_ON: dict[str, Any] = {
-    "name": "zig_aabbccdd",
-    "addr": "aabbccdd",
-    "st": 1,
-}
-ZIGBEE_SWITCH_OFF: dict[str, Any] = {
-    "name": "zig_aabbccdd",
-    "addr": "aabbccdd",
-    "st": 0,
-}
+ZIGBEE_SWITCH_ON: dict[str, Any] = {"name": "auxz0", "st": 1}
+ZIGBEE_SWITCH_OFF: dict[str, Any] = {"name": "auxz0", "st": 0}
 CLIMATE_ON: dict[str, Any] = {"name": "TspBdy0", "heatEnabled": True}
 CLIMATE_OFF: dict[str, Any] = {"name": "TspBdy0", "heatEnabled": False}
 
@@ -481,21 +473,21 @@ class TestTcxZigbeeSwitchOnOff:
         sut = TcxZigbeeSwitch(make_system(), ZIGBEE_SWITCH_ON)
         assert sut.is_on is True
 
-    async def test_turn_on_sends_command_with_addr(self) -> None:
+    async def test_turn_on_sends_command_with_name(self) -> None:
         sut = TcxZigbeeSwitch(make_system(), ZIGBEE_SWITCH_OFF)
         with patch.object(
             sut.system, "set_zigbee_state", new_callable=AsyncMock
         ) as mock_set:
             await sut.turn_on()
-        mock_set.assert_awaited_once_with("aabbccdd", 1)
+        mock_set.assert_awaited_once_with("auxz0", 1)
 
-    async def test_turn_off_sends_command_with_addr(self) -> None:
+    async def test_turn_off_sends_command_with_name(self) -> None:
         sut = TcxZigbeeSwitch(make_system(), ZIGBEE_SWITCH_ON)
         with patch.object(
             sut.system, "set_zigbee_state", new_callable=AsyncMock
         ) as mock_set:
             await sut.turn_off()
-        mock_set.assert_awaited_once_with("aabbccdd", 0)
+        mock_set.assert_awaited_once_with("auxz0", 0)
 
 
 class TestTcxClimateOnOff:

@@ -138,18 +138,25 @@ class TestFeaZigDeviceDiscovery:
         assert "feaCircuit1" in sut.devices
 
     def test_zig_devices_discovered_from_reported_tree(self) -> None:
+        # auxz[N] (top-level) is the confirmed ZigBee device shape; `zig`
+        # is the radio module's own scalar status and must not become a
+        # device.
         _, sut = _make_tcx_system()
         response = _make_shadow_response(
-            {"zig": {"aabbccdd": {"st": 1, "fr": "Pool Light"}}}
+            {
+                "auxz0": {"st": 1, "fr": "Pool Light"},
+                "zig": {"st": 1, "op": 0, "euid": "0011223344556677"},
+            }
         )
         sut._parse_shadow_response(response)
-        assert "zig_aabbccdd" in sut.devices
+        assert "auxz0" in sut.devices
+        assert "zig" not in sut.devices
 
     def test_absent_fea_and_zig_keys_is_a_no_op(self) -> None:
         _, sut = _make_tcx_system()
         sut._parse_shadow_response(_make_shadow_response())
         assert not any(k.startswith("feaCircuit") for k in sut.devices)
-        assert not any(k.startswith("zig_") for k in sut.devices)
+        assert not any(k.startswith("auxz") for k in sut.devices)
 
 
 class TestSpeedSensorDiscovery:
