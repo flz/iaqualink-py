@@ -15,6 +15,7 @@ from iaqualink.systems.tcx.device import (
     TcxDevice,
     TcxFeatureCircuit,
     TcxFilterPump,
+    TcxFreezeSetPoint,
     TcxGenericSensor,
     TcxHeaterEnableSwitch,
     TcxHeaterStatusSensor,
@@ -273,6 +274,55 @@ class TestTcxClimateTemperatureScaling:
         system.devices["water"] = TcxWaterSensor(system, water_data)
         sut = TcxClimate(system, {"name": "TspBdy0"})
         assert sut.current_temperature == "28.3"
+
+
+FREEZE_SP_DATA: dict[str, Any] = {"name": "freezeSP", "value": 340}
+
+
+class TestTcxFreezeSetPoint:
+    def test_label(self) -> None:
+        sut = TcxFreezeSetPoint(make_system(), {**FREEZE_SP_DATA})
+        assert sut.label == "Freeze Protection Set Point"
+
+    def test_current_value_scales_wire_value(self) -> None:
+        sut = TcxFreezeSetPoint(make_system(), {**FREEZE_SP_DATA})
+        assert sut.current_value == 34.0
+
+    def test_current_value_none_when_absent(self) -> None:
+        sut = TcxFreezeSetPoint(make_system(), {"name": "freezeSP"})
+        assert sut.current_value is None
+
+    def test_bounds_and_unit_default_to_fahrenheit(self) -> None:
+        sut = TcxFreezeSetPoint(make_system(), {**FREEZE_SP_DATA})
+        assert sut.min_value == 20
+        assert sut.max_value == 50
+        assert sut.unit_of_measurement == "°F"
+
+    def test_bounds_and_unit_switch_to_celsius(self) -> None:
+        system = make_system()
+        system.temp_unit = "C"
+        data: dict[str, Any] = {"name": "freezeSP", "value": 33}
+        sut = TcxFreezeSetPoint(system, data)
+        assert sut.min_value == -7
+        assert sut.max_value == 10
+        assert sut.unit_of_measurement == "°C"
+
+    async def test_set_value_sends_scaled_wire_value(self) -> None:
+        sut = TcxFreezeSetPoint(make_system(), {**FREEZE_SP_DATA})
+        with patch.object(
+            sut.system, "set_freeze_set_point", new_callable=AsyncMock
+        ) as mock_set:
+            # set_value() takes a whole-degree float (AqualinkNumber
+            # contract); the wire field is tenths of a degree.
+            await sut.set_value(35)
+        mock_set.assert_awaited_once_with(350)
+
+
+class TestTcxFromDataDispatchFreezeSetPoint:
+    def test_freeze_sp_dispatches_to_freeze_set_point(self) -> None:
+        data: dict[str, Any] = {"name": "freezeSP", "value": 340}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxFreezeSetPoint)
 
 
 class TestTcxFromDataDispatchTspBdy0:

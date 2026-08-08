@@ -8,6 +8,7 @@ from iaqualink.device import (
     AqualinkDevice,
     AqualinkFan,
     AqualinkLight,
+    AqualinkNumber,
     AqualinkSensor,
     AqualinkSwitch,
 )
@@ -29,6 +30,14 @@ _HEAT_MIN_F = 65
 _HEAT_MAX_F = 104
 _HEAT_MIN_C = 18
 _HEAT_MAX_C = 40
+
+# Default freeze-protection set-point bounds when shadow does not supply
+# them — unconfirmed, chosen as a plausible range around freezing (same
+# caveat as _HEAT_MIN/MAX_* above; see docs/implementation/systems/tcx.md).
+_FREEZE_SP_MIN_F = 20
+_FREEZE_SP_MAX_F = 50
+_FREEZE_SP_MIN_C = -7
+_FREEZE_SP_MAX_C = 10
 
 
 def _wire_temp_to_display(raw: int | float | str) -> str:
@@ -130,6 +139,8 @@ class TcxDevice(AqualinkDevice):
             return TcxJvaSwitch(system, data)
         if name == "TspBdy0":
             return TcxClimate(system, data)
+        if name == "freezeSP":
+            return TcxFreezeSetPoint(system, data)
         if name == "lvh1":
             return TcxHeaterStatusSensor(system, data)
         if name == "lvh1_enable":
@@ -455,6 +466,48 @@ class TcxClimate(TcxDevice, AqualinkClimate):
     async def _set_temperature(self, temperature: int) -> None:
         await self.system.set_water_temp_setpoint(
             _display_temp_to_wire(temperature)
+        )
+
+
+class TcxFreezeSetPoint(TcxDevice, AqualinkNumber):
+    """Freeze-protection temperature threshold (top-level `freezeSP`, not
+    nested under any device object) — writable via the confirmed
+    `setFreezeSetPoint` action. Whole-degree step, same as TcxClimate's
+    target_temperature, even though the wire field stores tenths. Bounds
+    are unconfirmed defaults — see _FREEZE_SP_MIN/MAX_* above."""
+
+    @property
+    def label(self) -> str:
+        return "Freeze Protection Set Point"
+
+    @property
+    def current_value(self) -> float | None:
+        raw = self.data.get("value")
+        return float(_wire_temp_to_display(raw)) if raw is not None else None
+
+    @property
+    def min_value(self) -> float:
+        return (
+            _FREEZE_SP_MIN_C
+            if self.system.temp_unit == "C"
+            else _FREEZE_SP_MIN_F
+        )
+
+    @property
+    def max_value(self) -> float:
+        return (
+            _FREEZE_SP_MAX_C
+            if self.system.temp_unit == "C"
+            else _FREEZE_SP_MAX_F
+        )
+
+    @property
+    def unit_of_measurement(self) -> str | None:
+        return "°C" if self.system.temp_unit == "C" else "°F"
+
+    async def _set_value(self, value: float) -> None:
+        await self.system.set_freeze_set_point(
+            _display_temp_to_wire(int(value))
         )
 
 

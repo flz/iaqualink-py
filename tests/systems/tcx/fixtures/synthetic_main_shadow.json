@@ -14,6 +14,7 @@
       },
       "airTemp": 72,
       "airSnsr": "ok",
+      "freezeSP": 340,
       "water": {
         "value": 820,
         "us": 1,
