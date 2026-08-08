@@ -30,6 +30,23 @@ class LightType(StrEnum):
 
 
 @unique
+class ColorStatus(IntEnum):
+    CURRENT_4 = 4
+    CURRENT_5 = 5
+    LOCKED = 6
+
+
+@unique
+class AuxType(IntEnum):
+    PUMP = 1
+    WHITE_LIGHT = 2
+    OTHER = 3
+    RELAY = 4
+    UNUSED = 5
+    POOL_LIGHT = 6
+
+
+@unique
 class WaterStatus(IntEnum):
     VALID = 1
     PUMP_OFF = 2

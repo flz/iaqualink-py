@@ -232,6 +232,74 @@ class TestJvaDeviceDiscovery:
             assert key not in sut.devices
 
 
+class TestLvh1DeviceDiscovery:
+    def test_lvh1_and_lvh1_enable_discovered(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response({"lvh1": {"en": 6, "app": "HEAT"}})
+        sut._parse_shadow_response(response)
+        assert "lvh1" in sut.devices
+        assert "lvh1_enable" in sut.devices
+
+    def test_absent_lvh1_creates_no_devices(self) -> None:
+        _, sut = _make_tcx_system()
+        sut._parse_shadow_response(_make_shadow_response())
+        assert "lvh1" not in sut.devices
+        assert "lvh1_enable" not in sut.devices
+
+
+class TestAuxFreezeProtectDeviceDiscovery:
+    def test_aux_fp_discovered_when_fp_present(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response(
+            {"aux0": {"st": 0, "fp": False, "fr": "Waterfall"}}
+        )
+        sut._parse_shadow_response(response)
+        assert "aux0_fp" in sut.devices
+
+    def test_no_aux_fp_when_fp_absent(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response({"aux0": {"st": 0, "fr": "Waterfall"}})
+        sut._parse_shadow_response(response)
+        assert "aux0_fp" not in sut.devices
+
+    def test_aux1_fp_is_ignored(self) -> None:
+        # setIsAux0FreezeProtect hardcodes its target — aux0-only, not
+        # generic across aux[N] like setAuxState/setAuxLight/setAuxSetup.
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response(
+            {"aux1": {"st": 1, "fp": True, "fr": "Pool Light"}}
+        )
+        sut._parse_shadow_response(response)
+        assert "aux1_fp" not in sut.devices
+
+
+class TestTcxSetAuxSetup:
+    # setAuxSetup has no corresponding device entity (see "Aux setup" in
+    # docs/implementation/systems/tcx.md) — only reachable directly on
+    # TcxSystem, so it's covered here rather than via a device-level mock
+    # like every other write method above.
+    async def test_set_aux_setup_sends_command_frame(self) -> None:
+        _, sut = _make_tcx_system()
+        with patch.object(
+            sut, "_send_command_frame", new_callable=AsyncMock
+        ) as mock_send:
+            await sut.set_aux_setup(
+                "aux0", app="POOL_LT", et="JL", ty=6, fr="My Light"
+            )
+        mock_send.assert_awaited_once_with(
+            namespace="tcx",
+            action="setAuxSetup",
+            delta={
+                "aux0": {
+                    "app": "POOL_LT",
+                    "et": "JL",
+                    "ty": 6,
+                    "fr": "My Light",
+                }
+            },
+        )
+
+
 class TestTcxRefreshRestOnlyMainShadow:
     @patch("httpx.AsyncClient.request")
     async def test_refresh_issues_only_main_shadow_request(

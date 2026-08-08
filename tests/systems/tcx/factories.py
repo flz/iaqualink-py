@@ -12,6 +12,7 @@ from iaqualink.systems.tcx.device import (
     TcxAirSensor,
     TcxDevice,
     TcxFilterPump,
+    TcxHeaterStatusSensor,
     TcxSolarSensor,
     TcxWaterSensor,
 )
@@ -79,6 +80,31 @@ TCX_CLIMATE_ON_DATA: dict[str, Any] = {
     "waterTempSet": 880,  # wire is tenths of a degree -> 88.0
     "heatEnabled": True,
 }
+TCX_LVH1_STATUS_HEATING_DATA: dict[str, Any] = {
+    "name": "lvh1",
+    "en": 6,
+    "app": "HEAT",
+    "fr": "Pool Heater",
+}
+TCX_LVH1_ENABLE_ON_DATA: dict[str, Any] = {
+    "name": "lvh1_enable",
+    "en": 6,
+    "app": "HEAT",
+    "fr": "Pool Heater",
+}
+TCX_AUX_LIGHT_ON_DATA: dict[str, Any] = {
+    "name": "aux1",
+    "st": 1,
+    "en": 1,
+    "app": "POOL_LT",
+    "et": "JL",
+    "fr": "Pool Light",
+    "currClr": 3,
+}
+TCX_AUX_FP_ON_DATA: dict[str, Any] = {
+    "name": "aux0_fp",
+    "fp": True,
+}
 
 
 def make_system() -> TcxSystem:
@@ -141,10 +167,22 @@ def _tcx_solar_sensor() -> SensorFixture:
     )
 
 
+def _tcx_heater_status_sensor() -> SensorFixture:
+    system = make_system()
+    return SensorFixture(
+        device=cast(
+            AqualinkSensor,
+            TcxDevice.from_data(system, {**TCX_LVH1_STATUS_HEATING_DATA}),
+        ),
+        expected_class=TcxHeaterStatusSensor,
+    )
+
+
 tcx_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
     ("tcx-water-sensor", _tcx_water_sensor),
     ("tcx-air-sensor", _tcx_air_sensor),
     ("tcx-solar-sensor", _tcx_solar_sensor),
+    ("tcx-heater-status-sensor", _tcx_heater_status_sensor),
 ]
 
 # ---------------------------------------------------------------------------
@@ -201,6 +239,10 @@ tcx_system_factories: list[tuple[str, Callable[[], Any]]] = [
 
 # TCX does not implement these device types.
 tcx_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = []
+# TcxAuxLight exists, but generic light conformance (test_light.py) asserts
+# turn_on/turn_off make an HTTP request via respx — same WS-vs-respx problem
+# as tcx_switch_factories/tcx_climate_factories above. Covered by direct unit
+# tests in test_device.py instead; TCX_AUX_LIGHT_ON_DATA is reused there.
 tcx_light_factories: list[tuple[str, Callable[[], Any]]] = []
 tcx_number_factories: list[tuple[str, Callable[[], Any]]] = []
 tcx_select_factories: list[tuple[str, Callable[[], Any]]] = []

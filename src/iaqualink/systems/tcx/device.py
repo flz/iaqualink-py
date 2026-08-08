@@ -7,10 +7,16 @@ from iaqualink.device import (
     AqualinkClimate,
     AqualinkDevice,
     AqualinkFan,
+    AqualinkLight,
     AqualinkSensor,
     AqualinkSwitch,
 )
-from iaqualink.systems.tcx.enums import SolarStatus, WaterStatus
+from iaqualink.systems.tcx.enums import (
+    AuxType,
+    LightType,
+    SolarStatus,
+    WaterStatus,
+)
 
 if TYPE_CHECKING:
     from iaqualink.systems.tcx.system import TcxSystem
@@ -40,6 +46,18 @@ def _display_temp_to_wire(temperature: int) -> int:
     return temperature * 10
 
 
+def _lvh1_en_to_status(en: int) -> str:
+    """lvh1.en is a ranged code, not a 1:1 enum (docs/reference/systems/tcx.md
+    "lvh1 (Heater Tile State)"): 0 -> off, 1-5 -> standby, 6 -> heating,
+    >=7 -> off. Doesn't fit AqualinkSensor.value_enum's exact-membership
+    `cls(value)` lookup, so classify directly instead."""
+    if en == 6:
+        return "heating"
+    if 1 <= en <= 5:
+        return "standby"
+    return "off"
+
+
 # Synthetic device keys for speed (RPM) sensors built from filt0/ecm0
 # sub-fields in TcxSystem._update_devices — see _ECM0_EXTRA_SPEED_FIELDS
 # there. Not full wire device names, so dispatched by exact match here
@@ -51,6 +69,18 @@ _SPEED_SENSOR_NAMES = frozenset(
         "ecm0_frzSpd",
         "ecm0_prmSpd",
         "ecm0_qcSpd",
+    }
+)
+
+# aux0.et values that indicate a real color-capable light, dispatched to
+# TcxAuxLight. LightType.WHITE_LIGHT ("WL", non-color) and anything without
+# `et` stay TcxAuxSwitch — see docs/implementation/systems/tcx.md.
+_AUX_LIGHT_TYPES = frozenset(
+    {
+        LightType.JANDY_WATERCOLORS,
+        LightType.PENTAIR_INTELLIBRITE,
+        LightType.PENTAIR_SAM_SAL,
+        LightType.HAYWARD_COLORLOGIC,
     }
 )
 
@@ -90,12 +120,20 @@ class TcxDevice(AqualinkDevice):
             return TcxVariableSpeedPump(system, data)
         if name in _SPEED_SENSOR_NAMES:
             return TcxSpeedSensor(system, data)
+        if name == "aux0_fp":
+            return TcxAuxFreezeProtectSwitch(system, data)
         if name.startswith("aux") and name[3:].isdigit():
+            if data.get("et") in _AUX_LIGHT_TYPES:
+                return TcxAuxLight(system, data)
             return TcxAuxSwitch(system, data)
         if name.startswith("jva") and name[3:].isdigit():
             return TcxJvaSwitch(system, data)
         if name == "TspBdy0":
             return TcxClimate(system, data)
+        if name == "lvh1":
+            return TcxHeaterStatusSensor(system, data)
+        if name == "lvh1_enable":
+            return TcxHeaterEnableSwitch(system, data)
         if name == "swc0":
             return TcxChlorinatorBoost(system, data)
         if name == "solar":
@@ -198,6 +236,16 @@ class TcxAuxSwitch(TcxDevice, AqualinkSwitch):
         return str(fr) if fr else self.name.upper()
 
     @property
+    def model(self) -> str:
+        ty = self.data.get("ty")
+        if ty is not None:
+            try:
+                return AuxType(ty).name.replace("_", " ").title()
+            except ValueError:
+                pass
+        return super().model
+
+    @property
     def is_on(self) -> bool:
         return self.data.get("st") == 1
 
@@ -208,6 +256,70 @@ class TcxAuxSwitch(TcxDevice, AqualinkSwitch):
     async def turn_off(self) -> None:
         if self.is_on:
             await self.system.set_aux(self.name, 0)
+
+
+class TcxAuxLight(TcxDevice, AqualinkLight):
+    """Color-capable aux relay (aux0.et in JL/IB/PSS/HU — see LightType).
+    On/off reuses the same `st` field/write path as TcxAuxSwitch. Color
+    control exposes the raw `currClr`/`cmdClr` index only — no confirmed
+    color-index-to-name mapping exists for TCX (unlike iaqua's per-brand
+    effect lists, which are keyed on a different platform's subtype codes
+    and can't be safely assumed to match here). See "Deltas vs Protocol
+    Reference" in docs/implementation/systems/tcx.md."""
+
+    @property
+    def label(self) -> str:
+        fr = self.data.get("fr")
+        return str(fr) if fr else self.name.upper()
+
+    @property
+    def is_on(self) -> bool:
+        return self.data.get("st") == 1
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self.system.set_aux(self.name, 1)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self.system.set_aux(self.name, 0)
+
+    @property
+    def current_color_index(self) -> int | None:
+        raw = self.data.get("currClr")
+        return int(raw) if raw is not None else None
+
+    async def set_color_index(self, index: int) -> None:
+        await self.system.set_aux_light(self.name, index)
+
+    async def reset_color(self) -> None:
+        await self.system.reset_aux_light(self.name)
+
+
+class TcxAuxFreezeProtectSwitch(TcxDevice, AqualinkSwitch):
+    """Synthetic sibling of aux0 for the `fp` (freeze protect) field —
+    aux0-only, singleton (synthetic key `aux0_fp`), same technique as
+    lvh1/lvh1_enable. The wire action (`setIsAux0FreezeProtect`) hardcodes
+    "Aux0" in its name, unlike the genuinely generic per-aux actions
+    (setAuxState/setAuxLight/setAuxSetup) — freeze protect is a real
+    hardware feature of the aux0 relay specifically, not a capability every
+    auxN has."""
+
+    @property
+    def label(self) -> str:
+        return "Freeze Protect"
+
+    @property
+    def is_on(self) -> bool:
+        return bool(self.data.get("fp"))
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self.system.set_aux_freeze_protect(True)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self.system.set_aux_freeze_protect(False)
 
 
 class TcxJvaSwitch(TcxDevice, AqualinkSwitch):
@@ -344,6 +456,45 @@ class TcxClimate(TcxDevice, AqualinkClimate):
         await self.system.set_water_temp_setpoint(
             _display_temp_to_wire(temperature)
         )
+
+
+class TcxHeaterStatusSensor(TcxDevice, AqualinkSensor):
+    """Read-only heater-equipment tile status (lvh1.en), the tcx analog of
+    iaqua's IaquaHeatPumpStatusSensor — distinct from TcxClimate, which
+    owns TspBdy0's setpoint/enable and has no `lvh1` data of its own."""
+
+    @property
+    def label(self) -> str:
+        fr = self.data.get("fr")
+        return str(fr) if fr else "Heater Status"
+
+    @property
+    def value(self) -> str:
+        en = self.data.get("en")
+        return _lvh1_en_to_status(int(en)) if en is not None else ""
+
+
+class TcxHeaterEnableSwitch(TcxDevice, AqualinkSwitch):
+    """Enable/disable switch for lvh1.app ("HEAT"/"OFF") — the tcx analog
+    of iaqua's IaquaHeater. Synthetic sibling of TcxHeaterStatusSensor,
+    built from the same lvh1 dict (synthetic key `lvh1_enable`)."""
+
+    @property
+    def label(self) -> str:
+        fr = self.data.get("fr")
+        return str(fr) if fr else "Heater Enabled"
+
+    @property
+    def is_on(self) -> bool:
+        return self.data.get("app") == "HEAT"
+
+    async def turn_on(self) -> None:
+        if not self.is_on:
+            await self.system.set_lvh_app_type(True)
+
+    async def turn_off(self) -> None:
+        if self.is_on:
+            await self.system.set_lvh_app_type(False)
 
 
 class TcxChlorinatorBoost(TcxDevice, AqualinkSwitch):

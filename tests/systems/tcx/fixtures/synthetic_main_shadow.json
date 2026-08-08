@@ -65,6 +65,24 @@
         "et": "WL",
         "fr": "Waterfall",
         "fp": false,
+        "ty": 4,
+        "cp": false,
+        "zn": [0]
+      },
+      "aux1": {
+        "st": 1,
+        "en": 1,
+        "app": "POOL_LT",
+        "et": "JL",
+        "fr": "Pool Light",
+        "currClr": 3,
+        "cmdClr": 3,
+        "lockClr": 0,
+        "rstClr": 1,
+        "svdClr": 3,
+        "statClr": 4,
+        "dl": 100,
+        "ty": 6,
         "cp": false,
         "zn": [0]
       },
@@ -84,7 +102,15 @@
       },
       "lvh1": {
         "en": 0,
-        "app": "HEAT"
+        "app": "HEAT",
+        "st": 0,
+        "cd": 0,
+        "cl": false,
+        "cp": false,
+        "et": "GAS",
+        "fr": "Pool Heater",
+        "model": "LXi 400",
+        "zn": [0]
       },
       "swc0": {
         "outputPcnt": 50,

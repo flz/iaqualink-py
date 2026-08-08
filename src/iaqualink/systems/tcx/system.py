@@ -45,6 +45,15 @@ _ACTION_SET_ZIGBEE_STATE = "setZigbeeState"
 # other single-purpose namespace's toggle action uses. Never wire-confirmed;
 # same inference precedent as _ACTION_SET_STATE above (VSP speed).
 _ACTION_SET_JVA_STATE = "setJvaState"
+# Confirmed action names (Main/"tcx" namespace, same as setAuxState/
+# setHeatEnabled/setWaterTempSetpoint above) — per-action payload field
+# shapes beyond the envelope are not documented for any of these four, same
+# caveat as every other _send_command_frame call in this module.
+_ACTION_SET_LVH_APP_TYPE = "setLvhAppType"
+_ACTION_SET_AUX_LIGHT = "setAuxLight"
+_ACTION_SET_AUX_RESET_COLOR = "setAuxResetColor"
+_ACTION_SET_AUX_SETUP = "setAuxSetup"
+_ACTION_SET_IS_AUX0_FREEZE_PROTECT = "setIsAux0FreezeProtect"
 
 LOGGER = logging.getLogger("iaqualink.systems.tcx")
 
@@ -254,6 +263,16 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
                 and isinstance(val, dict)
             ):
                 candidates[key] = {"name": key, **val}
+                # setIsAux0FreezeProtect is the only single-purpose "tcx"
+                # action with a specific aux index baked into its name
+                # (unlike setAuxState/setAuxLight/setAuxSetup, which are
+                # genuinely generic across aux[N]) — freeze protect is a
+                # real hardware feature of the aux0 relay specifically, not
+                # a capability every auxN has. Singleton, like lvh1/lvh1_enable.
+                if key == "aux0":
+                    fp = val.get("fp")
+                    if fp is not None:
+                        candidates["aux0_fp"] = {"name": "aux0_fp", "fp": fp}
 
         if "TspBdy0" in reported:
             # Wire `name` is the body label (e.g. "Pool"); reassign to
@@ -265,7 +284,9 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             }
 
         if "lvh1" in reported:
-            candidates["lvh1"] = {"name": "lvh1", **reported["lvh1"]}
+            lvh1 = reported["lvh1"]
+            candidates["lvh1"] = {"name": "lvh1", **lvh1}
+            candidates["lvh1_enable"] = {"name": "lvh1_enable", **lvh1}
 
         if "swc0" in reported:
             candidates["swc0"] = {"name": "swc0", **reported["swc0"]}
@@ -363,4 +384,46 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             namespace=NAMESPACE_PIB,
             action=_ACTION_SET_JVA_STATE,
             delta={name: {"st": state}},
+        )
+
+    async def set_lvh_app_type(self, enabled: bool) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_LVH_APP_TYPE,
+            delta={"lvh1": {"app": "HEAT" if enabled else "OFF"}},
+        )
+
+    async def set_aux_light(self, name: str, color_index: int) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_AUX_LIGHT,
+            delta={name: {"cmdClr": color_index}},
+        )
+
+    async def reset_aux_light(self, name: str) -> None:
+        # No documented fields beyond the envelope for this action — same
+        # inference precedent as set_jva_state (namespace/action confirmed,
+        # payload shape is not).
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_AUX_RESET_COLOR,
+            delta={name: {}},
+        )
+
+    async def set_aux_setup(
+        self, name: str, *, app: str, et: str, ty: int, fr: str
+    ) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_AUX_SETUP,
+            delta={name: {"app": app, "et": et, "ty": ty, "fr": fr}},
+        )
+
+    async def set_aux_freeze_protect(self, enabled: bool) -> None:
+        # Action name hardcodes "Aux0" — aux0-only, not generic across
+        # aux[N]. See _update_devices()'s aux0_fp comment.
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_IS_AUX0_FREEZE_PROTECT,
+            delta={"aux0": {"fp": enabled}},
         )

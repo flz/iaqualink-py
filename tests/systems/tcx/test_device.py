@@ -7,12 +7,17 @@ import pytest
 
 from iaqualink.exception import AqualinkOperationNotSupportedException
 from iaqualink.systems.tcx.device import (
+    TcxAuxFreezeProtectSwitch,
+    TcxAuxLight,
     TcxAuxSwitch,
     TcxChlorinatorBoost,
     TcxClimate,
     TcxDevice,
     TcxFeatureCircuit,
     TcxFilterPump,
+    TcxGenericSensor,
+    TcxHeaterEnableSwitch,
+    TcxHeaterStatusSensor,
     TcxJvaSwitch,
     TcxSolarSensor,
     TcxSpeedSensor,
@@ -156,6 +161,22 @@ class TestTcxAuxSwitchLabel:
     def test_label_falls_back_to_name(self) -> None:
         sut = TcxAuxSwitch(make_system(), {"name": "aux0"})
         assert sut.label == "AUX0"
+
+
+class TestTcxAuxSwitchModel:
+    def test_model_translates_ty(self) -> None:
+        data: dict[str, Any] = {"name": "aux0", "ty": 4}
+        sut = TcxAuxSwitch(make_system(), data)
+        assert sut.model == "Relay"
+
+    def test_model_falls_back_without_ty(self) -> None:
+        sut = TcxAuxSwitch(make_system(), {"name": "aux0"})
+        assert sut.model == "AuxSwitch"
+
+    def test_model_falls_back_on_unknown_ty(self) -> None:
+        data: dict[str, Any] = {"name": "aux0", "ty": 99}
+        sut = TcxAuxSwitch(make_system(), data)
+        assert sut.model == "AuxSwitch"
 
 
 class TestTcxWaterSensorStatus:
@@ -318,6 +339,12 @@ ZIGBEE_SWITCH_ON: dict[str, Any] = {"name": "auxz0", "st": 1}
 ZIGBEE_SWITCH_OFF: dict[str, Any] = {"name": "auxz0", "st": 0}
 CLIMATE_ON: dict[str, Any] = {"name": "TspBdy0", "heatEnabled": True}
 CLIMATE_OFF: dict[str, Any] = {"name": "TspBdy0", "heatEnabled": False}
+LVH1_ENABLE_ON: dict[str, Any] = {"name": "lvh1_enable", "app": "HEAT"}
+LVH1_ENABLE_OFF: dict[str, Any] = {"name": "lvh1_enable", "app": "OFF"}
+AUX_LIGHT_ON: dict[str, Any] = {"name": "aux1", "st": 1, "et": "JL"}
+AUX_LIGHT_OFF: dict[str, Any] = {"name": "aux1", "st": 0, "et": "JL"}
+AUX_FP_ON: dict[str, Any] = {"name": "aux0_fp", "fp": True}
+AUX_FP_OFF: dict[str, Any] = {"name": "aux0_fp", "fp": False}
 
 
 class TestTcxFilterPumpOnOff:
@@ -529,3 +556,192 @@ class TestTcxClimateOnOff:
             # contract); the wire field is tenths of a degree.
             await sut.set_temperature(88)
         mock_set.assert_awaited_once_with(880)
+
+
+class TestTcxHeaterStatusSensor:
+    # lvh1.en is a ranged code (docs/reference/systems/tcx.md "lvh1"), not a
+    # 1:1 wire code, so it's classified directly rather than via
+    # AqualinkSensor.value_enum's exact-membership lookup.
+    @pytest.mark.parametrize(
+        "en,expected",
+        [
+            (0, "off"),
+            (1, "standby"),
+            (5, "standby"),
+            (6, "heating"),
+            (7, "off"),
+            (99, "off"),
+        ],
+        ids=["0", "1", "5", "6", "7", "99"],
+    )
+    def test_value_buckets(self, en: int, expected: str) -> None:
+        data: dict[str, Any] = {"name": "lvh1", "en": en}
+        sut = TcxHeaterStatusSensor(make_system(), data)
+        assert sut.value == expected
+
+    def test_value_empty_when_en_missing(self) -> None:
+        sut = TcxHeaterStatusSensor(make_system(), {"name": "lvh1"})
+        assert sut.value == ""
+
+    def test_label_uses_fr(self) -> None:
+        sut = TcxHeaterStatusSensor(
+            make_system(), {"name": "lvh1", "fr": "Pool Heater"}
+        )
+        assert sut.label == "Pool Heater"
+
+    def test_label_falls_back(self) -> None:
+        sut = TcxHeaterStatusSensor(make_system(), {"name": "lvh1"})
+        assert sut.label == "Heater Status"
+
+
+class TestTcxHeaterEnableSwitchOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxHeaterEnableSwitch(make_system(), LVH1_ENABLE_ON)
+        assert sut.is_on is True
+
+    def test_is_on_false(self) -> None:
+        sut = TcxHeaterEnableSwitch(make_system(), LVH1_ENABLE_OFF)
+        assert sut.is_on is False
+
+    async def test_turn_on_sends_command(self) -> None:
+        sut = TcxHeaterEnableSwitch(make_system(), LVH1_ENABLE_OFF)
+        with patch.object(
+            sut.system, "set_lvh_app_type", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with(True)
+
+    async def test_turn_off_sends_command(self) -> None:
+        sut = TcxHeaterEnableSwitch(make_system(), LVH1_ENABLE_ON)
+        with patch.object(
+            sut.system, "set_lvh_app_type", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with(False)
+
+
+class TestTcxAuxLightOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        assert sut.is_on is True
+
+    def test_is_on_false(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_OFF)
+        assert sut.is_on is False
+
+    async def test_turn_on_sends_command_with_name(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_OFF)
+        with patch.object(
+            sut.system, "set_aux", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with("aux1", 1)
+
+    async def test_turn_off_sends_command_with_name(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        with patch.object(
+            sut.system, "set_aux", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with("aux1", 0)
+
+
+class TestTcxAuxLightColor:
+    def test_current_color_index(self) -> None:
+        data: dict[str, Any] = {**AUX_LIGHT_ON, "currClr": 3}
+        sut = TcxAuxLight(make_system(), data)
+        assert sut.current_color_index == 3
+
+    def test_current_color_index_none_when_absent(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        assert sut.current_color_index is None
+
+    async def test_set_color_index_sends_command_with_name(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        with patch.object(
+            sut.system, "set_aux_light", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_color_index(5)
+        mock_set.assert_awaited_once_with("aux1", 5)
+
+    async def test_reset_color_sends_command_with_name(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        with patch.object(
+            sut.system, "reset_aux_light", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.reset_color()
+        mock_set.assert_awaited_once_with("aux1")
+
+
+class TestTcxAuxFreezeProtectSwitchOnOff:
+    def test_is_on_true(self) -> None:
+        sut = TcxAuxFreezeProtectSwitch(make_system(), AUX_FP_ON)
+        assert sut.is_on is True
+
+    def test_is_on_false(self) -> None:
+        sut = TcxAuxFreezeProtectSwitch(make_system(), AUX_FP_OFF)
+        assert sut.is_on is False
+
+    def test_label(self) -> None:
+        sut = TcxAuxFreezeProtectSwitch(make_system(), AUX_FP_OFF)
+        assert sut.label == "Freeze Protect"
+
+    async def test_turn_on_sends_command(self) -> None:
+        sut = TcxAuxFreezeProtectSwitch(make_system(), AUX_FP_OFF)
+        with patch.object(
+            sut.system, "set_aux_freeze_protect", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_on()
+        mock_set.assert_awaited_once_with(True)
+
+    async def test_turn_off_sends_command(self) -> None:
+        sut = TcxAuxFreezeProtectSwitch(make_system(), AUX_FP_ON)
+        with patch.object(
+            sut.system, "set_aux_freeze_protect", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.turn_off()
+        mock_set.assert_awaited_once_with(False)
+
+
+class TestTcxFromDataDispatchLight:
+    def test_light_et_dispatches_to_aux_light(self) -> None:
+        data: dict[str, Any] = {"name": "aux1", "st": 1, "et": "JL"}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxAuxLight)
+
+    def test_white_light_et_dispatches_to_aux_switch(self) -> None:
+        data: dict[str, Any] = {"name": "aux0", "st": 1, "et": "WL"}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxAuxSwitch)
+
+    def test_no_et_dispatches_to_aux_switch(self) -> None:
+        data: dict[str, Any] = {"name": "aux0", "st": 1}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxAuxSwitch)
+
+
+class TestTcxFromDataDispatchFreezeProtect:
+    def test_aux0_fp_dispatches_to_freeze_protect_switch(self) -> None:
+        data: dict[str, Any] = {"name": "aux0_fp", "fp": True}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxAuxFreezeProtectSwitch)
+
+    def test_aux1_fp_does_not_special_case_dispatch(self) -> None:
+        # Freeze protect is aux0-only (setIsAux0FreezeProtect hardcodes the
+        # target) — a hypothetical aux1_fp key isn't a recognized wire
+        # device name, so it falls through to the generic sensor.
+        data: dict[str, Any] = {"name": "aux1_fp", "fp": True}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxGenericSensor)
+
+
+class TestTcxFromDataDispatchLvh1:
+    def test_lvh1_dispatches_to_status_sensor(self) -> None:
+        data: dict[str, Any] = {"name": "lvh1", "en": 0}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxHeaterStatusSensor)
+
+    def test_lvh1_enable_dispatches_to_enable_switch(self) -> None:
+        data: dict[str, Any] = {"name": "lvh1_enable", "app": "HEAT"}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxHeaterEnableSwitch)
