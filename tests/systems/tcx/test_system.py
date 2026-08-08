@@ -247,6 +247,33 @@ class TestLvh1DeviceDiscovery:
         assert "lvh1_enable" not in sut.devices
 
 
+class TestFreezeSetPointDeviceDiscovery:
+    def test_freeze_sp_discovered(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response({"freezeSP": 340})
+        sut._parse_shadow_response(response)
+        assert "freezeSP" in sut.devices
+
+    def test_absent_freeze_sp_creates_no_device(self) -> None:
+        _, sut = _make_tcx_system()
+        sut._parse_shadow_response(_make_shadow_response())
+        assert "freezeSP" not in sut.devices
+
+
+class TestTcxSetFreezeSetPoint:
+    async def test_set_freeze_set_point_sends_command_frame(self) -> None:
+        _, sut = _make_tcx_system()
+        with patch.object(
+            sut, "_send_command_frame", new_callable=AsyncMock
+        ) as mock_send:
+            await sut.set_freeze_set_point(340)
+        mock_send.assert_awaited_once_with(
+            namespace="tcx",
+            action="setFreezeSetPoint",
+            delta={"freezeSP": 340},
+        )
+
+
 class TestAuxFreezeProtectDeviceDiscovery:
     def test_aux_fp_discovered_when_fp_present(self) -> None:
         _, sut = _make_tcx_system()

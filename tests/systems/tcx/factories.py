@@ -244,6 +244,10 @@ tcx_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = []
 # as tcx_switch_factories/tcx_climate_factories above. Covered by direct unit
 # tests in test_device.py instead; TCX_AUX_LIGHT_ON_DATA is reused there.
 tcx_light_factories: list[tuple[str, Callable[[], Any]]] = []
+# TcxFreezeSetPoint exists, but generic number conformance (test_number.py)
+# asserts set_value makes an HTTP request via respx — same WS-vs-respx
+# problem as tcx_switch_factories/tcx_climate_factories above. Covered by
+# direct unit tests in test_device.py instead.
 tcx_number_factories: list[tuple[str, Callable[[], Any]]] = []
 tcx_select_factories: list[tuple[str, Callable[[], Any]]] = []
 # TcxVariableSpeedPump doesn't implement on/off (supports_turn_on/off are

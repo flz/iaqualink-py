@@ -54,6 +54,7 @@ _ACTION_SET_AUX_LIGHT = "setAuxLight"
 _ACTION_SET_AUX_RESET_COLOR = "setAuxResetColor"
 _ACTION_SET_AUX_SETUP = "setAuxSetup"
 _ACTION_SET_IS_AUX0_FREEZE_PROTECT = "setIsAux0FreezeProtect"
+_ACTION_SET_FREEZE_SET_POINT = "setFreezeSetPoint"
 
 LOGGER = logging.getLogger("iaqualink.systems.tcx")
 
@@ -283,6 +284,12 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
                 "bodyName": reported["TspBdy0"].get("name"),
             }
 
+        if "freezeSP" in reported:
+            candidates["freezeSP"] = {
+                "name": "freezeSP",
+                "value": reported["freezeSP"],
+            }
+
         if "lvh1" in reported:
             lvh1 = reported["lvh1"]
             candidates["lvh1"] = {"name": "lvh1", **lvh1}
@@ -426,4 +433,14 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             namespace=NAMESPACE_TCX,
             action=_ACTION_SET_IS_AUX0_FREEZE_PROTECT,
             delta={"aux0": {"fp": enabled}},
+        )
+
+    async def set_freeze_set_point(self, temp: int) -> None:
+        # freezeSP is a top-level `state.reported` field, not nested under
+        # any device object (unlike TspBdy0.waterTempSet etc.) — the delta
+        # mirrors that flat shape.
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_FREEZE_SET_POINT,
+            delta={"freezeSP": temp},
         )

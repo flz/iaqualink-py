@@ -113,6 +113,16 @@
       'label': 'Filter Pump',
       'type': 'TcxFilterPump',
     }),
+    'freezeSP': dict({
+      'current_value': 34.0,
+      'entity_category': None,
+      'label': 'Freeze Protection Set Point',
+      'max_value': 50,
+      'min_value': 20,
+      'step': 1.0,
+      'type': 'TcxFreezeSetPoint',
+      'unit_of_measurement': '°F',
+    }),
     'lvh1': dict({
       'device_class': None,
       'entity_category': None,
@@ -258,6 +268,16 @@
       'is_on': True,
       'label': 'Filter Pump',
       'type': 'TcxFilterPump',
+    }),
+    'freezeSP': dict({
+      'current_value': 34.0,
+      'entity_category': None,
+      'label': 'Freeze Protection Set Point',
+      'max_value': 50,
+      'min_value': 20,
+      'step': 1.0,
+      'type': 'TcxFreezeSetPoint',
+      'unit_of_measurement': '°F',
     }),
     'lvh1': dict({
       'device_class': None,
