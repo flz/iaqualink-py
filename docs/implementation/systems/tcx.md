@@ -52,8 +52,11 @@ Status is derived from two fields in `state.reported`:
 | `air` (from `airTemp`) | `TcxAirSensor` | `AqualinkSensor` | Synthesised from `airTemp` + `airSnsr` |
 | `filt0` | `TcxFilterPump` | `AqualinkSwitch` | On/off via `filt0.st` |
 | `ecm0` | `TcxVariableSpeedPump` | `AqualinkFan` | Presets from `spdList`; speed % mapped to `minSpd`–`maxSpd` |
-| `aux0`…`auxN` | `TcxAuxSwitch` | `AqualinkSwitch` | Discovered dynamically by key pattern `aux[0-9]+` |
+| `aux0`…`auxN` | `TcxAuxSwitch` or `TcxAuxLight` | `AqualinkSwitch` / `AqualinkLight` | Discovered dynamically by key pattern `aux[0-9]+`; `TcxAuxLight` when `et` is `JL`/`IB`/`PSS`/`HU` (color-capable — see `LightType`), else `TcxAuxSwitch` |
 | `TspBdy0` | `TcxClimate` | `AqualinkClimate` | Uppercase T — wire-level invariant |
+| `lvh1` | `TcxHeaterStatusSensor` | `AqualinkSensor` | Read-only heater-tile status, translated from `en` — see "Heater tile (`lvh1`)" below |
+| `lvh1` (synthetic key `lvh1_enable`) | `TcxHeaterEnableSwitch` | `AqualinkSwitch` | Enable/disable via `app` ("HEAT"/"OFF") — sibling of `TcxHeaterStatusSensor`, same source dict |
+| `aux0.fp` (synthetic key `aux0_fp`) | `TcxAuxFreezeProtectSwitch` | `AqualinkSwitch` | Freeze-protect toggle, aux0-only (singleton) — see "Aux freeze protect" below |
 | `swc0` | `TcxChlorinatorBoost` | `AqualinkSwitch` | Exposes boost on/off only |
 | `solar` | `TcxSolarSensor` | `AqualinkSensor` | Solar temperature |
 | `filt0.manSpd` (synthetic key `filt0_manSpd`) | `TcxSpeedSensor` | `AqualinkSensor` | Raw RPM, no scaling; distinct value from `ecm0.manSpd` — confirmed not a duplicate on real hardware |
@@ -84,7 +87,7 @@ The `_filt`/`_ecm` sub-shadow responses used to additionally enrich `filt0`/`ecm
 Per the reference app, REST shadow GET is only a one-shot online/offline status check on the system list screen — it is not part of the live data flow, and commands are issued over WebSocket. `TcxSystem` mixes in `TcxStateSubscription` (`src/iaqualink/systems/tcx/ws.py`), built on the shared `WsStateSubscription` engine (`src/iaqualink/utils/websockets.py`, also used by `cyclobat`'s `RobotStateSubscription`):
 
 - `_refresh()` calls `_ws_refresh_gate()`, which auto-starts the WS subscription (idempotent — a no-op once a live task exists) and skips the REST fetch while `_ws_state_fresh()` is true. `AqualinkClient.close()` stops any subscriptions it auto-started (systems register themselves with the client on `start_ws_subscription()`), so a consumer that never calls `stop_ws_subscription()` itself doesn't leak a background task + connection.
-- All 8 write methods (`set_filter_pump`, `set_aux`, `set_heat_enabled`, `set_water_temp_setpoint`, `set_swc_boost`, `set_vsp_speed`, `set_feature_circuit_state`, `set_zigbee_state`) send WS `StateController` command frames (`service`/`namespace`/`action`/`target`/`payload`) instead of REST POST. Writes are fire-and-forget (best-effort ack, no synchronous error) — wire-level errors are signaled asynchronously via `ErrorStreamer`, not yet wired into an exception on the calling command.
+- All 14 write methods (`set_filter_pump`, `set_aux`, `set_heat_enabled`, `set_water_temp_setpoint`, `set_swc_boost`, `set_vsp_speed`, `set_feature_circuit_state`, `set_zigbee_state`, `set_jva_state`, `set_lvh_app_type`, `set_aux_light`, `reset_aux_light`, `set_aux_setup`, `set_aux_freeze_protect`) send WS `StateController` command frames (`service`/`namespace`/`action`/`target`/`payload`) instead of REST POST. Writes are fire-and-forget (best-effort ack, no synchronous error) — wire-level errors are signaled asynchronously via `ErrorStreamer`, not yet wired into an exception on the calling command.
 
 This start/stop lifecycle binding (tied to `_refresh()` calls and client close) is a library design choice, not observed from the reference app — no vendor evidence documents the reference app's actual WS session lifetime.
 
@@ -119,6 +122,36 @@ Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, 
 No "PIB" command entries exist anywhere in the reference doc's Command Reference section, despite "PIB" being a listed namespace — so `set_jva_state`'s namespace/action (`NAMESPACE_PIB`/`"setJvaState"`) is inferred, following the `"set<Thing>State"` convention every other single-purpose namespace's toggle action uses. Never wire-confirmed; same inference precedent as `set_vsp_speed` (Delta #8). Not exercised against real hardware — covered by mocked tests only.
 
 Two related `pib0`-namespace sub-objects are deliberately **not** modeled: `spare` (not confirmed to be in active use on any observed hardware — live value is a `-1311` sentinel with an undocumented `us=0` status, and the reference doc has only a one-line stub, no confirmed sub-object schema) and `pib0`'s own board-identity metadata (`sn`/`vr`/`pibConfig`/`app`) — consistent with the earlier decision not to model the `zig` namespace's own radio-metadata block as a device.
+
+### Heater tile (`lvh1`)
+
+`lvh1` ("light/valve/heater 1", the pib0-namespace heater-tile object — see protocol reference) is modeled as **two sibling devices**, not folded into `TcxClimate`: `TcxHeaterStatusSensor` (`AqualinkSensor`, canonical key `lvh1`) and `TcxHeaterEnableSwitch` (`AqualinkSwitch`, synthetic key `lvh1_enable`), both built from the same `reported["lvh1"]` dict in `_update_devices()` — the same synthetic-sibling technique already used for `ecm0`/`ecm0_manSpd` etc.
+
+This mirrors `iaqua`'s existing pattern exactly: `IaquaClimate` is a pure façade over three *separate* sibling devices (`{type}_set_point`/`{type}_heater`/`{type}_temp`) and heater-equipment enable/status lives in its own `IaquaHeater`/`IaquaHeatPumpStatusSensor` devices, never inside the Climate entity. `lvh1` has no setpoint field of its own (`TspBdy0.waterTempSet` is the only setpoint on tcx), so it structurally can't be a `Climate` — it's the tcx analog of `IaquaHeater`/`IaquaHeatPumpStatusSensor`, sitting beside the existing `TcxClimate` (which owns `TspBdy0`).
+
+`lvh1.en` is a *ranged* code (`0` → off, `1`–`5` → standby, `6` → heating, `≥7` → off), not a 1:1 wire code — `_lvh1_en_to_status()` (`src/iaqualink/systems/tcx/device.py`) classifies it directly into `"off"`/`"standby"`/`"heating"`, rather than using `AqualinkSensor.value_enum` (which does an exact-membership `cls(value)` lookup, e.g. `IaquaHeatPumpStatusSensor`'s pattern — doesn't fit a range).
+
+`TcxHeaterEnableSwitch.is_on` reads `lvh1.app == "HEAT"`; `turn_on`/`turn_off` call the new `set_lvh_app_type(enabled)` (`"setLvhAppType"`, `NAMESPACE_TCX`) — a separate wire path from `TcxClimate.turn_on`/`turn_off`, which calls `set_heat_enabled` against `TspBdy0.heatEnabled`. Both toggle "is the heater enabled" from the user's perspective but through different shadow objects; neither has been observed live to confirm whether they're kept in sync by the controller or are independent.
+
+### Aux light control (`TcxAuxLight`)
+
+`aux0`…`auxN` entries are split by `aux[N].et` (`LightType` enum): `JL`/`IB`/`PSS`/`HU` (real color lights) dispatch to `TcxAuxLight` (`AqualinkLight`); `WL` (white light, non-color) and anything without `et` stay `TcxAuxSwitch`. `LightType` already existed in `enums.py`, unused, before this change.
+
+`TcxAuxLight.is_on`/`turn_on`/`turn_off` reuse the existing, already-confirmed `set_aux(name, state)` (`aux0.st`) — same mechanism as `TcxAuxSwitch`. Color control is intentionally **raw-index only**: `current_color_index` (`currClr`), `set_color_index()` (new `set_aux_light`, `"setAuxLight"`, `{name: {"cmdClr": index}}`), `reset_color()` (new `reset_aux_light`, `"setAuxResetColor"`, `{name: {}}` — no confirmed extra fields). No `effect`/`effect_list` (named colors) are populated: `iaqua` has per-brand effect-name dicts (`IaquaColorLightJC`/`SL`/`CL`/`JL`/`IB`), but those are keyed on iaqua's own `subtype` codes on a different platform, and TCX's `HU` ("Hayward Universal ColorLogic") has no iaqua equivalent at all (iaqua's `CL` is a *Pentair* product of a similar name) — reusing those name lists across vendors without wire confirmation risks recording wrong color names as fact. Raw index control is the honest baseline; named effects can follow once a TCX-specific index→name mapping is wire-confirmed.
+
+### Aux freeze protect (`TcxAuxFreezeProtectSwitch`)
+
+Scoped to **aux0 only**, not generic across `aux[N]`. The wire action name is `setIsAux0FreezeProtect` — unlike the genuinely generic per-aux actions (`setAuxState`, `setAuxLight`, `setAuxResetColor`, `setAuxSetup`, all of which take whichever aux key is in the payload), this one has `"Aux0"` baked directly into the action name itself, indicating freeze protect is a real hardware feature of the aux0 relay specifically, not a capability every auxN has.
+
+When `reported.aux0.fp` is present, `_update_devices()` registers a fixed synthetic `aux0_fp` key dispatched to `TcxAuxFreezeProtectSwitch` (`AqualinkSwitch`) — same singleton-sibling technique as `lvh1`/`lvh1_enable` above (fixed key, not name-derived). `is_on` reads `fp`; `turn_on`/`turn_off` call `set_aux_freeze_protect(enabled)` (`"setIsAux0FreezeProtect"`, `NAMESPACE_TCX`, `{"aux0": {"fp": enabled}}`) — no aux-name parameter, since the target is always aux0. `fp` present on any other `aux[N]` is intentionally ignored.
+
+### Aux setup (`set_aux_setup`)
+
+`setAuxSetup` is exposed as a plain `TcxSystem.set_aux_setup(name, *, app, et, ty, fr)` method with **no corresponding device entity** — consistent with the rest of this codebase, where no other `*Setup`-style action (e.g. `setFeatureCircuitSetup`) is modeled as an HA entity; configuration writes are administrative, not toggleable state. The field set (`app`/`et`/`ty`/`fr`) matches the one documented payload example available for this action.
+
+### `AuxType` (`aux0.ty`)
+
+Added to `enums.py` and the protocol reference's Enum Wire Values section. Not used for `TcxAuxLight`/`TcxAuxSwitch` dispatch — `et` (`LightType`) already disambiguates lights from non-lights and was already established in this codebase before this change. `ty` is only used cosmetically, for `TcxAuxSwitch.model` (e.g. `"Pump"`, `"Relay"`) when present. Unlike the rest of this reference doc, `AuxType`'s wire values were supplied via external protocol research rather than this repo's own decompiled-source/live-capture pipeline — flagged as not independently confirmed.
 
 ### Heater min/max set-point
 
@@ -159,3 +192,6 @@ The SWC chlorinator is modelled as a boost on/off switch (`TcxChlorinatorBoost`)
 | 12 | `jva1`/`jva2` write path (`NAMESPACE_PIB`/`"setJvaState"`) is inferred, never wire-confirmed | No "PIB" command entries exist in the reference doc despite "PIB" being a listed namespace. Same inference precedent as `set_vsp_speed` (delta #8). Not exercised against real hardware — covered by mocked tests only |
 | 13 | `pib0`'s own board-identity metadata (`sn`/`vr`/`pibConfig`/`app`) intentionally not modeled as a device | Consistent with the earlier decision not to model the `zig` namespace's own radio-metadata block as a device — only individually attached sub-devices become entities |
 | 14 | `spare` (live-observed alongside `jva1`/`water`/`solar`/`air`/`aux0` in the `pib0` namespace) intentionally left entirely unparsed | Not confirmed to be in active use on any observed hardware (live value is a `-1311` sentinel with an undocumented `us=0` status); the reference doc has only a one-line stub for it, no confirmed sub-object schema |
+| 15 | `set_lvh_app_type`/`set_aux_light`/`reset_aux_light`/`set_aux_setup`/`set_aux_freeze_protect` payload shapes inferred by reusing the same "wire field name -> desired-state delta" convention as delta #7 | Action names (`setLvhAppType`/`setAuxLight`/`setAuxResetColor`/`setAuxSetup`/`setIsAux0FreezeProtect`) and their namespace (`tcx`/`NAMESPACE_TCX`) are confirmed from the Command Reference table; no field-level payload example exists for any of the five. `reset_aux_light`'s delta is an empty `{name: {}}` — no confirmed extra fields. `set_aux_freeze_protect(enabled)` takes no aux-name parameter — target is hardcoded to `aux0`, matching the action name itself (see "Aux freeze protect" above) |
+| 16 | `TcxAuxLight` exposes raw `currClr`/`cmdClr` color-index control only, no named `effect`/`effect_list` | No TCX-specific color-index-to-name mapping is wire-confirmed; iaqua's per-brand effect-name dicts are keyed on a different platform's codes and can't be safely assumed to match (see "Aux light control" above) |
+| 17 | `AuxType` (`aux0.ty`) enum values supplied via external protocol research, not this repo's own decompiled-source/live-capture pipeline | Source doesn't match the confidence level of the rest of this reference doc; not used for dispatch (see "`AuxType`" above), cosmetic use only |

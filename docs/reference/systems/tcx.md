@@ -620,7 +620,7 @@ Note: JSON key includes trailing `0`.
 | `svdClr` | integer | Saved color index |
 | `statClr` | integer | Color status — see ColorStatus enum |
 | `dl` | integer | Dimmer level |
-| `ty` | integer | Type code |
+| `ty` | integer | Type code — see AuxType enum |
 | `em` | integer | (reserved) |
 | `sy` | integer | (reserved) |
 | `rs` | string | Reset string |
@@ -818,6 +818,21 @@ Color source for `aux0.statClr`:
 |---|---|
 | `4` or `5` | Use `currClr` (current color active) |
 | `6` | Use `lockClr` (color locked) |
+
+### AuxType
+
+Type code for `aux0.ty` (also applies to `auxz0.ty`, see `pib0` sub-shadow):
+
+| Wire value | Meaning |
+|---|---|
+| `1` | Pump |
+| `2` | White light |
+| `3` | Other |
+| `4` | Relay |
+| `5` | Unused |
+| `6` | Pool light |
+
+Not independently confirmed by live wire capture against this repo's decompiled-source pipeline — supplied via external protocol research. `et` (see `LightType` above) is the field this implementation actually dispatches on for light detection; `ty` is exposed for informational/display purposes only.
 
 ### Water Status
 
