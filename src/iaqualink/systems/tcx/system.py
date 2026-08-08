@@ -198,14 +198,16 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
         self._upsert_devices(candidates)
 
     def _parse_zig_sub_shadow(self, reported: dict[str, Any]) -> None:
-        zig = reported.get("zig", {})
-        if not isinstance(zig, dict):
-            return
+        # ZigBee devices live in the `_zig` sub-shadow, keyed as top-level
+        # `auxz[N]` entries (mirroring aux[N]/jva[N]) — confirmed by live
+        # wire capture and protocol research. `zig` itself is the radio
+        # module's own scalar status object (st/op/ty/euid/ai/bt/fw), not a
+        # dict of devices keyed by address; it's intentionally left unparsed
+        # here. See docs/reference/systems/tcx.md "zig / auxz[N]".
         candidates: dict[str, dict[str, Any]] = {}
-        for addr, v in zig.items():
-            if isinstance(v, dict):
-                key = f"zig_{addr}"
-                candidates[key] = {"name": key, "addr": addr, **v}
+        for k, v in reported.items():
+            if k.startswith("auxz") and k[4:].isdigit() and isinstance(v, dict):
+                candidates[k] = {"name": k, **v}
         self._upsert_devices(candidates)
 
     def _update_devices(self, reported: dict[str, Any]) -> None:
@@ -346,11 +348,14 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             delta={name: {"st": state}},
         )
 
-    async def set_zigbee_state(self, addr: str, state: int) -> None:
+    async def set_zigbee_state(self, name: str, state: int) -> None:
+        # Payload confirmed via protocol research against the `_zig`
+        # sub-shadow's write shape: {"state": {"desired": {"auxz0": {"st":
+        # 1}}}}. `name` is the auxz[N] key, not a bare zigbee address.
         await self._send_command_frame(
             namespace=NAMESPACE_ZIGBEE,
             action=_ACTION_SET_ZIGBEE_STATE,
-            delta={"zig": {addr: {"st": state}}},
+            delta={name: {"st": state}},
         )
 
     async def set_jva_state(self, name: str, state: int) -> None:

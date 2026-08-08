@@ -311,6 +311,14 @@ WebSocket commands are scoped to a namespace that identifies the target subsyste
 | `"setZigBeeAuxDictionary"` | Set ZigBee aux configuration |
 | `"setZigbeeScanDuration"` | Set ZigBee scan discovery duration |
 
+Confirmed `setZigbeeState` write shape (targets the `_zig` sub-shadow, keyed by the `auxz[N]` device, not by radio address):
+
+```json
+{ "state": { "desired": { "auxz0": { "st": 1 } } } }
+```
+
+Over MQTT this is a `POST`/publish to the `_zig` sub-shadow's update path (`$aws/things/{serial}_zig/shadow/update`); over WebSocket, namespace `"zigbee"`, action `"setZigbeeState"`, `payload: {"auxz0": {"st": 1}, "clientToken": ...}`.
+
 ---
 
 ## Shadow Response Envelope
@@ -675,6 +683,7 @@ Both share the same schema:
 | `cm` | long | Config mode |
 | `cp` | boolean | Cool pool |
 | `currClr` | integer | Current color index |
+| `cmdClr` | integer | Commanded color index |
 | `dl` | long | Dimmer level |
 | `ei` | string | Equipment identifier |
 | `em` | long | (reserved) |
@@ -693,9 +702,11 @@ Both share the same schema:
 | `ty` | long | Type code |
 | `zn` | array\<long\> | Zone assignment |
 
-### `zig` (ZigBee Hub Info — main shadow)
+### `zig` (ZigBee Hub Info — `_zig` sub-shadow)
 
-The `zig` key in the main shadow contains hub-level ZigBee info (not per-device):
+Confirmed: `zig`/`auxz[N]` are **not** populated in the main shadow. The main shadow's `equipment.zig` is only a presence flag that gates whether the client subscribes to the `_zig` sub-shadow (see "MQTT Topics" above — same get/get-accepted/update-accepted lifecycle as every other sub-shadow). The actual reported state lives exclusively in the `_zig` sub-shadow document (`{serial}_zig`), and is what shows up merged into the unified WS Authorization payload's `"zig"` namespace (see "Incoming data frame" above) — the WS gateway delivers it unconditionally alongside every other namespace, with no client-side equivalent of the MQTT subscribe/trigger-fetch dance required.
+
+The `zig` key itself holds hub-level ZigBee radio info (not per-device — individual paired devices are the `auxz[N]` keys documented above):
 
 | JSON key | Type | Description |
 |---|---|---|
@@ -706,8 +717,6 @@ The `zig` key in the main shadow contains hub-level ZigBee info (not per-device)
 | `ai` | string | Additional info |
 | `bt` | string | Bluetooth info |
 | `fw` | string | Firmware version |
-
-Individual ZigBee device state is in the `_zig` sub-shadow.
 
 ### `hubAir` (Hub Air Sensor)
 
@@ -900,7 +909,7 @@ Combined status derived from `aws.status` and `systemMode`:
 | 3 | `heatPriority` and `heatAvailable` value ranges — not confirmed |
 | 4 | `equipment` sub-object field values — presence indicators beyond key presence not characterized |
 | 5 | Feature-circuit element key — live capture shows `fcr[N]` (e.g. `fcr0`), not `feaCircuit[N]`; full field schema for an *enabled* circuit not yet observed (the one captured was disabled/`"app": "UNUSED"`) |
-| 6 | ZigBee device location — live capture shows attached devices as separate top-level keys (e.g. `auxz0`), analogous to `aux[N]`; the `zig` key itself is the radio's own status (`st`/`op`/`euid`/`fw`/`ty`/`bt`/`ai`), not a dict of devices keyed by address |
+| 6 | ~~ZigBee device location~~ — **confirmed**: attached devices are separate top-level `auxz[N]` keys (e.g. `auxz0`) inside the `_zig` sub-shadow, analogous to `aux[N]`; `zig` itself is the radio's own status object (`st`/`op`/`euid`/`fw`/`ty`/`bt`/`ai`), not a dict of devices keyed by address. Write payload also confirmed: `{"state":{"desired":{"auxz0":{"st":1}}}}` (see "ZigBee" command reference above) |
 | 7 | `ecm` sub-shadow URL (`tcx_ecm_shadow`) absent from production config — may not be fetched by reference app in production |
 | 8 | ~~WS Authorization-ack payload body shape~~ — **confirmed** from live wire capture: namespace-keyed (see "Incoming data frame" above), not a flat `state.reported`. StateStreamer/DataStreamer/EventStreamer delta payload body shape remains unconfirmed — no delta frame observed live |
 | 9 | Whether namespace-scoped *delta* pushes (`filtration`, `featureCircuit`, `zigbee`, etc. via StateStreamer/DataStreamer/EventStreamer) use the same namespace-keyed shape confirmed for the Authorization full-state push, or something else — not confirmed |

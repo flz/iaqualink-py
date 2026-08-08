@@ -69,8 +69,7 @@ TCX_FEATURE_CIRCUIT_ON_DATA: dict[str, Any] = {
     "fr": "Spa Jets",
 }
 TCX_ZIGBEE_SWITCH_ON_DATA: dict[str, Any] = {
-    "name": "zig_aabbccdd",
-    "addr": "aabbccdd",
+    "name": "auxz0",
     "st": 1,
     "fr": "Pool Light",
 }
