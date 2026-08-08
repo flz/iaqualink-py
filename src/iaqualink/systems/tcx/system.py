@@ -33,6 +33,7 @@ _ACTION_SET_FILTER_PUMP_STATE = "setFilterPumpState"
 _ACTION_SET_AUX_STATE = "setAuxState"
 _ACTION_SET_HEAT_ENABLED = "setHeatEnabled"
 _ACTION_SET_WATER_TEMP_SETPOINT = "setWaterTempSetpoint"
+_ACTION_SET_SOLAR_TEMP_SETPOINT = "setSolarTempSetpoint"
 _ACTION_SET_BOOST_MODE = "setBoostMode"
 # No VSP action matches "set current commanded speed" (setPrimingSpeed/
 # setMinMasterSpeed/setMaxMasterSpeed/setQuickCleanSpeed/setFreezeProtectSpeed
@@ -276,13 +277,17 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
                         candidates["aux0_fp"] = {"name": "aux0_fp", "fp": fp}
 
         if "TspBdy0" in reported:
+            tspbdy0 = reported["TspBdy0"]
             # Wire `name` is the body label (e.g. "Pool"); reassign to
             # `bodyName` so it doesn't clobber the dispatch key below.
             candidates["TspBdy0"] = {
-                **reported["TspBdy0"],
+                **tspbdy0,
                 "name": "TspBdy0",
-                "bodyName": reported["TspBdy0"].get("name"),
+                "bodyName": tspbdy0.get("name"),
             }
+            # Same wire-`name`-clobbers-dispatch-key trap as above — spread
+            # first, override `name` after.
+            candidates["TspBdy0_solar"] = {**tspbdy0, "name": "TspBdy0_solar"}
 
         if "freezeSP" in reported:
             candidates["freezeSP"] = {
@@ -353,6 +358,13 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             namespace=NAMESPACE_TCX,
             action=_ACTION_SET_WATER_TEMP_SETPOINT,
             delta={"TspBdy0": {"waterTempSet": temp}},
+        )
+
+    async def set_solar_temp_setpoint(self, temp: int) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_TCX,
+            action=_ACTION_SET_SOLAR_TEMP_SETPOINT,
+            delta={"TspBdy0": {"solarTempSet": temp}},
         )
 
     async def set_swc_boost(self, enabled: bool) -> None:

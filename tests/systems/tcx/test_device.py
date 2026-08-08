@@ -21,6 +21,7 @@ from iaqualink.systems.tcx.device import (
     TcxHeaterStatusSensor,
     TcxJvaSwitch,
     TcxSolarSensor,
+    TcxSolarSetPoint,
     TcxSpeedSensor,
     TcxVariableSpeedPump,
     TcxWaterSensor,
@@ -276,6 +277,66 @@ class TestTcxClimateTemperatureScaling:
         assert sut.current_temperature == "28.3"
 
 
+class TestTcxClimateBounds:
+    def test_bounds_default_to_fahrenheit(self) -> None:
+        sut = TcxClimate(make_system(), {"name": "TspBdy0"})
+        assert sut.min_temp == 60
+        assert sut.max_temp == 104
+
+    def test_bounds_switch_to_celsius(self) -> None:
+        system = make_system()
+        system.temp_unit = "C"
+        sut = TcxClimate(system, {"name": "TspBdy0"})
+        assert sut.min_temp == 16
+        assert sut.max_temp == 40
+
+
+SOLAR_SP_DATA: dict[str, Any] = {"name": "TspBdy0_solar", "solarTempSet": 1000}
+
+
+class TestTcxSolarSetPoint:
+    def test_label(self) -> None:
+        sut = TcxSolarSetPoint(make_system(), {**SOLAR_SP_DATA})
+        assert sut.label == "Solar Heater Set Point"
+
+    def test_current_value_scales_wire_value(self) -> None:
+        sut = TcxSolarSetPoint(make_system(), {**SOLAR_SP_DATA})
+        assert sut.current_value == 100.0
+
+    def test_current_value_none_when_absent(self) -> None:
+        sut = TcxSolarSetPoint(make_system(), {"name": "TspBdy0_solar"})
+        assert sut.current_value is None
+
+    def test_bounds_and_unit_default_to_fahrenheit(self) -> None:
+        sut = TcxSolarSetPoint(make_system(), {**SOLAR_SP_DATA})
+        assert sut.min_value == 60
+        assert sut.max_value == 104
+        assert sut.unit_of_measurement == "°F"
+
+    def test_bounds_and_unit_switch_to_celsius(self) -> None:
+        system = make_system()
+        system.temp_unit = "C"
+        sut = TcxSolarSetPoint(system, {**SOLAR_SP_DATA})
+        assert sut.min_value == 16
+        assert sut.max_value == 40
+        assert sut.unit_of_measurement == "°C"
+
+    async def test_set_value_sends_scaled_wire_value(self) -> None:
+        sut = TcxSolarSetPoint(make_system(), {**SOLAR_SP_DATA})
+        with patch.object(
+            sut.system, "set_solar_temp_setpoint", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_value(90)
+        mock_set.assert_awaited_once_with(900)
+
+
+class TestTcxFromDataDispatchSolarSetPoint:
+    def test_tspbdy0_solar_dispatches_to_solar_set_point(self) -> None:
+        data: dict[str, Any] = {**SOLAR_SP_DATA}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxSolarSetPoint)
+
+
 FREEZE_SP_DATA: dict[str, Any] = {"name": "freezeSP", "value": 340}
 
 
@@ -294,8 +355,8 @@ class TestTcxFreezeSetPoint:
 
     def test_bounds_and_unit_default_to_fahrenheit(self) -> None:
         sut = TcxFreezeSetPoint(make_system(), {**FREEZE_SP_DATA})
-        assert sut.min_value == 20
-        assert sut.max_value == 50
+        assert sut.min_value == 34
+        assert sut.max_value == 42
         assert sut.unit_of_measurement == "°F"
 
     def test_bounds_and_unit_switch_to_celsius(self) -> None:
@@ -303,8 +364,8 @@ class TestTcxFreezeSetPoint:
         system.temp_unit = "C"
         data: dict[str, Any] = {"name": "freezeSP", "value": 33}
         sut = TcxFreezeSetPoint(system, data)
-        assert sut.min_value == -7
-        assert sut.max_value == 10
+        assert sut.min_value == 1
+        assert sut.max_value == 6
         assert sut.unit_of_measurement == "°C"
 
     async def test_set_value_sends_scaled_wire_value(self) -> None:

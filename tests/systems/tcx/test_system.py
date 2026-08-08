@@ -247,6 +247,17 @@ class TestLvh1DeviceDiscovery:
         assert "lvh1_enable" not in sut.devices
 
 
+class TestSolarSetPointDeviceDiscovery:
+    def test_tspbdy0_solar_discovered(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response(
+            {"TspBdy0": {"solarTempSet": 1000, "name": "Pool"}}
+        )
+        sut._parse_shadow_response(response)
+        assert "TspBdy0" in sut.devices
+        assert "TspBdy0_solar" in sut.devices
+
+
 class TestFreezeSetPointDeviceDiscovery:
     def test_freeze_sp_discovered(self) -> None:
         _, sut = _make_tcx_system()
