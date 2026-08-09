@@ -160,37 +160,41 @@ class TestFeaZigDeviceDiscovery:
 
 
 class TestSpeedSensorDiscovery:
-    # filt0.manSpd and ecm0.manSpd/qcSpd have no confirmed write action
-    # (only used internally for TcxVariableSpeedPump's percentage/preset
-    # math) — synthesized as standalone read-only sensors in
-    # _update_devices. ecm0.frzSpd/prmSpd/minSpd/maxSpd/prmDur are writable
-    # instead — see TestVspWritableSpeedFieldDiscovery below.
+    # ecm0.qcSpd has no confirmed write action in practice — synthesized as
+    # a standalone read-only sensor in _update_devices. ecm0.frzSpd/prmSpd/
+    # minSpd/maxSpd/prmDur are writable instead — see
+    # TestVspWritableSpeedFieldDiscovery below. filt0.manSpd/ecm0.manSpd are
+    # intentionally not modeled at all (confirmed neither displayed nor
+    # written by the reference app) — see TestManSpdNotModeled below.
 
-    def test_filt0_man_spd_discovered(self) -> None:
+    def test_ecm0_qc_spd_discovered(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response({"ecm0": {"qcSpd": 3450}})
+        sut._parse_shadow_response(response)
+        assert cast(TcxSpeedSensor, sut.devices["ecm0_qcSpd"]).value == "3450"
+
+    def test_absent_qc_spd_creates_no_sensor(self) -> None:
+        _, sut = _make_tcx_system()
+        sut._parse_shadow_response(_make_shadow_response())
+        assert "ecm0_qcSpd" not in sut.devices
+
+
+class TestManSpdNotModeled:
+    # Confirmed via user-supplied research into the reference app: neither
+    # field is displayed nor written by the app (see "Reference app
+    # display/write behavior" in docs/reference/systems/tcx.md).
+
+    def test_filt0_man_spd_creates_no_device(self) -> None:
         _, sut = _make_tcx_system()
         response = _make_shadow_response({"filt0": {"manSpd": 2000}})
         sut._parse_shadow_response(response)
-        device = cast(TcxSpeedSensor, sut.devices["filt0_manSpd"])
-        assert device.value == "2000"
+        assert "filt0_manSpd" not in sut.devices
 
-    def test_ecm0_extra_speeds_discovered(self) -> None:
+    def test_ecm0_man_spd_creates_no_device(self) -> None:
         _, sut = _make_tcx_system()
-        response = _make_shadow_response(
-            {"ecm0": {"manSpd": 1900, "qcSpd": 3450}}
-        )
+        response = _make_shadow_response({"ecm0": {"manSpd": 1900}})
         sut._parse_shadow_response(response)
-        assert cast(TcxSpeedSensor, sut.devices["ecm0_manSpd"]).value == "1900"
-        assert cast(TcxSpeedSensor, sut.devices["ecm0_qcSpd"]).value == "3450"
-
-    def test_filt0_and_ecm0_man_spd_are_independent(self) -> None:
-        # Confirmed distinct values on real hardware, not duplicates.
-        _, sut = _make_tcx_system()
-        response = _make_shadow_response(
-            {"filt0": {"manSpd": 2000}, "ecm0": {"manSpd": 1900}}
-        )
-        sut._parse_shadow_response(response)
-        assert cast(TcxSpeedSensor, sut.devices["filt0_manSpd"]).value == "2000"
-        assert cast(TcxSpeedSensor, sut.devices["ecm0_manSpd"]).value == "1900"
+        assert "ecm0_manSpd" not in sut.devices
 
 
 class TestJvaDeviceDiscovery:
@@ -216,13 +220,6 @@ class TestJvaDeviceDiscovery:
         _, sut = _make_tcx_system()
         sut._parse_shadow_response(_make_shadow_response())
         assert not any(k.startswith("jva") for k in sut.devices)
-
-    def test_absent_speed_fields_create_no_sensors(self) -> None:
-        _, sut = _make_tcx_system()
-        sut._parse_shadow_response(_make_shadow_response())
-        assert "filt0_manSpd" not in sut.devices
-        for key in ("ecm0_manSpd", "ecm0_qcSpd"):
-            assert key not in sut.devices
 
 
 class TestVspWritableSpeedFieldDiscovery:

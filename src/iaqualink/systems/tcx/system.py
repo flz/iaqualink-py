@@ -69,13 +69,14 @@ _ACTION_SET_SPEEDS_LIST = "setSpeedsList"
 
 LOGGER = logging.getLogger("iaqualink.systems.tcx")
 
-# Speed fields (RPM) that exist on filt0/ecm0 but aren't otherwise surfaced,
-# have no confirmed write action, and stay read-only sensors. filt0.manSpd
-# and ecm0.manSpd are confirmed distinct values on real hardware (not
-# duplicates), so both get their own sensor. qcSpd has a documented action
-# (setQuickCleanSpeed) but is confirmed unused by TCX firmware — read-only.
+# Speed fields (RPM) that exist on ecm0 but aren't otherwise surfaced and
+# have no confirmed write action, so stay read-only sensors. qcSpd has a
+# documented action (setQuickCleanSpeed) but is confirmed unused by TCX
+# firmware — read-only. manSpd (both filt0 and ecm0) is intentionally NOT
+# synthesized as a device at all — confirmed via user-supplied research
+# into the reference app that it's neither displayed nor written by the
+# app (same for ecm0.reqSpd/filt0.sp, which were never modeled either).
 _ECM0_EXTRA_SPEED_FIELDS: tuple[tuple[str, str], ...] = (
-    ("manSpd", "Fan Manual Speed"),
     ("qcSpd", "Fan Quick-Clean Speed"),
 )
 
@@ -258,15 +259,7 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             }
 
         if "filt0" in reported:
-            filt0 = reported["filt0"]
-            candidates["filt0"] = {"name": "filt0", **filt0}
-            man_spd = filt0.get("manSpd")
-            if man_spd is not None:
-                candidates["filt0_manSpd"] = {
-                    "name": "filt0_manSpd",
-                    "label": "Filtration Manual Speed",
-                    "value": man_spd,
-                }
+            candidates["filt0"] = {"name": "filt0", **reported["filt0"]}
 
         if "ecm0" in reported:
             ecm0 = reported["ecm0"]

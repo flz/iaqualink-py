@@ -86,14 +86,15 @@ def _lvh1_en_to_status(en: int) -> str:
     return "off"
 
 
-# Synthetic device keys for read-only speed (RPM) sensors built from
-# filt0/ecm0 sub-fields with no confirmed write action — see
-# TcxSystem._ECM0_EXTRA_SPEED_FIELDS. Not full wire device names, so
-# dispatched by exact match here rather than the filt0/ecm0 branches above.
+# Synthetic device keys for read-only speed (RPM) sensors built from ecm0
+# sub-fields with no confirmed write action — see
+# TcxSystem._ECM0_EXTRA_SPEED_FIELDS. Not a full wire device name, so
+# dispatched by exact match here rather than the ecm0 branch above.
+# filt0.manSpd/ecm0.manSpd are intentionally NOT modeled at all — confirmed
+# via user-supplied research into the reference app that they're neither
+# displayed nor written by the app.
 _SPEED_SENSOR_NAMES = frozenset(
     {
-        "filt0_manSpd",
-        "ecm0_manSpd",
         "ecm0_qcSpd",
     }
 )
@@ -204,10 +205,10 @@ class TcxWaterSensor(TcxDevice, AqualinkSensor):
 
 
 class TcxSpeedSensor(TcxDevice, AqualinkSensor):
-    """Read-only RPM sensor for a filt0/ecm0 speed field not otherwise
-    surfaced (see _SPEED_SENSOR_NAMES / _ECM0_EXTRA_SPEED_FIELDS in
-    system.py). These are raw RPM values, already whole units — no
-    temperature-style /10 scaling applies."""
+    """Read-only RPM sensor for an ecm0 speed field not otherwise surfaced
+    (see _SPEED_SENSOR_NAMES / _ECM0_EXTRA_SPEED_FIELDS in system.py).
+    Raw RPM values, already whole units — no temperature-style /10
+    scaling applies."""
 
     @property
     def label(self) -> str:

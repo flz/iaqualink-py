@@ -525,6 +525,20 @@ Corrected from live wire capture: the field table below reflects real hardware. 
 | `asAux` | string | Associated aux |
 | `zn` | array\<long\> | Zone assignment |
 
+#### Reference app display/write behavior
+
+Supplied via external protocol research into the reference app's own UI/behavior, not this repo's decompiled-source/live-capture pipeline — same confidence caveat as the VSP ranges/steps above:
+
+| Field | Displayed in app? | Written by app? |
+|---|---|---|
+| `ecm0.cmdSpd` | Yes — home tile shows `"{cmdSpd} RPM"` | No — device-reported only |
+| `ecm0.manSpd` | No | No |
+| `filt0.manSpd` | No | No |
+| `ecm0.reqSpd` | No | No |
+| `filt0.sp` | No | No |
+
+The app never writes `cmdSpd` despite displaying it — consistent with no VSP-namespace action matching "set current commanded speed" (see Command Reference above). This library's `set_vsp_speed` write to `cmdSpd` is therefore unconfirmed to do anything on real hardware, not merely "no matching action name" — see `docs/implementation/systems/tcx.md` "VSP speed commands"/delta #8.
+
 ### `spdList` Element (Speed Preset)
 
 Elements of `ecm0.spdList`:
