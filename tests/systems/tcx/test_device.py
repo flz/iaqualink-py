@@ -376,19 +376,20 @@ class TestTcxSolarSensorStatus:
 
 
 class TestTcxSpeedSensor:
-    # RPM speed fields on filt0/ecm0 with no confirmed write action (only
-    # used internally for TcxVariableSpeedPump's percentage/preset math) —
-    # exposed as read-only sensors, no /10 scaling (unlike temperature).
+    # ecm0.qcSpd has no confirmed write action in practice — exposed as a
+    # read-only sensor, no /10 scaling (unlike temperature). filt0.manSpd/
+    # ecm0.manSpd are intentionally not modeled at all (confirmed neither
+    # displayed nor written by the reference app).
 
     def test_value_and_label(self) -> None:
         data: dict[str, Any] = {
-            "name": "ecm0_manSpd",
-            "label": "Fan Manual Speed",
+            "name": "ecm0_qcSpd",
+            "label": "Fan Quick-Clean Speed",
             "value": 2500,
         }
         sut = TcxSpeedSensor(make_system(), data)
         assert sut.value == "2500"
-        assert sut.label == "Fan Manual Speed"
+        assert sut.label == "Fan Quick-Clean Speed"
 
     def test_label_falls_back_to_name_without_label_field(self) -> None:
         sut = TcxSpeedSensor(make_system(), {"name": "ecm0_qcSpd"})
@@ -401,8 +402,6 @@ class TestTcxSpeedSensor:
     @pytest.mark.parametrize(
         "name",
         [
-            "filt0_manSpd",
-            "ecm0_manSpd",
             "ecm0_qcSpd",
         ],
     )
@@ -410,6 +409,16 @@ class TestTcxSpeedSensor:
         data: dict[str, Any] = {"name": name, "value": 1000}
         sut = TcxDevice.from_data(make_system(), data)
         assert isinstance(sut, TcxSpeedSensor)
+
+    @pytest.mark.parametrize("name", ["filt0_manSpd", "ecm0_manSpd"])
+    def test_man_spd_no_longer_dispatches_to_speed_sensor(
+        self, name: str
+    ) -> None:
+        # Confirmed neither displayed nor written by the reference app —
+        # intentionally not modeled, falls through to the generic sensor.
+        data: dict[str, Any] = {"name": name, "value": 1000}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxGenericSensor)
 
 
 class TestTcxClimateLabel:

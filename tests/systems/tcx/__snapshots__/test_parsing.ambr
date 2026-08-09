@@ -85,16 +85,6 @@
       'type': 'TcxVspFreezeProtectSpeed',
       'unit_of_measurement': 'rpm',
     }),
-    'ecm0_manSpd': dict({
-      'device_class': None,
-      'entity_category': None,
-      'label': 'Fan Manual Speed',
-      'state_class': None,
-      'type': 'TcxSpeedSensor',
-      'unit_of_measurement': None,
-      'value': '0',
-      'value_translated': None,
-    }),
     'ecm0_maxSpd': dict({
       'current_value': 3450.0,
       'entity_category': None,
@@ -302,16 +292,6 @@
       'step': 25,
       'type': 'TcxVspFreezeProtectSpeed',
       'unit_of_measurement': 'rpm',
-    }),
-    'ecm0_manSpd': dict({
-      'device_class': None,
-      'entity_category': None,
-      'label': 'Fan Manual Speed',
-      'state_class': None,
-      'type': 'TcxSpeedSensor',
-      'unit_of_measurement': None,
-      'value': '0',
-      'value_translated': None,
     }),
     'ecm0_maxSpd': dict({
       'current_value': 3450.0,
