@@ -287,6 +287,7 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             }
             # Same wire-`name`-clobbers-dispatch-key trap as above — spread
             # first, override `name` after.
+            candidates["TspBdy0_water"] = {**tspbdy0, "name": "TspBdy0_water"}
             candidates["TspBdy0_solar"] = {**tspbdy0, "name": "TspBdy0_solar"}
 
         if "freezeSP" in reported:

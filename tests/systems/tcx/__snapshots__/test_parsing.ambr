@@ -20,6 +20,16 @@
       'type': 'TcxSolarSetPoint',
       'unit_of_measurement': '°F',
     }),
+    'TspBdy0_water': dict({
+      'current_value': 88.0,
+      'entity_category': None,
+      'label': 'Water Heater Set Point',
+      'max_value': 104,
+      'min_value': 60,
+      'step': 1.0,
+      'type': 'TcxWaterSetPoint',
+      'unit_of_measurement': '°F',
+    }),
     'air': dict({
       'device_class': None,
       'entity_category': None,
@@ -196,6 +206,16 @@
       'min_value': 60,
       'step': 1.0,
       'type': 'TcxSolarSetPoint',
+      'unit_of_measurement': '°F',
+    }),
+    'TspBdy0_water': dict({
+      'current_value': 88.0,
+      'entity_category': None,
+      'label': 'Water Heater Set Point',
+      'max_value': 104,
+      'min_value': 60,
+      'step': 1.0,
+      'type': 'TcxWaterSetPoint',
       'unit_of_measurement': '°F',
     }),
     'air': dict({

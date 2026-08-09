@@ -142,6 +142,8 @@ class TcxDevice(AqualinkDevice):
             return TcxJvaSwitch(system, data)
         if name == "TspBdy0":
             return TcxClimate(system, data)
+        if name == "TspBdy0_water":
+            return TcxWaterSetPoint(system, data)
         if name == "TspBdy0_solar":
             return TcxSolarSetPoint(system, data)
         if name == "freezeSP":
@@ -479,6 +481,50 @@ class TcxClimate(TcxDevice, AqualinkClimate):
     async def _set_temperature(self, temperature: int) -> None:
         await self.system.set_water_temp_setpoint(
             _display_temp_to_wire(temperature)
+        )
+
+
+class TcxWaterSetPoint(TcxDevice, AqualinkNumber):
+    """Water heater set point (`TspBdy0.waterTempSet`) — synthetic sibling
+    of TcxClimate, same technique as `TcxSolarSetPoint` (built from the
+    same TspBdy0 dict, synthetic key `TspBdy0_water`). Duplicates
+    TcxClimate.target_temperature as a standalone Number, for consumers
+    that want the setpoint without a full Climate entity. Reuses the
+    existing, already-confirmed `set_water_temp_setpoint` — same write
+    path TcxClimate._set_temperature already calls, no new action."""
+
+    @property
+    def label(self) -> str:
+        return "Water Heater Set Point"
+
+    @property
+    def current_value(self) -> float | None:
+        raw = self.data.get("waterTempSet")
+        return float(_wire_temp_to_display(raw)) if raw is not None else None
+
+    @property
+    def min_value(self) -> float:
+        return (
+            _TEMP_SETPOINT_MIN_C
+            if self.system.temp_unit == "C"
+            else _TEMP_SETPOINT_MIN_F
+        )
+
+    @property
+    def max_value(self) -> float:
+        return (
+            _TEMP_SETPOINT_MAX_C
+            if self.system.temp_unit == "C"
+            else _TEMP_SETPOINT_MAX_F
+        )
+
+    @property
+    def unit_of_measurement(self) -> str | None:
+        return "°C" if self.system.temp_unit == "C" else "°F"
+
+    async def _set_value(self, value: float) -> None:
+        await self.system.set_water_temp_setpoint(
+            _display_temp_to_wire(int(value))
         )
 
 

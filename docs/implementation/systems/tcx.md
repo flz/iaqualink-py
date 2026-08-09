@@ -54,6 +54,7 @@ Status is derived from two fields in `state.reported`:
 | `ecm0` | `TcxVariableSpeedPump` | `AqualinkFan` | Presets from `spdList`; speed % mapped to `minSpd`–`maxSpd` |
 | `aux0`…`auxN` | `TcxAuxSwitch` or `TcxAuxLight` | `AqualinkSwitch` / `AqualinkLight` | Discovered dynamically by key pattern `aux[0-9]+`; `TcxAuxLight` when `et` is `JL`/`IB`/`PSS`/`HU` (color-capable — see `LightType`), else `TcxAuxSwitch` |
 | `TspBdy0` | `TcxClimate` | `AqualinkClimate` | Uppercase T — wire-level invariant |
+| `TspBdy0.waterTempSet` (synthetic key `TspBdy0_water`) | `TcxWaterSetPoint` | `AqualinkNumber` | Writable — duplicates `TcxClimate.target_temperature` as a standalone Number, see "Solar heater set point" below |
 | `TspBdy0.solarTempSet` (synthetic key `TspBdy0_solar`) | `TcxSolarSetPoint` | `AqualinkNumber` | Writable — see "Solar heater set point" below |
 | `lvh1` | `TcxHeaterStatusSensor` | `AqualinkSensor` | Read-only heater-tile status, translated from `en` — see "Heater tile (`lvh1`)" below |
 | `lvh1` (synthetic key `lvh1_enable`) | `TcxHeaterEnableSwitch` | `AqualinkSwitch` | Enable/disable via `app` ("HEAT"/"OFF") — sibling of `TcxHeaterStatusSensor`, same source dict |
@@ -163,9 +164,11 @@ A sibling top-level field, `lowAirSP` ("Low air temperature threshold"), is unam
 
 Same tenths-of-a-degree wire scaling as `waterTempSet`/`water.value`/`solar.value` (`_wire_temp_to_display`/`_display_temp_to_wire`), and the same whole-degree step convention as `TcxClimate.target_temperature` (the wire stores tenths; the public API only accepts whole degrees). Bounds (`_FREEZE_SP_MIN/MAX_F/_C` in `device.py`) are `34–42°F` (`1–6°C`), per a user-supplied device spec (`60–104°F`/`34–42°F`, `1°F` step, for water/solar/freeze-protection set points respectively) — see "Heater/solar min/max set-point" below for the shared water/solar bounds.
 
-### Solar heater set point (`TcxSolarSetPoint`)
+### Water and solar heater set points (`TcxWaterSetPoint`, `TcxSolarSetPoint`)
 
-`TspBdy0.solarTempSet` is modeled as a synthetic sibling of `TcxClimate` — same technique as `lvh1`/`lvh1_enable`, built from the same `TspBdy0` dict under a synthetic key (`TspBdy0_solar`) rather than folded into the Climate entity itself (`AqualinkClimate` only has one `target_temperature`; a body with both water and solar heat sources needs two independent setpoints). Writable via the confirmed `setSolarTempSetpoint` action, same field-name convention as `setWaterTempSetpoint` → `waterTempSet`. Shares `TcxClimate`'s bounds (`_TEMP_SETPOINT_MIN/MAX_F/_C`) and tenths-of-a-degree scaling.
+`TspBdy0.waterTempSet` and `TspBdy0.solarTempSet` are each modeled as a synthetic sibling of `TcxClimate` — same technique as `lvh1`/`lvh1_enable`, built from the same `TspBdy0` dict under synthetic keys (`TspBdy0_water`, `TspBdy0_solar`) rather than folded into the Climate entity itself (`AqualinkClimate` only has one `target_temperature`; a body with both water and solar heat sources needs two independent setpoints, and some consumers want the setpoint without a full Climate entity).
+
+`TcxWaterSetPoint` duplicates `TcxClimate.target_temperature`/`set_temperature` as a standalone Number — it reuses the exact same, already-confirmed `set_water_temp_setpoint` write path `TcxClimate._set_temperature` already calls, no new action. `TcxSolarSetPoint` is writable via the confirmed `setSolarTempSetpoint` action, same field-name convention as `setWaterTempSetpoint` → `waterTempSet`. Both share `TcxClimate`'s bounds (`_TEMP_SETPOINT_MIN/MAX_F/_C`) and tenths-of-a-degree scaling.
 
 ### Heater/solar min/max set-point
 
@@ -192,7 +195,7 @@ The SWC chlorinator is modelled as a boost on/off switch (`TcxChlorinatorBoost`)
 | # | Delta | Reason |
 |---|---|---|
 | 1 | SWC exposes boost only | Richer SWC surface (output %, salinity, mode) is future work |
-| 2 | Heater/solar bounds hardcoded (`60–104°F`/`16–40°C`, shared by `TcxClimate` and `TcxSolarSetPoint`) | Shadow bounds field presence not confirmed. Values are per a user-supplied device spec rather than a guess; Celsius bounds are still a rounded Fahrenheit conversion, not independently specified |
+| 2 | Heater/solar bounds hardcoded (`60–104°F`/`16–40°C`, shared by `TcxClimate`, `TcxWaterSetPoint`, and `TcxSolarSetPoint`) | Shadow bounds field presence not confirmed. Values are per a user-supplied device spec rather than a guess; Celsius bounds are still a rounded Fahrenheit conversion, not independently specified |
 | 3 | ~~ZigBee write payload shape unverified~~ — **resolved** | `set_zigbee_state` now posts `{name: {"st": N}}` (i.e. `{"auxz0": {"st": N}}`), confirmed via protocol research against the `_zig` sub-shadow's write shape (`{"state":{"desired":{"auxz0":{"st":1}}}}`) — see protocol reference's "ZigBee" command reference |
 | 4 | REST sub-shadow reads (`_filt`, `_ecm`, `_fea`, `_zig`, `_sched`, `_pib0`, `_scene`) removed entirely — no longer fetched | Confirmed non-functional against real hardware — direct live probe of all 7 sub-shadow URLs returns `401 Unauthorized`; previously the "REST requests for all subsystems" behavior that motivated this change. Feature-circuit/ZigBee discovery now runs against the unified reported tree assembled from the WS Authorization payload instead (see "Feature-circuit / ZigBee discovery" above); `filt0`/`ecm0` field enrichment from `_filt`/`_ecm` has no replacement |
 | 5 | ~~WS Authorization-ack payload shape assumed to mirror REST's flat `state.reported` envelope~~ — **resolved**: confirmed namespace-keyed on real hardware (see "WebSocket-primary reads and writes" above); `StateStreamer`/`DataStreamer`/`EventStreamer` delta payload shape is still unconfirmed (no delta observed live yet) | Full-state shape confirmed via live wire capture; delta shape remains inferred — `_reported_from_payload()` defensively supports both a flat and a namespace-keyed payload so either resolves correctly once confirmed |
