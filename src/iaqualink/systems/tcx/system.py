@@ -12,6 +12,7 @@ from iaqualink.systems.tcx.ws import (
     NAMESPACE_PIB,
     NAMESPACE_SWC,
     NAMESPACE_TCX,
+    NAMESPACE_VSP,
     NAMESPACE_ZIGBEE,
     TcxStateSubscription,
 )
@@ -56,18 +57,40 @@ _ACTION_SET_AUX_RESET_COLOR = "setAuxResetColor"
 _ACTION_SET_AUX_SETUP = "setAuxSetup"
 _ACTION_SET_IS_AUX0_FREEZE_PROTECT = "setIsAux0FreezeProtect"
 _ACTION_SET_FREEZE_SET_POINT = "setFreezeSetPoint"
+# VSP namespace ("vsp") — action names and namespace confirmed in the
+# reference doc's Command Reference; ranges/steps/payload shape supplied via
+# external protocol research (docs/implementation/systems/tcx.md).
+_ACTION_SET_MIN_MASTER_SPEED = "setMinMasterSpeed"
+_ACTION_SET_MAX_MASTER_SPEED = "setMaxMasterSpeed"
+_ACTION_SET_PRIMING_SPEED = "setPrimingSpeed"
+_ACTION_SET_FREEZE_PROTECT_SPEED = "setFreezeProtectSpeed"
+_ACTION_SET_PRIMING_SPEED_DURATION = "setPrimingSpeedDuration"
+_ACTION_SET_SPEEDS_LIST = "setSpeedsList"
 
 LOGGER = logging.getLogger("iaqualink.systems.tcx")
 
-# Speed fields (RPM) that exist on filt0/ecm0 but aren't otherwise surfaced —
-# only used internally for TcxVariableSpeedPump's percentage/preset math.
-# filt0.manSpd and ecm0.manSpd are confirmed distinct values on real
-# hardware (not duplicates), so both get their own sensor.
+# Speed fields (RPM) that exist on filt0/ecm0 but aren't otherwise surfaced,
+# have no confirmed write action, and stay read-only sensors. filt0.manSpd
+# and ecm0.manSpd are confirmed distinct values on real hardware (not
+# duplicates), so both get their own sensor. qcSpd has a documented action
+# (setQuickCleanSpeed) but is confirmed unused by TCX firmware — read-only.
 _ECM0_EXTRA_SPEED_FIELDS: tuple[tuple[str, str], ...] = (
     ("manSpd", "Fan Manual Speed"),
-    ("frzSpd", "Fan Freeze-Protect Speed"),
-    ("prmSpd", "Fan Priming Speed"),
     ("qcSpd", "Fan Quick-Clean Speed"),
+)
+
+# ecm0 fields with a confirmed VSP-namespace write action (setMinMasterSpeed/
+# setMaxMasterSpeed/setPrimingSpeed/setFreezeProtectSpeed/
+# setPrimingSpeedDuration) — synthesized with the full ecm0 dict, not just
+# the one field, so e.g. TcxVspMinSpeed can read the current maxSpd for the
+# min<=max invariant and TcxVspPrimingSpeed/TcxVspFreezeProtectSpeed can
+# read the dynamic [minSpd, maxSpd] bounds. See device.py TcxVsp* classes.
+_ECM0_WRITABLE_SPEED_FIELDS: tuple[str, ...] = (
+    "minSpd",
+    "maxSpd",
+    "prmSpd",
+    "frzSpd",
+    "prmDur",
 )
 
 
@@ -257,6 +280,10 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
                         "label": label,
                         "value": val,
                     }
+            for wire_key in _ECM0_WRITABLE_SPEED_FIELDS:
+                if ecm0.get(wire_key) is not None:
+                    key = f"ecm0_{wire_key}"
+                    candidates[key] = {**ecm0, "name": key}
 
         for key, val in reported.items():
             if (
@@ -334,10 +361,14 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
     # ── Command helpers (WS StateController frames) ──────────────────────────
 
     async def set_filter_pump(self, state: int) -> None:
+        # Write target is `pool.st`, not `filt0.st` — confirmed via external
+        # protocol research; `filt0` is read/status only for this action.
+        # TcxFilterPump.is_on still reads filt0.st (unaffected, presumably
+        # a mirror of the same on/off state).
         await self._send_command_frame(
             namespace=NAMESPACE_FILTRATION,
             action=_ACTION_SET_FILTER_PUMP_STATE,
-            delta={"filt0": {"st": state}},
+            delta={"pool": {"st": state}},
         )
 
     async def set_aux(self, name: str, state: int) -> None:
@@ -380,6 +411,51 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
             namespace=NAMESPACE_TCX,
             action=_ACTION_SET_STATE,
             delta={"ecm0": {"cmdSpd": speed_rpm}},
+        )
+
+    async def set_vsp_min_speed(self, speed_rpm: int) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_VSP,
+            action=_ACTION_SET_MIN_MASTER_SPEED,
+            delta={"ecm0": {"minSpd": speed_rpm}},
+        )
+
+    async def set_vsp_max_speed(self, speed_rpm: int) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_VSP,
+            action=_ACTION_SET_MAX_MASTER_SPEED,
+            delta={"ecm0": {"maxSpd": speed_rpm}},
+        )
+
+    async def set_vsp_priming_speed(self, speed_rpm: int) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_VSP,
+            action=_ACTION_SET_PRIMING_SPEED,
+            delta={"ecm0": {"prmSpd": speed_rpm}},
+        )
+
+    async def set_vsp_freeze_protect_speed(self, speed_rpm: int) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_VSP,
+            action=_ACTION_SET_FREEZE_PROTECT_SPEED,
+            delta={"ecm0": {"frzSpd": speed_rpm}},
+        )
+
+    async def set_vsp_priming_duration(self, seconds: int) -> None:
+        await self._send_command_frame(
+            namespace=NAMESPACE_VSP,
+            action=_ACTION_SET_PRIMING_SPEED_DURATION,
+            delta={"ecm0": {"prmDur": seconds}},
+        )
+
+    async def set_vsp_speeds_list(self, entries: list[dict[str, Any]]) -> None:
+        # Rewrites the full named-preset list (speed values only — names/
+        # count are fixed per spec). No device entity, same precedent as
+        # set_aux_setup: administrative/config write, not toggleable state.
+        await self._send_command_frame(
+            namespace=NAMESPACE_VSP,
+            action=_ACTION_SET_SPEEDS_LIST,
+            delta={"ecm0": {"spdList": entries}},
         )
 
     async def set_feature_circuit_state(self, name: str, state: int) -> None:

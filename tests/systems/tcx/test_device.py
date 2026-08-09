@@ -24,6 +24,11 @@ from iaqualink.systems.tcx.device import (
     TcxSolarSetPoint,
     TcxSpeedSensor,
     TcxVariableSpeedPump,
+    TcxVspFreezeProtectSpeed,
+    TcxVspMaxSpeed,
+    TcxVspMinSpeed,
+    TcxVspPrimingDuration,
+    TcxVspPrimingSpeed,
     TcxWaterSensor,
     TcxWaterSetPoint,
     TcxZigbeeSwitch,
@@ -146,6 +151,168 @@ class TestTcxVariableSpeedPumpPercentage:
         mock_set.assert_awaited_once_with(2225)
 
 
+ECM0_WRITABLE_DATA: dict[str, Any] = {
+    "name": "ecm0_minSpd",
+    "minSpd": 1000,
+    "maxSpd": 3450,
+    "prmSpd": 3200,
+    "frzSpd": 1200,
+    "prmDur": 180,
+}
+
+
+class TestTcxVspMinSpeed:
+    def test_label(self) -> None:
+        sut = TcxVspMinSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.label == "VSP Minimum Speed"
+
+    def test_current_value(self) -> None:
+        sut = TcxVspMinSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.current_value == 1000
+
+    def test_bounds_use_absolute_min_and_dynamic_max(self) -> None:
+        sut = TcxVspMinSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.min_value == 600
+        assert sut.max_value == 3450
+        assert sut.step == 25
+        assert sut.unit_of_measurement == "rpm"
+
+    def test_max_value_falls_back_when_max_spd_absent(self) -> None:
+        data: dict[str, Any] = {"name": "ecm0_minSpd", "minSpd": 1000}
+        sut = TcxVspMinSpeed(make_system(), data)
+        assert sut.max_value == 3450
+
+    async def test_set_value_sends_command(self) -> None:
+        sut = TcxVspMinSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        with patch.object(
+            sut.system, "set_vsp_min_speed", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_value(1050)
+        mock_set.assert_awaited_once_with(1050)
+
+
+class TestTcxVspMaxSpeed:
+    def test_label(self) -> None:
+        sut = TcxVspMaxSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.label == "VSP Maximum Speed"
+
+    def test_current_value(self) -> None:
+        sut = TcxVspMaxSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.current_value == 3450
+
+    def test_bounds_use_dynamic_min_and_absolute_max(self) -> None:
+        sut = TcxVspMaxSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.min_value == 1000
+        assert sut.max_value == 3450
+        assert sut.step == 25
+        assert sut.unit_of_measurement == "rpm"
+
+    def test_min_value_falls_back_when_min_spd_absent(self) -> None:
+        data: dict[str, Any] = {"name": "ecm0_maxSpd", "maxSpd": 3450}
+        sut = TcxVspMaxSpeed(make_system(), data)
+        assert sut.min_value == 600
+
+    async def test_set_value_sends_command(self) -> None:
+        sut = TcxVspMaxSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        with patch.object(
+            sut.system, "set_vsp_max_speed", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_value(3400)
+        mock_set.assert_awaited_once_with(3400)
+
+
+class TestTcxVspPrimingSpeed:
+    def test_label(self) -> None:
+        sut = TcxVspPrimingSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.label == "VSP Priming Speed"
+
+    def test_current_value(self) -> None:
+        sut = TcxVspPrimingSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.current_value == 3200
+
+    def test_bounds_are_dynamic(self) -> None:
+        sut = TcxVspPrimingSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.min_value == 1000
+        assert sut.max_value == 3450
+        assert sut.step == 25
+
+    async def test_set_value_sends_command(self) -> None:
+        sut = TcxVspPrimingSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        with patch.object(
+            sut.system, "set_vsp_priming_speed", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_value(3225)
+        mock_set.assert_awaited_once_with(3225)
+
+
+class TestTcxVspFreezeProtectSpeed:
+    def test_label(self) -> None:
+        sut = TcxVspFreezeProtectSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.label == "VSP Freeze Protect Speed"
+
+    def test_current_value(self) -> None:
+        sut = TcxVspFreezeProtectSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.current_value == 1200
+
+    def test_bounds_are_dynamic(self) -> None:
+        sut = TcxVspFreezeProtectSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.min_value == 1000
+        assert sut.max_value == 3450
+        assert sut.step == 25
+
+    async def test_set_value_sends_command(self) -> None:
+        sut = TcxVspFreezeProtectSpeed(make_system(), {**ECM0_WRITABLE_DATA})
+        with patch.object(
+            sut.system, "set_vsp_freeze_protect_speed", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_value(1225)
+        mock_set.assert_awaited_once_with(1225)
+
+
+class TestTcxVspPrimingDuration:
+    def test_label(self) -> None:
+        sut = TcxVspPrimingDuration(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.label == "VSP Priming Duration"
+
+    def test_current_value(self) -> None:
+        sut = TcxVspPrimingDuration(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.current_value == 180
+
+    def test_bounds(self) -> None:
+        sut = TcxVspPrimingDuration(make_system(), {**ECM0_WRITABLE_DATA})
+        assert sut.min_value == 0
+        assert sut.max_value == 300
+        assert sut.step == 60
+        assert sut.unit_of_measurement == "s"
+
+    async def test_set_value_sends_command(self) -> None:
+        sut = TcxVspPrimingDuration(make_system(), {**ECM0_WRITABLE_DATA})
+        with patch.object(
+            sut.system, "set_vsp_priming_duration", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_value(60)
+        mock_set.assert_awaited_once_with(60)
+
+
+class TestTcxFromDataDispatchVspFields:
+    @pytest.mark.parametrize(
+        "name,expected_class",
+        [
+            ("ecm0_minSpd", TcxVspMinSpeed),
+            ("ecm0_maxSpd", TcxVspMaxSpeed),
+            ("ecm0_prmSpd", TcxVspPrimingSpeed),
+            ("ecm0_frzSpd", TcxVspFreezeProtectSpeed),
+            ("ecm0_prmDur", TcxVspPrimingDuration),
+        ],
+    )
+    def test_dispatches_to_expected_class(
+        self, name: str, expected_class: type
+    ) -> None:
+        data: dict[str, Any] = {**ECM0_WRITABLE_DATA, "name": name}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, expected_class)
+
+
 class TestTcxFilterPumpLabel:
     def test_label_uses_fr(self) -> None:
         sut = TcxFilterPump(make_system(), {"name": "filt0", "fr": "Pump A"})
@@ -209,26 +376,26 @@ class TestTcxSolarSensorStatus:
 
 
 class TestTcxSpeedSensor:
-    # RPM speed fields on filt0/ecm0 not otherwise surfaced (only used
-    # internally for TcxVariableSpeedPump's percentage/preset math) —
+    # RPM speed fields on filt0/ecm0 with no confirmed write action (only
+    # used internally for TcxVariableSpeedPump's percentage/preset math) —
     # exposed as read-only sensors, no /10 scaling (unlike temperature).
 
     def test_value_and_label(self) -> None:
         data: dict[str, Any] = {
-            "name": "ecm0_frzSpd",
-            "label": "Fan Freeze-Protect Speed",
+            "name": "ecm0_manSpd",
+            "label": "Fan Manual Speed",
             "value": 2500,
         }
         sut = TcxSpeedSensor(make_system(), data)
         assert sut.value == "2500"
-        assert sut.label == "Fan Freeze-Protect Speed"
+        assert sut.label == "Fan Manual Speed"
 
     def test_label_falls_back_to_name_without_label_field(self) -> None:
         sut = TcxSpeedSensor(make_system(), {"name": "ecm0_qcSpd"})
         assert sut.label == "ecm0_qcSpd"
 
     def test_value_empty_when_absent(self) -> None:
-        sut = TcxSpeedSensor(make_system(), {"name": "ecm0_prmSpd"})
+        sut = TcxSpeedSensor(make_system(), {"name": "ecm0_qcSpd"})
         assert sut.value == ""
 
     @pytest.mark.parametrize(
@@ -236,8 +403,6 @@ class TestTcxSpeedSensor:
         [
             "filt0_manSpd",
             "ecm0_manSpd",
-            "ecm0_frzSpd",
-            "ecm0_prmSpd",
             "ecm0_qcSpd",
         ],
     )

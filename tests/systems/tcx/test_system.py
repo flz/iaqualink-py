@@ -160,9 +160,11 @@ class TestFeaZigDeviceDiscovery:
 
 
 class TestSpeedSensorDiscovery:
-    # filt0.manSpd and ecm0.manSpd/frzSpd/prmSpd/qcSpd aren't otherwise
-    # surfaced (only used internally for TcxVariableSpeedPump's percentage/
-    # preset math) — synthesized as standalone sensors in _update_devices.
+    # filt0.manSpd and ecm0.manSpd/qcSpd have no confirmed write action
+    # (only used internally for TcxVariableSpeedPump's percentage/preset
+    # math) — synthesized as standalone read-only sensors in
+    # _update_devices. ecm0.frzSpd/prmSpd/minSpd/maxSpd/prmDur are writable
+    # instead — see TestVspWritableSpeedFieldDiscovery below.
 
     def test_filt0_man_spd_discovered(self) -> None:
         _, sut = _make_tcx_system()
@@ -174,19 +176,10 @@ class TestSpeedSensorDiscovery:
     def test_ecm0_extra_speeds_discovered(self) -> None:
         _, sut = _make_tcx_system()
         response = _make_shadow_response(
-            {
-                "ecm0": {
-                    "manSpd": 1900,
-                    "frzSpd": 2500,
-                    "prmSpd": 3275,
-                    "qcSpd": 3450,
-                }
-            }
+            {"ecm0": {"manSpd": 1900, "qcSpd": 3450}}
         )
         sut._parse_shadow_response(response)
         assert cast(TcxSpeedSensor, sut.devices["ecm0_manSpd"]).value == "1900"
-        assert cast(TcxSpeedSensor, sut.devices["ecm0_frzSpd"]).value == "2500"
-        assert cast(TcxSpeedSensor, sut.devices["ecm0_prmSpd"]).value == "3275"
         assert cast(TcxSpeedSensor, sut.devices["ecm0_qcSpd"]).value == "3450"
 
     def test_filt0_and_ecm0_man_spd_are_independent(self) -> None:
@@ -228,7 +221,46 @@ class TestJvaDeviceDiscovery:
         _, sut = _make_tcx_system()
         sut._parse_shadow_response(_make_shadow_response())
         assert "filt0_manSpd" not in sut.devices
-        for key in ("ecm0_manSpd", "ecm0_frzSpd", "ecm0_prmSpd", "ecm0_qcSpd"):
+        for key in ("ecm0_manSpd", "ecm0_qcSpd"):
+            assert key not in sut.devices
+
+
+class TestVspWritableSpeedFieldDiscovery:
+    # ecm0.minSpd/maxSpd/prmSpd/frzSpd/prmDur have confirmed vsp-namespace
+    # write actions — synthesized with the full ecm0 dict (not just the one
+    # field) so e.g. TcxVspMinSpeed can read the current maxSpd.
+
+    def test_all_writable_fields_discovered(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response(
+            {
+                "ecm0": {
+                    "minSpd": 1000,
+                    "maxSpd": 3450,
+                    "prmSpd": 3200,
+                    "frzSpd": 1200,
+                    "prmDur": 180,
+                }
+            }
+        )
+        sut._parse_shadow_response(response)
+        for key in (
+            "ecm0_minSpd",
+            "ecm0_maxSpd",
+            "ecm0_prmSpd",
+            "ecm0_frzSpd",
+            "ecm0_prmDur",
+        ):
+            assert key in sut.devices
+
+    def test_absent_prm_dur_creates_no_device(self) -> None:
+        # SAMPLE_REPORTED's default ecm0 already has minSpd/maxSpd but no
+        # prmDur/prmSpd/frzSpd.
+        _, sut = _make_tcx_system()
+        sut._parse_shadow_response(_make_shadow_response())
+        assert "ecm0_minSpd" in sut.devices
+        assert "ecm0_maxSpd" in sut.devices
+        for key in ("ecm0_prmSpd", "ecm0_frzSpd", "ecm0_prmDur"):
             assert key not in sut.devices
 
 

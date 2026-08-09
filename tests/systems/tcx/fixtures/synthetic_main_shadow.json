@@ -35,6 +35,16 @@
         "fr": "Filter Pump",
         "zn": [0]
       },
+      "pool": {
+        "st": 1,
+        "en": 1,
+        "cp": false,
+        "fp": false,
+        "zn": [0],
+        "ap": "POOL_M",
+        "et": "V_POS",
+        "fr": "Pool"
+      },
       "ecm0": {
         "cmdSpd": 2700,
         "reqSpd": 2700,

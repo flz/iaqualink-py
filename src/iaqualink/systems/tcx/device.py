@@ -42,6 +42,22 @@ _FREEZE_SP_MAX_F = 42
 _FREEZE_SP_MIN_C = 1
 _FREEZE_SP_MAX_C = 6
 
+# VSP speed bounds (user-supplied spec: 600-3450 RPM, 25 RPM step). Some
+# hardware variants ("SVRS") report an effective minimum of 1050 RPM
+# instead — not detectable from wire data, so 600 is used uniformly as the
+# absolute floor; TcxVspMinSpeed/MaxSpeed/PrimingSpeed/FreezeProtectSpeed
+# additionally clamp against each other's *current* value for the
+# min<=max invariant (see device.py TcxVsp* classes below).
+_VSP_SPEED_MIN_RPM = 600
+_VSP_SPEED_MAX_RPM = 3450
+_VSP_SPEED_STEP_RPM = 25
+
+# VSP priming-duration bounds (user-supplied spec: 0-300 seconds, 60s
+# step). Wire unit is already seconds — no temperature-style scaling.
+_VSP_PRIMING_DURATION_MIN_S = 0
+_VSP_PRIMING_DURATION_MAX_S = 300
+_VSP_PRIMING_DURATION_STEP_S = 60
+
 
 def _wire_temp_to_display(raw: int | float | str) -> str:
     """Temperature wire fields (water/solar value, TspBdy0.waterTempSet,
@@ -70,16 +86,14 @@ def _lvh1_en_to_status(en: int) -> str:
     return "off"
 
 
-# Synthetic device keys for speed (RPM) sensors built from filt0/ecm0
-# sub-fields in TcxSystem._update_devices — see _ECM0_EXTRA_SPEED_FIELDS
-# there. Not full wire device names, so dispatched by exact match here
-# rather than the filt0/ecm0 branches above.
+# Synthetic device keys for read-only speed (RPM) sensors built from
+# filt0/ecm0 sub-fields with no confirmed write action — see
+# TcxSystem._ECM0_EXTRA_SPEED_FIELDS. Not full wire device names, so
+# dispatched by exact match here rather than the filt0/ecm0 branches above.
 _SPEED_SENSOR_NAMES = frozenset(
     {
         "filt0_manSpd",
         "ecm0_manSpd",
-        "ecm0_frzSpd",
-        "ecm0_prmSpd",
         "ecm0_qcSpd",
     }
 )
@@ -132,6 +146,16 @@ class TcxDevice(AqualinkDevice):
             return TcxVariableSpeedPump(system, data)
         if name in _SPEED_SENSOR_NAMES:
             return TcxSpeedSensor(system, data)
+        if name == "ecm0_minSpd":
+            return TcxVspMinSpeed(system, data)
+        if name == "ecm0_maxSpd":
+            return TcxVspMaxSpeed(system, data)
+        if name == "ecm0_prmSpd":
+            return TcxVspPrimingSpeed(system, data)
+        if name == "ecm0_frzSpd":
+            return TcxVspFreezeProtectSpeed(system, data)
+        if name == "ecm0_prmDur":
+            return TcxVspPrimingDuration(system, data)
         if name == "aux0_fp":
             return TcxAuxFreezeProtectSwitch(system, data)
         if name.startswith("aux") and name[3:].isdigit():
@@ -425,6 +449,185 @@ class TcxVariableSpeedPump(TcxDevice, AqualinkFan):
         max_spd = int(self.data.get("maxSpd") or 3450)
         spd = round(min_spd + (max_spd - min_spd) * percentage / 100)
         await self.system.set_vsp_speed(spd)
+
+
+class TcxVspMinSpeed(TcxDevice, AqualinkNumber):
+    """Minimum VSP master speed (`ecm0.minSpd`), namespace `vsp`. Absolute
+    floor 600 RPM per user-supplied spec — some hardware variants ("SVRS")
+    report an effective minimum of 1050 RPM instead, not detectable from
+    wire data, so 600 is used uniformly. Dynamic upper bound: must stay
+    <= the current `maxSpd` (read from the same synthesized `ecm0` dict —
+    see TcxSystem._ECM0_WRITABLE_SPEED_FIELDS)."""
+
+    @property
+    def label(self) -> str:
+        return "VSP Minimum Speed"
+
+    @property
+    def current_value(self) -> float | None:
+        raw = self.data.get("minSpd")
+        return float(raw) if raw is not None else None
+
+    @property
+    def min_value(self) -> float:
+        return _VSP_SPEED_MIN_RPM
+
+    @property
+    def max_value(self) -> float:
+        raw = self.data.get("maxSpd")
+        return float(raw) if raw is not None else _VSP_SPEED_MAX_RPM
+
+    @property
+    def step(self) -> float:
+        return _VSP_SPEED_STEP_RPM
+
+    @property
+    def unit_of_measurement(self) -> str | None:
+        return "rpm"
+
+    async def _set_value(self, value: float) -> None:
+        await self.system.set_vsp_min_speed(int(value))
+
+
+class TcxVspMaxSpeed(TcxDevice, AqualinkNumber):
+    """Maximum VSP master speed (`ecm0.maxSpd`), namespace `vsp`. Dynamic
+    lower bound: must stay >= the current `minSpd`. Absolute ceiling 3450
+    RPM (same across hardware variants per user-supplied spec)."""
+
+    @property
+    def label(self) -> str:
+        return "VSP Maximum Speed"
+
+    @property
+    def current_value(self) -> float | None:
+        raw = self.data.get("maxSpd")
+        return float(raw) if raw is not None else None
+
+    @property
+    def min_value(self) -> float:
+        raw = self.data.get("minSpd")
+        return float(raw) if raw is not None else _VSP_SPEED_MIN_RPM
+
+    @property
+    def max_value(self) -> float:
+        return _VSP_SPEED_MAX_RPM
+
+    @property
+    def step(self) -> float:
+        return _VSP_SPEED_STEP_RPM
+
+    @property
+    def unit_of_measurement(self) -> str | None:
+        return "rpm"
+
+    async def _set_value(self, value: float) -> None:
+        await self.system.set_vsp_max_speed(int(value))
+
+
+class TcxVspPrimingSpeed(TcxDevice, AqualinkNumber):
+    """Priming speed (`ecm0.prmSpd`), namespace `vsp`. Dynamic bounds
+    `[minSpd, maxSpd]` per user-supplied spec."""
+
+    @property
+    def label(self) -> str:
+        return "VSP Priming Speed"
+
+    @property
+    def current_value(self) -> float | None:
+        raw = self.data.get("prmSpd")
+        return float(raw) if raw is not None else None
+
+    @property
+    def min_value(self) -> float:
+        raw = self.data.get("minSpd")
+        return float(raw) if raw is not None else _VSP_SPEED_MIN_RPM
+
+    @property
+    def max_value(self) -> float:
+        raw = self.data.get("maxSpd")
+        return float(raw) if raw is not None else _VSP_SPEED_MAX_RPM
+
+    @property
+    def step(self) -> float:
+        return _VSP_SPEED_STEP_RPM
+
+    @property
+    def unit_of_measurement(self) -> str | None:
+        return "rpm"
+
+    async def _set_value(self, value: float) -> None:
+        await self.system.set_vsp_priming_speed(int(value))
+
+
+class TcxVspFreezeProtectSpeed(TcxDevice, AqualinkNumber):
+    """Freeze-protection speed (`ecm0.frzSpd`), namespace `vsp`. Dynamic
+    bounds `[minSpd, maxSpd]` per user-supplied spec. Distinct from
+    TcxAuxFreezeProtectSwitch (aux0.fp, a separate freeze-protect concept
+    for the aux0 relay, action setIsAux0FreezeProtect)."""
+
+    @property
+    def label(self) -> str:
+        return "VSP Freeze Protect Speed"
+
+    @property
+    def current_value(self) -> float | None:
+        raw = self.data.get("frzSpd")
+        return float(raw) if raw is not None else None
+
+    @property
+    def min_value(self) -> float:
+        raw = self.data.get("minSpd")
+        return float(raw) if raw is not None else _VSP_SPEED_MIN_RPM
+
+    @property
+    def max_value(self) -> float:
+        raw = self.data.get("maxSpd")
+        return float(raw) if raw is not None else _VSP_SPEED_MAX_RPM
+
+    @property
+    def step(self) -> float:
+        return _VSP_SPEED_STEP_RPM
+
+    @property
+    def unit_of_measurement(self) -> str | None:
+        return "rpm"
+
+    async def _set_value(self, value: float) -> None:
+        await self.system.set_vsp_freeze_protect_speed(int(value))
+
+
+class TcxVspPrimingDuration(TcxDevice, AqualinkNumber):
+    """Priming duration in seconds (`ecm0.prmDur`), namespace `vsp`. Wire
+    unit is already seconds — no temperature-style scaling. 0-300s, 60s
+    step per user-supplied spec."""
+
+    @property
+    def label(self) -> str:
+        return "VSP Priming Duration"
+
+    @property
+    def current_value(self) -> float | None:
+        raw = self.data.get("prmDur")
+        return float(raw) if raw is not None else None
+
+    @property
+    def min_value(self) -> float:
+        return _VSP_PRIMING_DURATION_MIN_S
+
+    @property
+    def max_value(self) -> float:
+        return _VSP_PRIMING_DURATION_MAX_S
+
+    @property
+    def step(self) -> float:
+        return _VSP_PRIMING_DURATION_STEP_S
+
+    @property
+    def unit_of_measurement(self) -> str | None:
+        return "s"
+
+    async def _set_value(self, value: float) -> None:
+        await self.system.set_vsp_priming_duration(int(value))
 
 
 class TcxClimate(TcxDevice, AqualinkClimate):
