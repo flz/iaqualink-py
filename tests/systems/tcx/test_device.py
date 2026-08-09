@@ -25,6 +25,7 @@ from iaqualink.systems.tcx.device import (
     TcxSpeedSensor,
     TcxVariableSpeedPump,
     TcxWaterSensor,
+    TcxWaterSetPoint,
     TcxZigbeeSwitch,
 )
 
@@ -289,6 +290,52 @@ class TestTcxClimateBounds:
         sut = TcxClimate(system, {"name": "TspBdy0"})
         assert sut.min_temp == 16
         assert sut.max_temp == 40
+
+
+WATER_SP_DATA: dict[str, Any] = {"name": "TspBdy0_water", "waterTempSet": 880}
+
+
+class TestTcxWaterSetPoint:
+    def test_label(self) -> None:
+        sut = TcxWaterSetPoint(make_system(), {**WATER_SP_DATA})
+        assert sut.label == "Water Heater Set Point"
+
+    def test_current_value_scales_wire_value(self) -> None:
+        sut = TcxWaterSetPoint(make_system(), {**WATER_SP_DATA})
+        assert sut.current_value == 88.0
+
+    def test_current_value_none_when_absent(self) -> None:
+        sut = TcxWaterSetPoint(make_system(), {"name": "TspBdy0_water"})
+        assert sut.current_value is None
+
+    def test_bounds_and_unit_default_to_fahrenheit(self) -> None:
+        sut = TcxWaterSetPoint(make_system(), {**WATER_SP_DATA})
+        assert sut.min_value == 60
+        assert sut.max_value == 104
+        assert sut.unit_of_measurement == "°F"
+
+    def test_bounds_and_unit_switch_to_celsius(self) -> None:
+        system = make_system()
+        system.temp_unit = "C"
+        sut = TcxWaterSetPoint(system, {**WATER_SP_DATA})
+        assert sut.min_value == 16
+        assert sut.max_value == 40
+        assert sut.unit_of_measurement == "°C"
+
+    async def test_set_value_sends_scaled_wire_value(self) -> None:
+        sut = TcxWaterSetPoint(make_system(), {**WATER_SP_DATA})
+        with patch.object(
+            sut.system, "set_water_temp_setpoint", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_value(90)
+        mock_set.assert_awaited_once_with(900)
+
+
+class TestTcxFromDataDispatchWaterSetPoint:
+    def test_tspbdy0_water_dispatches_to_water_set_point(self) -> None:
+        data: dict[str, Any] = {**WATER_SP_DATA}
+        sut = TcxDevice.from_data(make_system(), data)
+        assert isinstance(sut, TcxWaterSetPoint)
 
 
 SOLAR_SP_DATA: dict[str, Any] = {"name": "TspBdy0_solar", "solarTempSet": 1000}
