@@ -16,6 +16,7 @@ from iaqualink.systems.tcx.ws import (
     NAMESPACE_PIB,
     NAMESPACE_SWC,
     NAMESPACE_TCX,
+    NAMESPACE_VSP,
     NAMESPACE_ZIGBEE,
 )
 from iaqualink.utils.websockets import SERVICE_AUTHORIZATION
@@ -307,13 +308,17 @@ class TestTcxSendCommandFrame(unittest.IsolatedAsyncioTestCase):
         return cast(dict[str, Any], mock_send.await_args.args[1])
 
     async def test_set_filter_pump(self) -> None:
+        # Write target is pool.st, not filt0.st — confirmed via external
+        # protocol research; filt0 carries read/status fields only for
+        # this action (see docs/implementation/systems/tcx.md "Filter
+        # pump write target").
         _, sut = _make_tcx_system()
         frame = await self._sent_frame(sut, sut.set_filter_pump(1))
         assert frame["service"] == "StateController"
         assert frame["namespace"] == NAMESPACE_FILTRATION
         assert frame["action"] == "setFilterPumpState"
         assert frame["target"] == "ABCDEFG"
-        assert frame["payload"]["filt0"] == {"st": 1}
+        assert frame["payload"]["pool"] == {"st": 1}
         assert "clientToken" in frame["payload"]
 
     async def test_set_aux(self) -> None:
@@ -376,3 +381,52 @@ class TestTcxSendCommandFrame(unittest.IsolatedAsyncioTestCase):
         assert frame["namespace"] == NAMESPACE_PIB
         assert frame["action"] == "setJvaState"
         assert frame["payload"]["jva1"] == {"st": 1}
+
+    async def test_set_vsp_min_speed(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = await self._sent_frame(sut, sut.set_vsp_min_speed(1050))
+        assert frame["namespace"] == NAMESPACE_VSP
+        assert frame["action"] == "setMinMasterSpeed"
+        assert frame["payload"]["ecm0"] == {"minSpd": 1050}
+
+    async def test_set_vsp_max_speed(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = await self._sent_frame(sut, sut.set_vsp_max_speed(3400))
+        assert frame["namespace"] == NAMESPACE_VSP
+        assert frame["action"] == "setMaxMasterSpeed"
+        assert frame["payload"]["ecm0"] == {"maxSpd": 3400}
+
+    async def test_set_vsp_priming_speed(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = await self._sent_frame(sut, sut.set_vsp_priming_speed(3225))
+        assert frame["namespace"] == NAMESPACE_VSP
+        assert frame["action"] == "setPrimingSpeed"
+        assert frame["payload"]["ecm0"] == {"prmSpd": 3225}
+
+    async def test_set_vsp_freeze_protect_speed(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = await self._sent_frame(
+            sut, sut.set_vsp_freeze_protect_speed(1225)
+        )
+        assert frame["namespace"] == NAMESPACE_VSP
+        assert frame["action"] == "setFreezeProtectSpeed"
+        assert frame["payload"]["ecm0"] == {"frzSpd": 1225}
+
+    async def test_set_vsp_priming_duration(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = await self._sent_frame(sut, sut.set_vsp_priming_duration(60))
+        assert frame["namespace"] == NAMESPACE_VSP
+        assert frame["action"] == "setPrimingSpeedDuration"
+        assert frame["payload"]["ecm0"] == {"prmDur": 60}
+
+    async def test_set_vsp_speeds_list(self) -> None:
+        _, sut = _make_tcx_system()
+        entries: list[dict[str, Any]] = [
+            {"name": "Low", "speed": 1025},
+            {"name": "Med", "speed": 2025},
+            {"name": "High", "speed": 3450},
+        ]
+        frame = await self._sent_frame(sut, sut.set_vsp_speeds_list(entries))
+        assert frame["namespace"] == NAMESPACE_VSP
+        assert frame["action"] == "setSpeedsList"
+        assert frame["payload"]["ecm0"] == {"spdList": entries}

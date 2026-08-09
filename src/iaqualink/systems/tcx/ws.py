@@ -29,6 +29,7 @@ __all__ = [
     "NAMESPACE_PIB",
     "NAMESPACE_SWC",
     "NAMESPACE_TCX",
+    "NAMESPACE_VSP",
     "NAMESPACE_ZIGBEE",
     "TcxStateSubscription",
 ]
@@ -51,6 +52,7 @@ NAMESPACE_FEATURE_CIRCUIT = "featureCircuit"
 NAMESPACE_ZIGBEE = "zigbee"
 NAMESPACE_SWC = "swc"
 NAMESPACE_PIB = "pib"
+NAMESPACE_VSP = "vsp"
 
 # Push services that carry state deltas (Authorization carries full state and
 # is handled separately by the generic engine).

@@ -261,18 +261,38 @@ WebSocket commands are scoped to a namespace that identifies the target subsyste
 |---|---|
 | `"setFilterPumpState"` | Toggle filter pump on/off |
 
+Confirmed write target is `pool.st` (0/1), not `filt0.st` — `filt0` carries read/status fields only for this action:
+
+```json
+{ "state": { "desired": { "pool": { "st": 1 } } } }
+```
+
+Over WebSocket: namespace `"filtration"`, action `"setFilterPumpState"`, payload: `{"pool": {"st": 1}, "clientToken": ...}` (per the same MQTT-shadow-body-as-WS-payload convention as every other confirmed action in this section).
+
 ### VSP (namespace: `vsp`)
 
-| Action wire value | Description |
-|---|---|
-| `"setPrimingSpeed"` | Set priming speed (RPM) |
-| `"setPrimingSpeedDuration"` | Set priming duration |
-| `"setSpeedsList"` | Write full speed preset list |
-| `"setMinMasterSpeed"` | Set minimum master speed |
-| `"setMaxMasterSpeed"` | Set maximum master speed |
-| `"setQuickCleanSpeed"` | Set quick-clean speed |
-| `"setQuickCleanDuration"` | Set quick-clean duration |
-| `"setFreezeProtectSpeed"` | Set freeze-protection speed |
+All fields below target the `ecm0` object (`_ecm` sub-shadow):
+
+| Action wire value | Field | Range (RPM) | Step | Description |
+|---|---|---|---|---|
+| `"setMinMasterSpeed"` | `minSpd` | 600–3450 (1050–3450 on SVRS hardware variants) | 25 | Set minimum master speed — must stay ≤ `maxSpd` |
+| `"setMaxMasterSpeed"` | `maxSpd` | 600–3450 (1050–3450 on SVRS hardware variants) | 25 | Set maximum master speed — must stay ≥ `minSpd` |
+| `"setPrimingSpeed"` | `prmSpd` | `[minSpd, maxSpd]` (dynamic) | 25 | Set priming speed |
+| `"setFreezeProtectSpeed"` | `frzSpd` | `[minSpd, maxSpd]` (dynamic) | 25 | Set freeze-protection speed |
+| `"setPrimingSpeedDuration"` | `prmDur` | 0–300 seconds | 60 | Set priming duration — wire unit is already seconds |
+| `"setSpeedsList"` | `spdList` | `[minSpd, maxSpd]` per entry (dynamic) | 25 | Write full speed preset list — speed values only, names/count are fixed |
+| `"setQuickCleanSpeed"` | `qcSpd` | — | — | Defined but confirmed unused by TCX firmware |
+| `"setQuickCleanDuration"` | `qcDur` | — | — | Defined but confirmed unused by TCX firmware |
+
+Ranges/steps/hardware-variant note supplied via external protocol research, not this repo's own decompiled-source/live-capture pipeline — same confidence caveat as `AuxType` above.
+
+Confirmed single-field write shape (`frzSpd` shown, same shape for every field in the table above):
+
+```json
+{ "state": { "desired": { "ecm0": { "frzSpd": 1000 } } } }
+```
+
+Over WebSocket: namespace `"vsp"`, action `"setFreezeProtectSpeed"`, payload: `{"ecm0": {"frzSpd": 1000}, "clientToken": ...}` — same MQTT-shadow-body-as-WS-payload convention as every other confirmed action in this section. No VSP action matches "set current commanded speed" (`cmdSpd`); `set_vsp_speed` falls back to the `tcx` namespace's generic `"setState"` action (see Deltas in `docs/implementation/systems/tcx.md`).
 
 ### Feature Circuit (namespace: `featureCircuit`)
 
