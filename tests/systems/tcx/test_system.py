@@ -10,7 +10,6 @@ from iaqualink.client import AqualinkClient
 from iaqualink.const import AQUALINK_API_SIGNING_KEY
 from iaqualink.exception import AqualinkServiceUnauthorizedException
 from iaqualink.system import AqualinkSystem, SystemStatus
-from iaqualink.systems.tcx.device import TcxSpeedSensor
 from iaqualink.systems.tcx.system import TcxSystem
 from iaqualink.utils.crypto import sign
 
@@ -159,30 +158,14 @@ class TestFeaZigDeviceDiscovery:
         assert not any(k.startswith("auxz") for k in sut.devices)
 
 
-class TestSpeedSensorDiscovery:
-    # ecm0.qcSpd has no confirmed write action in practice — synthesized as
-    # a standalone read-only sensor in _update_devices. ecm0.frzSpd/prmSpd/
-    # minSpd/maxSpd/prmDur are writable instead — see
-    # TestVspWritableSpeedFieldDiscovery below. filt0.manSpd/ecm0.manSpd are
-    # intentionally not modeled at all (confirmed neither displayed nor
-    # written by the reference app) — see TestManSpdNotModeled below.
-
-    def test_ecm0_qc_spd_discovered(self) -> None:
-        _, sut = _make_tcx_system()
-        response = _make_shadow_response({"ecm0": {"qcSpd": 3450}})
-        sut._parse_shadow_response(response)
-        assert cast(TcxSpeedSensor, sut.devices["ecm0_qcSpd"]).value == "3450"
-
-    def test_absent_qc_spd_creates_no_sensor(self) -> None:
-        _, sut = _make_tcx_system()
-        sut._parse_shadow_response(_make_shadow_response())
-        assert "ecm0_qcSpd" not in sut.devices
-
-
-class TestManSpdNotModeled:
-    # Confirmed via user-supplied research into the reference app: neither
-    # field is displayed nor written by the app (see "Reference app
-    # display/write behavior" in docs/reference/systems/tcx.md).
+class TestSpeedFieldsNotModeled:
+    # filt0.manSpd/ecm0.manSpd/ecm0.qcSpd are intentionally not modeled as
+    # devices at all (TcxSpeedSensor removed entirely) — confirmed via
+    # user-supplied research into the reference app that manSpd is neither
+    # displayed nor written, and quick-clean is unused by TCX firmware (see
+    # "Reference app display/write behavior" in docs/reference/systems/tcx.md).
+    # ecm0.frzSpd/prmSpd/minSpd/maxSpd/prmDur are writable instead — see
+    # TestVspWritableSpeedFieldDiscovery below.
 
     def test_filt0_man_spd_creates_no_device(self) -> None:
         _, sut = _make_tcx_system()
@@ -195,6 +178,12 @@ class TestManSpdNotModeled:
         response = _make_shadow_response({"ecm0": {"manSpd": 1900}})
         sut._parse_shadow_response(response)
         assert "ecm0_manSpd" not in sut.devices
+
+    def test_ecm0_qc_spd_creates_no_device(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response({"ecm0": {"qcSpd": 3450}})
+        sut._parse_shadow_response(response)
+        assert "ecm0_qcSpd" not in sut.devices
 
 
 class TestJvaDeviceDiscovery:

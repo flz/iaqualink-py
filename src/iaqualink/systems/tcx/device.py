@@ -86,19 +86,6 @@ def _lvh1_en_to_status(en: int) -> str:
     return "off"
 
 
-# Synthetic device keys for read-only speed (RPM) sensors built from ecm0
-# sub-fields with no confirmed write action — see
-# TcxSystem._ECM0_EXTRA_SPEED_FIELDS. Not a full wire device name, so
-# dispatched by exact match here rather than the ecm0 branch above.
-# filt0.manSpd/ecm0.manSpd are intentionally NOT modeled at all — confirmed
-# via user-supplied research into the reference app that they're neither
-# displayed nor written by the app.
-_SPEED_SENSOR_NAMES = frozenset(
-    {
-        "ecm0_qcSpd",
-    }
-)
-
 # aux0.et values that indicate a real color-capable light, dispatched to
 # TcxAuxLight. LightType.WHITE_LIGHT ("WL", non-color) and anything without
 # `et` stay TcxAuxSwitch — see docs/implementation/systems/tcx.md.
@@ -145,8 +132,6 @@ class TcxDevice(AqualinkDevice):
             return TcxFilterPump(system, data)
         if name == "ecm0":
             return TcxVariableSpeedPump(system, data)
-        if name in _SPEED_SENSOR_NAMES:
-            return TcxSpeedSensor(system, data)
         if name == "ecm0_minSpd":
             return TcxVspMinSpeed(system, data)
         if name == "ecm0_maxSpd":
@@ -202,22 +187,6 @@ class TcxWaterSensor(TcxDevice, AqualinkSensor):
             return ""
         raw = self.data.get("value")
         return _wire_temp_to_display(raw) if raw is not None else ""
-
-
-class TcxSpeedSensor(TcxDevice, AqualinkSensor):
-    """Read-only RPM sensor for an ecm0 speed field not otherwise surfaced
-    (see _SPEED_SENSOR_NAMES / _ECM0_EXTRA_SPEED_FIELDS in system.py).
-    Raw RPM values, already whole units — no temperature-style /10
-    scaling applies."""
-
-    @property
-    def label(self) -> str:
-        return str(self.data.get("label") or self.name)
-
-    @property
-    def value(self) -> str:
-        raw = self.data.get("value")
-        return str(raw) if raw is not None else ""
 
 
 class TcxAirSensor(TcxDevice, AqualinkSensor):
