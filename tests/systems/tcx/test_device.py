@@ -22,7 +22,6 @@ from iaqualink.systems.tcx.device import (
     TcxJvaSwitch,
     TcxSolarSensor,
     TcxSolarSetPoint,
-    TcxSpeedSensor,
     TcxVariableSpeedPump,
     TcxVspFreezeProtectSpeed,
     TcxVspMaxSpeed,
@@ -375,47 +374,17 @@ class TestTcxSolarSensorStatus:
         assert sut.value == ""
 
 
-class TestTcxSpeedSensor:
-    # ecm0.qcSpd has no confirmed write action in practice — exposed as a
-    # read-only sensor, no /10 scaling (unlike temperature). filt0.manSpd/
-    # ecm0.manSpd are intentionally not modeled at all (confirmed neither
-    # displayed nor written by the reference app).
-
-    def test_value_and_label(self) -> None:
-        data: dict[str, Any] = {
-            "name": "ecm0_qcSpd",
-            "label": "Fan Quick-Clean Speed",
-            "value": 2500,
-        }
-        sut = TcxSpeedSensor(make_system(), data)
-        assert sut.value == "2500"
-        assert sut.label == "Fan Quick-Clean Speed"
-
-    def test_label_falls_back_to_name_without_label_field(self) -> None:
-        sut = TcxSpeedSensor(make_system(), {"name": "ecm0_qcSpd"})
-        assert sut.label == "ecm0_qcSpd"
-
-    def test_value_empty_when_absent(self) -> None:
-        sut = TcxSpeedSensor(make_system(), {"name": "ecm0_qcSpd"})
-        assert sut.value == ""
-
+class TestTcxSpeedFieldsNotModeled:
+    # Confirmed via user-supplied research into the reference app: none of
+    # these fields are displayed or written by the app (manSpd/reqSpd/
+    # filt0.sp), or quick-clean is confirmed unused by TCX firmware
+    # (qcSpd) — intentionally not modeled, falls through to the generic
+    # sensor rather than dispatching to a dedicated device class.
     @pytest.mark.parametrize(
         "name",
-        [
-            "ecm0_qcSpd",
-        ],
+        ["filt0_manSpd", "ecm0_manSpd", "ecm0_qcSpd"],
     )
-    def test_from_data_dispatches_to_speed_sensor(self, name: str) -> None:
-        data: dict[str, Any] = {"name": name, "value": 1000}
-        sut = TcxDevice.from_data(make_system(), data)
-        assert isinstance(sut, TcxSpeedSensor)
-
-    @pytest.mark.parametrize("name", ["filt0_manSpd", "ecm0_manSpd"])
-    def test_man_spd_no_longer_dispatches_to_speed_sensor(
-        self, name: str
-    ) -> None:
-        # Confirmed neither displayed nor written by the reference app —
-        # intentionally not modeled, falls through to the generic sensor.
+    def test_falls_through_to_generic_sensor(self, name: str) -> None:
         data: dict[str, Any] = {"name": name, "value": 1000}
         sut = TcxDevice.from_data(make_system(), data)
         assert isinstance(sut, TcxGenericSensor)

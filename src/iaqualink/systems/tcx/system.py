@@ -69,16 +69,12 @@ _ACTION_SET_SPEEDS_LIST = "setSpeedsList"
 
 LOGGER = logging.getLogger("iaqualink.systems.tcx")
 
-# Speed fields (RPM) that exist on ecm0 but aren't otherwise surfaced and
-# have no confirmed write action, so stay read-only sensors. qcSpd has a
-# documented action (setQuickCleanSpeed) but is confirmed unused by TCX
-# firmware — read-only. manSpd (both filt0 and ecm0) is intentionally NOT
-# synthesized as a device at all — confirmed via user-supplied research
-# into the reference app that it's neither displayed nor written by the
-# app (same for ecm0.reqSpd/filt0.sp, which were never modeled either).
-_ECM0_EXTRA_SPEED_FIELDS: tuple[tuple[str, str], ...] = (
-    ("qcSpd", "Fan Quick-Clean Speed"),
-)
+# ecm0.qcSpd/qcDur (setQuickCleanSpeed/setQuickCleanDuration) and
+# manSpd/reqSpd (both filt0 and ecm0) are intentionally NOT synthesized as
+# devices at all — confirmed via user-supplied research into the reference
+# app that quick-clean is unused by TCX firmware and manSpd/reqSpd/filt0.sp
+# are neither displayed nor written by the app. See "Speed sensors" in
+# docs/implementation/systems/tcx.md.
 
 # ecm0 fields with a confirmed VSP-namespace write action (setMinMasterSpeed/
 # setMaxMasterSpeed/setPrimingSpeed/setFreezeProtectSpeed/
@@ -264,15 +260,6 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
         if "ecm0" in reported:
             ecm0 = reported["ecm0"]
             candidates["ecm0"] = {"name": "ecm0", **ecm0}
-            for wire_key, label in _ECM0_EXTRA_SPEED_FIELDS:
-                val = ecm0.get(wire_key)
-                if val is not None:
-                    key = f"ecm0_{wire_key}"
-                    candidates[key] = {
-                        "name": key,
-                        "label": label,
-                        "value": val,
-                    }
             for wire_key in _ECM0_WRITABLE_SPEED_FIELDS:
                 if ecm0.get(wire_key) is not None:
                     key = f"ecm0_{wire_key}"

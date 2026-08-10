@@ -125,16 +125,6 @@
       'type': 'TcxVspPrimingSpeed',
       'unit_of_measurement': 'rpm',
     }),
-    'ecm0_qcSpd': dict({
-      'device_class': None,
-      'entity_category': None,
-      'label': 'Fan Quick-Clean Speed',
-      'state_class': None,
-      'type': 'TcxSpeedSensor',
-      'unit_of_measurement': None,
-      'value': '3450',
-      'value_translated': None,
-    }),
     'feaCircuit0': dict({
       'entity_category': None,
       'is_on': False,
@@ -332,16 +322,6 @@
       'step': 25,
       'type': 'TcxVspPrimingSpeed',
       'unit_of_measurement': 'rpm',
-    }),
-    'ecm0_qcSpd': dict({
-      'device_class': None,
-      'entity_category': None,
-      'label': 'Fan Quick-Clean Speed',
-      'state_class': None,
-      'type': 'TcxSpeedSensor',
-      'unit_of_measurement': None,
-      'value': '3450',
-      'value_translated': None,
     }),
     'filt0': dict({
       'entity_category': None,
