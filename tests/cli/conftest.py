@@ -59,16 +59,20 @@ class FakeSystem:
 class FakeClient:
     systems_factory = staticmethod(dict[str, FakeSystem])
     login_call_count = 0
+    last_instance: FakeClient | None = None
 
     def __init__(
         self,
         username: str,
         password: str,
         event_hooks: dict | None = None,
+        ws_capture_hook: object | None = None,
     ) -> None:
         self.username = username
         self.password = password
+        self.ws_capture_hook = ws_capture_hook
         self._auth_state: AqualinkAuthState | None = None
+        type(self).last_instance = self
 
     @property
     def auth_state(self) -> AqualinkAuthState | None:

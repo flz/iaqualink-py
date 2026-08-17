@@ -1,0 +1,33 @@
+{
+  "state": {
+    "reported": {
+      "cmdSpd": 2700,
+      "reqSpd": 2700,
+      "manSpd": 0,
+      "minSpd": 1000,
+      "maxSpd": 3450,
+      "frzSpd": 1200,
+      "prmSpd": 3450,
+      "prmDur": 300,
+      "qcSpd": 3450,
+      "qcDur": 60,
+      "spdList": [
+        {"name": "Low", "speed": 1000},
+        {"name": "Med", "speed": 2000},
+        {"name": "High", "speed": 3450}
+      ],
+      "st": 1,
+      "en": 1,
+      "model": "VSP-100",
+      "servTm": 0,
+      "cp": false,
+      "et": "VSP",
+      "fr": "Variable Speed Pump",
+      "app": "FILTER",
+      "asAux": "none",
+      "zn": [0]
+    }
+  },
+  "timestamp": 123,
+  "version": 1
+}

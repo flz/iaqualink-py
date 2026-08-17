@@ -10,7 +10,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import asdict, dataclass
 from dataclasses import fields as dataclass_fields
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, cast
 from urllib.parse import urlsplit
 
 import httpx
@@ -49,16 +49,19 @@ from iaqualink.utils.redact import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Awaitable, Callable
     from types import TracebackType
 
     from httpx_ws import AsyncWebSocketSession
+
+    from iaqualink.utils.websockets import WsStateSubscription
 
 for module_name in (
     "iaqualink.systems.cyclobat.system",
     "iaqualink.systems.exo.system",
     "iaqualink.systems.i2d.system",
     "iaqualink.systems.iaqua.system",
+    "iaqualink.systems.tcx.system",
 ):
     importlib.import_module(module_name)
 
@@ -119,6 +122,46 @@ class AqualinkAuthState:
         return f"AqualinkAuthState({parts})"
 
 
+class _CapturingWsSession:
+    """Wraps a WS session to report every frame sent/received to a hook.
+
+    httpx event hooks (`event_hooks["response"]`) only fire for the HTTP
+    request/response cycle — WS traffic leaves that cycle after the upgrade
+    handshake, so `--capture` couldn't see subscribe/command/push frames at
+    all. Wrapping here is the single interception point that covers every
+    WS use site: `send_ws_frame()`'s one-shot commands and
+    `WsStateSubscription._ws_receive_loop()`'s subscribe frame + all pushed
+    state, without either call site needing to know about capture.
+    """
+
+    def __init__(
+        self,
+        ws: AsyncWebSocketSession,
+        url: str,
+        hook: Callable[[str, str, Any], Awaitable[None]],
+    ) -> None:
+        self._ws = ws
+        self._url = url
+        self._hook = hook
+
+    async def send_text(self, data: str) -> None:
+        await self._ws.send_text(data)
+        await self._report("send", data)
+
+    async def receive_text(self, timeout: float | None = None) -> str:
+        data = await self._ws.receive_text(timeout=timeout)
+        await self._report("receive", data)
+        return data
+
+    async def _report(self, direction: str, raw: str) -> None:
+        frame: Any
+        try:
+            frame = json.loads(raw)
+        except (json.JSONDecodeError, TypeError):
+            frame = raw
+        await self._hook(direction, self._url, frame)
+
+
 class AqualinkClient:
     def __init__(
         self,
@@ -126,12 +169,15 @@ class AqualinkClient:
         password: str,
         httpx_client: httpx.AsyncClient | None = None,
         event_hooks: dict[str, list] | None = None,
+        ws_capture_hook: Callable[[str, str, Any], Awaitable[None]]
+        | None = None,
     ):
         self.username = username
         self._password = password
         self._logged = False
 
         self._event_hooks: dict[str, list] = event_hooks or {}
+        self._ws_capture_hook = ws_capture_hook
         self._client: httpx.AsyncClient | None = None
         # Dedicated HTTP/1.1 client for WebSockets (see _get_ws_httpx_client).
         self._ws_client: httpx.AsyncClient | None = None
@@ -156,6 +202,20 @@ class AqualinkClient:
         # Populated after get_systems() returns. Requests made before that point
         # (login, device-list) will contain unmasked serials in debug-log URLs.
         self._log_serials: set[str] = set()
+
+        # Systems whose WS subscription is currently running (auto-started by
+        # _refresh() via WsStateSubscription._ws_refresh_gate). close() stops
+        # them all so a consumer that never calls stop_ws_subscription()
+        # itself doesn't leak a background task + connection per system.
+        self._ws_subscriptions: list[WsStateSubscription] = []
+
+    def _register_ws_subscription(self, sub: WsStateSubscription) -> None:
+        if sub not in self._ws_subscriptions:
+            self._ws_subscriptions.append(sub)
+
+    def _unregister_ws_subscription(self, sub: WsStateSubscription) -> None:
+        if sub in self._ws_subscriptions:
+            self._ws_subscriptions.remove(sub)
 
     @property
     def logged(self) -> bool:
@@ -192,6 +252,11 @@ class AqualinkClient:
         self._logged = True
 
     async def close(self) -> None:
+        # Stop any auto-started subscriptions first — they use _ws_client to
+        # connect, so this must happen before it's closed below.
+        for sub in list(self._ws_subscriptions):
+            await sub.stop_ws_subscription()
+
         # The WS client is always ours (never HA-injected), so always close it.
         if self._ws_client is not None:
             await self._ws_client.aclose()
@@ -304,6 +369,13 @@ class AqualinkClient:
         # client's HTTP/2 — the endpoint rejects it with 400. Separate from the
         # (possibly HA-injected, HTTP/2) REST client; carries no REST cookies.
         if self._ws_client is None:
+            # Deliberately no event_hooks here: the capture hook's
+            # response.aread() blocks forever on a 101-Switching-Protocols
+            # response once the connection has handed off to raw WS framing
+            # — it stalls _ws_receive_loop() before the subscribe frame is
+            # even sent. WS traffic is captured via ws_capture_hook /
+            # _CapturingWsSession instead (frame-level, doesn't touch the
+            # HTTP response body machinery at all).
             self._ws_client = httpx.AsyncClient(
                 http1=True,
                 http2=False,
@@ -342,7 +414,13 @@ class AqualinkClient:
             async with aconnect_ws(
                 url, self._get_ws_httpx_client(), headers=headers, **kwargs
             ) as ws:
-                yield ws
+                if self._ws_capture_hook is None:
+                    yield ws
+                else:
+                    yield cast(
+                        "AsyncWebSocketSession",
+                        _CapturingWsSession(ws, url, self._ws_capture_hook),
+                    )
         except WebSocketUpgradeError as exc:
             # A 401/403 on the WS handshake means the bearer token is stale,
             # same as the REST path — surface it as unauthorized so callers can
@@ -360,9 +438,9 @@ class AqualinkClient:
     ) -> None:
         """Open a one-shot WS, send `frame` as JSON, best-effort wait for ack."""
         LOGGER.debug(
-            "-> WS %s action=%s",
+            "-> WS %s %s",
             self._log_redact_url(url),
-            frame.get("action"),
+            redact_value(frame),
         )
 
         async def do_send() -> None:
@@ -377,7 +455,14 @@ class AqualinkClient:
                 ) as exc:
                     LOGGER.debug("No WS ack within %.1fs: %r", ack_timeout, exc)
                 else:
-                    LOGGER.debug("WS ack received (length=%d)", len(ack))
+                    ack_data: Any
+                    try:
+                        ack_data = json.loads(ack)
+                    except (json.JSONDecodeError, TypeError):
+                        ack_data = ack
+                    else:
+                        ack_data = redact_value(ack_data)
+                    LOGGER.debug("<- WS ack: %s", ack_data)
 
         # Mirror the REST read path: reauth once on a stale-token handshake.
         await send_with_reauth_retry(do_send, self._refresh_auth)
