@@ -98,6 +98,73 @@ _AUX_LIGHT_TYPES = frozenset(
     }
 )
 
+# Ordered per-LightType color names. Wire index (currClr/cmdClr/rstClr) is
+# 1-based against list position (index = position + 1) — confirmed via
+# external protocol research, same confidence tier as the VSP speed bounds
+# above. See docs/implementation/systems/tcx.md deltas #15/#16.
+_TCX_LIGHT_COLORS: dict[LightType, tuple[str, ...]] = {
+    LightType.JANDY_WATERCOLORS: (
+        "Alpine White",
+        "Sky Blue",
+        "Cobalt Blue",
+        "Caribbean Blue",
+        "Spring Green",
+        "Emerald Green",
+        "Emerald Rose",
+        "Magenta",
+        "Violet",
+        "Slow Color Splash",
+        "Fast Color Splash",
+        "America the Beautiful",
+        "Fat Tuesday",
+        "Disco Tech",
+    ),
+    LightType.PENTAIR_SAM_SAL: (
+        "White",
+        "Light Green",
+        "Green",
+        "Cyan",
+        "Blue",
+        "Lavender",
+        "Magenta",
+        "Light Magenta",
+        "Color Splash",
+    ),
+    LightType.PENTAIR_INTELLIBRITE: (
+        "SAM (Splash)",
+        "Party",
+        "Romance",
+        "Caribbean",
+        "American",
+        "California Sunset",
+        "Royal",
+        "Blue",
+        "Green",
+        "Red",
+        "White",
+        "Magenta",
+    ),
+    LightType.HAYWARD_COLORLOGIC: (
+        "Voodoo Lounge",
+        "Deep Blue Sea",
+        "Royal Blue",
+        "Afternoon Skies",
+        "Aqua Green",
+        "Emerald",
+        "Cloud White",
+        "Warm Red",
+        "Flamingo",
+        "Vivid Violet",
+        "Sangria",
+        "Twilight",
+        "Tranquility",
+        "Gemstone",
+        "USA",
+        "Mardi Gras",
+        "Cool Cabaret",
+    ),
+}
+
 
 class TcxDevice(AqualinkDevice):
     def __init__(self, system: TcxSystem, data: DeviceData):
@@ -273,11 +340,12 @@ class TcxAuxSwitch(TcxDevice, AqualinkSwitch):
 class TcxAuxLight(TcxDevice, AqualinkLight):
     """Color-capable aux relay (aux0.et in JL/IB/PSS/HU — see LightType).
     On/off reuses the same `st` field/write path as TcxAuxSwitch. Color
-    control exposes the raw `currClr`/`cmdClr` index only — no confirmed
-    color-index-to-name mapping exists for TCX (unlike iaqua's per-brand
-    effect lists, which are keyed on a different platform's subtype codes
-    and can't be safely assumed to match here). See "Deltas vs Protocol
-    Reference" in docs/implementation/systems/tcx.md."""
+    control exposes named effects (`effect`/`effect_list`) backed by a
+    per-LightType ordered color list (`_TCX_LIGHT_COLORS`), plus raw
+    `current_color_index`/`set_color_index()` for callers that want the wire
+    index directly. Unlike iaqua's `IaquaColorLight`, `currClr` gives an
+    accurate `effect` readback — no on/off-only limitation here. See "Deltas
+    vs Protocol Reference" in docs/implementation/systems/tcx.md."""
 
     @property
     def label(self) -> str:
@@ -297,15 +365,35 @@ class TcxAuxLight(TcxDevice, AqualinkLight):
             await self.system.set_aux(self.name, 0)
 
     @property
+    def _colors(self) -> tuple[str, ...]:
+        return _TCX_LIGHT_COLORS[LightType(self.data["et"])]
+
+    @property
     def current_color_index(self) -> int | None:
         raw = self.data.get("currClr")
         return int(raw) if raw is not None else None
+
+    @property
+    def effect(self) -> str | None:
+        index = self.current_color_index
+        if index is None or not 1 <= index <= len(self._colors):
+            return None
+        return self._colors[index - 1]
+
+    @property
+    def effect_list(self) -> list[str]:
+        return list(self._colors)
+
+    async def _set_effect(self, effect: str) -> None:
+        await self.set_color_index(self._colors.index(effect) + 1)
 
     async def set_color_index(self, index: int) -> None:
         await self.system.set_aux_light(self.name, index)
 
     async def reset_color(self) -> None:
-        await self.system.reset_aux_light(self.name)
+        index = self.current_color_index
+        if index is not None:
+            await self.system.reset_aux_light(self.name, index)
 
 
 class TcxAuxFreezeProtectSwitch(TcxDevice, AqualinkSwitch):

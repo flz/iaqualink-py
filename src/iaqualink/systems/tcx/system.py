@@ -471,19 +471,18 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
 
     async def set_aux_light(self, name: str, color_index: int) -> None:
         await self._send_command_frame(
-            namespace=NAMESPACE_TCX,
+            namespace=NAMESPACE_PIB,
             action=_ACTION_SET_AUX_LIGHT,
             delta={name: {"cmdClr": color_index}},
         )
 
-    async def reset_aux_light(self, name: str) -> None:
-        # No documented fields beyond the envelope for this action — same
-        # inference precedent as set_jva_state (namespace/action confirmed,
-        # payload shape is not).
+    async def reset_aux_light(self, name: str, color_index: int) -> None:
+        # "Reset" re-selects the already-active color, carrying that same
+        # index in rstClr rather than an empty envelope.
         await self._send_command_frame(
-            namespace=NAMESPACE_TCX,
+            namespace=NAMESPACE_PIB,
             action=_ACTION_SET_AUX_RESET_COLOR,
-            delta={name: {}},
+            delta={name: {"rstClr": color_index}},
         )
 
     async def set_aux_setup(
