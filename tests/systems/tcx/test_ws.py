@@ -430,3 +430,24 @@ class TestTcxSendCommandFrame(unittest.IsolatedAsyncioTestCase):
         assert frame["namespace"] == NAMESPACE_VSP
         assert frame["action"] == "setSpeedsList"
         assert frame["payload"]["ecm0"] == {"spdList": entries}
+
+    async def test_set_solar_temp_setpoint(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = await self._sent_frame(sut, sut.set_solar_temp_setpoint(88))
+        assert frame["namespace"] == NAMESPACE_TCX
+        assert frame["action"] == "setSolarTempSetpoint"
+        assert frame["payload"]["TspBdy0"] == {"solarTempSet": 88}
+
+    async def test_set_lvh_app_type(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = await self._sent_frame(sut, sut.set_lvh_app_type(True))
+        assert frame["namespace"] == NAMESPACE_TCX
+        assert frame["action"] == "setLvhAppType"
+        assert frame["payload"]["lvh1"] == {"app": "HEAT"}
+
+    async def test_set_aux_freeze_protect(self) -> None:
+        _, sut = _make_tcx_system()
+        frame = await self._sent_frame(sut, sut.set_aux_freeze_protect(True))
+        assert frame["namespace"] == NAMESPACE_TCX
+        assert frame["action"] == "setIsAux0FreezeProtect"
+        assert frame["payload"]["aux0"] == {"fp": True}

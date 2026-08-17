@@ -37,7 +37,7 @@ GET /devices/v2/{serial}/shadow?signature={sig}
 Authorization: Bearer {idToken}
 ```
 
-Returns the full device shadow (`TcxAllData` envelope).
+Returns the full device shadow (`state.reported`/`state.desired` document — see "Shadow Response Envelope" below).
 
 ### Sub-Shadows (read)
 
@@ -241,8 +241,6 @@ WebSocket commands are scoped to a namespace that identifies the target subsyste
 | `"setState"` | Generic state update |
 | `"setAuxSetup"` | Configure auxiliary relay |
 | `"setAuxState"` | Toggle auxiliary on/off |
-| `"setAuxLight"` | Set auxiliary light color |
-| `"setAuxResetColor"` | Reset auxiliary light to default color |
 | `"setAuxCleanerStatus"` | Set cleaner relay status |
 | `"setWaterTempSetpoint"` | Set water temperature target |
 | `"setSolarTempSetpoint"` | Set solar temperature target |
@@ -254,6 +252,34 @@ WebSocket commands are scoped to a namespace that identifies the target subsyste
 | `"setIsAux0FreezeProtect"` | Enable/disable aux 0 freeze protection |
 | `"setFreezeSetPoint"` | Set freeze protection temperature threshold |
 | `"initiateOTA"` | Start firmware update |
+
+### PIB (namespace: `pib`)
+
+| Action wire value | Description |
+|---|---|
+| `"setAuxLight"` | Set auxiliary light color |
+| `"setAuxResetColor"` | Reset auxiliary light to current color |
+
+Confirmed write shapes (`aux0` shown, same shape for any color-capable
+`aux[N]`):
+
+```json
+{ "state": { "desired": { "aux0": { "cmdClr": 5 } } } }
+```
+
+```json
+{ "state": { "desired": { "aux0": { "rstClr": 5 } } } }
+```
+
+`setAuxResetColor` re-selects the already-active color rather than clearing
+one — `rstClr` carries the same index passed to a preceding `cmdClr` write,
+not an empty payload. `cmdClr`/`currClr`/`rstClr` are 1-based indices into a
+fixed, ordered color list specific to `aux0.et` (`LightType`).
+
+Over WebSocket: namespace `"pib"`, action `"setAuxLight"` or
+`"setAuxResetColor"`, payload: `{"aux0": {...}, "clientToken": ...}` — same
+MQTT-shadow-body-as-WS-payload convention as every other confirmed action in
+this section.
 
 ### Filtration (namespace: `filtration`)
 

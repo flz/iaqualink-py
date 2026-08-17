@@ -367,6 +367,34 @@ class TestTcxSetAuxSetup:
         )
 
 
+class TestTcxSetAuxLight:
+    async def test_set_aux_light_sends_command_frame(self) -> None:
+        _, sut = _make_tcx_system()
+        with patch.object(
+            sut, "_send_command_frame", new_callable=AsyncMock
+        ) as mock_send:
+            await sut.set_aux_light("aux0", 5)
+        mock_send.assert_awaited_once_with(
+            namespace="pib",
+            action="setAuxLight",
+            delta={"aux0": {"cmdClr": 5}},
+        )
+
+
+class TestTcxResetAuxLight:
+    async def test_reset_aux_light_sends_command_frame(self) -> None:
+        _, sut = _make_tcx_system()
+        with patch.object(
+            sut, "_send_command_frame", new_callable=AsyncMock
+        ) as mock_send:
+            await sut.reset_aux_light("aux0", 5)
+        mock_send.assert_awaited_once_with(
+            namespace="pib",
+            action="setAuxResetColor",
+            delta={"aux0": {"rstClr": 5}},
+        )
+
+
 class TestTcxRefreshRestOnlyMainShadow:
     @patch("httpx.AsyncClient.request")
     async def test_refresh_issues_only_main_shadow_request(

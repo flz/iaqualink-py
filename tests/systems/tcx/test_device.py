@@ -5,7 +5,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from iaqualink.exception import AqualinkOperationNotSupportedException
+from iaqualink.exception import (
+    AqualinkInvalidParameterException,
+    AqualinkOperationNotSupportedException,
+)
 from iaqualink.systems.tcx.device import (
     TcxAuxFreezeProtectSwitch,
     TcxAuxLight,
@@ -965,13 +968,69 @@ class TestTcxAuxLightColor:
             await sut.set_color_index(5)
         mock_set.assert_awaited_once_with("aux1", 5)
 
-    async def test_reset_color_sends_command_with_name(self) -> None:
+    async def test_reset_color_sends_command_with_current_index(self) -> None:
+        data: dict[str, Any] = {**AUX_LIGHT_ON, "currClr": 3}
+        sut = TcxAuxLight(make_system(), data)
+        with patch.object(
+            sut.system, "reset_aux_light", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.reset_color()
+        mock_set.assert_awaited_once_with("aux1", 3)
+
+    async def test_reset_color_noop_when_current_index_unknown(self) -> None:
         sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
         with patch.object(
             sut.system, "reset_aux_light", new_callable=AsyncMock
         ) as mock_set:
             await sut.reset_color()
-        mock_set.assert_awaited_once_with("aux1")
+        mock_set.assert_not_awaited()
+
+
+class TestTcxAuxLightEffect:
+    def test_effect_list_returns_jl_colors(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        assert sut.effect_list == [
+            "Alpine White",
+            "Sky Blue",
+            "Cobalt Blue",
+            "Caribbean Blue",
+            "Spring Green",
+            "Emerald Green",
+            "Emerald Rose",
+            "Magenta",
+            "Violet",
+            "Slow Color Splash",
+            "Fast Color Splash",
+            "America the Beautiful",
+            "Fat Tuesday",
+            "Disco Tech",
+        ]
+
+    def test_supports_effect_true(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        assert sut.supports_effect is True
+
+    def test_effect_returns_name_for_current_color_index(self) -> None:
+        data: dict[str, Any] = {**AUX_LIGHT_ON, "currClr": 3}
+        sut = TcxAuxLight(make_system(), data)
+        assert sut.effect == "Cobalt Blue"
+
+    def test_effect_none_when_current_color_index_absent(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        assert sut.effect is None
+
+    async def test_set_effect_sends_command_with_one_based_index(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        with patch.object(
+            sut.system, "set_aux_light", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.set_effect("Cobalt Blue")
+        mock_set.assert_awaited_once_with("aux1", 3)
+
+    async def test_set_effect_invalid_name_raises(self) -> None:
+        sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await sut.set_effect("Not A Real Color")
 
 
 class TestTcxAuxFreezeProtectSwitchOnOff:
