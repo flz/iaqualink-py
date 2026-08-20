@@ -1,0 +1,14 @@
+{
+  "serial": "SN123456",
+  "device_status": "online",
+  "is_error": false,
+  "response": "success",
+  "poolSWCSP": 60,
+  "spaSWCSP": 60,
+  "boostStatus": "",
+  "boostHrsVal": 24,
+  "remainingBoostHrs": 0,
+  "remainingBoostMins": 0,
+  "boostMode": "pool",
+  "boostDipSwitch": "on"
+}

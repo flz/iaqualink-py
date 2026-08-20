@@ -4,13 +4,19 @@ import logging
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from iaqualink.const import AQUALINK_API_KEY
-from iaqualink.exception import AqualinkServiceException
+from iaqualink.exception import (
+    AqualinkInvalidParameterException,
+    AqualinkServiceException,
+)
 from iaqualink.system import AqualinkSystem, SystemStatus
 from iaqualink.systems.iaqua.device import (
     _HOME_DEVICE_MAP,
+    _SWC_BOOST_BUTTON_MAP,
+    _SWC_CONFIG_DEVICE_MAP,
     ICL_CUSTOM_COLOR_ID,
     ICL_CUSTOM_COLOR_NAME,
     IaquaAuxSwitch,
+    IaquaBinarySensor,
     IaquaBinaryState,
     IaquaClimate,
     IaquaDevice,
@@ -28,6 +34,9 @@ from iaqualink.systems.iaqua.device import (
     light_subtype_to_class,
 )
 from iaqualink.systems.iaqua.enums import (
+    IaquaBoostControl,
+    IaquaBoostMode,
+    IaquaBoostStatus,
     IaquaSystemStatus,
     IaquaSystemType,
     IaquaTemperatureUnit,
@@ -75,6 +84,10 @@ IAQUA_COMMAND_GET_VSP_NAMES = "get_vsp_names"
 IAQUA_COMMAND_GET_VSP_APPMODELSERIALS = "get_vsp_appmodelserials"
 IAQUA_COMMAND_GET_MASTER_DEVICE_LIST = "get_master_device_list"
 
+IAQUA_COMMAND_GET_SWC_CONFIG = "get_swc_config"
+IAQUA_COMMAND_SET_SWC_CONFIG = "set_swc_config"
+IAQUA_COMMAND_CONTROL_SWC_BOOST = "control_swc_boost"
+
 LOGGER = logging.getLogger("iaqualink.systems.iaqua")
 
 
@@ -108,6 +121,10 @@ class IaquaSystem(AqualinkSystem):
         attrs = ["name", "serial", "data"]
         attrs = [f"{i}={getattr(self, i)!r}" for i in attrs]
         return f"{self.__class__.__name__}({' '.join(attrs)})"
+
+    @property
+    def has_swc(self) -> bool:
+        return "swc_set_point" in self.devices
 
     async def _send_session_request(
         self,
@@ -184,6 +201,10 @@ class IaquaSystem(AqualinkSystem):
                     mask_serial(self.serial),
                 )
 
+        if "swc_set_point" in self.devices:
+            r4 = await self._send_session_request(IAQUA_COMMAND_GET_SWC_CONFIG)
+            self._parse_swc_config_response(r4)
+
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
         LOGGER.debug("Home body: %s", redact_value(data))
@@ -191,6 +212,13 @@ class IaquaSystem(AqualinkSystem):
         home: dict = {}
         for x in data["home_screen"]:
             home.update(x)
+
+        if swc_info := home.pop("swc_info", None):
+            if isinstance(swc_info, dict):
+                home["swc_pool_value"] = str(swc_info.get("swcPoolValue", ""))
+                home["swc_pool_status"] = str(swc_info.get("swcPoolStatus", ""))
+                home["swc_spa_value"] = str(swc_info.get("swcSpaValue", ""))
+                home["swc_spa_status"] = str(swc_info.get("swcSpaStatus", ""))
 
         raw_status = home.get("status")
         self.status = _IAQUA_STATUS_MAP.get(
@@ -725,3 +753,83 @@ class IaquaSystem(AqualinkSystem):
         for device in self.devices.values():
             if isinstance(device, IaquaVSPump):
                 await device.fetch_speed()
+
+    def _parse_swc_config_response(self, response: httpx.Response) -> None:
+        data = response.json()
+        LOGGER.debug("SWC config body: %s", data)
+
+        if "swc_boost" in self.devices:
+            boost_on = data.get("boostStatus") in (
+                IaquaBoostStatus.ON,
+                IaquaBoostStatus.PAUSED,
+            )
+            self.devices["swc_boost"].data["state"] = (
+                IaquaBinaryState.ON if boost_on else IaquaBinaryState.OFF
+            )
+
+            for device_key, device_class in _SWC_BOOST_BUTTON_MAP:
+                if device_key not in self.devices:
+                    self.devices[device_key] = device_class(
+                        self, {"name": device_key}
+                    )
+
+        for device_key, data_key, device_class in _SWC_CONFIG_DEVICE_MAP:
+            if (raw := data.get(data_key)) is None:
+                continue
+            # boostDipSwitch uses "on"/"off" — normalize to IaquaBinaryState
+            if device_class is IaquaBinarySensor:
+                state = (
+                    IaquaBinaryState.ON if raw == "on" else IaquaBinaryState.OFF
+                )
+            else:
+                state = str(raw)
+            if device_key in self.devices:
+                self.devices[device_key].data["state"] = state
+            else:
+                self.devices[device_key] = device_class(
+                    self, {"name": device_key, "state": state}
+                )
+
+    async def set_swc_config(self, pool_sp: int, spa_sp: int) -> None:
+        r = await self._send_session_request(
+            IAQUA_COMMAND_SET_SWC_CONFIG,
+            {"poolswcsp": pool_sp, "spaswcsp": spa_sp},
+        )
+        self._parse_swc_config_response(r)
+
+    async def control_swc_boost(
+        self,
+        control: IaquaBoostControl,
+        boosthrs: int | None = None,
+        boostmode: IaquaBoostMode | None = None,
+    ) -> None:
+        params: Payload = {"boostcontrol": control}
+        if boosthrs is not None:
+            params["boosthrs"] = boosthrs
+        if boostmode is not None:
+            params["boostmode"] = boostmode
+        r = await self._send_session_request(
+            IAQUA_COMMAND_CONTROL_SWC_BOOST, params
+        )
+        self._parse_swc_config_response(r)
+
+    async def set_swc_boost(
+        self, boosthrs: int, boostmode: IaquaBoostMode | str
+    ) -> None:
+        """Validated entry point for starting a boost with explicit
+        duration/circuit — the custom service a Home Assistant integration
+        would expose, since boosthrs/boostmode can't be set via a button."""
+        if not 1 <= boosthrs <= 24:
+            raise AqualinkInvalidParameterException(
+                f"{boosthrs} is out of range (1-24)."
+            )
+        try:
+            mode = IaquaBoostMode(boostmode)
+        except ValueError as exc:
+            options = ", ".join(IaquaBoostMode)
+            raise AqualinkInvalidParameterException(
+                f"{boostmode!r} isn't a valid boost mode ({options})."
+            ) from exc
+        await self.control_swc_boost(
+            IaquaBoostControl.START, boosthrs=boosthrs, boostmode=mode
+        )

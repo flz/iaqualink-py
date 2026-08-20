@@ -22,6 +22,10 @@ Device classes represent individual pool equipment and sensors.
 
 ::: iaqualink.device.AqualinkSwitch
 
+### AqualinkButton
+
+::: iaqualink.device.AqualinkButton
+
 ### AqualinkLight
 
 ::: iaqualink.device.AqualinkLight
@@ -51,6 +55,7 @@ AqualinkDevice (ABC)
 ├── AqualinkSensor        — read-only sensor (HA SensorEntity)
 ├── AqualinkBinarySensor  — read-only on/off sensor (HA BinarySensorEntity)
 ├── AqualinkSwitch        — controllable on/off (HA SwitchEntity)
+├── AqualinkButton        — stateless action trigger (HA ButtonEntity)
 ├── AqualinkLight         — controllable light with optional brightness/effects (HA LightEntity)
 ├── AqualinkClimate       — temperature control (HA ClimateEntity)
 ├── AqualinkNumber        — writable numeric setting (HA NumberEntity)
@@ -93,6 +98,12 @@ All devices inherit these properties from `AqualinkDevice`:
 | `is_on` | `bool` | `True` if the switch is on |
 | `turn_on()` | async | Turn the switch on |
 | `turn_off()` | async | Turn the switch off |
+
+## Button Properties and Methods
+
+| Member | Type | Description |
+|---|---|---|
+| `press()` | async | Perform the button's action |
 
 ## Light Properties and Methods
 
@@ -191,6 +202,13 @@ await pool_pump.turn_off()
 
 if pool_pump.is_on:
     print("Pump is running")
+```
+
+### Buttons
+
+```python
+boost_start = devices.get('swc_boost_start')
+await boost_start.press()
 ```
 
 ### Lights

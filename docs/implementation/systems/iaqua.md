@@ -29,6 +29,9 @@ Implementation details for the iAqua system (`device_type: "iaqua"`). For the wi
 | `set_onetouch_{n}` | ✓ |
 | `onoff_iclzone`, `set_iclzone_color`, `define_iclzone_customcolor` | ✓ (ICL) |
 | `enable_disable_hpm`, `switch_hpm_mode`, `setpoint_hpm_temp` | ✓ (HPM) |
+| `get_swc_config` | ✓ Parsed on `_refresh` and after every SWC write |
+| `set_swc_config` | ✓ |
+| `control_swc_boost` | ✓ |
 
 ### `get_home` response fields not tracked as devices
 
@@ -36,20 +39,10 @@ The following fields appear in the reference `get_home` response but are not cur
 
 | Field | Notes |
 |---|---|
-| `swc_set_point` | SWC not yet implemented (see below) |
-| `swc_boost` | SWC not yet implemented |
-| `swc_low` | SWC not yet implemented |
-| `swc_info` object | SWC sub-status; not yet parsed |
 | `acl_value` | ACL sensor; not yet parsed |
 | `lockedout_message` | Informational string; not parsed |
 
 ### Unimplemented subsystems
-
-#### SWC (Salt Water Chlorinator)
-
-Commands `get_swc_config`, `set_swc_config`, and `control_swc_boost` are documented in the reference but not implemented in master. The `swc_info` nested object from `get_home` is not parsed. Implementation is in progress on a separate branch.
-
-Devices that will be exposed when implemented: `swc_set_point` (sensor), `swc_pool_set_point` (writable), `swc_spa_set_point` (writable), `swc_boost`, `swc_low`, `swc_pool_value`, `swc_pool_status`, `swc_spa_value`, `swc_spa_status`, and several boost timer/config sensors.
 
 #### VSP via iQ20 Session
 
@@ -329,6 +322,91 @@ await pump.fetch_speed()          # explicit refresh from get_vsp_speedauxinfo i
 | 3 | `enable_disable_pump_speedId` response carries updated `vsp_speedInfo` with `status` values | ✓ Parsed by `_apply_speed_update()` after `turn_on`, `turn_off`, and `set_preset_mode` |
 | 4 | `get_vsp_names` / `get_vsp_appmodelserials` called once at discovery | ✓ Matches — guarded by `_vsp_discovered` flag |
 | 5 | Arbitrary-RPM write command exists (path observed, shape unconfirmed) | Not implemented — `supports_percentage` returns `False` |
+
+## SWC (Salt Water Chlorinator)
+
+### Overview
+
+SWC support is an optional subsystem of `IaquaSystem`. Presence is inferred from the `swc_set_point` field appearing in `get_home` — there is no explicit presence flag (unlike VSP's `isVSP`). Exposed via `IaquaSystem.has_swc` (overriding the base `AqualinkSystem.has_swc`, which defaults `False`). When present, `_refresh()` issues an additional `get_swc_config` request after `get_devices`.
+
+### Device classes
+
+**From `get_home`:**
+
+| Device name | Class | Description |
+|---|---|---|
+| `swc_set_point` | `IaquaSensor` | Summary SWC output string — display only, not configurable |
+| `swc_boost` | `IaquaBinarySensor` | Whether a boost is currently running/paused; read-only — see [Boost control](#boost-control) below |
+| `swc_low` | `IaquaBinarySensor` | Low-salt warning; read-only |
+| `swc_pool_value` | `IaquaSensor` | Current actual pool SWC output (from `swc_info`) |
+| `swc_pool_status` | `IaquaSensor` | Pool operational status string (from `swc_info`) |
+| `swc_spa_value` | `IaquaSensor` | Current actual spa SWC output (from `swc_info`) |
+| `swc_spa_status` | `IaquaSensor` | Spa operational status string (from `swc_info`) |
+
+**From `get_swc_config` (updated each `_refresh` and after each SWC command):**
+
+| Device name | Class | Description |
+|---|---|---|
+| `swc_pool_set_point` | `IaquaSwcSetPoint` | Configurable pool chlorine output set point (0–100) |
+| `swc_spa_set_point` | `IaquaSwcSetPoint` | Configurable spa chlorine output set point (0–100) |
+| `swc_boost_hrs` | `IaquaSensor` | Configured boost duration (hours) |
+| `swc_remaining_boost_hrs` | `IaquaSensor` | Remaining boost hours |
+| `swc_remaining_boost_mins` | `IaquaSensor` | Remaining boost minutes |
+| `swc_boost_mode` | `IaquaSensor` | Boost circuit: `"pool"` or `"spillover"` |
+| `swc_boost_dip_switch` | `IaquaBinarySensor` | Hardware boost enable — `is_on` True if DIP switch enabled |
+
+**Upserted alongside the above, once SWC presence is confirmed** (not
+derived from a response field — see [Boost control](#boost-control)):
+
+| Device name | Class | Description |
+|---|---|---|
+| `swc_boost_start` | `IaquaSwcBoostStartButton` | Press to start a boost using the last-known `swc_boost_hrs`/`swc_boost_mode` |
+| `swc_boost_stop` | `IaquaSwcBoostStopButton` | Press to stop a running/paused boost |
+| `swc_boost_pause` | `IaquaSwcBoostPauseButton` | Press to pause a running boost |
+| `swc_boost_resume` | `IaquaSwcBoostResumeButton` | Press to resume a paused boost |
+
+### Set point write behaviour
+
+`IaquaSwcSetPoint._set_value` routes on `self.name` to determine which side it controls:
+
+- `"swc_pool_set_point"` — pool side: reads current spa SP from `self.system.devices["swc_spa_set_point"].state`, writes `set_swc_config(new_pool, current_spa)`
+- `"swc_spa_set_point"` — spa side: reads current pool SP from `self.system.devices["swc_pool_set_point"].state`, writes `set_swc_config(current_pool, new_spa)`
+
+Falls back to `int(value)` for the preserved side if the other device is absent from `self.system.devices` (e.g. first `set_value` call before `_refresh` has run).
+
+### Boost control
+
+`control_swc_boost`'s 4 actions (`start`/`stop`/`pause`/`resume`) are exposed
+two ways, since HA `ButtonEntity` presses take no parameters but starting a
+boost needs `boosthrs`/`boostmode`:
+
+- **`IaquaSystem.set_swc_boost(boosthrs, boostmode)`** — the explicit-value
+  path. Validates `boosthrs` is in `1`–`24` and `boostmode` is a valid
+  `IaquaBoostMode`, raising `AqualinkInvalidParameterException` otherwise,
+  then calls `control_swc_boost(START, boosthrs=boosthrs, boostmode=boostmode)`.
+  This is the method a Home Assistant integration would expose as a custom
+  service — there's no other way to set explicit values.
+- **`swc_boost_start`/`stop`/`pause`/`resume` (`AqualinkButton`)** —
+  parameterless presses for the other 3 actions, plus a "repeat last config"
+  start button. `IaquaSwcBoostStartButton.press()` reads `boosthrs`/`boostmode`
+  from the current `swc_boost_hrs`/`swc_boost_mode` sensor state (falling
+  back to `24`/`pool` if either is absent, e.g. before the first
+  `get_swc_config` poll) rather than accepting new values — that's what
+  `set_swc_boost()` is for.
+
+All 4 buttons are upserted together (alongside the `get_swc_config`-sourced
+sensors) the first time `_parse_swc_config_response` runs after `swc_boost`
+exists in `self.devices` — i.e. once SWC presence is confirmed from
+`get_home`. They're never removed, matching the rest of this subsystem (no
+SWC device, including `swc_boost` itself, has pair/unpair removal logic
+today — only HPM does).
+
+### Deltas vs Protocol Reference (SWC)
+
+| # | Reference spec | Current implementation |
+|---|---|---|
+| 1 | `boosthrs` server-side upper bound unconfirmed | `set_swc_boost()` client-side validates `1`–`24` |
+| 2 | `boostStatus` has 3 states: `"on"`, `"paused"`, absent/empty | `swc_boost` (`IaquaBinarySensor`) collapses to 2 states — `"paused"` maps to `True` (ON) so a paused boost timer isn't lost in the binary read |
 
 ## See Also
 

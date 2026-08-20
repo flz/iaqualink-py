@@ -29,6 +29,11 @@ from iaqualink.systems.iaqua.device import (
     IaquaPresenceSensor,
     IaquaSensor,
     IaquaSetPoint,
+    IaquaSwcBoostPauseButton,
+    IaquaSwcBoostResumeButton,
+    IaquaSwcBoostStartButton,
+    IaquaSwcBoostStopButton,
+    IaquaSwcSetPoint,
     IaquaSwitch,
     IaquaVSPump,
     IaquaZoneStatus,
@@ -49,6 +54,7 @@ from .factories import (
     IAQUA_POOL_SET_POINT_DATA,
     IAQUA_POOL_TEMP_DATA,
     IAQUA_SENSOR_DATA,
+    IAQUA_SWC_POOL_SET_POINT_DATA,
     IAQUA_SWITCH_OFF_DATA,
     make_system,
 )
@@ -1112,3 +1118,163 @@ class TestIaquaVSPump:
         with patch.object(system, "set_vsp_speed", return_value={}) as mock_set:
             await sut.turn_on()
         mock_set.assert_awaited_once_with(1, slot_id=sut.slot_id)
+
+
+# ---------------------------------------------------------------------------
+# IaquaSwcSetPoint / IaquaSwcBoostSwitch (SWC)
+# ---------------------------------------------------------------------------
+
+
+class TestIaquaSwcSetPoint:
+    """iAqua SWC set point — pool/spa pairing, wire-protocol URL verification."""
+
+    def test_property_label(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        assert sut.label == "Swc Pool Set Point"
+
+    def test_property_current_value(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        assert sut.current_value == 50.0
+
+    def test_property_current_value_empty_state(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        sut.data["state"] = ""
+        assert sut.current_value is None
+
+    def test_property_min_value(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        assert sut.min_value == 0.0
+
+    def test_property_max_value(self) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        assert sut.max_value == 100.0
+
+    async def test_set_value_at_min(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_value(sut.min_value)
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "command=set_swc_config" in url
+        assert "poolswcsp=0" in url
+
+    async def test_set_value_at_max(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_value(sut.max_value)
+        assert len(respx_mock.calls) == 1
+        url = str(respx_mock.calls[0].request.url)
+        assert "command=set_swc_config" in url
+        assert "poolswcsp=100" in url
+
+    async def test_set_value_preserves_spa_setpoint(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        system = make_system()
+        sut = IaquaSwcSetPoint(system, {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        system.devices = {
+            "swc_pool_set_point": sut,
+            "swc_spa_set_point": IaquaSwcSetPoint(
+                system, {"name": "swc_spa_set_point", "state": "35"}
+            ),
+        }
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_value(70.0)
+        url = str(respx_mock.calls[0].request.url)
+        assert "poolswcsp=70" in url
+        assert "spaswcsp=35" in url
+
+    async def test_set_value_spa_preserves_pool_setpoint(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        system = make_system()
+        sut = IaquaSwcSetPoint(
+            system, {"name": "swc_spa_set_point", "state": "35"}
+        )
+        system.devices = {
+            "swc_spa_set_point": sut,
+            "swc_pool_set_point": IaquaSwcSetPoint(
+                system, {**IAQUA_SWC_POOL_SET_POINT_DATA, "state": "40"}
+            ),
+        }
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_value(70.0)
+        url = str(respx_mock.calls[0].request.url)
+        assert "poolswcsp=40" in url
+        assert "spaswcsp=70" in url
+
+
+class TestIaquaSwcBoostButtons:
+    async def test_start_button_sends_default_hrs_and_mode(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcBoostStartButton(
+            make_system(), {"name": "swc_boost_start"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.press()
+        url = str(respx_mock.calls[0].request.url)
+        assert "command=control_swc_boost" in url
+        assert "boostcontrol=start" in url
+        assert "boosthrs=24" in url
+        assert "boostmode=pool" in url
+
+    async def test_start_button_uses_last_known_hrs_and_mode(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        system = make_system()
+        system.devices["swc_boost_hrs"] = IaquaSensor(
+            system, {"name": "swc_boost_hrs", "state": "12"}
+        )
+        system.devices["swc_boost_mode"] = IaquaSensor(
+            system, {"name": "swc_boost_mode", "state": "spillover"}
+        )
+        sut = IaquaSwcBoostStartButton(system, {"name": "swc_boost_start"})
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.press()
+        url = str(respx_mock.calls[0].request.url)
+        assert "boosthrs=12" in url
+        assert "boostmode=spillover" in url
+
+    async def test_stop_button_sends_stop(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcBoostStopButton(make_system(), {"name": "swc_boost_stop"})
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.press()
+        url = str(respx_mock.calls[0].request.url)
+        assert "command=control_swc_boost" in url
+        assert "boostcontrol=stop" in url
+        assert "boosthrs" not in url
+        assert "boostmode" not in url
+
+    async def test_pause_button_sends_pause(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcBoostPauseButton(
+            make_system(), {"name": "swc_boost_pause"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.press()
+        url = str(respx_mock.calls[0].request.url)
+        assert "boostcontrol=pause" in url
+
+    async def test_resume_button_sends_resume(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcBoostResumeButton(
+            make_system(), {"name": "swc_boost_resume"}
+        )
+        respx_mock.route(dotstar).mock(resp_200)
+        with patch.object(sut.system, "_parse_swc_config_response"):
+            await sut.press()
+        url = str(respx_mock.calls[0].request.url)
+        assert "boostcontrol=resume" in url

@@ -253,3 +253,4 @@ i2d_system_factories: list[tuple[str, Callable[[], Any]]] = [
 i2d_light_factories: list[tuple[str, Callable[[], Any]]] = []
 i2d_climate_factories: list[tuple[str, Callable[[], Any]]] = []
 i2d_select_factories: list[tuple[str, Callable[[], Any]]] = []
+i2d_button_factories: list[tuple[str, Callable[[], Any]]] = []

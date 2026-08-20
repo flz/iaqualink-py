@@ -18,6 +18,7 @@ from iaqualink.cli.capture import CaptureSession
 from iaqualink.client import AqualinkAuthState, AqualinkClient
 from iaqualink.device import (
     AqualinkBinarySensor,
+    AqualinkButton,
     AqualinkClimate,
     AqualinkDevice,
     AqualinkFan,
@@ -258,6 +259,7 @@ _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
     (AqualinkClimate, "🌡️", "Climate"),
     (AqualinkLight, "💡", "Lights"),
     (AqualinkSwitch, "⚡", "Switches"),
+    (AqualinkButton, "🔲", "Buttons"),
     (AqualinkFan, "⚙️", "Fans"),
     (AqualinkVacuum, "🤖", "Vacuums"),
     (AqualinkSelect, "🔘", "Modes"),

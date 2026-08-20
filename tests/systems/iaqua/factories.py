@@ -29,6 +29,11 @@ from iaqualink.systems.iaqua.device import (
     IaquaOneTouchSwitch,
     IaquaSensor,
     IaquaSetPoint,
+    IaquaSwcBoostPauseButton,
+    IaquaSwcBoostResumeButton,
+    IaquaSwcBoostStartButton,
+    IaquaSwcBoostStopButton,
+    IaquaSwcSetPoint,
     IaquaSwitch,
     IaquaVSPump,
 )
@@ -37,6 +42,7 @@ from iaqualink.systems.iaqua.system import IaquaSystem
 
 from ...conformance.fixtures import (
     BinarySensorFixture,
+    ButtonFixture,
     ClimateFixture,
     DeviceFixture,
     FanFixture,
@@ -109,6 +115,11 @@ IAQUA_HEATPUMP_BASE_DATA: dict = {
 IAQUA_HEATPUMP_MODE_DATA: dict = {"name": "heatpump_mode", "state": "heat"}
 IAQUA_HEATPUMP_STATUS_DATA: dict = {"name": "heatpump_status", "state": "on"}
 IAQUA_HEATPUMP_ALERT_DATA: dict = {"name": "heatpump_alert", "state": "1"}
+IAQUA_SWC_BOOST_OFF_DATA: dict = {"name": "swc_boost", "state": "0"}
+IAQUA_SWC_POOL_SET_POINT_DATA: dict = {
+    "name": "swc_pool_set_point",
+    "state": "50",
+}
 
 
 def make_system() -> IaquaSystem:
@@ -203,8 +214,19 @@ def _iaqua_binary_sensor() -> BinarySensorFixture:
     )
 
 
+def _iaqua_swc_boost() -> BinarySensorFixture:
+    system = make_system()
+    data_on = {**IAQUA_SWC_BOOST_OFF_DATA, "state": "1"}
+    return BinarySensorFixture(
+        device_on=IaquaBinarySensor(system, data_on),
+        device_off=IaquaBinarySensor(system, {**IAQUA_SWC_BOOST_OFF_DATA}),
+        expected_class=IaquaBinarySensor,
+    )
+
+
 iaqua_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-binary-sensor", _iaqua_binary_sensor),
+    ("iaqua-swc-boost", _iaqua_swc_boost),
 ]
 
 # ---------------------------------------------------------------------------
@@ -274,6 +296,50 @@ iaqua_switch_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-aux-switch", _iaqua_aux_switch),
     ("iaqua-onetouch-switch", _iaqua_onetouch_switch),
     ("iaqua-heatpump", _iaqua_heatpump),
+]
+
+# ---------------------------------------------------------------------------
+# Button fixtures
+# ---------------------------------------------------------------------------
+
+
+def _iaqua_swc_boost_start_button() -> ButtonFixture:
+    system = make_system()
+    return ButtonFixture(
+        device=IaquaSwcBoostStartButton(system, {"name": "swc_boost_start"}),
+        expected_class=IaquaSwcBoostStartButton,
+    )
+
+
+def _iaqua_swc_boost_stop_button() -> ButtonFixture:
+    system = make_system()
+    return ButtonFixture(
+        device=IaquaSwcBoostStopButton(system, {"name": "swc_boost_stop"}),
+        expected_class=IaquaSwcBoostStopButton,
+    )
+
+
+def _iaqua_swc_boost_pause_button() -> ButtonFixture:
+    system = make_system()
+    return ButtonFixture(
+        device=IaquaSwcBoostPauseButton(system, {"name": "swc_boost_pause"}),
+        expected_class=IaquaSwcBoostPauseButton,
+    )
+
+
+def _iaqua_swc_boost_resume_button() -> ButtonFixture:
+    system = make_system()
+    return ButtonFixture(
+        device=IaquaSwcBoostResumeButton(system, {"name": "swc_boost_resume"}),
+        expected_class=IaquaSwcBoostResumeButton,
+    )
+
+
+iaqua_button_factories: list[tuple[str, Callable[[], Any]]] = [
+    ("iaqua-swc-boost-start-button", _iaqua_swc_boost_start_button),
+    ("iaqua-swc-boost-stop-button", _iaqua_swc_boost_stop_button),
+    ("iaqua-swc-boost-pause-button", _iaqua_swc_boost_pause_button),
+    ("iaqua-swc-boost-resume-button", _iaqua_swc_boost_resume_button),
 ]
 
 # ---------------------------------------------------------------------------
@@ -421,9 +487,18 @@ def _iaqua_pool_chill_set_point() -> NumberFixture:
     return NumberFixture(device=device, expected_class=IaquaSetPoint)
 
 
+def _iaqua_swc_set_point() -> NumberFixture:
+    system = make_system()
+    device = IaquaSwcSetPoint(system, {**IAQUA_SWC_POOL_SET_POINT_DATA})
+    system.devices = {"swc_pool_set_point": device}
+
+    return NumberFixture(device=device, expected_class=IaquaSwcSetPoint)
+
+
 iaqua_number_factories: list[tuple[str, Callable[[], Any]]] = [
     ("iaqua-set-point", _iaqua_set_point),
     ("iaqua-pool-chill-set-point", _iaqua_pool_chill_set_point),
+    ("iaqua-swc-set-point", _iaqua_swc_set_point),
 ]
 
 # ---------------------------------------------------------------------------

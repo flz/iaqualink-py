@@ -72,6 +72,7 @@ When adding a new direct subclass of `AqualinkDevice` to `device.py`, also add a
 | `AqualinkClimate` | Climate | |
 | `AqualinkLight` | Lights | |
 | `AqualinkSwitch` | Switches | |
+| `AqualinkButton` | Buttons | Stateless action trigger; maps to HA ButtonEntity |
 | `AqualinkFan` | Fans | HA has no PumpEntity; FanEntity is closest match |
 | `AqualinkSelect` | Modes | Maps to HA SelectEntity |
 | `AqualinkNumber` | Numbers | |
