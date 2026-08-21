@@ -13,7 +13,7 @@ from iaqualink.exception import (
     AqualinkServiceThrottledException,
     _AqualinkOfflineSignal,
 )
-from iaqualink.utils.diagnostics import _DIAGNOSTIC_SINK
+from iaqualink.utils.diagnostics import start_capture, stop_capture
 from iaqualink.utils.reauth import send_with_reauth_retry
 from iaqualink.utils.redact import mask_serial, redact_literal, redact_value
 
@@ -166,15 +166,14 @@ class AqualinkSystem(ABC):
         Never raises `AqualinkServiceException` — failures surface via
         `status` and `error` instead.
         """
-        token = _DIAGNOSTIC_SINK.set([])
+        token = start_capture()
         error: str | None = None
         try:
             await self.refresh(full=True)
         except AqualinkServiceException as e:
             error = str(e)
         finally:
-            captures = _DIAGNOSTIC_SINK.get() or []
-            _DIAGNOSTIC_SINK.reset(token)
+            captures = stop_capture(token)
 
         masked_serial = mask_serial(self.serial)
         for entry in captures:

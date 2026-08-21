@@ -224,6 +224,17 @@ class TestExoSystem:
         sut._parse_shadow_response(response)
         assert sut.status is SystemStatus.UNKNOWN
 
+    async def test_refresh_full_makes_same_single_call_as_default(self) -> None:
+        """full=True is a no-op for ExoSystem: same single fixed shadow call."""
+        _, sut = _make_exo_system()
+        response = _make_shadow_response("connected")
+        with patch.object(
+            sut, "send_reported_state_request", return_value=response
+        ) as mock_request:
+            await sut.refresh(full=True)
+        mock_request.assert_awaited_once()
+        assert sut.status is SystemStatus.CONNECTED
+
     @patch("httpx.AsyncClient.request")
     async def test_reported_state_request(self, mock_request) -> None:
         _, sut = _make_exo_system()

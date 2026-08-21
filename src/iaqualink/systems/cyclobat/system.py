@@ -51,8 +51,10 @@ class CyclobatSystem(RobotStateSubscription, AqualinkSystem):
 
         return await self._send_with_reauth_retry(do_request)
 
-    async def _refresh(self) -> None:
-        if self._ws_enabled and self._ws_state_fresh():
+    async def _refresh(self, *, full: bool = False) -> None:
+        # Single fixed call regardless; `full` (diagnose()) forces the REST
+        # poll even when a fresh WS state would normally skip it.
+        if self._ws_enabled and self._ws_state_fresh() and not full:
             # WS subscription is delivering fresh state; skip the REST poll.
             return
         r = await self.send_shadow_request()

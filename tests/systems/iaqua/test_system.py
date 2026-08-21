@@ -695,6 +695,39 @@ class TestIaquaSystem:
             assert devices_req.call_count == 1
             assert onetouch_req.call_count == 1
 
+    async def test_refresh_full_survives_empty_devices_and_onetouch_screens_when_offline(
+        self,
+    ) -> None:
+        """full=True must not raise if devices_screen/onetouch_screen come back empty for an offline system."""
+        _, sut = _make_iaqua_system()
+
+        def _set_offline(_response: object) -> None:
+            sut.status = SystemStatus.OFFLINE
+
+        devices_response = MagicMock()
+        devices_response.json.return_value = {"devices_screen": []}
+        onetouch_response = MagicMock()
+        onetouch_response.json.return_value = {"onetouch_screen": []}
+
+        with (
+            patch.object(sut, "_send_home_screen_request"),
+            patch.object(
+                sut,
+                "_send_devices_screen_request",
+                return_value=devices_response,
+            ),
+            patch.object(
+                sut,
+                "_send_onetouch_screen_request",
+                return_value=onetouch_response,
+            ),
+            patch.object(sut, "_parse_home_response", side_effect=_set_offline),
+        ):
+            await sut.refresh(full=True)
+
+        assert sut.status is SystemStatus.OFFLINE
+        assert sut.devices == {}
+
     async def test_refresh_not_full_skips_devices_and_onetouch_when_offline(
         self,
     ) -> None:

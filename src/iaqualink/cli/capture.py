@@ -10,7 +10,7 @@ from typing import IO
 import httpx
 
 from iaqualink.utils.capture import build_capture_entry
-from iaqualink.utils.redact import mask_serial, redact_url
+from iaqualink.utils.redact import mask_serial
 
 
 @dataclass
@@ -42,7 +42,8 @@ class CaptureSession:
         self._literals.update(s for s in serials if s)
 
     def _redact_url(self, url: str) -> str:
-        url = redact_url(url)
+        # build_capture_entry() already redacted query-string values via
+        # redact_url(); only the serial-in-path replacement is left to do here.
         for literal in self._literals:
             url = url.replace(literal, mask_serial(literal))
         return url

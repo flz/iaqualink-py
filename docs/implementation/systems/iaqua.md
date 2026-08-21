@@ -9,7 +9,7 @@ Implementation details for the iAqua system (`device_type: "iaqua"`). For the wi
 | `device_type` | `iaqua` |
 | API host | `p-api.iaqualink.net` |
 | Authentication | Session token (`session_id`) + Bearer `IdToken` |
-| Update calls | `get_home` + `get_devices` (+ `get_onetouch` if supported); ICL state embedded in `get_devices` |
+| Update calls | `get_home` + `get_devices` (+ `get_onetouch` if supported); ICL state embedded in `get_devices`. `diagnose()` (`full=True`) forces `get_devices`/`get_onetouch` unconditionally, even when the system is not `ONLINE` or onetouch support hasn't been detected. |
 | Python class | `IaquaSystem` in `src/iaqualink/systems/iaqua/system.py` |
 
 ## Implemented vs Reference Coverage

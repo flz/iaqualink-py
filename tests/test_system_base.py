@@ -35,7 +35,12 @@ class TestUnsupportedSystem:
     def _make(self) -> UnsupportedSystem:
         client = AqualinkClient("u", "p")
         return UnsupportedSystem(
-            client, {"serial_number": "SN001", "device_type": "unknown_xyz"}
+            client,
+            {
+                "serial_number": "SN001",
+                "name": "Mystery Device",
+                "device_type": "unknown_xyz",
+            },
         )
 
     def test_from_data_returns_unsupported_system(self) -> None:
@@ -52,6 +57,16 @@ class TestUnsupportedSystem:
     def test_supported_is_false(self) -> None:
         system = self._make()
         assert system.supported is False
+
+    async def test_diagnose_returns_unknown_with_no_calls_or_devices(
+        self,
+    ) -> None:
+        system = self._make()
+        result = await system.diagnose()
+        assert result["status"] == "UNKNOWN"
+        assert result["error"] is None
+        assert result["refresh_calls"] == []
+        assert result["devices"] == {}
 
 
 def _make_iaqua_system() -> AqualinkSystem:
