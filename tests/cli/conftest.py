@@ -57,7 +57,7 @@ class FakeSystem:
 
 
 class FakeClient:
-    systems_factory = staticmethod(dict[str, FakeSystem])
+    systems_factory = staticmethod(lambda: dict[str, FakeSystem]())
     login_call_count = 0
 
     def __init__(
@@ -127,7 +127,7 @@ class FakeSystemWithAqualink(FakeSystem):
 @pytest.fixture(autouse=True)
 def reset_fake_client(monkeypatch: pytest.MonkeyPatch) -> None:
     FakeClient.login_call_count = 0
-    FakeClient.systems_factory = staticmethod(dict[str, FakeSystem])
+    FakeClient.systems_factory = staticmethod(lambda: {})
     monkeypatch.setattr(cli_module, "AqualinkClient", FakeClient)
     monkeypatch.setattr(cli_module, "_capture_session", None)
 

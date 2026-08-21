@@ -417,8 +417,8 @@ class TestI2dSystem:
     async def test_pump_set_preset_valid(self):
         aqualink = MagicMock()
         system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
-        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
-        system._parse_alldata_response = MagicMock()  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]
+        system._parse_alldata_response = MagicMock()  # type: ignore[method-assign, invalid-assignment]
         # Directly construct a pump to test set_preset
         from iaqualink.systems.i2d.device import I2dFan
 
@@ -427,7 +427,7 @@ class TestI2dSystem:
             {"name": "ABC123", "opmode": "0", "runstate": "on"},
         )
         await pump.set_preset_mode("STOP")
-        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]
             "/opmode/write", "value=2"
         )
 
@@ -463,7 +463,7 @@ class TestI2dSystem:
     async def test_set_speed_percentage_0_gives_rpm_min(self):
         aqualink = MagicMock()
         system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
-        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
@@ -471,14 +471,14 @@ class TestI2dSystem:
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         await pump.set_percentage(0)
-        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]
             "/customspeedrpm/write", "value=600"
         )
 
     async def test_set_speed_percentage_100_gives_rpm_max(self):
         aqualink = MagicMock()
         system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
-        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
@@ -486,7 +486,7 @@ class TestI2dSystem:
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         await pump.set_percentage(100)
-        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]
             "/customspeedrpm/write", "value=3450"
         )
 
@@ -494,7 +494,7 @@ class TestI2dSystem:
         # 600 + (3450-600)*0.5 = 2025 — already multiple of 25
         aqualink = MagicMock()
         system = cast(I2dSystem, I2dSystem.from_data(aqualink, _SYSTEM_DATA))
-        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]  # ty: ignore
+        system.send_control_command = async_returns(MagicMock())  # type: ignore[method-assign, invalid-assignment]
         from iaqualink.systems.i2d.device import I2dFan
 
         pump = I2dFan(
@@ -502,7 +502,7 @@ class TestI2dSystem:
             {"name": "ABC123", "globalrpmmin": "600", "globalrpmmax": "3450"},
         )
         await pump.set_percentage(50)
-        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]  # ty: ignore
+        system.send_control_command.assert_awaited_once_with(  # type: ignore[attr-defined, unresolved-attribute]
             "/customspeedrpm/write", "value=2025"
         )
 
