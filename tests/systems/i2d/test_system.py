@@ -103,6 +103,21 @@ class TestI2dSystem:
             await system.refresh()
         assert system.status is SystemStatus.CONNECTED
 
+    async def test_refresh_full_makes_same_single_call_as_default(self):
+        """full=True is a no-op for I2dSystem: same single fixed alldata call."""
+        aqualink = MagicMock()
+        system = cast(
+            I2dSystem, AqualinkSystem.from_data(aqualink, _SYSTEM_DATA)
+        )
+        response = MagicMock()
+        response.json.return_value = SAMPLE_DATA
+        with patch.object(
+            system, "send_control_command", new=AsyncMock(return_value=response)
+        ) as mock_command:
+            await system.refresh(full=True)
+        mock_command.assert_awaited_once()
+        assert system.status is SystemStatus.CONNECTED
+
     async def test_refresh_service_exception(self):
         aqualink = MagicMock()
         system = cast(
