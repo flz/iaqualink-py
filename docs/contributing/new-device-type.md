@@ -85,7 +85,6 @@ Add the new class to `src/iaqualink/__init__.py` if it should be part of the pub
 
 - Add a row to the device type table in `docs/contributing/new-device-type.md` (this file)
 - Update the device hierarchy in `docs/contributing/architecture.md`
-- Update the `_DEVICE_GROUPS` table in `CLAUDE.md`
 - Add API docs in `docs/api/device.md` (the `:::` autodoc directive picks it up automatically)
 
 ### 6. Add tests

@@ -43,42 +43,11 @@ See `docs/reference/` for per-system wire-level protocol specs (source of truth 
 
 ## Adding Support for New System Types
 
-1. Create `systems/newsystem/` with `__init__.py`, `system.py`, `device.py`
-2. Implement `NewSystem(AqualinkSystem)` with `NAME` class attribute
-3. Implement `async def _refresh(self) -> None` — called by base `refresh()` template method
-4. Inside `_refresh()`, set `self.status` before returning. Do **not** catch `AqualinkServiceException` subclasses — `refresh()` handles those
-5. Implement device parsing in `_parse_*_response()` methods
-6. Create device classes extending base device types
-7. Register module import in `src/iaqualink/client.py` so `AqualinkSystem.from_data()` discovers the subclass
-8. Add tests following existing patterns in `tests/systems/newsystem/`
-9. Update documentation — all of the following in the same PR:
-   - `README.md` — add to Multi-System Support list
-   - `docs/index.md` — add to Features list
-   - `docs/api/systems/.nav.yml` — add entry for the new system
-   - `docs/reference/systems/.nav.yml` — add entry for the new system
-   - `docs/implementation/systems/.nav.yml` — add entry for the new system
-   - `docs/.nav.yml` — add entry under Getting Started if needed
-   - `docs/getting-started/newsystem.md` — API overview, status table, device inventory
-   - `docs/implementation/systems/newsystem.md` — status lifecycle, design decisions, deltas vs reference
-   - `docs/api/systems/newsystem.md` — `:::` autodoc directives for system + device classes
-   - `docs/reference/systems/newsystem.md` — wire-level protocol documentation
+See `docs/contributing/new-system-type.md` for the full step-by-step guide and checklist. Key rules: `_refresh()` must set `self.status` before returning on every path and must not catch `AqualinkServiceException` subclasses; register the new module in `src/iaqualink/client.py`; update all docs listed in the guide in the same PR.
 
 ## Adding New Base Device Types
 
-When adding a new direct subclass of `AqualinkDevice` to `device.py`, also add a corresponding entry to `_DEVICE_GROUPS` in `src/iaqualink/cli/app.py`. Devices without a matching group silently fall through to the "Other" bucket.
-
-| Class | CLI Group | Notes |
-|---|---|---|
-| `AqualinkClimate` | Climate | |
-| `AqualinkLight` | Lights | |
-| `AqualinkSwitch` | Switches | |
-| `AqualinkFan` | Fans | HA has no PumpEntity; FanEntity is closest match |
-| `AqualinkSelect` | Modes | Maps to HA SelectEntity |
-| `AqualinkNumber` | Numbers | |
-| `AqualinkBinarySensor` | Sensors | |
-| `AqualinkSensor` | Sensors | Entries with the same label are merged into one group |
-
-All classes are direct subclasses of `AqualinkDevice` (flat hierarchy — no class covers another). Multiple entries can share a group label; `_group_devices` merges them.
+See `docs/contributing/new-device-type.md` for the full guide. A new direct subclass of `AqualinkDevice` needs a matching entry in `_DEVICE_GROUPS` in `src/iaqualink/cli/app.py` — devices without one silently fall through to the "Other" bucket in CLI output.
 
 ## Protocol Reference
 
