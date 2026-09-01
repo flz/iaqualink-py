@@ -226,6 +226,42 @@ async with AqualinkClient('user@example.com', 'password') as client:
                 await system.start_cleaning()
 ```
 
+## Working with Polaris iqPump Robot Cleaners (i2d_robot)
+
+Polaris iqPump robot cleaners use a hex-encoded HTTP protocol. After connecting
+you can read sensor values and send control commands:
+
+```python
+from iaqualink import AqualinkClient
+from iaqualink.systems.i2d_robot.system import I2dRobotSystem
+
+async with AqualinkClient('user@example.com', 'password') as client:
+    systems = await client.get_systems()
+
+    # Find an i2d_robot system
+    robot = next(
+        (s for s in systems.values() if isinstance(s, I2dRobotSystem)),
+        None,
+    )
+    if robot is None:
+        print("No Polaris robot found")
+    else:
+        devices = await robot.get_devices()
+
+        # Read state
+        print(f"State: {devices['state'].value}")
+        print(f"Error: {devices['error'].value}")
+        print(f"Mode: {devices['mode'].value}")
+        print(f"Time remaining: {devices['time_remaining_min'].value} min")
+        print(f"Running: {devices['running'].is_on}")
+        print(f"Canister full: {devices['canister_full'].is_on}")
+
+        # Send control commands
+        await robot.start_cleaning()
+        await robot.stop_cleaning()
+        await robot.return_to_base()
+```
+
 ## Next Steps
 
 - [CLI Reference](cli.md) — command-line client for scripting and quick control

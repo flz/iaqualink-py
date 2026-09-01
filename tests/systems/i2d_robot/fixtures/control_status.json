@@ -1,0 +1,6 @@
+{
+  "command": {
+    "request": "OA11",
+    "response": "AABB04000A1E010000020000ABCDEF123456"
+  }
+}
