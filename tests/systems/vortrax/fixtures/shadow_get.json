@@ -1,0 +1,16 @@
+{
+  "state": {
+    "reported": {
+      "equipment": {
+        "robot": {
+          "state": 1,
+          "prCyc": 1,
+          "stepper": 0,
+          "sn": "SN42",
+          "vr": "1.0.0"
+        }
+      },
+      "eboxData": {"completeCleanerPn": "VTX-PN-42"}
+    }
+  }
+}
