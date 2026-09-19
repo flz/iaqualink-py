@@ -18,7 +18,12 @@ jobs:
     #   github.event.pull_request.user.login == 'new-developer' ||
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
 
-    if: github.event.pull_request.user.type != 'Bot'
+    # Skip fork PRs: pull_request-triggered runs from forks get no secrets and
+    # no OIDC token issuance regardless of declared permissions, so this job
+    # cannot succeed for them (see run 35444718198 / PR #295).
+    if: |
+      github.event.pull_request.user.type != 'Bot' &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
