@@ -226,6 +226,62 @@ async with AqualinkClient('user@example.com', 'password') as client:
                 await system.start_cleaning()
 ```
 
+## HPM — Standalone Heat Pump
+
+HPM systems (`device_type: "hpm"`) are standalone heat pumps with no pool controller
+attached — not the `HPM` sub-device that pairs with an `iaqua` iQ20 controller. Some
+field values below could not be reproduced on the one unit available; the
+[protocol reference](../reference/systems/hpm.md) marks which.
+
+### API Overview
+
+- **Reads** — `system.refresh()` fetches the device shadow (`GET /devices/v1/{serial}/shadow`),
+  same REST mechanism as `exo`.
+- **Writes** — `POST` the same shadow URL with a `{"state": {"desired": {...}}}` body.
+
+### System Status
+
+Same `aws.status` → `SystemStatus` mapping as `exo` (`connected`, `online`, `offline`,
+`disconnected`, `service`, `firmware_update`, or `unknown`).
+
+### Device Inventory
+
+| Device key | Type | Description |
+|---|---|---|
+| `heatpump` | Climate | On/off (`state`) + target/current temperature (`tsp` / water sensor) |
+| `mode` | Select | Performance mode — boost, silent or smart (`st`) |
+| `cooling_priority` | Switch | Whether the unit may cool (`cl`), "Allow Cool Mode" in the app |
+| `status` | Sensor (diagnostic) | Operating state — off/standby/heating/cooling (`status`) |
+| `reason` | Sensor (diagnostic) | Why it's in that state (`reason`) |
+| `water_temp` | Sensor | Water probe temperature (`sns_1`), `None` if the probe is disconnected |
+| `air_temp` | Sensor | Air probe temperature (`sns_2`), `None` if the probe is disconnected |
+| `water_flow` | BinarySensor | Water flow detected (`wf`) |
+
+### Full Example
+
+```python
+from iaqualink import AqualinkClient
+from iaqualink.system import SystemStatus
+
+async with AqualinkClient('user@example.com', 'password') as client:
+    systems = await client.get_systems()
+
+    for system in systems.values():
+        if system.data.get('device_type') == 'hpm':
+            await system.refresh()
+
+            if system.status is SystemStatus.CONNECTED:
+                devices = await system.get_devices()
+
+                heatpump = devices['heatpump']
+                print(
+                    f"On: {heatpump.is_on}, target: {heatpump.target_temperature}"
+                )
+
+                await heatpump.turn_on()
+                await heatpump.set_temperature(30)
+```
+
 ## Next Steps
 
 - [CLI Reference](cli.md) — command-line client for scripting and quick control
