@@ -38,6 +38,30 @@ HPM systems are standalone heat-pump-only devices using the zodiac-io.com API wi
 
 ::: iaqualink.systems.hpm.device.HpmWaterFlow
 
+## Usage Example
+
+```python
+from iaqualink import AqualinkClient
+from iaqualink.system import SystemStatus
+
+async with AqualinkClient(username, password) as client:
+    systems = await client.get_systems()
+
+    # Find HPM system
+    for system in systems.values():
+        if system.data.get('device_type') == 'hpm':
+            await system.refresh()
+
+            if system.status is SystemStatus.CONNECTED:
+                devices = await system.get_devices()
+
+                heatpump = devices['heatpump']
+                print(f"On: {heatpump.is_on}, target: {heatpump.target_temperature}")
+
+                await heatpump.turn_on()
+                await heatpump.set_temperature(30)
+```
+
 ## See Also
 
 - [Implementation Notes](../../implementation/systems/hpm.md)
