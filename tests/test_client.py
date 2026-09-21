@@ -1029,3 +1029,98 @@ class TestAqualinkClientWebSocket:
         assert client._get_ws_httpx_client() is first
         await client.close()
         assert client._ws_client is None
+
+    async def test_close_is_noop_with_no_registered_subscriptions(
+        self,
+    ) -> None:
+        client = _make_client()
+        await client.close()  # must not raise
+        assert client._ws_subscriptions == []
+
+    async def test_close_stops_registered_subscriptions(self) -> None:
+        client = _make_client()
+        sub = MagicMock()
+        sub.stop_ws_subscription = AsyncMock()
+        client._register_ws_subscription(sub)
+
+        await client.close()
+
+        sub.stop_ws_subscription.assert_awaited_once()
+
+    async def test_register_ws_subscription_dedups(self) -> None:
+        client = _make_client()
+        sub = MagicMock()
+        client._register_ws_subscription(sub)
+        client._register_ws_subscription(sub)
+        assert client._ws_subscriptions == [sub]
+
+    async def test_unregister_ws_subscription_is_noop_if_absent(
+        self,
+    ) -> None:
+        client = _make_client()
+        sub = MagicMock()
+        client._unregister_ws_subscription(sub)  # must not raise
+        assert client._ws_subscriptions == []
+
+    async def test_send_ws_frame_logs_redacted_frame_body(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(side_effect=TimeoutError())
+        frame = {
+            "action": "setState",
+            "target": "SN12345",
+            "payload": {"clientToken": "42|authtok|abc", "waterTempSet": 88},
+        }
+
+        with (
+            caplog.at_level("DEBUG", logger="iaqualink.client"),
+            patch("iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)),
+        ):
+            await client.send_ws_frame("https://ws.example/devices", frame)
+
+        logged = "\n".join(caplog.messages)
+        assert "waterTempSet" in logged
+        assert "88" in logged
+        assert "SN12345" not in logged  # target (serial) redacted
+        assert "authtok" not in logged  # clientToken redacted
+
+    async def test_send_ws_frame_logs_redacted_json_ack_body(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(
+            return_value=json.dumps({"target": "SN12345", "ok": True})
+        )
+
+        with (
+            caplog.at_level("DEBUG", logger="iaqualink.client"),
+            patch("iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)),
+        ):
+            await client.send_ws_frame("https://ws.example/devices", {"a": 1})
+
+        logged = "\n".join(caplog.messages)
+        assert "<- WS ack" in logged
+        assert "ok" in logged
+        assert "SN12345" not in logged
+
+    async def test_send_ws_frame_logs_non_json_ack_raw(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        client = _make_client()
+        client.id_token = "tok"
+        ws = AsyncMock()
+        ws.receive_text = AsyncMock(return_value="not json")
+
+        with (
+            caplog.at_level("DEBUG", logger="iaqualink.client"),
+            patch("iaqualink.client.aconnect_ws", return_value=_ws_cm(ws)),
+        ):
+            await client.send_ws_frame("https://ws.example/devices", {"a": 1})
+
+        logged = "\n".join(caplog.messages)
+        assert "not json" in logged

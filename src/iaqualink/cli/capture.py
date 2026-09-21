@@ -66,8 +66,47 @@ class CaptureSession:
             url = url.replace(literal, mask_serial(literal))
         return url
 
+    def _redact_literals(self, value: Any) -> Any:
+        if isinstance(value, str):
+            for literal in self._literals:
+                value = value.replace(literal, mask_serial(literal))
+            return value
+        if isinstance(value, dict):
+            return {k: self._redact_literals(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._redact_literals(v) for v in value]
+        return value
+
     def make_hooks(self) -> dict[str, list]:
         return {"response": [self._capture_response]}
+
+    async def capture_ws_frame(
+        self, direction: str, url: str, frame: Any
+    ) -> None:
+        """Log a WS frame (subscribe/command/push) alongside REST captures.
+
+        httpx event hooks never fire for WS traffic — it leaves the HTTP
+        request/response cycle after the upgrade handshake — so this is
+        invoked directly by AqualinkClient's ws_capture_hook instead of via
+        make_hooks(). `direction` is "send" or "receive"; `frame` is the
+        parsed JSON payload, or the raw text if it wasn't valid JSON
+        (e.g. a keepalive ping).
+        """
+        if isinstance(frame, (dict, list)):
+            frame = redact_value(frame, REDACT_KEYS_CI)
+        frame = self._redact_literals(frame)
+
+        entry = {
+            "timestamp": datetime.datetime.now(
+                datetime.timezone.utc
+            ).isoformat(),
+            "type": "ws",
+            "direction": direction,
+            "url": self._redact_url(url),
+            "frame": frame,
+        }
+        async with self._lock:
+            await asyncio.to_thread(self._write_line, json.dumps(entry) + "\n")
 
     async def _capture_response(self, response: httpx.Response) -> None:
         await response.aread()

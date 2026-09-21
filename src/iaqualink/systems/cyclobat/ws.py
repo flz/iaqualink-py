@@ -12,7 +12,7 @@ __all__ = [
 
 from typing import TYPE_CHECKING, Any
 
-from iaqualink.shared.robots import (
+from iaqualink.utils.robots import (
     ACTION_SET_CLEANING_MODE,
     build_set_state_frame,
     client_token,

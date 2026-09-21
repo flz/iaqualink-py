@@ -39,7 +39,9 @@ REDACT_KEYS: frozenset[str] = frozenset(
         "serialnumber",
         "set-cookie",
         "ssid",
+        "target",
         "user_id",
+        "userId",
         "username",
     }
 )
