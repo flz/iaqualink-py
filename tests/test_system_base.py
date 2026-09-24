@@ -21,7 +21,9 @@ class TestAqualinkSystemABC:
             class _Incomplete(AqualinkSystem):  # type: ignore[abstract]
                 pass
 
-            _Incomplete(AqualinkClient("u", "p"), {"serial_number": "X"})  # ty: ignore[call-non-callable]
+            client = AqualinkClient("u", "p")
+            data = {"serial_number": "X"}
+            _Incomplete(client, data)  # ty: ignore[call-non-callable]
 
 
 class TestUnsupportedSystem:
