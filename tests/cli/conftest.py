@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import importlib
+from collections.abc import Callable, Mapping
 from io import StringIO
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock, create_autospec
 
 import pytest
@@ -57,7 +59,9 @@ class FakeSystem:
 
 
 class FakeClient:
-    systems_factory = staticmethod(lambda: dict[str, FakeSystem]())
+    systems_factory: ClassVar[Callable[[], Mapping[str, FakeSystem]]] = (
+        staticmethod(lambda: dict[str, FakeSystem]())
+    )
     login_call_count = 0
 
     def __init__(
@@ -98,7 +102,7 @@ class FakeClient:
         )
 
     async def get_systems(self) -> dict[str, FakeSystem]:
-        return type(self).systems_factory()
+        return dict(type(self).systems_factory())
 
 
 class FakeSystemWithAqualink(FakeSystem):
