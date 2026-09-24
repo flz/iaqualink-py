@@ -17,6 +17,7 @@
     - **eXO** systems (zodiac-io.com API)
     - **i2d** systems — iQPump variable-speed pumps (r-api.iaqualink.net API)
     - **Cyclobat** — Zodiac battery-powered robot cleaners (read-only sensors + start/stop/return-to-base commands over WebSocket)
+    - **HPM** — standalone heat-pump-only devices, not attached to a pool controller (zodiac-io.com AWS IoT shadow API)
 - **Comprehensive Device Support**
     - Temperature sensors (pool, spa, air)
     - Thermostats with adjustable set points
