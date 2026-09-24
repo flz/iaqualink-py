@@ -252,9 +252,23 @@ Mock HTTP fixtures live alongside the test file in the same `tests/systems/<syst
 
 ### `_refresh()` contract
 
+**Signature:** `async def _refresh(self, *, full: bool = False) -> None`
+
 **On normal return** — set `self.status` to a resolved value before returning. If `_refresh()` returns without changing status, `refresh()` logs a warning.
 
 **`AqualinkServiceThrottledException` / `AqualinkServiceException`** — do *not* catch these inside `_refresh()`. Let them propagate to `refresh()`, which maps them to `UNKNOWN` / `DISCONNECTED`.
+
+**`full`** — when `True` (used by `diagnose()`), make every refresh-related API call unconditionally, even when normal polling would skip some of them based on prior state (e.g. feature-detection flags) or early-exit on a non-`ONLINE`/empty response. Implementations that always make a single fixed call can ignore this parameter. `IaquaSystem` is the only implementation where `full=True` changes behavior — it forces `get_devices`/`get_onetouch` even when the home response is not `ONLINE`, and forces `get_onetouch` even when onetouch support hasn't been detected yet.
+
+## Diagnostics
+
+`AqualinkSystem.diagnose()` runs `refresh(full=True)` and returns a dict containing the system identity, resolved status, the redacted request/response traffic from every refresh-related API call, and the resulting device list. It's intended for Home Assistant's `async_get_config_entry_diagnostics`.
+
+**Capture mechanism:** a `contextvars.ContextVar` (`_DIAGNOSTIC_SINK` in `iaqualink.utils.diagnostics`) is set to an empty list for the duration of the `refresh()` call. `AqualinkClient.send_request()` appends a redacted entry (via `build_capture_entry()`, shared with the CLI's `--capture` flag) to the sink for every response, success or failure. The contextvar is reset in a `finally` block, so it never leaks between calls and is safe under concurrent `diagnose()` calls on different systems.
+
+**Redaction:** entries use the same redaction as `--capture` (tokens, credentials, PII masked; serials partially masked). `diagnose()` additionally replaces any remaining occurrences of the unmasked serial in request URLs.
+
+**Never raises** `AqualinkServiceException` — failures surface via `status` (set by `refresh()`) and an `error` string field, so a diagnostics download never fails outright for an offline/unreachable system.
 
 ## Error Handling
 

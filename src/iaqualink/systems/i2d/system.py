@@ -285,7 +285,8 @@ class I2dSystem(AqualinkSystem):
                 if confirmed is not None:
                     shared_data[key] = confirmed
 
-    async def _refresh(self) -> None:
+    async def _refresh(self, *, full: bool = False) -> None:
+        # Single fixed call regardless; `full` (diagnose()) has nothing to add.
         r = await self.send_control_command("/alldata/read")
         self._parse_alldata_response(r)
 
