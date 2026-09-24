@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import stat
+import sys
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 import iaqualink.cli.app as cli_module
@@ -80,6 +82,10 @@ def test_list_systems_ignores_malformed_session_jar(tmp_path: Path) -> None:
     assert FakeClient.login_call_count == 1
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="os.open's mode only sets the read-only attribute on Windows",
+)
 def test_list_systems_writes_owner_only_cookie_jar(tmp_path: Path) -> None:
     cookie_jar = tmp_path / "session.json"
     FakeClient.systems_factory = staticmethod(
