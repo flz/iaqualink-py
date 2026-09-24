@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
 from pathlib import Path
 
@@ -100,7 +101,14 @@ def test_list_systems_writes_owner_only_cookie_jar(tmp_path: Path) -> None:
     )
 
     assert result.exit_code == 0
-    assert stat.S_IMODE(cookie_jar.stat().st_mode) == 0o600
+    # Compare against what this OS gives a file opened owner-only rather than
+    # a literal 0o600: Windows only honours the read-only bit and reports
+    # 0o666 for any writable file.
+    reference = tmp_path / "reference"
+    os.close(os.open(reference, os.O_WRONLY | os.O_CREAT, 0o600))
+    assert stat.S_IMODE(cookie_jar.stat().st_mode) == stat.S_IMODE(
+        reference.stat().st_mode
+    )
 
 
 def test_list_devices_reports_ambiguous_system_name(tmp_path: Path) -> None:
