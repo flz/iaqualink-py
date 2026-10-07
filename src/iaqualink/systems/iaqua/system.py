@@ -150,18 +150,19 @@ class IaquaSystem(AqualinkSystem):
     async def _send_onetouch_screen_request(self) -> httpx.Response:
         return await self._send_session_request(IAQUA_COMMAND_GET_ONETOUCH)
 
-    async def _refresh(self) -> None:
+    async def _refresh(self, *, full: bool = False) -> None:
         # Only the home response determines system status; fetch and parse it
         # first so we can skip subsequent requests when the system is not ONLINE.
+        # `full=True` (diagnose()) forces every call regardless.
         r1 = await self._send_home_screen_request()
         self._parse_home_response(r1)
-        if self.status is not SystemStatus.ONLINE:
+        if self.status is not SystemStatus.ONLINE and not full:
             return
 
         r2 = await self._send_devices_screen_request()
         self._parse_devices_response(r2)
 
-        if self._onetouch_supported:
+        if self._onetouch_supported or full:
             r3 = await self._send_onetouch_screen_request()
             self._parse_onetouch_response(r3)
 
@@ -264,7 +265,10 @@ class IaquaSystem(AqualinkSystem):
         data = response.json()
         LOGGER.debug("Devices body: %s", redact_value(data))
 
-        status = data["devices_screen"][0]["status"]
+        # devices_screen can be empty/missing when full=True forces this call
+        # on a non-ONLINE system; treat that the same as an explicit "" status.
+        devices_screen = data.get("devices_screen") or []
+        status = devices_screen[0].get("status", "") if devices_screen else ""
         if status in (IaquaSystemStatus.OFFLINE, IaquaSystemStatus.SERVICE, ""):
             LOGGER.warning(
                 "Skipping device update for system %s (%s): devices_screen status is %s.",
@@ -274,7 +278,7 @@ class IaquaSystem(AqualinkSystem):
             )
             return
 
-        for x in data["devices_screen"][3:]:
+        for x in devices_screen[3:]:
             for attr in next(iter(x.values())):
                 if attr.get("state") == "NaN":
                     LOGGER.debug(
@@ -282,7 +286,7 @@ class IaquaSystem(AqualinkSystem):
                     )
                     return
 
-        for x in data["devices_screen"][3:]:
+        for x in devices_screen[3:]:
             aux = next(iter(x.keys()))
             attrs = {"aux": aux.replace("aux_", ""), "name": aux}
             for y in next(iter(x.values())):
@@ -466,8 +470,10 @@ class IaquaSystem(AqualinkSystem):
         data = response.json()
         LOGGER.debug("OneTouch body: %s", redact_value(data))
 
+        # onetouch_screen can be empty/missing when full=True forces this call
+        # on a non-ONLINE system; treat that the same as an explicit "" status.
         onetouch: dict = {}
-        for x in data["onetouch_screen"]:
+        for x in data.get("onetouch_screen") or []:
             onetouch.update(x)
 
         raw_ot_status = onetouch.get("status")
