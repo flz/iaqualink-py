@@ -96,7 +96,7 @@ def _derive_status(reported: dict[str, Any]) -> SystemStatus:
     if system_mode in (3, 4):
         return SystemStatus.SERVICE
 
-    raw = reported.get("aws", {}).get("status")
+    raw = (reported.get("aws") or {}).get("status")
     if not raw:
         return SystemStatus.UNKNOWN
 

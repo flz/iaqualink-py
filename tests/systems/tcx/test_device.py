@@ -953,6 +953,19 @@ class TestTcxAuxLightOnOff:
 
 
 class TestTcxAuxLightColor:
+    def test_effect_list_empty_for_unmapped_light_type(self) -> None:
+        # et can change to a non-color type (e.g. WL) after creation via a
+        # later refresh/WS delta, since devices are never re-dispatched to
+        # a different class in place.
+        data: dict[str, Any] = {**AUX_LIGHT_ON, "et": "WL"}
+        sut = TcxAuxLight(make_system(), data)
+        assert sut.effect_list == []
+
+    def test_effect_none_for_unmapped_light_type(self) -> None:
+        data: dict[str, Any] = {**AUX_LIGHT_ON, "et": "WL", "currClr": 1}
+        sut = TcxAuxLight(make_system(), data)
+        assert sut.effect is None
+
     def test_current_color_index(self) -> None:
         data: dict[str, Any] = {**AUX_LIGHT_ON, "currClr": 3}
         sut = TcxAuxLight(make_system(), data)

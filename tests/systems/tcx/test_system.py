@@ -88,6 +88,12 @@ class TestTcxSystemStatus:
         sut._parse_shadow_response(response)
         assert sut.status is SystemStatus.UNKNOWN
 
+    def test_null_aws_status(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response({"aws": None})
+        sut._parse_shadow_response(response)
+        assert sut.status is SystemStatus.UNKNOWN
+
     def test_unknown_aws_status_string(self) -> None:
         _, sut = _make_tcx_system()
         response = _make_shadow_response(aws_status="something_new")

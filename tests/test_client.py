@@ -1108,7 +1108,7 @@ class TestAqualinkClientWebSocket:
         assert "ok" in logged
         assert "SN12345" not in logged
 
-    async def test_send_ws_frame_logs_non_json_ack_raw(
+    async def test_send_ws_frame_does_not_log_non_json_ack_raw(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
         client = _make_client()
@@ -1123,4 +1123,5 @@ class TestAqualinkClientWebSocket:
             await client.send_ws_frame("https://ws.example/devices", {"a": 1})
 
         logged = "\n".join(caplog.messages)
-        assert "not json" in logged
+        assert "not json" not in logged
+        assert "<- WS ack: <non-JSON, 8 chars>" in logged

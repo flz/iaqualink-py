@@ -366,7 +366,11 @@ class TcxAuxLight(TcxDevice, AqualinkLight):
 
     @property
     def _colors(self) -> tuple[str, ...]:
-        return _TCX_LIGHT_COLORS[LightType(self.data["et"])]
+        # _upsert_devices never re-dispatches an existing device to a
+        # different class, so if `et` changes to a non-color type after
+        # creation (e.g. reconfigured to WHITE_LIGHT in the vendor app),
+        # this falls back to no colors instead of a KeyError.
+        return _TCX_LIGHT_COLORS.get(LightType(self.data["et"]), ())
 
     @property
     def current_color_index(self) -> int | None:

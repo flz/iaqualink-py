@@ -135,9 +135,11 @@ class RobotStateSubscription(WsStateSubscription):
         # Robots have no richer status derivation of their own — a
         # successful WS apply means the socket is live, so mark ONLINE here
         # (unlike tcx, which derives status itself from the reported tree).
-        self.status = SystemStatus.ONLINE
+        # Applied after the parse so a failed apply doesn't leave stale
+        # state marked ONLINE.
         self._apply_reported_state(reported)
+        self.status = SystemStatus.ONLINE
 
     def _apply_state_delta(self, delta: dict[str, Any]) -> None:
-        self.status = SystemStatus.ONLINE
         self._apply_robot_delta(delta)
+        self.status = SystemStatus.ONLINE

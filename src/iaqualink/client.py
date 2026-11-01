@@ -456,14 +456,14 @@ class AqualinkClient:
                 ) as exc:
                     LOGGER.debug("No WS ack within %.1fs: %r", ack_timeout, exc)
                 else:
-                    ack_data: Any
                     try:
-                        ack_data = json.loads(ack)
+                        ack_data = redact_value(json.loads(ack))
                     except (json.JSONDecodeError, TypeError):
-                        ack_data = ack
+                        LOGGER.debug(
+                            "<- WS ack: <non-JSON, %d chars>", len(ack)
+                        )
                     else:
-                        ack_data = redact_value(ack_data)
-                    LOGGER.debug("<- WS ack: %s", ack_data)
+                        LOGGER.debug("<- WS ack: %s", ack_data)
 
         # Mirror the REST read path: reauth once on a stale-token handshake.
         await send_with_reauth_retry(do_send, self._refresh_auth)
