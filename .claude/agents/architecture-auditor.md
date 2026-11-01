@@ -14,13 +14,15 @@ the wire protocol in `docs/reference/`. Use only repo-tracked files.
 
    ```bash
    BASE=$(git merge-base HEAD origin/master 2>/dev/null || git rev-list --max-parents=0 HEAD)
-   git diff "$BASE"...HEAD -- src/iaqualink/client.py src/iaqualink/reauth.py src/iaqualink/systems/
+   git diff "$BASE"...HEAD -- src/iaqualink/client.py src/iaqualink/reauth.py src/iaqualink/const.py src/iaqualink/shared/ src/iaqualink/systems/
    ```
 
    If empty, output `Protocol: no protocol changes` and stop.
 
 2. Map paths to docs:
    - `client.py`, `reauth.py` → `docs/reference/client.md`
+   - `const.py` → `docs/reference/client.md` and the relevant system reference
+   - `shared/robots.py` → `docs/reference/systems/cyclobat.md`
    - `systems/<system>/` → `docs/reference/systems/<system>.md` and the
      "Deltas vs Protocol Reference" table in
      `docs/implementation/systems/<system>.md`

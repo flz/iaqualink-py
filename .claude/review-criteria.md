@@ -10,10 +10,11 @@ sections are omitted. If nothing to flag: `LGTM`.
 
 ## §1 Protocol correctness
 
-Only if the diff touches `src/iaqualink/client.py`, `reauth.py`, or
-`systems/<system>/`. Grep `docs/reference/systems/<system>.md` (or
-`docs/reference/client.md`) for each changed URL, method, header, query
-param, JSON field, or enum value — don't read the doc end to end.
+Only if the diff touches `src/iaqualink/client.py`, `reauth.py`,
+`src/iaqualink/const.py`, `src/iaqualink/shared/`, or `systems/<system>/`.
+Grep `docs/reference/systems/<system>.md` (or `docs/reference/client.md`) for
+each changed URL, method, header, query param, JSON field, or enum value —
+don't read the doc end to end.
 - Must match the reference, or appear in the "Deltas vs Protocol Reference"
   table in `docs/implementation/systems/<system>.md`.
 - New protocol behavior not in the reference → the doc must be updated in
