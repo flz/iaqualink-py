@@ -171,7 +171,7 @@
     'lvh1': dict({
       'device_class': None,
       'entity_category': None,
-      'label': 'Pool Heater',
+      'label': 'Low Voltage Heater Status',
       'state_class': None,
       'type': 'TcxHeaterStatusSensor',
       'unit_of_measurement': None,
@@ -181,7 +181,7 @@
     'lvh1_enable': dict({
       'entity_category': None,
       'is_on': True,
-      'label': 'Pool Heater',
+      'label': 'Low Voltage Heater',
       'type': 'TcxHeaterEnableSwitch',
     }),
     'solar': dict({
@@ -372,7 +372,7 @@
     'lvh1': dict({
       'device_class': None,
       'entity_category': None,
-      'label': 'Pool Heater',
+      'label': 'Low Voltage Heater Status',
       'state_class': None,
       'type': 'TcxHeaterStatusSensor',
       'unit_of_measurement': None,
@@ -382,7 +382,7 @@
     'lvh1_enable': dict({
       'entity_category': None,
       'is_on': True,
-      'label': 'Pool Heater',
+      'label': 'Low Voltage Heater',
       'type': 'TcxHeaterEnableSwitch',
     }),
     'solar': dict({

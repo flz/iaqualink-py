@@ -877,12 +877,15 @@ class TcxFreezeSetPoint(TcxDevice, AqualinkNumber):
 class TcxHeaterStatusSensor(TcxDevice, AqualinkSensor):
     """Read-only heater-equipment tile status (lvh1.en), the tcx analog of
     iaqua's IaquaHeatPumpStatusSensor — distinct from TcxClimate, which
-    owns TspBdy0's setpoint/enable and has no `lvh1` data of its own."""
+    owns TspBdy0's setpoint/enable and has no `lvh1` data of its own.
+
+    Label is hardcoded rather than falling back to `fr`: `fr` ("Lvh 1") is
+    shared with TcxHeaterEnableSwitch's sibling object and would make both
+    devices show the same label."""
 
     @property
     def label(self) -> str:
-        fr = self.data.get("fr")
-        return str(fr) if fr else "Heater Status"
+        return "Low Voltage Heater Status"
 
     @property
     def value(self) -> str:
@@ -893,12 +896,12 @@ class TcxHeaterStatusSensor(TcxDevice, AqualinkSensor):
 class TcxHeaterEnableSwitch(TcxDevice, AqualinkSwitch):
     """Enable/disable switch for lvh1.app ("HEAT"/"OFF") — the tcx analog
     of iaqua's IaquaHeater. Synthetic sibling of TcxHeaterStatusSensor,
-    built from the same lvh1 dict (synthetic key `lvh1_enable`)."""
+    built from the same lvh1 dict (synthetic key `lvh1_enable`). Label
+    hardcoded for the same reason as TcxHeaterStatusSensor above."""
 
     @property
     def label(self) -> str:
-        fr = self.data.get("fr")
-        return str(fr) if fr else "Heater Enabled"
+        return "Low Voltage Heater"
 
     @property
     def is_on(self) -> bool:

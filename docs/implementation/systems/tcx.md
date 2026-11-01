@@ -57,8 +57,8 @@ Status is derived from two fields in `state.reported`:
 | `TspBdy0` | `TcxClimate` | `AqualinkClimate` | Uppercase T — wire-level invariant |
 | `TspBdy0.waterTempSet` (synthetic key `TspBdy0_water`) | `TcxWaterSetPoint` | `AqualinkNumber` | Writable — duplicates `TcxClimate.target_temperature` as a standalone Number, see "Solar heater set point" below |
 | `TspBdy0.solarTempSet` (synthetic key `TspBdy0_solar`) | `TcxSolarSetPoint` | `AqualinkNumber` | Writable — see "Solar heater set point" below |
-| `lvh1` | `TcxHeaterStatusSensor` | `AqualinkSensor` | Read-only heater-tile status, translated from `en` — see "Heater tile (`lvh1`)" below |
-| `lvh1` (synthetic key `lvh1_enable`) | `TcxHeaterEnableSwitch` | `AqualinkSwitch` | Enable/disable via `app` ("HEAT"/"OFF") — sibling of `TcxHeaterStatusSensor`, same source dict |
+| `lvh1` | `TcxHeaterStatusSensor` | `AqualinkSensor` | Read-only heater-tile status, translated from `en`; label hardcoded to "Low Voltage Heater Status" — see "Heater tile (`lvh1`)" below |
+| `lvh1` (synthetic key `lvh1_enable`) | `TcxHeaterEnableSwitch` | `AqualinkSwitch` | Enable/disable via `app` ("HEAT"/"OFF") — sibling of `TcxHeaterStatusSensor`, same source dict; label hardcoded to "Low Voltage Heater" |
 | `aux0.fp` (synthetic key `aux0_fp`) | `TcxAuxFreezeProtectSwitch` | `AqualinkSwitch` | Freeze-protect toggle, aux0-only (singleton) — see "Aux freeze protect" below |
 | `freezeSP` | `TcxFreezeSetPoint` | `AqualinkNumber` | Top-level field, not nested under any device object — see "Freeze-protection set point" below |
 | `swc0` | `TcxChlorinatorBoost` | `AqualinkSwitch` | Exposes boost on/off only |
@@ -134,6 +134,8 @@ This mirrors `iaqua`'s existing pattern exactly: `IaquaClimate` is a pure façad
 `lvh1.en` is a *ranged* code (`0` → off, `1`–`5` → standby, `6` → heating, `≥7` → off), not a 1:1 wire code — `_lvh1_en_to_status()` (`src/iaqualink/systems/tcx/device.py`) classifies it directly into `"off"`/`"standby"`/`"heating"`, rather than using `AqualinkSensor.value_enum` (which does an exact-membership `cls(value)` lookup, e.g. `IaquaHeatPumpStatusSensor`'s pattern — doesn't fit a range).
 
 `TcxHeaterEnableSwitch.is_on` reads `lvh1.app == "HEAT"`; `turn_on`/`turn_off` call the new `set_lvh_app_type(enabled)` (`"setLvhAppType"`, `NAMESPACE_TCX`) — a separate wire path from `TcxClimate.turn_on`/`turn_off`, which calls `set_heat_enabled` against `TspBdy0.heatEnabled`. Both toggle "is the heater enabled" from the user's perspective but through different shadow objects; neither has been observed live to confirm whether they're kept in sync by the controller or are independent.
+
+Both devices' `label` is **hardcoded** ("Low Voltage Heater" / "Low Voltage Heater Status") rather than falling back to `lvh1.fr` like most other TCX devices. Live wire capture shows `fr` set to the generic "Lvh 1" on real hardware; since both sibling devices read `fr` off the same source dict, a `fr`-based label would make the switch and the status sensor indistinguishable in any device listing (both showing "Lvh 1").
 
 ### Aux light control (`TcxAuxLight`)
 

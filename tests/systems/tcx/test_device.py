@@ -887,15 +887,17 @@ class TestTcxHeaterStatusSensor:
         sut = TcxHeaterStatusSensor(make_system(), {"name": "lvh1"})
         assert sut.value == ""
 
-    def test_label_uses_fr(self) -> None:
+    def test_label_ignores_fr(self) -> None:
+        # fr is shared with TcxHeaterEnableSwitch's sibling object, so the
+        # label is always hardcoded rather than falling back to it.
         sut = TcxHeaterStatusSensor(
             make_system(), {"name": "lvh1", "fr": "Pool Heater"}
         )
-        assert sut.label == "Pool Heater"
+        assert sut.label == "Low Voltage Heater Status"
 
-    def test_label_falls_back(self) -> None:
+    def test_label_without_fr(self) -> None:
         sut = TcxHeaterStatusSensor(make_system(), {"name": "lvh1"})
-        assert sut.label == "Heater Status"
+        assert sut.label == "Low Voltage Heater Status"
 
 
 class TestTcxHeaterEnableSwitchOnOff:
