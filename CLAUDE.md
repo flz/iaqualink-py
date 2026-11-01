@@ -20,6 +20,8 @@ Async Python (3.14+, httpx HTTP/2) library for Jandy iAqualink pool systems:
 - **iAqua** — iaqualink.net API
 - **eXO** — zodiac-io.com API (AWS IoT shadow)
 - **i2d** — iQPump variable-speed pumps, r-api.iaqualink.net control API
+- **cyclobat** — battery robot cleaners (WebSocket)
+- **hpm** — standalone heat pumps (zodiac-io.com AWS IoT shadow)
 
 Key patterns:
 - `AqualinkSystem` uses `__init_subclass__` + `NAME` registry; `from_data()`
