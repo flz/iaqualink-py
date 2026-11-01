@@ -35,6 +35,8 @@ Status is derived from two fields in `state.reported`:
 | `aws.status` absent or empty | `UNKNOWN` |
 | unrecognised value | `UNKNOWN` |
 
+Note: `reported` is an AWS IoT device shadow — its fields are the device's *last known* values and persist unchanged after it disconnects, not live telemetry. A `DISCONNECTED` system alongside fully populated device values is therefore expected: those are the shadow's last-reported readings from before the device went offline, not fresh data. Live-verified against a real tcx account whose device had been offline for several weeks — `aws.status`'s own last-change timestamp and every device field's metadata timestamp landed in the same multi-week-old window.
+
 ### Request-level status
 
 | Condition | `SystemStatus` |
