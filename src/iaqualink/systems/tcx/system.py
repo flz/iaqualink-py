@@ -311,7 +311,10 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
         if "swc0" in reported:
             candidates["swc0"] = {"name": "swc0", **reported["swc0"]}
 
-        if "solar" in reported:
+        # Solar object is present on the wire even without a solar heater
+        # installed (reporting a permanent open-sensor fault); only surface
+        # it when TspBdy0.solarEn says the body actually has one configured.
+        if "solar" in reported and reported.get("TspBdy0", {}).get("solarEn"):
             candidates["solar"] = {"name": "solar", **reported["solar"]}
 
         for key, val in reported.items():

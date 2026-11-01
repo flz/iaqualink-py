@@ -287,6 +287,39 @@ class TestSolarSetPointDeviceDiscovery:
         assert "TspBdy0_solar" in sut.devices
 
 
+class TestSolarSensorDeviceDiscovery:
+    def test_solar_discovered_when_solar_en(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response(
+            {
+                "TspBdy0": {"solarEn": True, "name": "Pool"},
+                "solar": {"value": 1050, "us": 1},
+            }
+        )
+        sut._parse_shadow_response(response)
+        assert "solar" in sut.devices
+
+    def test_solar_not_discovered_when_solar_disabled(self) -> None:
+        # Solar object is present on the wire (reporting an open-sensor
+        # fault) even without a solar heater installed — only surface it
+        # when TspBdy0.solarEn confirms one is actually configured.
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response(
+            {
+                "TspBdy0": {"solarEn": False, "name": "Pool"},
+                "solar": {"value": -1311, "us": 4},
+            }
+        )
+        sut._parse_shadow_response(response)
+        assert "solar" not in sut.devices
+
+    def test_solar_not_discovered_without_tspbdy0(self) -> None:
+        _, sut = _make_tcx_system()
+        response = _make_shadow_response({"solar": {"value": 1050, "us": 1}})
+        sut._parse_shadow_response(response)
+        assert "solar" not in sut.devices
+
+
 class TestFreezeSetPointDeviceDiscovery:
     def test_freeze_sp_discovered(self) -> None:
         _, sut = _make_tcx_system()

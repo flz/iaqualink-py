@@ -104,7 +104,7 @@
         "heatPriority": 0,
         "heatAvailable": 1,
         "gasEn": true,
-        "solarEn": false,
+        "solarEn": true,
         "status": 0,
         "value": 82,
         "name": "Pool",
