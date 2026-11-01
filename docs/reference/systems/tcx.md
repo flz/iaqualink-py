@@ -34,7 +34,7 @@ https://prod.zodiac-io.com
 
 ```
 GET /devices/v2/{serial}/shadow?signature={sig}
-Authorization: Bearer {idToken}
+Authorization: {idToken}
 ```
 
 Returns the full device shadow (`state.reported`/`state.desired` document — see "Shadow Response Envelope" below).
@@ -43,7 +43,7 @@ Returns the full device shadow (`state.reported`/`state.desired` document — se
 
 ```
 GET /devices/v1/{serial}_{suffix}/shadow
-Authorization: Bearer {idToken}
+Authorization: {idToken}
 ```
 
 | Suffix | Subsystem |
@@ -60,7 +60,7 @@ Authorization: Bearer {idToken}
 
 ```
 POST /devices/v2/{serial}/shadow
-Authorization: Bearer {idToken}
+Authorization: {idToken}
 Content-Type: application/json
 
 { "state": { "desired": { ... } } }
@@ -76,7 +76,7 @@ POST /devices/v2/{serial}_{suffix}/shadow
 
 ```
 GET /...?currentFirmware={version}&signature={sig}&deviceType={type}
-Authorization: Bearer {idToken}
+Authorization: {idToken}
 ```
 
 Response:
