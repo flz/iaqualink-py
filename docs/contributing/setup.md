@@ -26,7 +26,7 @@ When starting work in a new git worktree, run the setup script to wire hooks and
 bash scripts/setup-worktree.sh
 ```
 
-The script is idempotent: installs prek hooks for `pre-commit` and `pre-push` stages, checks that `uv` and `claude` are on `PATH`, and prints a checklist.
+The script is idempotent: installs prek hooks for the `pre-commit` stage, checks that `uv` is on `PATH`, and prints a checklist.
 
 ## Development Workflow
 

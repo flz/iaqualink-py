@@ -90,7 +90,12 @@ packages = ["src/iaqualink"]
 line-length = 80
 
 [tool.ruff.lint]
-extend-select = ["I"]
+extend-select = [
+    "I",      # isort
+    "ASYNC",  # blocking calls in async code
+    "G",      # logging format (no f-strings / .format)
+    "T20",    # print()
+]
 ignore = [
     "SLF001",  # Some tests currently use private members
 ]

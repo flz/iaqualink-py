@@ -1,29 +1,24 @@
 name: Claude Code Review
 
+# Runs once per PR (not on every push). For a re-review after changes,
+# comment `@claude review` on the PR (handled by claude.yml).
 on:
   pull_request:
-    types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    # paths:
-    #   - "src/**/*.ts"
-    #   - "src/**/*.tsx"
-    #   - "src/**/*.js"
-    #   - "src/**/*.jsx"
+    types: [opened, reopened, ready_for_review]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "docs/reference/**"
 
 jobs:
   claude-review:
-    # Optional: Filter by PR author
-    # if: |
-    #   github.event.pull_request.user.login == 'external-contributor' ||
-    #   github.event.pull_request.user.login == 'new-developer' ||
-    #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
-
     # Skip fork PRs: pull_request-triggered runs from forks get no secrets and
     # no OIDC token issuance regardless of declared permissions, so this job
     # cannot succeed for them (see run 35444718198 / PR #295).
     if: |
       github.event.pull_request.user.type != 'Bot' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -46,17 +41,23 @@ jobs:
             REPO: ${{ github.repository }}
             PR NUMBER: ${{ github.event.pull_request.number }}
 
-            Please review this pull request and provide feedback on:
-            - Code quality and best practices
-            - Potential bugs or issues
-            - Performance considerations
-            - Security concerns
-            - Test coverage
+            Review this PR against `.claude/review-criteria.md`. Read that
+            file first, then `gh pr diff`. Only open other files when a
+            rubric item requires it (e.g. grep the relevant
+            `docs/reference/` doc for a changed field or endpoint — do not
+            read reference docs end to end).
 
-            Use the repository's CLAUDE.md for guidance on style and conventions. Be constructive and helpful in your feedback.
+            Lint, formatting, types, print/f-string logging, and the
+            confidentiality identifier scan are enforced by CI — do not
+            re-check them.
 
-            Use `gh pr comment` with your Bash tool to leave your review as a comment on the PR.
+            Report only issues, one line each:
+              §<N> <file>:<line> — <description>
+            If nothing to flag, say "LGTM". No praise, no summary of the PR.
 
-          # See https://github.com/anthropics/claude-code-action/blob/main/docs/usage.md
-          # or https://code.claude.com/docs/en/cli-reference for available options
-          claude_args: '--allowed-tools "Bash(gh issue view:*),Bash(gh search:*),Bash(gh issue list:*),Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*)"'
+            Post the result as a single comment with `gh pr comment`.
+
+          claude_args: >-
+            --model claude-sonnet-5-5
+            --max-turns 15
+            --allowed-tools "Read,Grep,Glob,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*)"

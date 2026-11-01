@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 # pre-commit hook: flag third-party protocol identifiers that must not
 # appear in repo-tracked files. Called with staged file paths as arguments.
-# Additional class/package name checking is handled by the Claude AI review
-# (see .claude/review-criteria.md §0).
 set -euo pipefail
 
 PATTERNS=(
     '\.java\b'
     '\.smali\b'
     '[A-Za-z][A-Za-z0-9]*/[A-Za-z][A-Za-z0-9]*/[A-Za-z][A-Za-z0-9]*\.java'
+    'com\.zodiac\.'
+    'com\.amazonaws\.'
+    'networkmodule/'
+    'iaqualinkandroid/'
+    'infinity/'
+    '\b(RetrofitClient|NetworkClient|SecurityUtils|ApiHelper|UserAuthenticationManager)\b'
 )
 
 FOUND=0
