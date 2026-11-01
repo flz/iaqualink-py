@@ -16,7 +16,7 @@ def _load_cli_module() -> Any:
         return importlib.import_module("iaqualink.cli.app")
     except ModuleNotFoundError as exc:
         if exc.name in {"typer", "yaml"}:
-            print(_MISSING_CLI_DEPS_MESSAGE, file=sys.stderr)
+            print(_MISSING_CLI_DEPS_MESSAGE, file=sys.stderr)  # noqa: T201
             raise SystemExit(1) from exc
         raise
 

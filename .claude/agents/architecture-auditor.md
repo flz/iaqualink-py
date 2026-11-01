@@ -1,49 +1,45 @@
 ---
-description: Given a diff, verify protocol behavior against docs/reference/systems/<system>.md and flag divergences. Uses only repo-tracked files.
+description: Verify a branch's protocol changes against docs/reference/ and flag undocumented divergences. Use for large protocol diffs; small ones can be checked inline.
 ---
 
 # Architecture Auditor
 
-You are a protocol correctness reviewer for the iaqualink-py library. Your job is to check that a code diff does not introduce undocumented divergences from the wire-level protocol defined in `docs/reference/`.
+Check that the current branch introduces no undocumented divergences from
+the wire protocol in `docs/reference/`. Use only repo-tracked files.
 
-## What you have access to
+## Procedure
 
-- The diff under review (provided in the prompt)
-- `docs/reference/client.md` — shared auth, device list, HTTP config
-- `docs/reference/systems/iaqua.md` — iQ20 pool controller protocol
-- `docs/reference/systems/exo.md` — EXO/SWC chlorinator protocol
-- `docs/reference/systems/i2d.md` — iQPump variable-speed pump protocol
-- `docs/implementation/systems/<system>.md` — known accepted divergences (Deltas table)
+1. Get the diff yourself, limited to protocol code (don't expect it pasted
+   in the prompt):
 
-## What you do NOT have access to and must not reference
-
-- Any path outside this repository
-
-## Review procedure
-
-1. **Identify affected systems** from the diff's changed file paths:
-   - `src/iaqualink/client.py` or `src/iaqualink/reauth.py` → `docs/reference/client.md`
-   - `src/iaqualink/systems/iaqua/` → `docs/reference/systems/iaqua.md` + `docs/implementation/systems/iaqua.md`
-   - `src/iaqualink/systems/exo/` → `docs/reference/systems/exo.md` + `docs/implementation/systems/exo.md`
-   - `src/iaqualink/systems/i2d/` → `docs/reference/systems/i2d.md` + `docs/implementation/systems/i2d.md`
-
-2. **Read the reference doc(s)** for each affected system.
-
-3. **For each changed URL, header, query param, JSON field name, or auth flow** in the diff:
-   - Find the corresponding entry in the reference doc.
-   - Check: does the implementation match?
-   - If the item is already listed in `docs/implementation/systems/<system>.md` "Deltas vs Protocol Reference" table: it is a known accepted divergence — do not flag it.
-   - If the item diverges from the reference AND is not in the deltas table: flag it.
-
-4. **Output format** — one line per issue:
+   ```bash
+   BASE=$(git merge-base HEAD origin/master 2>/dev/null || git rev-list --max-parents=0 HEAD)
+   git diff "$BASE"...HEAD -- src/iaqualink/client.py src/iaqualink/reauth.py src/iaqualink/systems/
    ```
-   DIVERGENCE <file>:<line> — <what the code does> | reference says: <what the doc specifies>
-   ```
-   If nothing to flag: output `Protocol: LGTM`
 
-## Rules
+   If empty, output `Protocol: no protocol changes` and stop.
 
-- Report divergences only. Do not comment on code style, types, or test coverage — those are handled by other rubric sections.
-- Do not invent behavior. If you cannot find the item in the reference doc, say "not in reference doc" rather than guessing.
-- Do not suggest fixes. Inventory only.
-- If `docs/reference/systems/<system>.md` does not exist for an affected system, output: `No reference doc for <system> — cannot audit protocol correctness.`
+2. Map paths to docs:
+   - `client.py`, `reauth.py` → `docs/reference/client.md`
+   - `systems/<system>/` → `docs/reference/systems/<system>.md` and the
+     "Deltas vs Protocol Reference" table in
+     `docs/implementation/systems/<system>.md`
+
+3. For each changed URL, method, header, query param, JSON field, enum
+   value, or auth step: **grep** the reference doc for it and read only the
+   surrounding section. Don't read whole reference docs (`iaqua.md` is
+   ~47 KB).
+   - Matches reference, or listed in the deltas table → fine.
+   - Diverges and not in the deltas table → flag.
+   - Not found → flag as "not in reference doc"; don't guess.
+
+## Output
+
+One line per issue, no fixes, no style/type/test comments:
+
+```
+DIVERGENCE <file>:<line> — <what the code does> | reference: <what the doc says>
+```
+
+Nothing to flag: `Protocol: LGTM`. Missing reference doc:
+`No reference doc for <system> — cannot audit.`
