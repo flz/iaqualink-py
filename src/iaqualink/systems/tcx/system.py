@@ -220,11 +220,7 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
     def _parse_fea_sub_shadow(self, reported: dict[str, Any]) -> None:
         candidates: dict[str, dict[str, Any]] = {}
         for k, v in reported.items():
-            if (
-                k.startswith("feaCircuit")
-                and k[10:].isdigit()
-                and isinstance(v, dict)
-            ):
+            if k.startswith("fcr") and k[3:].isdigit() and isinstance(v, dict):
                 candidates[k] = {"name": k, **v}
         self._upsert_devices(candidates)
 
@@ -247,12 +243,8 @@ class TcxSystem(TcxStateSubscription, AqualinkSystem):
         if "water" in reported:
             candidates["water"] = {"name": "water", **reported["water"]}
 
-        if "airTemp" in reported:
-            candidates["air"] = {
-                "name": "air",
-                "value": reported["airTemp"],
-                "snsr": reported.get("airSnsr"),
-            }
+        if "air" in reported:
+            candidates["air"] = {"name": "air", **reported["air"]}
 
         if "filt0" in reported:
             candidates["filt0"] = {"name": "filt0", **reported["filt0"]}

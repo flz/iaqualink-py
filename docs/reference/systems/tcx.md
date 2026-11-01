@@ -400,14 +400,12 @@ The `state.reported` object contains 42 top-level fields representing the full d
 
 | JSON key | Type | Description |
 |---|---|---|
-| `air` | object | Air temperature sensor (see Air object) |
-| `airTemp` | long | Air temperature raw value |
-| `airSnsr` | string | Air sensor status |
+| `air` | object | Air temperature sensor, under the `pib0` namespace (see `air` object below) — not the top-level `airTemp`/`airSnsr` scalars originally assumed; those fields do not appear on real hardware |
 | `water` | object | Water temperature (see Water object) |
 | `freezeSP` | long | Freeze protection set point |
 | `lowAirSP` | long | Low air temperature threshold |
 
-Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, `freezeSP`, and `lowAirSP` are all tenths of the active display unit (per `tempSetting`), not whole degrees — e.g. raw `283` is `28.3°C`, not `283°C`. `freezeSP=33`/`lowAirSP=128` only make sense as `3.3`/`12.8` (freeze protection and a low-air cutoff near freezing/mild); `airTemp` (whole-degree, unscaled per the original decompiled-source field table) has not been confirmed live — no example with real hardware data has been captured for it, since the field itself hasn't been observed on real hardware at all (see `docs/implementation/systems/tcx.md` Deltas #9/#10).
+Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, `air.value`, `freezeSP`, and `lowAirSP` are all tenths of the active display unit (per `tempSetting`), not whole degrees — e.g. raw `283` is `28.3°C`, not `283°C`.
 
 ### Pool / Valve
 
@@ -505,6 +503,21 @@ Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, 
 | `en` | long | Enabled |
 | `cp` | boolean | Cool pool flag |
 | `zn` | array\<long\> | Zone assignment |
+
+### `air`
+
+Confirmed from live wire capture: `air` lives under the `pib0` namespace, same shape as `water`/`solar` — not the top-level `airTemp`/`airSnsr` scalars the original decompiled-source field table assumed (those do not appear on real hardware).
+
+| JSON key | Type | Description |
+|---|---|---|
+| `value` | long | Current air temperature (tenths of a degree) |
+| `us` | long | Sensor status |
+| `fr` | string | Friendly name |
+| `en` | long | Enabled |
+| `cp` | boolean | Cool pool flag |
+| `zn` | array\<long\> | Zone assignment |
+
+`us` enum values have not been independently confirmed for `air` — only `1` (valid reading, live-observed) is confirmed; the rest of the Water/Solar Status enums' value space (`2`–`5`) has not been exercised for this field.
 
 ### `filt0` (Filtration Pump)
 
@@ -983,12 +996,12 @@ Combined status derived from `aws.status` and `systemMode`:
 | 2 | `systemType` enum values — code-level meaning not confirmed |
 | 3 | `heatPriority` and `heatAvailable` value ranges — not confirmed |
 | 4 | `equipment` sub-object field values — presence indicators beyond key presence not characterized |
-| 5 | Feature-circuit element key — live capture shows `fcr[N]` (e.g. `fcr0`), not `feaCircuit[N]`; full field schema for an *enabled* circuit not yet observed (the one captured was disabled/`"app": "UNUSED"`) |
+| 5 | ~~Feature-circuit element key~~ — **confirmed**: `fcr[N]` (e.g. `fcr0`), not `feaCircuit[N]` — live-verified against real hardware (`_parse_fea_sub_shadow`/`TcxFeatureCircuit` dispatch updated to match). Full field schema for an *enabled* circuit still not observed (the one captured was disabled/`"app": "UNUSED"`) |
 | 6 | ~~ZigBee device location~~ — **confirmed**: attached devices are separate top-level `auxz[N]` keys (e.g. `auxz0`) inside the `_zig` sub-shadow, analogous to `aux[N]`; `zig` itself is the radio's own status object (`st`/`op`/`euid`/`fw`/`ty`/`bt`/`ai`), not a dict of devices keyed by address. Write payload also confirmed: `{"state":{"desired":{"auxz0":{"st":1}}}}` (see "ZigBee" command reference above) |
 | 7 | `ecm` sub-shadow URL (`tcx_ecm_shadow`) absent from production config — may not be fetched by reference app in production |
 | 8 | ~~WS Authorization-ack payload body shape~~ — **confirmed** from live wire capture: namespace-keyed (see "Incoming data frame" above), not a flat `state.reported`. StateStreamer/DataStreamer/EventStreamer delta payload body shape remains unconfirmed — no delta frame observed live |
 | 9 | Whether namespace-scoped *delta* pushes (`filtration`, `featureCircuit`, `zigbee`, etc. via StateStreamer/DataStreamer/EventStreamer) use the same namespace-keyed shape confirmed for the Authorization full-state push, or something else — not confirmed |
-| 10 | Air sensor field — live capture shows no top-level `airTemp`/`airSnsr`; the air reading arrives as a full `air: {..., value, us}` object under the `pib0` namespace (same shape as `water`/`solar`), separate from a `hubAir`/`airSnsr` pair present at the main-namespace level |
+| 10 | ~~Air sensor field~~ — **confirmed**: no top-level `airTemp`/`airSnsr`; the air reading arrives as a full `air: {value, us, fr, en, cp, zn}` object under the `pib0` namespace (same shape as `water`/`solar`) — live-verified against real hardware (`TcxAirSensor` updated to match), scaled the same tenths-of-a-degree way as `water`/`solar`. Separate from an unrelated `hubAir`/`airSnsr` pair present at the main-namespace level, which remains unmodeled |
 | 11 | Per-action WS command payload field shapes (`StateController` frames) — only the envelope is documented in this spec; field-level bodies for each action (e.g. `setWaterTempSetpoint`, `setFilterPumpState`) have no confirmed example |
 
 ---

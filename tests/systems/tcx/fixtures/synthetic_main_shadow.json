@@ -12,8 +12,11 @@
         "status": "connected",
         "timestamp": 123
       },
-      "airTemp": 72,
-      "airSnsr": "ok",
+      "air": {
+        "value": 720,
+        "us": 1,
+        "fr": "Air Sensor"
+      },
       "freezeSP": 340,
       "water": {
         "value": 820,

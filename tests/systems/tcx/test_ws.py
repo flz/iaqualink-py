@@ -142,7 +142,7 @@ class TestTcxWsFullStateNamespacedPayload:
                 "zig": {"st": 1, "op": 0, "euid": "0011223344556677"},
                 "auxz0": {"st": 1, "fr": "Pool Light"},
             },
-            fea={"feaCircuit0": {"st": 0, "en": 1, "fr": "Spa Jets"}},
+            fea={"fcr0": {"st": 0, "en": 1, "fr": "Spa Jets"}},
         )
         reported = sut._ws_full_state_from_frame(frame)
         assert reported is not None
@@ -153,7 +153,7 @@ class TestTcxWsFullStateNamespacedPayload:
         assert reported["aux0"] == {"st": 0}
         assert reported["zig"] == {"st": 1, "op": 0, "euid": "0011223344556677"}
         assert reported["auxz0"] == {"st": 1, "fr": "Pool Light"}
-        assert reported["feaCircuit0"]["fr"] == "Spa Jets"
+        assert reported["fcr0"]["fr"] == "Spa Jets"
 
     def test_non_dict_namespace_values_are_skipped(self) -> None:
         _, sut = _make_tcx_system()
@@ -186,7 +186,7 @@ class TestTcxWsFullStateNamespacedPayload:
                 "aws": {"status": "connected"},
             },
             filt={"filt0": {"st": 1, "en": 1, "fr": "Filter Pump"}},
-            fea={"feaCircuit0": {"st": 0, "en": 1, "fr": "Spa Jets"}},
+            fea={"fcr0": {"st": 0, "en": 1, "fr": "Spa Jets"}},
             zig={
                 "zig": {"st": 1, "op": 0, "euid": "0011223344556677"},
                 "auxz0": {"st": 1, "fr": "Pool Light"},
@@ -195,7 +195,7 @@ class TestTcxWsFullStateNamespacedPayload:
         assert sut._apply_ws_frame(frame) is True
         assert sut.status is SystemStatus.CONNECTED
         assert sut.devices["filt0"].data["st"] == 1
-        assert "feaCircuit0" in sut.devices
+        assert "fcr0" in sut.devices
         assert "auxz0" in sut.devices
 
 
@@ -359,11 +359,11 @@ class TestTcxSendCommandFrame(unittest.IsolatedAsyncioTestCase):
     async def test_set_feature_circuit_state(self) -> None:
         _, sut = _make_tcx_system()
         frame = await self._sent_frame(
-            sut, sut.set_feature_circuit_state("feaCircuit0", 1)
+            sut, sut.set_feature_circuit_state("fcr0", 1)
         )
         assert frame["namespace"] == NAMESPACE_FEATURE_CIRCUIT
         assert frame["action"] == "setFeatureCircuitState"
-        assert frame["payload"]["feaCircuit0"] == {"st": 1}
+        assert frame["payload"]["fcr0"] == {"st": 1}
 
     async def test_set_zigbee_state(self) -> None:
         _, sut = _make_tcx_system()

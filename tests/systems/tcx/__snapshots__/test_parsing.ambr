@@ -33,11 +33,11 @@
     'air': dict({
       'device_class': None,
       'entity_category': None,
-      'label': 'Air Temperature',
+      'label': 'Air Sensor',
       'state_class': None,
       'type': 'TcxAirSensor',
       'unit_of_measurement': None,
-      'value': '72',
+      'value': '72.0',
       'value_translated': None,
     }),
     'aux0': dict({
@@ -140,13 +140,13 @@
       'type': 'TcxVspPrimingSpeed',
       'unit_of_measurement': 'rpm',
     }),
-    'feaCircuit0': dict({
+    'fcr0': dict({
       'entity_category': None,
       'is_on': False,
       'label': 'Spa Jets',
       'type': 'TcxFeatureCircuit',
     }),
-    'feaCircuit1': dict({
+    'fcr1': dict({
       'entity_category': None,
       'is_on': True,
       'label': 'Spa Light',
@@ -246,11 +246,11 @@
     'air': dict({
       'device_class': None,
       'entity_category': None,
-      'label': 'Air Temperature',
+      'label': 'Air Sensor',
       'state_class': None,
       'type': 'TcxAirSensor',
       'unit_of_measurement': None,
-      'value': '72',
+      'value': '72.0',
       'value_translated': None,
     }),
     'aux0': dict({

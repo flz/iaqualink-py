@@ -31,7 +31,7 @@ def test_parse_main_plus_fea_delta(system, snapshot: SnapshotAssertion) -> None:
     # sub-shadow response; that REST fetch is confirmed non-functional
     # against real hardware and has been removed. It now runs best-effort
     # against the unified reported tree, so simulate a WS delta carrying the
-    # same feaCircuitN keys the old sub-shadow response used to.
+    # same fcrN keys the old sub-shadow response used to.
     system._parse_shadow_response(
         make_response(load_fixture("tcx", "synthetic_main_shadow"))
     )

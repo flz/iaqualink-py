@@ -233,7 +233,7 @@ class TcxDevice(AqualinkDevice):
             return TcxChlorinatorBoost(system, data)
         if name == "solar":
             return TcxSolarSensor(system, data)
-        if name.startswith("feaCircuit") and name[10:].isdigit():
+        if name.startswith("fcr") and name[3:].isdigit():
             return TcxFeatureCircuit(system, data)
         if name.startswith("auxz") and name[4:].isdigit():
             return TcxZigbeeSwitch(system, data)
@@ -259,12 +259,19 @@ class TcxWaterSensor(TcxDevice, AqualinkSensor):
 class TcxAirSensor(TcxDevice, AqualinkSensor):
     @property
     def label(self) -> str:
-        return "Air Temperature"
+        fr = self.data.get("fr")
+        return str(fr) if fr else "Air Temperature"
 
     @property
     def value(self) -> str:
+        # `us` semantics are unconfirmed for `air` (never observed with a
+        # non-valid value live) — gated the same as water/solar's `1` =
+        # valid-reading convention as the closest confirmed analog.
+        us = self.data.get("us")
+        if us is not None and us != 1:
+            return ""
         raw = self.data.get("value")
-        return str(raw) if raw is not None else ""
+        return _wire_temp_to_display(raw) if raw is not None else ""
 
 
 class TcxSolarSensor(TcxDevice, AqualinkSensor):
@@ -947,7 +954,7 @@ class TcxFeatureCircuit(TcxDevice, AqualinkSwitch):
         fr = self.data.get("fr")
         if fr:
             return str(fr)
-        idx = self.name[len("feaCircuit") :]
+        idx = self.name[len("fcr") :]
         return f"Feature Circuit {idx}"
 
     @property

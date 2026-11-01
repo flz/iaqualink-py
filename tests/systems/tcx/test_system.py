@@ -134,13 +134,13 @@ class TestFeaZigDeviceDiscovery:
         _, sut = _make_tcx_system()
         response = _make_shadow_response(
             {
-                "feaCircuit0": {"st": 0, "en": 1, "fr": "Spa Jets"},
-                "feaCircuit1": {"st": 1, "en": 1, "fr": "Spa Light"},
+                "fcr0": {"st": 0, "en": 1, "fr": "Spa Jets"},
+                "fcr1": {"st": 1, "en": 1, "fr": "Spa Light"},
             }
         )
         sut._parse_shadow_response(response)
-        assert "feaCircuit0" in sut.devices
-        assert "feaCircuit1" in sut.devices
+        assert "fcr0" in sut.devices
+        assert "fcr1" in sut.devices
 
     def test_zig_devices_discovered_from_reported_tree(self) -> None:
         # auxz[N] (top-level) is the confirmed ZigBee device shape; `zig`
@@ -160,7 +160,7 @@ class TestFeaZigDeviceDiscovery:
     def test_absent_fea_and_zig_keys_is_a_no_op(self) -> None:
         _, sut = _make_tcx_system()
         sut._parse_shadow_response(_make_shadow_response())
-        assert not any(k.startswith("feaCircuit") for k in sut.devices)
+        assert not any(k.startswith("fcr") for k in sut.devices)
         assert not any(k.startswith("auxz") for k in sut.devices)
 
 

@@ -597,12 +597,12 @@ class TestTcxFromDataDispatchTspBdy0:
 class TestTcxFeatureCircuitLabel:
     def test_label_uses_fr(self) -> None:
         sut = TcxFeatureCircuit(
-            make_system(), {"name": "feaCircuit0", "fr": "Spa Jets"}
+            make_system(), {"name": "fcr0", "fr": "Spa Jets"}
         )
         assert sut.label == "Spa Jets"
 
     def test_label_falls_back_to_index(self) -> None:
-        sut = TcxFeatureCircuit(make_system(), {"name": "feaCircuit2"})
+        sut = TcxFeatureCircuit(make_system(), {"name": "fcr2"})
         assert sut.label == "Feature Circuit 2"
 
 
@@ -637,8 +637,8 @@ JVA_SWITCH_ON: dict[str, Any] = {"name": "jva1", "st": 1}
 JVA_SWITCH_OFF: dict[str, Any] = {"name": "jva1", "st": 0}
 CHLORINATOR_BOOST_ON: dict[str, Any] = {"name": "swc0", "boost": 1}
 CHLORINATOR_BOOST_OFF: dict[str, Any] = {"name": "swc0", "boost": 0}
-FEATURE_CIRCUIT_ON: dict[str, Any] = {"name": "feaCircuit0", "st": 1}
-FEATURE_CIRCUIT_OFF: dict[str, Any] = {"name": "feaCircuit0", "st": 0}
+FEATURE_CIRCUIT_ON: dict[str, Any] = {"name": "fcr0", "st": 1}
+FEATURE_CIRCUIT_OFF: dict[str, Any] = {"name": "fcr0", "st": 0}
 ZIGBEE_SWITCH_ON: dict[str, Any] = {"name": "auxz0", "st": 1}
 ZIGBEE_SWITCH_OFF: dict[str, Any] = {"name": "auxz0", "st": 0}
 CLIMATE_ON: dict[str, Any] = {"name": "TspBdy0", "heatEnabled": True}
@@ -788,7 +788,7 @@ class TestTcxFeatureCircuitOnOff:
             sut.system, "set_feature_circuit_state", new_callable=AsyncMock
         ) as mock_set:
             await sut.turn_on()
-        mock_set.assert_awaited_once_with("feaCircuit0", 1)
+        mock_set.assert_awaited_once_with("fcr0", 1)
 
     async def test_turn_off_sends_command_with_name(self) -> None:
         sut = TcxFeatureCircuit(make_system(), FEATURE_CIRCUIT_ON)
@@ -796,7 +796,7 @@ class TestTcxFeatureCircuitOnOff:
             sut.system, "set_feature_circuit_state", new_callable=AsyncMock
         ) as mock_set:
             await sut.turn_off()
-        mock_set.assert_awaited_once_with("feaCircuit0", 0)
+        mock_set.assert_awaited_once_with("fcr0", 0)
 
 
 class TestTcxZigbeeSwitchOnOff:

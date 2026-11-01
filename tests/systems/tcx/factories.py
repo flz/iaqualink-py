@@ -36,7 +36,12 @@ TCX_WATER_DATA: dict[str, Any] = {
     "en": 1,
     "zn": [0],
 }
-TCX_AIR_DATA: dict[str, Any] = {"name": "air", "value": 72, "snsr": "ok"}
+TCX_AIR_DATA: dict[str, Any] = {
+    "name": "air",
+    "value": 720,  # wire is tenths of a degree -> 72.0
+    "us": 1,
+    "fr": "Air Sensor",
+}
 TCX_SOLAR_DATA: dict[str, Any] = {
     "name": "solar",
     "value": 1050,  # wire is tenths of a degree -> 105.0
@@ -64,7 +69,7 @@ TCX_CHLORINATOR_BOOST_ON_DATA: dict[str, Any] = {
     "fr": "Salt Chlorinator",
 }
 TCX_FEATURE_CIRCUIT_ON_DATA: dict[str, Any] = {
-    "name": "feaCircuit0",
+    "name": "fcr0",
     "st": 1,
     "en": 1,
     "fr": "Spa Jets",
