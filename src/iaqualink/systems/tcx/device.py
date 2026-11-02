@@ -14,6 +14,7 @@ from iaqualink.device import (
 )
 from iaqualink.systems.tcx.enums import (
     AuxType,
+    ColorStatus,
     LightType,
     SolarStatus,
     WaterStatus,
@@ -375,13 +376,25 @@ class TcxAuxLight(TcxDevice, AqualinkLight):
     def _colors(self) -> tuple[str, ...]:
         # _upsert_devices never re-dispatches an existing device to a
         # different class, so if `et` changes to a non-color type after
-        # creation (e.g. reconfigured to WHITE_LIGHT in the vendor app),
-        # this falls back to no colors instead of a KeyError.
-        return _TCX_LIGHT_COLORS.get(LightType(self.data["et"]), ())
+        # creation (e.g. reconfigured to WHITE_LIGHT in the vendor app) or
+        # to a value outside LightType entirely, this falls back to no
+        # colors instead of raising.
+        try:
+            light_type = LightType(self.data["et"])
+        except ValueError:
+            return ()
+        return _TCX_LIGHT_COLORS.get(light_type, ())
 
     @property
     def current_color_index(self) -> int | None:
-        raw = self.data.get("currClr")
+        # statClr selects the color source: 6 means the color is locked,
+        # in which case lockClr (not currClr) is the active index.
+        key = (
+            "lockClr"
+            if self.data.get("statClr") == ColorStatus.LOCKED
+            else "currClr"
+        )
+        raw = self.data.get(key)
         return int(raw) if raw is not None else None
 
     @property

@@ -966,6 +966,13 @@ class TestTcxAuxLightColor:
         sut = TcxAuxLight(make_system(), data)
         assert sut.effect is None
 
+    def test_effect_list_empty_for_unrecognized_light_type(self) -> None:
+        # et can change to a value outside LightType entirely (e.g. a new
+        # firmware-introduced type), not just a known non-color type.
+        data: dict[str, Any] = {**AUX_LIGHT_ON, "et": "NOT_A_LIGHT_TYPE"}
+        sut = TcxAuxLight(make_system(), data)
+        assert sut.effect_list == []
+
     def test_current_color_index(self) -> None:
         data: dict[str, Any] = {**AUX_LIGHT_ON, "currClr": 3}
         sut = TcxAuxLight(make_system(), data)
@@ -974,6 +981,26 @@ class TestTcxAuxLightColor:
     def test_current_color_index_none_when_absent(self) -> None:
         sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
         assert sut.current_color_index is None
+
+    def test_current_color_index_uses_lock_clr_when_locked(self) -> None:
+        data: dict[str, Any] = {
+            **AUX_LIGHT_ON,
+            "statClr": 6,
+            "currClr": 3,
+            "lockClr": 7,
+        }
+        sut = TcxAuxLight(make_system(), data)
+        assert sut.current_color_index == 7
+
+    def test_current_color_index_uses_curr_clr_when_not_locked(self) -> None:
+        data: dict[str, Any] = {
+            **AUX_LIGHT_ON,
+            "statClr": 4,
+            "currClr": 3,
+            "lockClr": 7,
+        }
+        sut = TcxAuxLight(make_system(), data)
+        assert sut.current_color_index == 3
 
     async def test_set_color_index_sends_command_with_name(self) -> None:
         sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)
@@ -991,6 +1018,20 @@ class TestTcxAuxLightColor:
         ) as mock_set:
             await sut.reset_color()
         mock_set.assert_awaited_once_with("aux1", 3)
+
+    async def test_reset_color_sends_lock_clr_when_locked(self) -> None:
+        data: dict[str, Any] = {
+            **AUX_LIGHT_ON,
+            "statClr": 6,
+            "currClr": 3,
+            "lockClr": 7,
+        }
+        sut = TcxAuxLight(make_system(), data)
+        with patch.object(
+            sut.system, "reset_aux_light", new_callable=AsyncMock
+        ) as mock_set:
+            await sut.reset_color()
+        mock_set.assert_awaited_once_with("aux1", 7)
 
     async def test_reset_color_noop_when_current_index_unknown(self) -> None:
         sut = TcxAuxLight(make_system(), AUX_LIGHT_ON)

@@ -37,6 +37,7 @@ REDACT_KEYS: frozenset[str] = frozenset(
         "serial",
         "serial_number",
         "serialnumber",
+        "sn",
         "set-cookie",
         "ssid",
         "target",
@@ -59,7 +60,7 @@ REDACT_SUBSTRINGS: tuple[str, ...] = (
 # Keys whose string values are partially masked rather than fully replaced.
 _EMAIL_KEYS: frozenset[str] = frozenset({"email", "username"})
 _SERIAL_KEYS: frozenset[str] = frozenset(
-    {"serial", "serial_number", "serialnumber"}
+    {"serial", "serial_number", "serialnumber", "sn"}
 )
 
 _REDACT_URL_RE = re.compile(

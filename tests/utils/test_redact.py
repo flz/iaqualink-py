@@ -94,3 +94,8 @@ class TestRedactDict(unittest.TestCase):
         # WS frames carry the device serial as `target`, not `serial`.
         result = redact_dict({"target": "ABCDEFGHIJKL"})
         assert result["target"] == "***"
+
+    def test_sn_partially_masked(self) -> None:
+        # tcx shadow bodies carry the device serial as `sn`.
+        result = redact_dict({"sn": "ABCDEFGHIJKL"})
+        assert result["sn"] == "***JKL"
