@@ -127,8 +127,8 @@ class Zs500Climate(Zs500Device, AqualinkClimate):
         # Water temperature is reported as its own sibling device (sns_1) —
         # same cross-reference pattern as ExoClimate's sensor lookup.
         sensor = self.system.devices.get("water_temp")
-        if isinstance(sensor, AqualinkSensor):
-            return sensor.value
+        if isinstance(sensor, AqualinkSensor) and sensor.value is not None:
+            return str(sensor.value)
         return None
 
     @property
