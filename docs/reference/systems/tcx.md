@@ -196,7 +196,7 @@ Confirmed from live wire capture: for `service: "Authorization"` (full-state pus
 }
 ```
 
-Each namespace's `state.reported` merges to reproduce the same flat device keys the main REST shadow (`state.reported`) would carry for that namespace — no key collisions observed across namespaces. `data` (a telemetry-sample array) and `ota` are not `{state: {reported: ...}}`-shaped and carry no device state.
+Each namespace's `state.reported` merges to reproduce the same flat device keys the main REST shadow (`state.reported`) would carry for that namespace — no key collisions observed across namespaces. `data` and `ota` are not `{state: {reported: ...}}`-shaped, but `data` is not state-free: each entry is a flat telemetry sample with fields `version`, `timestamp`, `water`, `air`, `solar`, `hubAir`, `spare`, `rssi` — i.e. the same sensor readings as the shadow's temperature objects, just delivered in a different shape. `ota` carries firmware-update progress only.
 
 `StateStreamer`/`DataStreamer`/`EventStreamer` delta payload shape has not been directly observed — whether it's the same namespace-keyed shape (likely, by analogy) or a flat `state.reported` remains unconfirmed.
 
@@ -382,7 +382,7 @@ All shadow GET responses share this envelope:
 
 ## Reported State
 
-The `state.reported` object contains 42 top-level fields representing the full device state.
+The `state.reported` object contains 40 top-level fields representing the full device state (the decompiled client model also declares unused `airTemp`/`airSnsr` scalars that do not appear on real hardware — see `air` below).
 
 ### Identity & System
 
@@ -495,6 +495,8 @@ Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, 
 
 ### `water`
 
+The decompiled client model declares the same 16-field shape as `solar` (see below), but only the fields below have been confirmed from live wire capture; the rest have not been observed populated on real hardware.
+
 | JSON key | Type | Description |
 |---|---|---|
 | `value` | long | Current water temperature |
@@ -506,7 +508,7 @@ Confirmed from live wire capture: `waterTempSet`, `water.value`, `solar.value`, 
 
 ### `air`
 
-Confirmed from live wire capture: `air` lives under the `pib0` namespace, same shape as `water`/`solar` — not the top-level `airTemp`/`airSnsr` scalars the original decompiled-source field table assumed (those do not appear on real hardware).
+Confirmed from live wire capture: `air` lives under the `pib0` namespace, same shape as `water`/`solar` — not the top-level `airTemp`/`airSnsr` scalars the original decompiled-source field table assumed (those do not appear on real hardware). As with `water`, the decompiled model declares the fuller `solar`-shaped field set, but only the fields below have been confirmed from live wire capture.
 
 | JSON key | Type | Description |
 |---|---|---|

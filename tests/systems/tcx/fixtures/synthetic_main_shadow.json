@@ -27,13 +27,13 @@
         "zn": [0]
       },
       "filt0": {
-        "sp": 2700,
+        "manSpd": 2700,
         "st": 1,
         "en": 1,
-        "mn": 1000,
-        "mx": 3450,
+        "minSpd": 1000,
+        "maxSpd": 3450,
         "cp": false,
-        "ap": "FILTER",
+        "app": "FILTER",
         "et": "PUMP",
         "fr": "Filter Pump",
         "zn": [0]

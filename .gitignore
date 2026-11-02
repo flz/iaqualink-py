@@ -114,3 +114,4 @@ src/iaqualink/version.py
 
 # Network capture files
 *.jsonl
+*.cap
