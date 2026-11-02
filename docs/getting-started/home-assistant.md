@@ -36,6 +36,34 @@ Device availability depends on your system type and hardware configuration. Comm
 - Water chemistry sensors (pH, ORP, salinity — eXO)
 - Variable speed pump control (i2d)
 
+## Custom Service Contract: `set_swc_boost`
+
+`IaquaSystem.set_swc_boost(boosthrs, boostmode)` is the one SWC boost action
+that needs user-supplied values (duration + circuit) beyond what a stateless
+`ButtonEntity` press can carry — see [`swc_boost_start`/`stop`/`pause`/`resume`
+buttons](../api/systems/iaqua.md). The built-in `iaqualink` integration
+doesn't expose this as a custom service yet. If you're implementing that in
+`home-assistant/core`, match this contract so the service, its docs, and this
+library's semantics stay aligned:
+
+- Service: `iaqualink.set_swc_boost`
+- Target: `entity_id` of one of the `swc_boost_*` button entities — the
+  integration resolves the owning `IaquaSystem` the same way it does for any
+  other iaqualink entity/service call.
+- Fields:
+  - `boosthrs` (int, required, 1–24) — forwarded as-is; `set_swc_boost`
+    re-validates range and raises `AqualinkInvalidParameterException` if out
+    of bounds.
+  - `boostmode` (string, required, one of `pool` / `spillover`) — must match
+    `IaquaBoostMode`'s wire values exactly; don't rename or translate them in
+    the service schema.
+- Call: `await system.set_swc_boost(boosthrs, boostmode)`.
+- Errors: `AqualinkInvalidParameterException` should surface as a HA
+  `ServiceValidationError` carrying its message.
+
+This is a spec for that future `home-assistant/core` PR — this repo doesn't
+implement HA services itself.
+
 ## Troubleshooting
 
 If your system is not discovered or devices are missing, check:
