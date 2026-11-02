@@ -9,7 +9,8 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 from iaqualink.const import AQUALINK_WS_URL
-from iaqualink.shared.robots import (
+from iaqualink.system import SystemStatus
+from iaqualink.utils.robots import (
     ACTION_SET_CLEANER_STATE,
     ACTION_SUBSCRIBE,
     EVENT_STATE_REPORTED,
@@ -23,7 +24,6 @@ from iaqualink.shared.robots import (
     deep_merge,
     send_robot_frame,
 )
-from iaqualink.system import SystemStatus
 
 
 def test_client_token_3_part_when_app_client_id_set() -> None:

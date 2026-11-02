@@ -49,7 +49,36 @@ def test_capture_flag_creates_file_and_registers_serials(
     session = cli_module._capture_session
     assert session is not None
     assert "SN001" in session._literals
+    # httpx event hooks never fire for WS traffic (it leaves the request/
+    # response cycle after the upgrade handshake) — ws_capture_hook is the
+    # separate path that lets --capture see WS frames too.
+    assert FakeClient.last_instance is not None
+    assert FakeClient.last_instance.ws_capture_hook == session.capture_ws_frame
     session.close()
+
+
+def test_no_capture_flag_passes_no_ws_capture_hook(tmp_path: Path) -> None:
+    cookie_jar = tmp_path / "session.json"
+    FakeClient.systems_factory = staticmethod(
+        lambda: {"SN001": FakeSystem("SN001", "Pool")}
+    )
+
+    result = CliRunner().invoke(
+        app,
+        [
+            "list-systems",
+            "--username",
+            "user@example.com",
+            "--password",
+            "secret",
+            "--cookie-jar",
+            str(cookie_jar),
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert FakeClient.last_instance is not None
+    assert FakeClient.last_instance.ws_capture_hook is None
 
 
 def test_list_systems_ignores_malformed_session_jar(tmp_path: Path) -> None:

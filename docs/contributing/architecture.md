@@ -94,9 +94,9 @@ Shared HMAC-SHA1 helpers.
 Joins `parts` with `,` and returns a lowercase hex HMAC-SHA1 digest:
 
 ```python
-sign(["user_id", "timestamp"], api_signing_key)           # device list (v2) — implemented
-sign(["serial", "user_id"], api_signing_key)              # device shadow — future
-sign(["serial", "user_id", "timestamp"], api_signing_key) # commands/writes — future
+sign(["user_id", "timestamp"], api_signing_key)             # device list (v2) — implemented
+sign([serial.upper(), "user_id"], api_signing_key)          # TCX main shadow GET — implemented
+sign(["serial", "user_id", "timestamp"], api_signing_key)   # commands/writes — future
 ```
 
 Raises `ValueError` if `parts` is empty.
