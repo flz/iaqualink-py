@@ -363,7 +363,16 @@ class Zs500System(AqualinkSystem):
         if raw_status in (None, ""):
             self.status = SystemStatus.UNKNOWN
         else:
-            mapped = _ZS500_STATUS_MAP.get(raw_status)
+            # The reference app matches aws.status case-insensitively against
+            # its own status names (confirmed from the status-enum lookup
+            # helper: Online/connected/Offline/Service/disconnected/Unknown/
+            # FIRMWARE_UPDATE) — exact wire casing isn't pinned down, so match
+            # case-insensitively here too rather than assuming lowercase.
+            mapped = _ZS500_STATUS_MAP.get(
+                raw_status.lower()
+                if isinstance(raw_status, str)
+                else raw_status
+            )
             if mapped is None:
                 LOGGER.warning(
                     "Unknown aws.status %r for system %s (%s); treating as Unknown.",

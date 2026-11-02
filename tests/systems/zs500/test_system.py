@@ -81,6 +81,18 @@ class TestZs500SystemRefresh:
         await zs500_harness.system.refresh()
         assert zs500_harness.system.status is SystemStatus.UNKNOWN
 
+    async def test_refresh_status_matched_case_insensitively(
+        self, zs500_harness: Zs500Harness
+    ) -> None:
+        # The reference app matches aws.status case-insensitively; mirror that
+        # here rather than assuming the wire always sends lowercase.
+        zs500_harness.shadow.get_response = {
+            "aws": {"status": "Connected"},
+            "equipment": {},
+        }
+        await zs500_harness.system.refresh()
+        assert zs500_harness.system.status is SystemStatus.CONNECTED
+
     async def test_refresh_no_equipment_keeps_devices_empty(
         self, zs500_harness: Zs500Harness
     ) -> None:
