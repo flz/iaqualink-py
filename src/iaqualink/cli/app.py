@@ -18,6 +18,7 @@ from iaqualink.cli.capture import CaptureSession
 from iaqualink.client import AqualinkAuthState, AqualinkClient
 from iaqualink.device import (
     AqualinkBinarySensor,
+    AqualinkButton,
     AqualinkClimate,
     AqualinkDevice,
     AqualinkFan,
@@ -261,6 +262,7 @@ _DEVICE_GROUPS: list[tuple[type[AqualinkDevice], str, str]] = [
     (AqualinkClimate, "🌡️", "Climate"),
     (AqualinkLight, "💡", "Lights"),
     (AqualinkSwitch, "⚡", "Switches"),
+    (AqualinkButton, "🔲", "Buttons"),
     (AqualinkFan, "⚙️", "Fans"),
     (AqualinkVacuum, "🤖", "Vacuums"),
     (AqualinkSelect, "🔘", "Modes"),
@@ -595,6 +597,32 @@ async def _status(
         _, any_system = selected_systems[0]
         _save_session_jar(cookie_jar, any_system.aqualink.auth_state)
     return _render_device_tree(selected_systems, devices_by_system)
+
+
+async def _control_swc_boost(
+    credentials: Credentials,
+    system_selector: str | None,
+    control: str,
+    hours: int | None,
+    mode: str | None,
+    cookie_jar: Path,
+) -> Text:
+    systems = await _fetch_systems(credentials, cookie_jar)
+    system = _resolve_system(systems, system_selector)
+
+    control_swc_boost = getattr(system, "control_swc_boost", None)
+    if control_swc_boost is None:
+        _exit_with_error(
+            f"System {system.name!r} does not support SWC boost control.",
+        )
+
+    await control_swc_boost(control, boosthrs=hours, boostmode=mode)
+    _save_session_jar(cookie_jar, system.aqualink.auth_state)
+    t = Text()
+    t.append("✓ ", style="bold green")
+    t.append(f"Sent {control!r} boost command to ")
+    t.append_text(_format_system_line(system))
+    return t
 
 
 async def _run_switch_command(
@@ -976,6 +1004,43 @@ def status(
 ) -> None:
     credentials = _resolve_credentials(username, password, config)
     _console.print(_run_async(_status(credentials, system, cookie_jar)))
+
+
+@app.command("swc-boost")
+def swc_boost(
+    control: Annotated[
+        str,
+        typer.Argument(help="Boost action: start, stop, pause, or resume."),
+    ],
+    hours: Annotated[
+        int | None,
+        typer.Option(
+            "--hours",
+            help="Boost duration in hours (1-24). Required for 'start'.",
+        ),
+    ] = None,
+    mode: Annotated[
+        str | None,
+        typer.Option(
+            "--mode",
+            help="Boost mode: pool or spillover. Required for 'start'.",
+        ),
+    ] = None,
+    username: UsernameOption = None,
+    password: PasswordOption = None,
+    config: ConfigOption = DEFAULT_CONFIG_PATH,
+    system: SystemOption = None,
+    cookie_jar: CookieJarOption = DEFAULT_COOKIE_JAR,
+) -> None:
+    """Control a salt water chlorinator boost (iAqua systems only)."""
+    credentials = _resolve_credentials(username, password, config)
+    _console.print(
+        _run_async(
+            _control_swc_boost(
+                credentials, system, control, hours, mode, cookie_jar
+            )
+        )
+    )
 
 
 @app.command("turn-on")

@@ -259,3 +259,4 @@ tcx_select_factories: list[tuple[str, Callable[[], Any]]] = []
 # False), which conflicts with the generic AqualinkFan conformance contract
 # for `is_on`. Covered by direct unit tests in test_device.py instead.
 tcx_fan_factories: list[tuple[str, Callable[[], Any]]] = []
+tcx_button_factories: list[tuple[str, Callable[[], Any]]] = []

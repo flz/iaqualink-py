@@ -229,6 +229,19 @@ Available options depend on the device. Use `status` to see the current option.
 
 ---
 
+### `swc-boost`
+
+Control a salt water chlorinator boost (iAqua systems with a paired SWC only). This is a system-level command, not a device command — it doesn't take a device argument.
+
+```bash
+iaqualink swc-boost start --hours 4 --mode pool
+iaqualink swc-boost stop
+```
+
+`--hours` (1–24) and `--mode` (`pool` or `spillover`) are required for `start` and optional otherwise. Invalid values are rejected before any request is sent.
+
+---
+
 ### `logout`
 
 Remove the saved session and force fresh authentication on the next command.
