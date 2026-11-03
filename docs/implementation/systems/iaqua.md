@@ -327,7 +327,7 @@ await pump.fetch_speed()          # explicit refresh from get_vsp_speedauxinfo i
 
 ### Overview
 
-SWC support is an optional subsystem of `IaquaSystem`. Presence is inferred from the `swc_set_point` field appearing in `get_home` — there is no explicit presence flag (unlike VSP's `isVSP`). Exposed via `IaquaSystem.has_swc` (overriding the base `AqualinkSystem.has_swc`, which defaults `False`). When present, `_refresh()` issues an additional `get_swc_config` request after `get_devices`.
+SWC support is an optional subsystem of `IaquaSystem`. Presence is inferred from the `swc_set_point` field appearing in `get_home` — there is no explicit presence flag (unlike VSP's `isVSP`). Exposed via `IaquaSystem.has_swc`. When present, `_refresh()` issues an additional `get_swc_config` request after `get_devices`.
 
 ### Device classes
 
@@ -376,23 +376,23 @@ Falls back to `int(value)` for the preserved side if the other device is absent 
 
 ### Boost control
 
-`control_swc_boost`'s 4 actions (`start`/`stop`/`pause`/`resume`) are exposed
-two ways, since HA `ButtonEntity` presses take no parameters but starting a
-boost needs `boosthrs`/`boostmode`:
+`control_swc_boost(control, boosthrs=None, boostmode=None)` is the single
+validated entry point for all 4 actions (`start`/`stop`/`pause`/`resume`) —
+the method a CLI command or Home Assistant custom service calls directly.
+It accepts raw strings for `control`/`boostmode` (coercing them to
+`IaquaBoostControl`/`IaquaBoostMode`) so JSON-sourced callers don't need to
+import the enums. `boosthrs` is range-checked (`1`–`24`) whenever provided,
+and `start` specifically requires both `boosthrs` and `boostmode` — matching
+the app, which always submits both when starting a boost. All validation
+failures raise `AqualinkInvalidParameterException`.
 
-- **`IaquaSystem.set_swc_boost(boosthrs, boostmode)`** — the explicit-value
-  path. Validates `boosthrs` is in `1`–`24` and `boostmode` is a valid
-  `IaquaBoostMode`, raising `AqualinkInvalidParameterException` otherwise,
-  then calls `control_swc_boost(START, boosthrs=boosthrs, boostmode=boostmode)`.
-  This is the method a Home Assistant integration would expose as a custom
-  service — there's no other way to set explicit values.
-- **`swc_boost_start`/`stop`/`pause`/`resume` (`AqualinkButton`)** —
-  parameterless presses for the other 3 actions, plus a "repeat last config"
-  start button. `IaquaSwcBoostStartButton.press()` reads `boosthrs`/`boostmode`
-  from the current `swc_boost_hrs`/`swc_boost_mode` sensor state (falling
-  back to `24`/`pool` if either is absent, e.g. before the first
-  `get_swc_config` poll) rather than accepting new values — that's what
-  `set_swc_boost()` is for.
+`swc_boost_start`/`stop`/`pause`/`resume` (`AqualinkButton`) are
+parameterless presses on top of this: `_IaquaSwcBoostButton.press()` always
+reads `boosthrs`/`boostmode` from the current `swc_boost_hrs`/`swc_boost_mode`
+sensor state (falling back to `24`/`pool` if either is absent, e.g. before
+the first `get_swc_config` poll) and passes them to `control_swc_boost` for
+all 4 controls — matching the app, which echoes the last-known hours/mode
+even on stop/pause/resume even though the server doesn't need them for those.
 
 All 4 buttons are upserted together (alongside the `get_swc_config`-sourced
 sensors) the first time `_parse_swc_config_response` runs after `swc_boost`
@@ -405,7 +405,7 @@ today — only HPM does).
 
 | # | Reference spec | Current implementation |
 |---|---|---|
-| 1 | `boosthrs` server-side upper bound unconfirmed | `set_swc_boost()` client-side validates `1`–`24` |
+| 1 | `boosthrs` server-side upper bound unconfirmed | `control_swc_boost()` client-side validates `1`–`24` |
 | 2 | `boostStatus` has 3 states: `"on"`, `"paused"`, absent/empty | `swc_boost` (`IaquaBinarySensor`) collapses to 2 states — `"paused"` maps to `True` (ON) so a paused boost timer isn't lost in the binary read |
 
 ## See Also

@@ -254,14 +254,11 @@ class _IaquaSwcBoostButton(IaquaDevice, AqualinkButton):
     _CONTROL: ClassVar[IaquaBoostControl]
 
     async def press(self) -> None:
-        if self._CONTROL == IaquaBoostControl.START:
-            await self.system.control_swc_boost(
-                self._CONTROL,
-                boosthrs=_last_swc_boost_hrs(self.system),
-                boostmode=_last_swc_boost_mode(self.system),
-            )
-        else:
-            await self.system.control_swc_boost(self._CONTROL)
+        await self.system.control_swc_boost(
+            self._CONTROL,
+            boosthrs=_last_swc_boost_hrs(self.system),
+            boostmode=_last_swc_boost_mode(self.system),
+        )
 
 
 class IaquaSwcBoostStartButton(_IaquaSwcBoostButton):

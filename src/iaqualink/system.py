@@ -77,11 +77,6 @@ class AqualinkSystem(ABC):
     def supported(self) -> bool:
         return True
 
-    @property
-    def has_swc(self) -> bool:
-        """Whether this system has a paired salt water chlorinator."""
-        return False
-
     @classmethod
     def from_data(
         cls, aqualink: AqualinkClient, data: Payload

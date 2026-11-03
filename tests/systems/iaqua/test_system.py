@@ -1858,12 +1858,12 @@ class TestIaquaSystem:
         assert "swc_boost_start" not in sut.devices
 
     @respx.mock
-    async def test_set_swc_boost_delegates_to_control_swc_boost(
+    async def test_control_swc_boost_accepts_raw_strings(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
         _, sut = _make_iaqua_system()
         respx_mock.route(dotstar).mock(resp_200)
-        await sut.set_swc_boost(12, IaquaBoostMode.SPILLOVER)
+        await sut.control_swc_boost("start", boosthrs=12, boostmode="spillover")
         url = str(respx_mock.calls[0].request.url)
         assert f"command={IAQUA_COMMAND_CONTROL_SWC_BOOST}" in url
         assert "boostcontrol=start" in url
@@ -1871,31 +1871,73 @@ class TestIaquaSystem:
         assert "boostmode=spillover" in url
 
     @respx.mock
-    async def test_set_swc_boost_rejects_hrs_too_low(
+    async def test_control_swc_boost_rejects_invalid_control(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
         _, sut = _make_iaqua_system()
         respx_mock.route(dotstar).mock(resp_200)
         with pytest.raises(AqualinkInvalidParameterException):
-            await sut.set_swc_boost(0, IaquaBoostMode.POOL)
+            await sut.control_swc_boost("not-a-control")
         assert len(respx_mock.calls) == 0
 
     @respx.mock
-    async def test_set_swc_boost_rejects_hrs_too_high(
+    async def test_control_swc_boost_rejects_hrs_too_low(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
         _, sut = _make_iaqua_system()
         respx_mock.route(dotstar).mock(resp_200)
         with pytest.raises(AqualinkInvalidParameterException):
-            await sut.set_swc_boost(25, IaquaBoostMode.POOL)
+            await sut.control_swc_boost(
+                IaquaBoostControl.START,
+                boosthrs=0,
+                boostmode=IaquaBoostMode.POOL,
+            )
         assert len(respx_mock.calls) == 0
 
     @respx.mock
-    async def test_set_swc_boost_rejects_invalid_mode(
+    async def test_control_swc_boost_rejects_hrs_too_high(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
         _, sut = _make_iaqua_system()
         respx_mock.route(dotstar).mock(resp_200)
         with pytest.raises(AqualinkInvalidParameterException):
-            await sut.set_swc_boost(12, "not-a-mode")
+            await sut.control_swc_boost(
+                IaquaBoostControl.START,
+                boosthrs=25,
+                boostmode=IaquaBoostMode.POOL,
+            )
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_control_swc_boost_rejects_invalid_mode(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await sut.control_swc_boost(
+                IaquaBoostControl.START, boosthrs=12, boostmode="not-a-mode"
+            )
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_control_swc_boost_start_requires_boosthrs(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await sut.control_swc_boost(
+                IaquaBoostControl.START, boostmode=IaquaBoostMode.POOL
+            )
+        assert len(respx_mock.calls) == 0
+
+    @respx.mock
+    async def test_control_swc_boost_start_requires_boostmode(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        respx_mock.route(dotstar).mock(resp_200)
+        with pytest.raises(AqualinkInvalidParameterException):
+            await sut.control_swc_boost(IaquaBoostControl.START, boosthrs=12)
         assert len(respx_mock.calls) == 0

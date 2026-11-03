@@ -124,6 +124,7 @@ class IaquaSystem(AqualinkSystem):
 
     @property
     def has_swc(self) -> bool:
+        """Whether this system has a paired salt water chlorinator."""
         return "swc_set_point" in self.devices
 
     async def _send_session_request(
@@ -799,10 +800,44 @@ class IaquaSystem(AqualinkSystem):
 
     async def control_swc_boost(
         self,
-        control: IaquaBoostControl,
+        control: IaquaBoostControl | str,
         boosthrs: int | None = None,
-        boostmode: IaquaBoostMode | None = None,
+        boostmode: IaquaBoostMode | str | None = None,
     ) -> None:
+        """Validated entry point for all 4 boost actions — this is the
+        method a CLI command or Home Assistant custom service calls
+        directly. `start` requires both `boosthrs` and `boostmode`; the
+        other 3 actions accept them optionally (the app echoes the
+        last-known values on those too, but the server doesn't need them)."""
+        try:
+            control = IaquaBoostControl(control)
+        except ValueError as exc:
+            options = ", ".join(IaquaBoostControl)
+            raise AqualinkInvalidParameterException(
+                f"{control!r} isn't a valid boost control ({options})."
+            ) from exc
+
+        if boosthrs is not None and not 1 <= boosthrs <= 24:
+            raise AqualinkInvalidParameterException(
+                f"{boosthrs} is out of range (1-24)."
+            )
+
+        if boostmode is not None:
+            try:
+                boostmode = IaquaBoostMode(boostmode)
+            except ValueError as exc:
+                options = ", ".join(IaquaBoostMode)
+                raise AqualinkInvalidParameterException(
+                    f"{boostmode!r} isn't a valid boost mode ({options})."
+                ) from exc
+
+        if control is IaquaBoostControl.START and (
+            boosthrs is None or boostmode is None
+        ):
+            raise AqualinkInvalidParameterException(
+                "Starting a boost requires both boosthrs and boostmode."
+            )
+
         params: Payload = {"boostcontrol": control}
         if boosthrs is not None:
             params["boosthrs"] = boosthrs
@@ -812,24 +847,3 @@ class IaquaSystem(AqualinkSystem):
             IAQUA_COMMAND_CONTROL_SWC_BOOST, params
         )
         self._parse_swc_config_response(r)
-
-    async def set_swc_boost(
-        self, boosthrs: int, boostmode: IaquaBoostMode | str
-    ) -> None:
-        """Validated entry point for starting a boost with explicit
-        duration/circuit — the custom service a Home Assistant integration
-        would expose, since boosthrs/boostmode can't be set via a button."""
-        if not 1 <= boosthrs <= 24:
-            raise AqualinkInvalidParameterException(
-                f"{boosthrs} is out of range (1-24)."
-            )
-        try:
-            mode = IaquaBoostMode(boostmode)
-        except ValueError as exc:
-            options = ", ".join(IaquaBoostMode)
-            raise AqualinkInvalidParameterException(
-                f"{boostmode!r} isn't a valid boost mode ({options})."
-            ) from exc
-        await self.control_swc_boost(
-            IaquaBoostControl.START, boosthrs=boosthrs, boostmode=mode
-        )

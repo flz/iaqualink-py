@@ -36,28 +36,34 @@ Device availability depends on your system type and hardware configuration. Comm
 - Water chemistry sensors (pH, ORP, salinity — eXO)
 - Variable speed pump control (i2d)
 
-## Custom Service Contract: `set_swc_boost`
+## Custom Service Contract: `control_swc_boost`
 
-`IaquaSystem.set_swc_boost(boosthrs, boostmode)` is the one SWC boost action
-that needs user-supplied values (duration + circuit) beyond what a stateless
-`ButtonEntity` press can carry — see [`swc_boost_start`/`stop`/`pause`/`resume`
-buttons](../api/systems/iaqua.md). The built-in `iaqualink` integration
-doesn't expose this as a custom service yet. If you're implementing that in
-`home-assistant/core`, match this contract so the service, its docs, and this
-library's semantics stay aligned:
+`IaquaSystem.control_swc_boost(control, boosthrs=None, boostmode=None)` is
+the single validated entry point for all 4 SWC boost actions
+(`start`/`stop`/`pause`/`resume`). The 4 `swc_boost_start`/`stop`/`pause`/
+`resume` button entities already cover the common, no-input case (pressing
+`swc_boost_start` repeats the last-known hours/mode). A custom service is
+only needed for the one case buttons can't handle: starting a boost with
+*new* hours/mode — see [Boost control](../implementation/systems/iaqua.md).
+The built-in `iaqualink` integration doesn't expose this as a custom service
+yet. If you're implementing that in `home-assistant/core`, match this
+contract so the service, its docs, and this library's semantics stay aligned:
 
-- Service: `iaqualink.set_swc_boost`
+- Service: `iaqualink.control_swc_boost`
 - Target: `entity_id` of one of the `swc_boost_*` button entities — the
   integration resolves the owning `IaquaSystem` the same way it does for any
   other iaqualink entity/service call.
 - Fields:
-  - `boosthrs` (int, required, 1–24) — forwarded as-is; `set_swc_boost`
-    re-validates range and raises `AqualinkInvalidParameterException` if out
-    of bounds.
-  - `boostmode` (string, required, one of `pool` / `spillover`) — must match
+  - `control` (string, required, one of `start` / `stop` / `pause` /
+    `resume`) — must match `IaquaBoostControl`'s wire values exactly.
+  - `hours` (int, optional, 1–24) — forwarded as `boosthrs`; required when
+    `control` is `start`. `control_swc_boost` re-validates range and raises
+    `AqualinkInvalidParameterException` if out of bounds or missing on start.
+  - `mode` (string, optional, one of `pool` / `spillover`) — forwarded as
+    `boostmode`; required when `control` is `start`. Must match
     `IaquaBoostMode`'s wire values exactly; don't rename or translate them in
     the service schema.
-- Call: `await system.set_swc_boost(boosthrs, boostmode)`.
+- Call: `await system.control_swc_boost(control, boosthrs=hours, boostmode=mode)`.
 - Errors: `AqualinkInvalidParameterException` should surface as a HA
   `ServiceValidationError` carrying its message.
 

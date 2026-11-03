@@ -1252,8 +1252,8 @@ class TestIaquaSwcBoostButtons:
         url = str(respx_mock.calls[0].request.url)
         assert "command=control_swc_boost" in url
         assert "boostcontrol=stop" in url
-        assert "boosthrs" not in url
-        assert "boostmode" not in url
+        assert "boosthrs=24" in url
+        assert "boostmode=pool" in url
 
     async def test_pause_button_sends_pause(
         self, respx_mock: respx.router.MockRouter
