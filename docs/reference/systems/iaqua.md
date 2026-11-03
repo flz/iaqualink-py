@@ -1174,9 +1174,9 @@ Nested object under the flattened `home_screen` key `swc_info`:
 |---|---|---|
 | `isswcPresent` | boolean | SWC hardware is present and paired |
 | `swcPoolValue` | integer | Current pool SWC output value (percent) |
-| `swcPoolStatus` | string | Pool SWC operational status — see `IaquaSwcStatus` enum |
+| `swcPoolStatus` | string | Pool SWC operational status — see wire values below |
 | `swcSpaValue` | integer | Current spa SWC output value (percent) |
-| `swcSpaStatus` | string | Spa SWC operational status — see `IaquaSwcStatus` enum |
+| `swcSpaStatus` | string | Spa SWC operational status — see wire values below |
 
 ### Write commands
 
@@ -1263,9 +1263,9 @@ Start, stop, pause, or resume boost mode. Also used to configure the boost timer
 | `"on"` | Boost is hardware-enabled (DIP switch in enable position) |
 | `"off"` (or absent) | Boost is hardware-disabled |
 
-### `IaquaSwcStatus` enum
+### `swcPoolStatus` / `swcSpaStatus` wire values
 
-Wire values for `swcPoolStatus` / `swcSpaStatus`:
+Stored as a plain string (not coerced through an enum — informational display only):
 
 | Wire value | Meaning |
 |---|---|

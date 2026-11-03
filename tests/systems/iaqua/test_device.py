@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import httpx
 import pytest
 import respx.router
 
@@ -1149,14 +1150,25 @@ class TestIaquaSwcSetPoint:
         sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
         assert sut.max_value == 100.0
 
+    async def test_set_value_fetches_fresh_config_first(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        respx_mock.route(dotstar).mock(resp_200)
+        await sut.set_value(sut.min_value)
+        assert len(respx_mock.calls) == 2
+        fetch_url = str(respx_mock.calls[0].request.url)
+        write_url = str(respx_mock.calls[1].request.url)
+        assert "command=get_swc_config" in fetch_url
+        assert "command=set_swc_config" in write_url
+
     async def test_set_value_at_min(
         self, respx_mock: respx.router.MockRouter
     ) -> None:
         sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
         respx_mock.route(dotstar).mock(resp_200)
         await sut.set_value(sut.min_value)
-        assert len(respx_mock.calls) == 1
-        url = str(respx_mock.calls[0].request.url)
+        url = str(respx_mock.calls[-1].request.url)
         assert "command=set_swc_config" in url
         assert "poolswcsp=0" in url
 
@@ -1166,8 +1178,7 @@ class TestIaquaSwcSetPoint:
         sut = IaquaSwcSetPoint(make_system(), {**IAQUA_SWC_POOL_SET_POINT_DATA})
         respx_mock.route(dotstar).mock(resp_200)
         await sut.set_value(sut.max_value)
-        assert len(respx_mock.calls) == 1
-        url = str(respx_mock.calls[0].request.url)
+        url = str(respx_mock.calls[-1].request.url)
         assert "command=set_swc_config" in url
         assert "poolswcsp=100" in url
 
@@ -1182,9 +1193,11 @@ class TestIaquaSwcSetPoint:
                 system, {"name": "swc_spa_set_point", "state": "35"}
             ),
         }
+        # Fresh get_swc_config returns {} (no spaSWCSP), so the cached
+        # value of 35 survives the fetch and is read back unchanged.
         respx_mock.route(dotstar).mock(resp_200)
         await sut.set_value(70.0)
-        url = str(respx_mock.calls[0].request.url)
+        url = str(respx_mock.calls[-1].request.url)
         assert "poolswcsp=70" in url
         assert "spaswcsp=35" in url
 
@@ -1203,9 +1216,30 @@ class TestIaquaSwcSetPoint:
         }
         respx_mock.route(dotstar).mock(resp_200)
         await sut.set_value(70.0)
-        url = str(respx_mock.calls[0].request.url)
+        url = str(respx_mock.calls[-1].request.url)
         assert "poolswcsp=40" in url
         assert "spaswcsp=70" in url
+
+    async def test_set_value_uses_freshly_fetched_companion_value(
+        self, respx_mock: respx.router.MockRouter
+    ) -> None:
+        """The companion value from a fresh get_swc_config overrides a
+        stale cached one (regression test for the fetch-before-write fix)."""
+        system = make_system()
+        sut = IaquaSwcSetPoint(system, {**IAQUA_SWC_POOL_SET_POINT_DATA})
+        system.devices = {
+            "swc_pool_set_point": sut,
+            "swc_spa_set_point": IaquaSwcSetPoint(
+                system, {"name": "swc_spa_set_point", "state": "35"}
+            ),
+        }
+        respx_mock.route(dotstar).mock(
+            httpx.Response(200, json={"poolSWCSP": 60, "spaSWCSP": 99})
+        )
+        await sut.set_value(70.0)
+        url = str(respx_mock.calls[-1].request.url)
+        assert "poolswcsp=70" in url
+        assert "spaswcsp=99" in url
 
 
 class TestIaquaSwcBoostButtons:

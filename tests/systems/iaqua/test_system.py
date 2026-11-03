@@ -125,6 +125,7 @@ _SWC_CONFIG_BOOST_PAUSED: dict = {**_SWC_CONFIG, "boostStatus": "paused"}
 
 
 def _add_swc_devices(sut: IaquaSystem) -> None:
+    sut._swc_present = True
     sut.devices["swc_set_point"] = IaquaSensor(
         sut, {"name": "swc_set_point", "state": "50"}
     )
@@ -254,6 +255,43 @@ class TestIaquaSystem:
 
         sut._parse_home_response(r)
         assert "swc_pool_value" not in sut.devices
+
+    async def test_has_swc_true_from_isswcpresent_without_set_point(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        r = _home_response(
+            [{"swc_info": {"isswcPresent": True}}],
+        )
+
+        sut._parse_home_response(r)
+        assert "swc_set_point" not in sut.devices
+        assert sut.has_swc is True
+
+    async def test_has_swc_true_from_non_empty_set_point(self) -> None:
+        _, sut = _make_iaqua_system()
+        r = _home_response([{"swc_set_point": "50"}])
+
+        sut._parse_home_response(r)
+        assert sut.has_swc is True
+
+    async def test_has_swc_false_with_empty_set_point_and_no_swc_info(
+        self,
+    ) -> None:
+        _, sut = _make_iaqua_system()
+        r = _home_response([{"swc_set_point": ""}])
+
+        sut._parse_home_response(r)
+        assert sut.has_swc is False
+
+    async def test_has_swc_false_when_isswcpresent_false(self) -> None:
+        _, sut = _make_iaqua_system()
+        r = _home_response(
+            [{"swc_info": {"isswcPresent": False}}],
+        )
+
+        sut._parse_home_response(r)
+        assert sut.has_swc is False
 
     async def test_parse_home_sets_celsius_temp_unit(self) -> None:
         _, sut = _make_iaqua_system()
@@ -1819,11 +1857,9 @@ class TestIaquaSystem:
         _, sut = _make_iaqua_system()
         assert sut.has_swc is False
 
-    def test_has_swc_true_with_swc_set_point(self) -> None:
+    def test_has_swc_true_when_swc_present(self) -> None:
         _, sut = _make_iaqua_system()
-        sut.devices["swc_set_point"] = IaquaSensor(
-            sut, {"name": "swc_set_point", "state": "50"}
-        )
+        sut._swc_present = True
         assert sut.has_swc is True
 
     async def test_parse_swc_config_response_creates_boost_buttons(

@@ -679,6 +679,10 @@ class IaquaSwcSetPoint(IaquaDevice, AqualinkNumber):
     async def _set_value(self, value: float) -> None:
         is_pool = self.name == "swc_pool_set_point"
         other_key = "swc_spa_set_point" if is_pool else "swc_pool_set_point"
+        # Fetch fresh before writing — the cached companion value could be
+        # stale if it was changed elsewhere (e.g. the app) since our last
+        # refresh(), and set_swc_config requires both values on every write.
+        await self.system.get_swc_config()
         other_dev = self.system.devices.get(other_key)
         other_state = other_dev.data.get("state") if other_dev else None
         other_sp = int(other_state) if other_state else int(value)

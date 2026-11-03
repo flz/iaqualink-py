@@ -83,12 +83,3 @@ class IaquaBoostControl(StrEnum):
     STOP = "stop"
     PAUSE = "pause"
     RESUME = "resume"
-
-
-# Wire values for swcPoolStatus/swcSpaStatus fields in get_home's swc_info object.
-@unique
-class IaquaSwcStatus(StrEnum):
-    STANDBY = "standby"
-    RUNNING = "running"
-    BOOSTING = "boosting"
-    BOOST_PAUSED = "boostpaused"

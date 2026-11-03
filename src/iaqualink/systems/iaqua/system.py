@@ -112,6 +112,8 @@ class IaquaSystem(AqualinkSystem):
         self._onetouch_supported: bool | None = None
         # VSP pump discovery runs once; False = not yet run.
         self._vsp_discovered: bool = False
+        # Re-evaluated from the home response on every update() call.
+        self._swc_present: bool = False
 
     @property
     def is_vsp(self) -> bool:
@@ -125,7 +127,7 @@ class IaquaSystem(AqualinkSystem):
     @property
     def has_swc(self) -> bool:
         """Whether this system has a paired salt water chlorinator."""
-        return "swc_set_point" in self.devices
+        return self._swc_present
 
     async def _send_session_request(
         self,
@@ -202,9 +204,8 @@ class IaquaSystem(AqualinkSystem):
                     mask_serial(self.serial),
                 )
 
-        if "swc_set_point" in self.devices:
-            r4 = await self._send_session_request(IAQUA_COMMAND_GET_SWC_CONFIG)
-            self._parse_swc_config_response(r4)
+        if self.has_swc:
+            await self.get_swc_config()
 
     def _parse_home_response(self, response: httpx.Response) -> None:
         data = response.json()
@@ -258,6 +259,15 @@ class IaquaSystem(AqualinkSystem):
             LOGGER.warning(
                 "Unknown temp_scale %r; ignoring.", home["temp_scale"]
             )
+
+        # Presence per the protocol reference: the `swc_info` object
+        # appearing and/or `swc_set_point` being non-empty. Checking only
+        # `swc_set_point` would miss systems that send `swc_info` without it,
+        # and treating an empty `swc_set_point` as "present" would be a
+        # false positive.
+        self._swc_present = bool(
+            isinstance(swc_info, dict) and swc_info.get("isswcPresent")
+        ) or bool(home.get("swc_set_point"))
 
         for name, device_class in _HOME_DEVICE_MAP.items():
             if name not in home:
@@ -755,9 +765,13 @@ class IaquaSystem(AqualinkSystem):
             if isinstance(device, IaquaVSPump):
                 await device.fetch_speed()
 
+    async def get_swc_config(self) -> None:
+        r = await self._send_session_request(IAQUA_COMMAND_GET_SWC_CONFIG)
+        self._parse_swc_config_response(r)
+
     def _parse_swc_config_response(self, response: httpx.Response) -> None:
         data = response.json()
-        LOGGER.debug("SWC config body: %s", data)
+        LOGGER.debug("SWC config body: %s", redact_value(data))
 
         if "swc_boost" in self.devices:
             boost_on = data.get("boostStatus") in (

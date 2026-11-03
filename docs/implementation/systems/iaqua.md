@@ -327,7 +327,7 @@ await pump.fetch_speed()          # explicit refresh from get_vsp_speedauxinfo i
 
 ### Overview
 
-SWC support is an optional subsystem of `IaquaSystem`. Presence is inferred from the `swc_set_point` field appearing in `get_home` — there is no explicit presence flag (unlike VSP's `isVSP`). Exposed via `IaquaSystem.has_swc`. When present, `_refresh()` issues an additional `get_swc_config` request after `get_devices`.
+SWC support is an optional subsystem of `IaquaSystem`. Presence (`IaquaSystem.has_swc`) is computed in `_parse_home_response` from either signal the protocol reference documents: `swc_info.isswcPresent` being truthy, or `swc_set_point` being a non-empty string — matching "the `swc_info` object appearing... and/or `swc_set_point` being non-empty" rather than keying off device-dict presence (which would also treat an empty `swc_set_point` as present, since its device class isn't one of the ones skipped-if-falsy). There is no explicit presence flag the way VSP has `isVSP`. When present, `_refresh()` calls `get_swc_config()` after `get_devices`.
 
 ### Device classes
 
@@ -367,12 +367,12 @@ derived from a response field — see [Boost control](#boost-control)):
 
 ### Set point write behaviour
 
-`IaquaSwcSetPoint._set_value` routes on `self.name` to determine which side it controls:
+`IaquaSwcSetPoint._set_value` calls `get_swc_config()` first — a fresh fetch, not the cached device state — so a change made elsewhere (the app, another client) since this client's last `_refresh()` isn't silently reverted by the paired write (`set_swc_config` always sends both `poolswcsp`/`spaswcsp` together). It then routes on `self.name` to determine which side it controls:
 
-- `"swc_pool_set_point"` — pool side: reads current spa SP from `self.system.devices["swc_spa_set_point"].state`, writes `set_swc_config(new_pool, current_spa)`
-- `"swc_spa_set_point"` — spa side: reads current pool SP from `self.system.devices["swc_pool_set_point"].state`, writes `set_swc_config(current_pool, new_spa)`
+- `"swc_pool_set_point"` — pool side: reads the just-fetched spa SP from `self.system.devices["swc_spa_set_point"].state`, writes `set_swc_config(new_pool, current_spa)`
+- `"swc_spa_set_point"` — spa side: reads the just-fetched pool SP from `self.system.devices["swc_pool_set_point"].state`, writes `set_swc_config(current_pool, new_spa)`
 
-Falls back to `int(value)` for the preserved side if the other device is absent from `self.system.devices` (e.g. first `set_value` call before `_refresh` has run).
+Falls back to `int(value)` for the preserved side only if the fresh `get_swc_config` response itself omits that field.
 
 ### Boost control
 
@@ -407,6 +407,7 @@ today — only HPM does).
 |---|---|---|
 | 1 | `boosthrs` server-side upper bound unconfirmed | `control_swc_boost()` client-side validates `1`–`24` |
 | 2 | `boostStatus` has 3 states: `"on"`, `"paused"`, absent/empty | `swc_boost` (`IaquaBinarySensor`) collapses to 2 states — `"paused"` maps to `True` (ON) so a paused boost timer isn't lost in the binary read |
+| 3 | SWC responses include an `is_error` field | Not checked. The official app itself never checks it either (confirmed from the decompiled app's response handler, which only branches on `device_status`); checking it here would also be the only response parser in this file validating an error field, since none of the others (`_parse_home_response`, `_parse_devices_response`, etc.) do either. Considered and declined — revisit if a real `is_error: true` response is ever observed. |
 
 ## See Also
 
