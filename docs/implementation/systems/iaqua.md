@@ -378,7 +378,7 @@ Falls back to `int(value)` for the preserved side if the other device is absent 
 
 `control_swc_boost(control, boosthrs=None, boostmode=None)` is the single
 validated entry point for all 4 actions (`start`/`stop`/`pause`/`resume`) —
-the method a CLI command or Home Assistant custom service calls directly.
+the method a CLI command or Home Assistant custom action calls directly.
 It accepts raw strings for `control`/`boostmode` (coercing them to
 `IaquaBoostControl`/`IaquaBoostMode`) so JSON-sourced callers don't need to
 import the enums. `boosthrs` is range-checked (`1`–`24`) whenever provided,

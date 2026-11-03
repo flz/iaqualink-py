@@ -805,7 +805,7 @@ class IaquaSystem(AqualinkSystem):
         boostmode: IaquaBoostMode | str | None = None,
     ) -> None:
         """Validated entry point for all 4 boost actions — this is the
-        method a CLI command or Home Assistant custom service calls
+        method a CLI command or Home Assistant custom action calls
         directly. `start` requires both `boosthrs` and `boostmode`; the
         other 3 actions accept them optionally (the app echoes the
         last-known values on those too, but the server doesn't need them)."""
