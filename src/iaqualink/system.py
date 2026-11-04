@@ -91,6 +91,14 @@ class AqualinkSystem(ABC):
             await self.refresh()
         return self.devices
 
+    async def aclose(self) -> None:
+        """Release any held connection/transport resources.
+
+        No-op by default. Systems that hold a persistent connection (e.g. a
+        long-lived MQTT session) override this to tear it down. Called by
+        :meth:`AqualinkClient.close` for every system it created.
+        """
+
     async def _send_with_reauth_retry(
         self,
         request_factory: Callable[[], Awaitable[httpx.Response]],

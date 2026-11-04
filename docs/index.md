@@ -19,6 +19,7 @@
     - **Cyclobat** — Zodiac battery-powered robot cleaners (read-only sensors + start/stop/return-to-base commands over WebSocket)
     - **HPM** — standalone heat-pump-only devices, not attached to a pool controller (zodiac-io.com AWS IoT shadow API)
     - **TCX** systems — filtration and spa controllers (prod.zodiac-io.com API)
+    - **zs500** systems — ZS500 heat pumps over AWS IoT MQTT (auth via zodiac-io.com, control via AWS IoT; experimental)
 - **Comprehensive Device Support**
     - Temperature sensors (pool, spa, air)
     - Thermostats with adjustable set points
