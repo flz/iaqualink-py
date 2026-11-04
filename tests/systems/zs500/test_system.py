@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from typing import Any, cast
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -84,7 +84,7 @@ class TestZs500SystemRefresh:
     async def test_refresh_status_matched_case_insensitively(
         self, zs500_harness: Zs500Harness
     ) -> None:
-        # The reference app matches aws.status case-insensitively; mirror that
+        # The reference matches aws.status case-insensitively; mirror that
         # here rather than assuming the wire always sends lowercase.
         zs500_harness.shadow.get_response = {
             "aws": {"status": "Connected"},
@@ -302,6 +302,99 @@ class TestZs500SystemConnectionFailures:
             await zs500_harness.system.refresh()
 
         assert zs500_harness.system.status is SystemStatus.DISCONNECTED
+
+
+class TestZs500SystemReconnect:
+    async def test_automatic_reconnect_resubscribes(
+        self, zs500_harness: Zs500Harness
+    ) -> None:
+        zs500_harness.shadow.get_response = _REPORTED_CONNECTED
+        await zs500_harness.system.refresh()
+        subscribed_before = zs500_harness.shadow.subscribe_count
+
+        # Simulate the mqtt5 client's own background retry loop reconnecting
+        # us without ever going through _ensure_connected() again.
+        zs500_harness.connect_control.lifecycle_success(object())
+        await asyncio.sleep(0)  # let the threadsafe callback clear _ready
+        await asyncio.wait_for(
+            zs500_harness.system._ready.wait(),
+            timeout=1,  # noqa: SLF001
+        )
+
+        assert zs500_harness.shadow.subscribe_count > subscribed_before
+
+        # A refresh() issued right after the reconnect must still work, i.e.
+        # it waited for the re-subscription rather than publishing into a
+        # connection with no live accept/reject subscriptions.
+        await zs500_harness.system.refresh()
+        assert zs500_harness.system.status is SystemStatus.CONNECTED
+
+    async def test_exhausted_reconnect_attempts_tears_down_connection(
+        self, zs500_harness: Zs500Harness
+    ) -> None:
+        zs500_harness.shadow.get_response = _REPORTED_CONNECTED
+        await zs500_harness.system.refresh()
+
+        failure = MagicMock(exception=AssertionError("simulated failure"))
+        for _ in range(5):
+            zs500_harness.connect_control.lifecycle_failure(failure)
+        await asyncio.sleep(0)
+
+        assert zs500_harness.system._mqtt is None  # noqa: SLF001
+        assert zs500_harness.system._shadow is None  # noqa: SLF001
+        assert zs500_harness.mqtt.stop.called
+
+        # The next operation must reconnect from scratch rather than reuse
+        # (or get stuck on) the torn-down connection.
+        start_calls_before = zs500_harness.mqtt.start.call_count
+        await zs500_harness.system.refresh()
+        assert zs500_harness.mqtt.start.call_count > start_calls_before
+        assert zs500_harness.system.status is SystemStatus.CONNECTED
+
+    async def test_cancellation_during_subscribe_stops_mqtt(
+        self, zs500_harness: Zs500Harness, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        hang = asyncio.Event()
+
+        async def _hang(_shadow: Any) -> None:
+            await hang.wait()
+
+        monkeypatch.setattr(zs500_harness.system, "_subscribe_all", _hang)
+
+        task = asyncio.ensure_future(zs500_harness.system.refresh())
+        await asyncio.sleep(0)
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+        assert zs500_harness.mqtt.stop.called
+        assert zs500_harness.system._mqtt is None  # noqa: SLF001
+
+    async def test_push_ignores_stale_version_after_newer_one_applied(
+        self, zs500_harness: Zs500Harness
+    ) -> None:
+        zs500_harness.shadow.get_response = _REPORTED_CONNECTED
+        await zs500_harness.system.refresh()
+
+        newer: dict[str, Any] = {
+            **_REPORTED_CONNECTED,
+            "equipment": {
+                "hp_0": {**_REPORTED_CONNECTED["equipment"]["hp_0"], "tsp": 280}
+            },
+        }
+        older: dict[str, Any] = {
+            **_REPORTED_CONNECTED,
+            "equipment": {
+                "hp_0": {**_REPORTED_CONNECTED["equipment"]["hp_0"], "tsp": 100}
+            },
+        }
+
+        zs500_harness.system._apply_reported_state(newer, version=5)  # noqa: SLF001
+        assert _climate(zs500_harness).target_temperature == "28.0"
+
+        # A slower GET resolving after a newer push must not clobber it.
+        zs500_harness.system._apply_reported_state(older, version=3)  # noqa: SLF001
+        assert _climate(zs500_harness).target_temperature == "28.0"
 
 
 class TestZs500SystemConcurrency:

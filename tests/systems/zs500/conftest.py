@@ -68,6 +68,10 @@ class FakeShadowClient:
         # When set, the first subscribe_to_* call fails — simulates a
         # subscribe failure right after a successful connect.
         self.subscribe_fails: bool = False
+        # Incremented on every subscribe_to_get_shadow_accepted call — lets
+        # a test assert that _subscribe_all() ran again (e.g. after a
+        # simulated reconnect).
+        self.subscribe_count: int = 0
 
     # -- subscribe_to_* (returns (Future, topic), per awsiotsdk convention) --
 
@@ -75,6 +79,7 @@ class FakeShadowClient:
         self, *, request: Any, qos: Any, callback: Any
     ) -> Any:
         self._get_accept = callback
+        self.subscribe_count += 1
         if self.subscribe_fails:
             return (
                 _failing_future(RuntimeError("simulated subscribe failure")),
@@ -162,10 +167,19 @@ class FakeShadowClient:
 class ConnectControl:
     """Mutable connect-outcome knob, read fresh on every connect attempt —
     lets a test flip `connect_succeeds` between calls to exercise both a
-    failed first connect and a successful reconnect."""
+    failed first connect and a successful reconnect.
+
+    `lifecycle_success`/`lifecycle_failure` are the raw callbacks passed to
+    the builder, captured here so a test can simulate an *automatic*
+    reconnect success/failure (fired by the mqtt5 client's own background
+    retry loop, independent of any `_ensure_connected()` call) after the
+    initial connect has already completed.
+    """
 
     def __init__(self) -> None:
         self.connect_succeeds = True
+        self.lifecycle_success: Any = None
+        self.lifecycle_failure: Any = None
 
 
 def _make_builder(mqtt_mock: MagicMock, control: ConnectControl) -> Any:
@@ -178,13 +192,16 @@ def _make_builder(mqtt_mock: MagicMock, control: ConnectControl) -> Any:
 
         mqtt_mock.stop.side_effect = _stop
 
+        control.lifecycle_success = kwargs["on_lifecycle_connection_success"]
+        control.lifecycle_failure = kwargs["on_lifecycle_connection_failure"]
+
         if control.connect_succeeds:
-            kwargs["on_lifecycle_connection_success"](MagicMock())
+            control.lifecycle_success(MagicMock())
         else:
             failure = MagicMock(
                 exception=AssertionError("simulated connect failure")
             )
-            kwargs["on_lifecycle_connection_failure"](failure)
+            control.lifecycle_failure(failure)
         return mqtt_mock
 
     return _builder

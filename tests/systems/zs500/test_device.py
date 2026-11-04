@@ -159,6 +159,14 @@ class TestZs500Climate:
         )
         assert climate.current_temperature == "23.0"
 
+    def test_current_temperature_none_with_sibling_missing_value(self) -> None:
+        system = make_system()
+        climate = make_climate(system, state=2)
+        system.devices["water_temp"] = make_temperature_sensor(
+            system, name="water_temp", value=None
+        )
+        assert climate.current_temperature is None
+
     def test_target_temperature(self) -> None:
         system = make_system()
         assert (
@@ -293,7 +301,7 @@ class TestZs500Sensors:
     def test_temperature_sensor_missing_value(self) -> None:
         system = make_system()
         dev = make_temperature_sensor(system, name="air_temp", value=None)
-        assert dev.value == ""
+        assert dev.value is None
 
     def test_compressor_speed_sensor(self) -> None:
         system = make_system()

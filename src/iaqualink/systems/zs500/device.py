@@ -204,10 +204,10 @@ class Zs500Sensor(Zs500Device, AqualinkSensor):
 
 class Zs500TemperatureSensor(Zs500Sensor):
     @property
-    def value(self) -> str:
+    def value(self) -> str | None:
         raw = self.data.get("value")
-        if raw is None:
-            return ""
+        if raw is None or raw == "":
+            return None
         return str(round(float(raw) / ZS500_TEMP_SCALE, 1))
 
     @property

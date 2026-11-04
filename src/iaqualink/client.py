@@ -628,4 +628,4 @@ class AqualinkClient:
             if new_systems.get(serial) is not old_system:
                 await old_system.aclose()
         self._systems = new_systems
-        return new_systems
+        return dict(new_systems)

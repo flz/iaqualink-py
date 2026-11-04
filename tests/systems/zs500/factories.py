@@ -18,6 +18,7 @@ from typing import Any
 zs500_device_factories: list[tuple[str, Callable[[], Any]]] = []
 zs500_sensor_factories: list[tuple[str, Callable[[], Any]]] = []
 zs500_binary_sensor_factories: list[tuple[str, Callable[[], Any]]] = []
+zs500_button_factories: list[tuple[str, Callable[[], Any]]] = []
 zs500_switch_factories: list[tuple[str, Callable[[], Any]]] = []
 zs500_light_factories: list[tuple[str, Callable[[], Any]]] = []
 zs500_climate_factories: list[tuple[str, Callable[[], Any]]] = []
